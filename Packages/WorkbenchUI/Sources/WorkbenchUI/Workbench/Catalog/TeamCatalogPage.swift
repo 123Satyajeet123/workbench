@@ -27,7 +27,8 @@ struct TeamCatalogPage: View {
                 ForEach(catalog.teammatesDays) { SharedDayCard(day: $0) }
                 if !catalog.teammates.isEmpty { Text("Machines").textStyle(.title3) }
             }
-            ForEach(catalog.teammates) { SharedCard(machine: $0, open: open) }
+            ForEach(catalog.teammates) { SharedCard(machine: $0, place: .team, open: open) }
+            PublicSection(open: open)
             if !catalog.unreadable.isEmpty {
                 Text("Could not read \(catalog.unreadable.joined(separator: ", ")).").textStyle(.caption)
                     .foregroundStyle(Tone.bad.color)
@@ -71,8 +72,53 @@ private struct SharedDayCard: View {
     }
 }
 
+/// Machines anyone shared in the public folder, each with who reviewed its current version.
+private struct PublicSection: View {
+    let open: (SidebarSelection) -> Void
+    @Environment(TeamCatalogModel.self) private var catalog
+    @State private var reviewedOnly = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Space.m) {
+            HStack {
+                Text("Public catalog").textStyle(.title3)
+                Spacer()
+                if catalog.publicFolder != nil { Toggle("Reviewed only", isOn: $reviewedOnly).toggleStyle(.switch) }
+                PublicFolderButton()
+            }
+            if catalog.publicFolder == nil {
+                Text(
+                    "Choose a folder that holds the public catalog, such as a clone of a public git repository. Workbench writes into it; pushing it is your act."
+                )
+                .foregroundStyle(.supporting)
+            }
+            ForEach(shown) { SharedCard(machine: $0, place: .everyone, open: open) }
+        }
+    }
+
+    private var shown: [SharedMachine] {
+        catalog.publicMachines.filter { !reviewedOnly || !catalog.approvers(of: $0, in: .everyone).isEmpty }
+    }
+}
+
+private struct PublicFolderButton: View {
+    @Environment(TeamCatalogModel.self) private var catalog
+
+    var body: some View {
+        Button(catalog.publicFolder == nil ? "Choose public folder…" : "Change public folder…") {
+            let panel = NSOpenPanel()
+            panel.canChooseDirectories = true
+            panel.canChooseFiles = false
+            panel.canCreateDirectories = true
+            panel.prompt = "Use as public catalog"
+            if panel.runModal() == .OK, let url = panel.url { catalog.choosePublic(url) }
+        }
+    }
+}
+
 private struct SharedCard: View {
     let machine: SharedMachine
+    let place: TeamCatalogModel.Place
     let open: (SidebarSelection) -> Void
     @Environment(TeamCatalogModel.self) private var catalog
 
@@ -88,12 +134,26 @@ private struct SharedCard: View {
             }
             Text(machine.spec.brief).textStyle(.callout).foregroundStyle(.supporting).textSelection(.enabled)
             Text(record).textStyle(.callout)
-            Button("Adopt") { if let id = catalog.adopt(machine) { open(.machine(id)) } }
-                .help("It becomes your machine with this brief. Its trust starts at zero: trust is earned per person.")
+            Text(reviewLine).textStyle(.callout).foregroundStyle(.supporting)
+            HStack {
+                Button("Adopt") { if let id = catalog.adopt(machine) { open(.machine(id)) } }
+                    .help(
+                        "It becomes your machine with this brief. Its trust starts at zero: trust is earned per person."
+                    )
+                Spacer()
+                ReviewControls(machine: machine, place: place)
+            }
         }
         .padding(Space.l)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.quaternary.opacity(0.5), in: .rect(cornerRadius: Radius.card))
+    }
+
+    private var reviewLine: String {
+        let approvers = catalog.approvers(of: machine, in: place)
+        return approvers.isEmpty
+            ? "Not reviewed yet: no one but its author has approved this version."
+            : "Approved by \(approvers.joined(separator: ", ")) for this version."
     }
 
     private var record: String {
@@ -125,6 +185,29 @@ struct FolderButton: View {
             panel.canCreateDirectories = true
             panel.prompt = "Use for team"
             if panel.runModal() == .OK, let url = panel.url { catalog.choose(url) }
+        }
+    }
+}
+
+/// The founder's review of someone else's machine: approve or not, with a note. A new version needs a new review.
+private struct ReviewControls: View {
+    let machine: SharedMachine
+    let place: TeamCatalogModel.Place
+    @Environment(TeamCatalogModel.self) private var catalog
+    @State private var note = ""
+
+    var body: some View {
+        if let mine = catalog.myReview(of: machine, in: place) {
+            Text(mine.approve ? "You approved this version" : "You did not approve: \(mine.note)")
+                .textStyle(.caption).foregroundStyle(.supporting)
+        } else {
+            HStack {
+                TextField("Review note", text: $note).frame(maxWidth: 220)
+                Button("Approve") { catalog.review(machine, in: place, approve: true, note: note) }
+                Button("Not good") { catalog.review(machine, in: place, approve: false, note: note) }
+                    .disabled(note.cleaned == nil)
+                    .help("Say why, so the author can improve it.")
+            }
         }
     }
 }

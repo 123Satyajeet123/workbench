@@ -16,10 +16,20 @@ final class TeamCatalogModel {
         let group: [WhatsAppMember]
     }
 
+    /// Where a machine is shared: the team's folder, or a public one anyone may read (such as a clone of a public git
+    /// repository; pushing it is the person's own act).
+    enum Place: Hashable {
+        case team, everyone
+    }
+
     private static let folderKey = "team.folder"
+    private static let publicKey = "catalog.public"
 
     private(set) var folder: URL?
+    private(set) var publicFolder: URL?
     private(set) var shared: [SharedMachine] = []
+    private(set) var published: [SharedMachine] = []
+    private(set) var reviews: [Place: [MachineReview]] = [:]
     private(set) var days: [SharedDay] = []
     private(set) var unreadable: [String] = []
     private(set) var refusal: Refusal?
@@ -34,6 +44,7 @@ final class TeamCatalogModel {
         self.crew = crew
         self.author = author
         folder = ((try? store.queries.state(forKey: Self.folderKey)) ?? nil).map { URL(filePath: $0) }
+        publicFolder = ((try? store.queries.state(forKey: Self.publicKey)) ?? nil).map { URL(filePath: $0) }
         refresh()
     }
 
@@ -42,8 +53,44 @@ final class TeamCatalogModel {
     /// Days teammates shared with this person. The receiving side checks the audience again.
     var teammatesDays: [SharedDay] { days.filter { $0.author != me && $0.isVisible(to: me) } }
 
-    func isShared(_ helper: HelperModel) -> Bool {
-        shared.contains { $0.author == me && $0.spec.task == helper.spec.task }
+    /// Other people's machines in the public folder.
+    var publicMachines: [SharedMachine] { published.filter { $0.author != me } }
+
+    func folder(for place: Place) -> URL? { place == .team ? folder : publicFolder }
+    private func machines(in place: Place) -> [SharedMachine] { place == .team ? shared : published }
+
+    func isShared(_ helper: HelperModel, in place: Place = .team) -> Bool {
+        machines(in: place).contains { $0.author == me && $0.spec.task == helper.spec.task }
+    }
+
+    /// People other than its author who approved the version shared now.
+    func approvers(of machine: SharedMachine, in place: Place) -> [String] {
+        machine.approvers(in: reviews[place] ?? [])
+    }
+
+    /// This person's review of the shared version, if any.
+    func myReview(of machine: SharedMachine, in place: Place) -> MachineReview? {
+        (reviews[place] ?? []).first {
+            $0.reviewer == me && $0.author == machine.author && $0.task == machine.spec.task
+                && $0.version == machine.version
+        }
+    }
+
+    func review(_ machine: SharedMachine, in place: Place, approve: Bool, note: String) {
+        guard let folder = folder(for: place), machine.author != me else { return }
+        attempt("save the review") {
+            try MachineReview(reviewer: me, of: machine, approve: approve, note: note, at: store.clock()).write(
+                to: folder)
+        }
+        refresh()
+    }
+
+    func choosePublic(_ url: URL) {
+        attempt("save the public folder") {
+            try store.saveState(url.path(percentEncoded: false), forKey: Self.publicKey)
+        }
+        publicFolder = url
+        refresh()
     }
 
     func choose(_ url: URL) {
@@ -53,11 +100,22 @@ final class TeamCatalogModel {
     }
 
     func refresh() {
-        guard let folder else { return }
-        let machines = SharedMachine.read(from: folder)
-        let shared = SharedDay.read(from: folder)
-        (self.shared, days) = (machines.files, shared.files)
-        unreadable = machines.unreadable + shared.unreadable.map { "days/\($0)" }
+        unreadable = []
+        if let folder {
+            let machines = SharedMachine.read(from: folder)
+            let days = SharedDay.read(from: folder)
+            let reviews = MachineReview.read(from: folder)
+            (shared, self.days, self.reviews[.team]) = (machines.files, days.files, reviews.files)
+            unreadable +=
+                machines.unreadable + days.unreadable.map { "days/\($0)" }
+                + reviews.unreadable.map { "reviews/\($0)" }
+        }
+        if let publicFolder {
+            let machines = SharedMachine.read(from: publicFolder)
+            let reviews = MachineReview.read(from: publicFolder)
+            (published, self.reviews[.everyone]) = (machines.files, reviews.files)
+            unreadable += (machines.unreadable + reviews.unreadable.map { "reviews/\($0)" }).map { "public/\($0)" }
+        }
     }
 
     func isShared(day helper: HelperModel) -> Bool {
@@ -137,10 +195,12 @@ final class TeamCatalogModel {
         return (recipients, Audience.missing(recipients: recipients, readers: readers), group)
     }
 
-    /// Writes the machine's spec and its record in counts to the team folder.
-    func share(_ helper: HelperModel) {
-        guard let folder else {
-            problem = "Choose a team folder in Settings › Team first."
+    /// Writes the machine's spec and its record in counts, never what it read, to the team or the public folder.
+    func share(_ helper: HelperModel, to place: Place = .team) {
+        guard let folder = folder(for: place) else {
+            problem =
+                place == .team
+                ? "Choose a team folder in Settings › Team first." : "Choose a public folder on the Team page first."
             return
         }
         attempt("share \(helper.name)") {
@@ -150,8 +210,8 @@ final class TeamCatalogModel {
         refresh()
     }
 
-    func unshare(_ helper: HelperModel) {
-        guard let folder else { return }
+    func unshare(_ helper: HelperModel, from place: Place = .team) {
+        guard let folder = folder(for: place) else { return }
         attempt("stop sharing \(helper.name)") {
             try SharedMachine.remove(author: me, parts: [helper.spec.task], from: folder)
         }

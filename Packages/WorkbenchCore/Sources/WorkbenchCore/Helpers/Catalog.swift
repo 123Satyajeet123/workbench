@@ -52,7 +52,18 @@ public struct SharedMachine: TeamFile, Equatable, Identifiable {
     }
 
     public var id: String { "\(author)/\(spec.task)" }
+    /// The version reviews are about: any change to the spec makes a new version, which needs its own review.
+    public var version: String { Digest.sha256((try? Coding.json(spec)) ?? spec.brief) }
 
+    /// Approvals of this exact version by people other than its author. A review of an older version, or by the
+    /// author, does not count.
+    public func approvers(in reviews: [MachineReview]) -> [String] {
+        let fair = reviews.filter { $0.author == author && $0.task == spec.task && $0.reviewer != author }
+            .filter { $0.version == version }
+        return Array(Set(fair.filter { $0.approve }.map(\.reviewer))).sorted()
+    }
+
+    public var owner: String { author }
     public var fileParts: [String] { [spec.task] }
 }
 
@@ -70,7 +81,8 @@ public enum TeamFolder {
 public protocol TeamFile: Codable, Sendable {
     /// The folder under the team folder that holds this kind of file; empty for the team folder itself.
     static var subfolder: String { get }
-    var author: String { get }
+    /// The person who writes the file: only they ever change it.
+    var owner: String { get }
     var sharedAt: Date { get }
     var fileParts: [String] { get }
 }
@@ -87,7 +99,7 @@ extension TeamFile {
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
         try encoder.encode(self).write(
-            to: folder.appending(path: Self.fileName(author: author, parts: fileParts)), options: .atomic)
+            to: folder.appending(path: Self.fileName(author: owner, parts: fileParts)), options: .atomic)
     }
 
     public static func remove(author: String, parts: [String], from folder: URL) throws {
@@ -115,4 +127,34 @@ extension TeamFile {
     }
 
     private static func folder(in team: URL) -> URL { subfolder.isEmpty ? team : team.appending(path: subfolder) }
+}
+
+/// One person's review of one version of a shared machine: approve or not, with a note. Each reviewer writes only
+/// their own files, in the folder where the machine is shared.
+public struct MachineReview: TeamFile, Equatable, Identifiable {
+    public static let subfolder = "reviews"
+
+    public var reviewer: String
+    /// The machine's author and task, and the version reviewed.
+    public var author: String
+    public var task: String
+    public var version: String
+    public var approve: Bool
+    public var note: String
+    public var sharedAt: Date
+
+    public init(reviewer: String, of machine: SharedMachine, approve: Bool, note: String, at date: Date) {
+        self.reviewer = reviewer
+        author = machine.author
+        task = machine.spec.task
+        version = machine.version
+        self.approve = approve
+        self.note = note
+        sharedAt = date
+    }
+
+    public var id: String { [reviewer, author, task].joined(separator: "/") }
+    /// The file belongs to the reviewer, not to the machine's author.
+    public var owner: String { reviewer }
+    public var fileParts: [String] { [author, task] }
 }

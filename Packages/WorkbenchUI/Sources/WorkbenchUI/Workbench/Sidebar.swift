@@ -71,6 +71,12 @@ struct Sidebar: View {
         } else {
             Button("Share with team") { catalog.share(helper) }.disabled(catalog.folder == nil)
         }
+        if catalog.isShared(helper, in: .everyone) {
+            Button("Unpublish") { catalog.unshare(helper, from: .everyone) }
+        } else {
+            Button("Publish to the public catalog") { catalog.share(helper, to: .everyone) }
+                .disabled(catalog.publicFolder == nil)
+        }
         Divider()
         Button("Delete…", role: .destructive) { deleting = helper }
     }

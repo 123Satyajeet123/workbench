@@ -56,6 +56,7 @@ public struct SharedDay: TeamFile, Equatable, Identifiable {
     }
 
     public var id: String { ([author] + fileParts).joined(separator: "/") }
+    public var owner: String { author }
     public var fileParts: [String] { [task, day] }
 
     /// The receiving Mac checks again: a day shows only to a person in its audience.
