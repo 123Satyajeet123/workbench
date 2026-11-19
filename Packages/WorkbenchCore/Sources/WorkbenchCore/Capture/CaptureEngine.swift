@@ -10,6 +10,9 @@ public struct CaptureEngine: Sendable {
     public var textInterval: TimeInterval
     /// One row per file per this many seconds.
     public var fileWindow: TimeInterval
+    /// At most this many file rows per window. A person edits a few files a minute; a clone, an unzip or a build
+    /// writes thousands, and none of those is the person's work. 60 is a placeholder until real days measure it.
+    public var filesPerWindow = 60
     /// While the place stays the same, a changed title is kept again after this much time. A terminal or editor shows
     /// its current task in the title.
     public var titleInterval: TimeInterval
@@ -21,6 +24,8 @@ public struct CaptureEngine: Sendable {
     private var lastTextAt = Date.distantPast
     private var idle = false
     private var lastSeen: [String: Date] = [:]
+    private var fileWindowStart = Date.distantPast
+    private var filesInWindow = 0
 
     public init(
         idleAfter: TimeInterval = 120, textInterval: TimeInterval = 60, fileWindow: TimeInterval = 60,
@@ -95,6 +100,12 @@ public struct CaptureEngine: Sendable {
         guard case .keep(let grant) = policy.verdict(forFile: path, at: now) else { return nil }
         if let last = lastSeen[path], now.timeIntervalSince(last) < fileWindow { return nil }
         lastSeen[path] = now
+        if now.timeIntervalSince(fileWindowStart) >= fileWindow {
+            fileWindowStart = now
+            filesInWindow = 0
+        }
+        guard filesInWindow < filesPerWindow else { return nil }
+        filesInWindow += 1
         if lastSeen.count > 2048 { lastSeen = lastSeen.filter { now.timeIntervalSince($0.value) < fileWindow } }
         return ActivityBatch(
             [Activity(at: now, kind: .file, title: change.rawValue, document: URL(filePath: path).absoluteString)],
