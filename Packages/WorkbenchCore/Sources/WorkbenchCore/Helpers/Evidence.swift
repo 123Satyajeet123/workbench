@@ -6,7 +6,7 @@ public struct Evidence: Sendable, Equatable {
     public var start: Date
     /// Nil for a moment, such as a message.
     public var end: Date?
-    /// What follows the time on the line.
+    /// What follows the time on the line, kept on one line: a newline in a message cannot start a line of its own.
     public var line: String
     /// The texts a quote may be taken from.
     public var quotable: [String]
@@ -15,7 +15,7 @@ public struct Evidence: Sendable, Equatable {
         self.id = id
         self.start = start
         self.end = end
-        self.line = line
+        self.line = line.split(whereSeparator: \.isNewline).joined(separator: " ")
         self.quotable = quotable
     }
 

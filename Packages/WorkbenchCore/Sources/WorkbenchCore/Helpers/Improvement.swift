@@ -38,7 +38,7 @@ public struct Decision: Sendable, Equatable {
 /// removes text the brief has, and keeps the brief within the growth cap.
 public struct Improver: Sendable {
     public struct Edit: Sendable, Equatable {
-        public enum Kind: String, Sendable {
+        public enum Kind: String, Sendable, CaseIterable {
             case add, remove
         }
 
@@ -84,7 +84,8 @@ public struct Improver: Sendable {
 
     public static var schema: JSONSchema {
         .object([
-            .init("kind", .string), .init("text", .string), .init("why", .string), .init("cites", .array(.number)),
+            .init("kind", .choice(Edit.Kind.self)), .init("text", .string), .init("why", .string),
+            .init("cites", .array(.integer)),
         ])
     }
 

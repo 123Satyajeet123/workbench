@@ -90,8 +90,9 @@ public struct Briefer: Sendable {
                 "lines",
                 .array(
                     .object([
-                        .init("kind", .string), .init("basis", .string), .init("text", .string),
-                        .init("cites", .array(.number)),
+                        .init("kind", .choice(MorningBrief.Line.Kind.self)),
+                        .init("basis", .choice(MorningBrief.Line.Basis.self)), .init("text", .string),
+                        .init("cites", .array(.integer)),
                     ]))),
         ])
     }

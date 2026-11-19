@@ -77,5 +77,6 @@ extension View {
             .environment(session.deals)
             .environment(session.memory)
             .environment(session.runs)
+            .environment(session.navigation)
     }
 }

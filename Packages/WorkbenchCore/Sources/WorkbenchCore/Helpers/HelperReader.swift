@@ -167,13 +167,13 @@ public struct HelperReader: Sendable {
         }
         let cite: [JSONSchema.Property] =
             switch spec.citation {
-            case .one: [.init("cite", .number)]
-            case .range: [.init("first", .number), .init("last", .number)]
+            case .one: [.init("cite", .integer)]
+            case .range: [.init("first", .integer), .init("last", .integer)]
             }
         let items = JSONSchema.Property("items", .array(.object(fields + cite + [.init("quote", .string)])))
         guard let lifecycle = spec.lifecycle else { return .object([items]) }
         let close = JSONSchema.object([
-            .init("handle", .string), .init("outcome", .enumeration(lifecycle.outcomes)), .init("cite", .number),
+            .init("handle", .string), .init("outcome", .enumeration(lifecycle.outcomes)), .init("cite", .integer),
             .init("quote", .string),
         ])
         return .object([items, .init("closes", .array(close))])

@@ -1,13 +1,23 @@
 import AppKit
 
-enum IslandMetrics {
-    /// The main screen's notch. A Mac without a notch gets a black notch shape of this size.
-    static let notch = NSScreen.main?.notchSize ?? CGSize(width: 221, height: 38)
-    static let notchWidth = notch.width
-    static let notchHeight = notch.height
+/// The island's size on one screen. A screen without a notch gets a black notch shape of the default size.
+struct IslandMetrics: Equatable {
     static let earWidth: CGFloat = 64
+    static let defaultNotch = CGSize(width: 221, height: 38)
+
+    let notch: CGSize
+
+    init(screen: NSScreen?) {
+        notch = screen?.notchSize ?? Self.defaultNotch
+    }
+
+    var notchWidth: CGFloat { notch.width }
+    var notchHeight: CGFloat { notch.height }
     /// The clear panel that holds the island; clicks on its clear part go to the app below.
-    static let panelSize = CGSize(width: notchWidth + 2 * earWidth + 40, height: notchHeight)
+    var panelSize: CGSize { CGSize(width: notchWidth + 2 * Self.earWidth + 40, height: notchHeight) }
+
+    /// The screen the island sits on: the one with a notch, else the main screen.
+    static var screen: NSScreen? { NSScreen.screens.first { $0.notchSize != nil } ?? NSScreen.main }
 }
 
 extension NSScreen {

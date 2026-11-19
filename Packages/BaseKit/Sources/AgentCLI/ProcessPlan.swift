@@ -44,7 +44,8 @@ extension ProcessPlan {
         return ProcessPlan(
             kind: kind, executable: executable,
             arguments: kind == .claude ? claudeArguments(call) : codexArguments(call, workDirectory: workDirectory),
-            environment: environment, stdin: call.promptText, workDirectory: workDirectory,
+            environment: environment, stdin: kind == .claude ? call.data : "\(call.systemPrompt)\n\n\(call.data)",
+            workDirectory: workDirectory,
             inputFiles: kind == .codex ? [schemaFileName: call.schemaText] : [:],
             answerFile: kind == .codex ? answerFileName : nil, apiKey: apiKey)
     }
@@ -110,6 +111,7 @@ extension ProcessPlan {
             + ["--effort", call.effort, "--setting-sources", "", "--disable-slash-commands"]
             + ["--no-session-persistence", "--strict-mcp-config", "--mcp-config", noServers]
             + ["--permission-mode", "dontAsk", "--tools", "", "--json-schema", call.schemaText]
+            + ["--system-prompt", call.systemPrompt]
     }
 
     private static func codexArguments(_ call: AgentCall, workDirectory: URL) -> [String] {

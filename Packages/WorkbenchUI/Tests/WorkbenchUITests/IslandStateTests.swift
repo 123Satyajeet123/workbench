@@ -23,3 +23,11 @@ import Testing
         #expect(!IslandState.recording(since: since).takesClicks)
     }
 }
+
+@Suite struct IslandMetricsTests {
+    @Test func aScreenWithoutANotchGetsTheDefaultShapeAndThePanelHoldsBothEars() {
+        let metrics = IslandMetrics(screen: nil)
+        #expect(metrics.notch == IslandMetrics.defaultNotch)
+        #expect(metrics.panelSize.width == metrics.notchWidth + 2 * IslandMetrics.earWidth + 40)
+    }
+}

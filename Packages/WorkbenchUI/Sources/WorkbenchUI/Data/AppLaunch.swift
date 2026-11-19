@@ -23,6 +23,7 @@ struct AppSession {
     let deals: DealsModel
     let memory: MemoryModel
     let runs: RunsModel
+    let navigation = Navigation()
 }
 
 enum AppLaunch {

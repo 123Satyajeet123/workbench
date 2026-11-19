@@ -17,6 +17,7 @@ public indirect enum JSONSchema: Sendable, Equatable {
     case array(JSONSchema)
     case string
     case boolean
+    case integer
     case number
     case enumeration([String])
 
@@ -47,6 +48,7 @@ public indirect enum JSONSchema: Sendable, Equatable {
         case .array(let element): ["type": "array", "items": element.jsonObject]
         case .string: ["type": "string"]
         case .boolean: ["type": "boolean"]
+        case .integer: ["type": "integer"]
         case .number: ["type": "number"]
         case .enumeration(let values): ["type": "string", "enum": values]
         }

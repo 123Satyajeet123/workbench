@@ -1,10 +1,14 @@
 import AppKit
 import SwiftUI
 
-/// Shows the island above every window. It never takes the keyboard, and takes a click only when it offers the
-/// review queue; a click opens Workbench on Review.
+/// Shows the island above every window, on the screen with the notch, and moves it when screens change. It never
+/// takes the keyboard, and takes a click only when it offers the review queue; a click opens Workbench on Review.
 final class IslandPanel: NSPanel {
+    private let session: AppSession
+    private var screenChanges: Task<Void, Never>?
+
     init(session: AppSession) {
+        self.session = session
         super.init(
             contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered,
             defer: false)
@@ -16,41 +20,53 @@ final class IslandPanel: NSPanel {
         hidesOnDeactivate = false
         animationBehavior = .none
         ignoresMouseEvents = true
-        let content = NSHostingView(
-            rootView: IslandContent(session: session) { [weak self] in self?.ignoresMouseEvents = !$0 })
-        content.sizingOptions = []
-        contentView = content
-        if let screen = NSScreen.main {
-            let size = IslandMetrics.panelSize
-            setFrame(
-                NSRect(
-                    x: screen.frame.midX - size.width / 2, y: screen.frame.maxY - size.height,
-                    width: size.width, height: size.height), display: false)
+        place()
+        screenChanges = Task { [weak self] in
+            for await _ in NotificationCenter.default.notifications(
+                named: NSApplication.didChangeScreenParametersNotification)
+            {
+                self?.place()
+            }
         }
         orderFrontRegardless()
     }
 
-    override var canBecomeKey: Bool { false }
-}
+    deinit { screenChanges?.cancel() }
 
-extension Notification.Name {
-    /// Asks the main window to show the review queue.
-    static let openReview = Notification.Name("WorkbenchOpenReview")
+    override var canBecomeKey: Bool { false }
+
+    private func place() {
+        let screen = IslandMetrics.screen
+        let metrics = IslandMetrics(screen: screen)
+        let content = NSHostingView(
+            rootView: IslandContent(session: session, metrics: metrics) { [weak self] in
+                self?.ignoresMouseEvents = !$0
+            })
+        content.sizingOptions = []
+        contentView = content
+        guard let screen else { return }
+        let size = metrics.panelSize
+        setFrame(
+            NSRect(
+                x: screen.frame.midX - size.width / 2, y: screen.frame.maxY - size.height, width: size.width,
+                height: size.height), display: true)
+    }
 }
 
 private struct IslandContent: View {
     let session: AppSession
+    let metrics: IslandMetrics
     let takesClicks: (Bool) -> Void
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        IslandView(state: state)
+        IslandView(state: state, metrics: metrics)
             .contentShape(Rectangle())
             .onTapGesture {
                 guard state.takesClicks else { return }
+                session.navigation.requested = .review
                 openWindow(id: WorkbenchApp.mainWindowID)
                 NSApp.activate()
-                NotificationCenter.default.post(name: .openReview, object: nil)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .onChange(of: state.takesClicks, initial: true) { _, takes in takesClicks(takes) }

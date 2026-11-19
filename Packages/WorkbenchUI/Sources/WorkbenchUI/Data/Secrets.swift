@@ -37,12 +37,16 @@ struct KeychainSecrets: SecretStore {
         return String(data: data, encoding: .utf8)
     }
 
+    /// Updates the item in place, or adds it: the old key stays until the new one is stored.
     func save(_ value: String, as name: String) throws {
-        try remove(name)
-        var query = query(name)
-        query[kSecValueData as String] = Data(value.utf8)
-        query[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-        let status = SecItemAdd(query as CFDictionary, nil)
+        let data = Data(value.utf8)
+        var status = SecItemUpdate(query(name) as CFDictionary, [kSecValueData as String: data] as CFDictionary)
+        if status == errSecItemNotFound {
+            var query = query(name)
+            query[kSecValueData as String] = data
+            query[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+            status = SecItemAdd(query as CFDictionary, nil)
+        }
         guard status == errSecSuccess else { throw Failure(status: status) }
     }
 

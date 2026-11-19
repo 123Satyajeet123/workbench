@@ -6,6 +6,7 @@ struct WorkbenchView: View {
 
     @SceneStorage("selection") private var selection = SidebarSelection.day
     @Environment(Crew.self) private var crew
+    @Environment(Navigation.self) private var navigation
 
     var body: some View {
         NavigationSplitView {
@@ -30,6 +31,10 @@ struct WorkbenchView: View {
             minWidth: Self.minimumSize.width, idealWidth: Self.idealSize.width, minHeight: Self.minimumSize.height,
             idealHeight: Self.idealSize.height
         )
-        .onReceive(NotificationCenter.default.publisher(for: .openReview)) { _ in selection = .review }
+        .onChange(of: navigation.requested, initial: true) { _, page in
+            guard let page else { return }
+            selection = page
+            navigation.requested = nil
+        }
     }
 }

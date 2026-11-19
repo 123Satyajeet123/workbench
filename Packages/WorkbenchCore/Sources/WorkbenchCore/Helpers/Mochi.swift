@@ -105,7 +105,7 @@ public struct Mochi: Sendable {
                 .array(
                     .object([
                         .init("name", .string), .init("template", .string), .init("brief", .string),
-                        .init("why", .string), .init("view", .string), .init("evidence", .array(.number)),
+                        .init("why", .string), .init("view", .string), .init("evidence", .array(.integer)),
                     ])))
         ])
     }

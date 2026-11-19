@@ -5,6 +5,7 @@ import SwiftUI
 /// recording or a reading starts or ends, and only the recording dot moves.
 struct IslandView: View {
     let state: IslandState
+    var metrics = IslandMetrics(screen: nil)
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -13,7 +14,7 @@ struct IslandView: View {
                 shape.fill(.black)
                 HStack(spacing: 0) {
                     ear { leading }
-                    Spacer(minLength: IslandMetrics.notchWidth)
+                    Spacer(minLength: metrics.notchWidth)
                     ear { trailing }
                 }
                 .transition(.opacity)
@@ -21,7 +22,7 @@ struct IslandView: View {
                 .accessibilityLabel(label)
             }
         }
-        .frame(width: width, height: IslandMetrics.notchHeight)
+        .frame(width: width, height: metrics.notchHeight)
         .clipShape(shape)
         .environment(\.colorScheme, .dark)
         .animation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(duration: 0.4, bounce: 0.15), value: state)
@@ -66,7 +67,7 @@ struct IslandView: View {
     }
 
     private var width: CGFloat {
-        IslandMetrics.notchWidth + (state == .idle ? 0 : 2 * IslandMetrics.earWidth)
+        metrics.notchWidth + (state == .idle ? 0 : 2 * IslandMetrics.earWidth)
     }
 
     private var shape: UnevenRoundedRectangle {

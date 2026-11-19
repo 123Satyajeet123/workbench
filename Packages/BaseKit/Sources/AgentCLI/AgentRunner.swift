@@ -58,8 +58,9 @@ public struct AgentRunner: StructuredModel {
         if result.isError || output.status != 0 {
             throw StructuredModelError.unavailable("claude failed: \(result.text ?? output.stderr)")
         }
-        guard let answer = result.structuredAnswer ?? result.text else {
-            throw StructuredModelError.invalidReply("claude returned no result")
+        // With --json-schema the answer is `structured_output`; without it the model declined (code.claude.com/docs/en/headless).
+        guard let answer = result.structuredAnswer else {
+            throw StructuredModelError.invalidReply("claude declined: \(result.text ?? "no text")")
         }
         return (answer, result.model ?? model, result.usage)
     }
