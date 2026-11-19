@@ -57,6 +57,7 @@ struct HelperContent: View {
                 case .board(let field, let expected): Board(model: model, field: field, expected: expected)
                 case .timeline: ForEach(model.items) { ItemRow(model: model, item: $0, showsSpan: true) }
                 case .table: Table(model: model)
+                case .grouped(let field): Grouped(model: model, field: field)
                 }
             }
         }
@@ -446,6 +447,33 @@ private struct ViewPicker: View {
     }
 }
 
+/// One section per value of a choice field, in the choice's order, then any other value an item gives.
+private struct Grouped: View {
+    let model: HelperModel
+    let field: String
+
+    var body: some View {
+        ForEach(values, id: \.self) { value in
+            let own = model.items.filter { $0[field] == value }
+            if !own.isEmpty {
+                VStack(alignment: .leading, spacing: Space.s) {
+                    Text("\(value.capitalized) · \(own.count)").textStyle(.headline)
+                    ForEach(own) { ItemRow(model: model, item: $0, showsSpan: false, grouping: field) }
+                }
+                Divider()
+            }
+        }
+    }
+
+    private var values: [String] {
+        let declared: [String] =
+            model.spec.fields.first { $0.name == field }.map { field in
+                if case .choice(let values) = field.kind { values } else { [] }
+            } ?? []
+        return declared + Set(model.items.map { $0[field] }).subtracting(declared).sorted()
+    }
+}
+
 /// One row per item: a column per field, then the quote it came from and the marks.
 private struct Table: View {
     let model: HelperModel
@@ -478,6 +506,8 @@ private struct ItemRow: View {
     let model: HelperModel
     let item: Item
     let showsSpan: Bool
+    /// A field the section already names, so its badge would repeat it.
+    var grouping: String?
 
     var body: some View {
         HStack(alignment: .top, spacing: Space.m) {
@@ -490,7 +520,9 @@ private struct ItemRow: View {
             VStack(alignment: .leading, spacing: Space.xs) {
                 HStack(spacing: Space.s) {
                     Text(item[model.spec.title])
-                    ForEach(model.spec.badges.map { item[$0] }.filter { !$0.isEmpty }, id: \.self) { badge in
+                    ForEach(
+                        model.spec.badges.filter { $0 != grouping }.map { item[$0] }.filter { !$0.isEmpty }, id: \.self
+                    ) { badge in
                         Text(badge).textStyle(.caption).padding(.horizontal, Space.s).padding(.vertical, 2)
                             .background(.quaternary, in: .capsule)
                     }

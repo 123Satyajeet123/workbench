@@ -78,14 +78,21 @@ public struct HelperSpec: Codable, Sendable, Equatable {
         case timeline
         /// One row per item, one column per field.
         case table
+        /// One section per value of a choice field, in the choice's order: hot, warm, cold.
+        case grouped(by: String)
     }
 
-    /// The views this spec can fill, by name: a board needs a field that names a member, a timeline needs time spans.
+    /// The views this spec can fill, by name: a board needs a field that names a member, a timeline needs time spans,
+    /// and each choice field gives a view grouped by its values ("by rating").
     public var views: [String: View] {
         var views: [String: View] = ["table": .table]
         if citation == .range { views["timeline"] = .timeline }
         for field in fields {
-            if case .member(let set) = field.kind { views["board"] = .board(groupBy: field.name, expected: set) }
+            switch field.kind {
+            case .member(let set): views["board"] = .board(groupBy: field.name, expected: set)
+            case .choice: views["by \(field.name)"] = .grouped(by: field.name)
+            case .text: break
+            }
         }
         return views
     }

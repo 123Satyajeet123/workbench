@@ -97,4 +97,25 @@ import WorkbenchCore
         #expect(s.timeline.spec.brief == "New brief")
         #expect(try s.store.queries.decisions(of: s.timeline.spec.task).map(\.kind) == [.promote])
     }
+
+    @Test func withNoEarlierVersionTheAlarmWarnsOnceAndChangesNothing() async throws {
+        let s = try setup()
+        let heldOut = days(.heldOut, 3, before: s.clock.now)
+        try await audit(s, on: heldOut[0], wrong: true)
+        #expect(s.timeline.notice == nil)
+        try await audit(s, on: heldOut[1], wrong: true)
+        #expect(s.timeline.spec.brief == HelperSpec.timeline.brief, "nothing to roll back to, nothing changes")
+        #expect(s.timeline.notice?.contains("may have got worse") == true)
+        try await audit(s, on: heldOut[2], wrong: true)
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(s.notifier.posted.count == 1, "once per version")
+        #expect(try s.store.queries.decisions(of: s.timeline.spec.task).isEmpty)
+    }
+
+    @Test func rightAnswersNeverWarn() async throws {
+        let s = try setup()
+        for day in days(.heldOut, 4, before: s.clock.now) { try await audit(s, on: day, wrong: false) }
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(s.timeline.notice == nil && s.notifier.posted.isEmpty)
+    }
 }

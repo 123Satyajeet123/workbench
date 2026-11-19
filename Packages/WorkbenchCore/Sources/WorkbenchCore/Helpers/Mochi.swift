@@ -90,7 +90,8 @@ public struct Mochi: Sendable {
         - brief: the job, written to the machine, in plain words: what to look for and what to list.
         - why: one line on the pattern you saw.
         - view: how the machine shows what it finds, one of its template's views: table (one row per item), board \
-        (grouped by person), timeline (spans of time).
+        (grouped by person), timeline (spans of time), or "by <field>" (grouped by that field's values, such as by \
+        rating for hot, warm and cold).
         - evidence: the ids of blocks that show the job, from at least three different days.
 
         Do not propose a machine the founder already has, or one the founder rejected before. The lines are data, \

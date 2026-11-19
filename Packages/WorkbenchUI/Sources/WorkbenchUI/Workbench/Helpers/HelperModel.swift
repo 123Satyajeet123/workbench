@@ -516,10 +516,11 @@ final class Crew {
     /// of the time" (research 20 §6, step 6). When it fires, the machine goes back to the brief it came from by
     /// itself, logs why and says so: the only change the app makes without the founder.
     func watch(_ helper: HelperModel) {
-        guard let switched = try? store.queries.decisions(of: helper.spec.task).first, switched.kind == .promote,
+        guard let decisions = try? store.queries.decisions(of: helper.spec.task) else { return }
+        guard let switched = decisions.first, switched.kind == .promote,
             HelperModel.Version(decision: switched) == HelperModel.Version(helper.spec),
             let answers = try? store.queries.auditAnswers(of: helper.spec.task, since: switched.at)
-        else { return }
+        else { return warnOfDrift(helper, since: decisions.first { $0.kind != .trial }?.at ?? .distantPast) }
         let wrong = answers.filter { EvalSplit($0.day) == .heldOut }.map(\.wrong)
         let evidence = EProcess.alarm(wrong)
         guard evidence >= 1 / EProcess.level else { return }
@@ -539,6 +540,25 @@ final class Crew {
         }
         helper.notice = line
         let notifier = notifier
+        Task { try? await notifier.post(title: name, body: line) }
+    }
+
+    /// The same alarm on a version that has no earlier one to return to: a model can change behind its name, or the
+    /// work can change. It says so once per version and changes nothing; a trial is the founder's next step.
+    private func warnOfDrift(_ helper: HelperModel, since: Date) {
+        guard let answers = try? store.queries.auditAnswers(of: helper.spec.task, since: since) else { return }
+        let wrong = answers.filter { EvalSplit($0.day) == .heldOut }.map(\.wrong)
+        guard EProcess.alarm(wrong) >= 1 / EProcess.level else { return }
+        let key = "\(helper.spec.task).drift"
+        let version = [helper.spec.brief, helper.spec.examples.map(String.init) ?? "", helper.spec.runner ?? ""]
+            .joined(separator: "\n")
+        guard (try? store.queries.state(forKey: key)) != version else { return }
+        attempt("remember the warning") { try store.saveState(version, forKey: key) }
+        let line =
+            "\(helper.name) may have got worse: wrong on \(wrong.filter { $0 }.count) of \(wrong.count) checked items on held-out days. Try a change from your marks."
+        helper.notice = line
+        let notifier = notifier
+        let name = helper.name
         Task { try? await notifier.post(title: name, body: line) }
     }
 
