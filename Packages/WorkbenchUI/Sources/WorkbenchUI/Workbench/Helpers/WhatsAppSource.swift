@@ -120,7 +120,7 @@ final class WhatsAppSource: MachineSource {
     private func line(_ entry: WhatsAppEntry) -> Evidence? {
         var parts = [entry.title, entry.text].compactMap { $0 }.filter { !$0.isEmpty }
         if entry.kind == .photo, case .file(let url) = entry.media {
-            let seen = ImageText.recognize(url)
+            let seen = ImageText.text(in: url)
             if !seen.isEmpty { parts.insert("[photo] \(seen)", at: 0) }
         }
         let text = parts.joined(separator: " — ")
