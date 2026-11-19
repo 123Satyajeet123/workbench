@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tools
+        run: |
+          xcodebuild -version
+          swift --version
+      - name: Lint
+        run: xcrun swift-format lint -r --strict --configuration .swift-format Packages Workbench
+      - name: WorkbenchCore
+        working-directory: Packages/WorkbenchCore
+        run: swift test
+      - name: BaseKit
+        working-directory: Packages/BaseKit
+        run: swift test
+      - name: WorkbenchUI
+        working-directory: Packages/WorkbenchUI
+        run: swift test
+      - name: App builds
+        run: xcodebuild -scheme Workbench -configuration Release build CODE_SIGNING_ALLOWED=NO -quiet

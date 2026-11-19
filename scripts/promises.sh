@@ -4,8 +4,11 @@
 # bug is planted and restored from the copy after; git is never used to undo. Run it before deleting or rewriting
 # tests: the number of caught bugs must not drop. Add a line when a product promise is added.
 set -u
+cd ${0:A:h:h}
+touch .promises-running
+trap 'rm -f .promises-running' EXIT
 trap 'print -u2 "stopped: a planted bug may still be in place; check git diff"' INT TERM
-cd ${0:A:h:h}/Packages
+cd Packages
 C=WorkbenchCore/Sources/WorkbenchCore
 run() { # name file perl-expr packages...
   local name=$1 file=$2 expr=$3; shift 3

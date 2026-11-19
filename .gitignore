@@ -37,3 +37,6 @@ Signing.local.xcconfig
 
 # Claude Code: per-user settings
 .claude/settings.local.json
+
+# Present while scripts/promises.sh plants bugs
+.promises-running
