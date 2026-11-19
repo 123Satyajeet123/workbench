@@ -45,7 +45,12 @@ struct HelperContent: View {
             } else {
                 controls
                 if let question = model.question { Question(model: model, item: question) }
-                if model.trial != nil || model.trialPhase == .reading { TrialCard(model: model) }
+                if let notice = model.notice { NoticeRow(text: notice) { model.notice = nil } }
+                if model.trial != nil || model.trialPhase == .reading {
+                    TrialCard(model: model)
+                } else {
+                    ImproveRow(model: model)
+                }
                 if model.spec.nudge != nil { NudgeRow(model: model) }
                 if catalog.folder != nil { ShareDayRow(model: model) }
                 switch model.spec.view {
@@ -137,7 +142,14 @@ private struct TrialCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Space.s) {
-            Label("A new brief is on trial", systemImage: "flask").textStyle(.headline)
+            Label(
+                model.trial?.by == .proposer ? "Mochi proposed a change; it is on trial" : "A new brief is on trial",
+                systemImage: "flask"
+            )
+            .textStyle(.headline)
+            if let why = model.trial?.why, !why.isEmpty {
+                Text("Why: \(why)").textStyle(.callout)
+            }
             if model.trialPhase == .reading {
                 ProgressView("Reading past days with the new brief…").controlSize(.small)
             } else if let trial = model.trial {
@@ -149,7 +161,7 @@ private struct TrialCard: View {
                 Text("“\(trial.brief)”").textStyle(.callout).foregroundStyle(.supporting).lineLimit(3)
                 HStack {
                     Button("Switch to the new brief") { crew.switchToTrial(model) }
-                    Button("Keep the current brief", action: model.endTrial)
+                    Button("Keep the current brief", action: model.keepCurrent)
                 }
             }
         }
@@ -167,7 +179,77 @@ private struct TrialCard: View {
         case .better: "Better: right on \(result.better) of the \(result.better + result.worse) differences you marked."
         case .worse: "Worse: wrong on \(result.worse) of the \(result.better + result.worse) differences you marked."
         case .notSure:
-            "Not sure yet: better on \(result.better), worse on \(result.worse) of the differences you marked."
+            "Not sure yet: better on \(result.better), worse on \(result.worse) of the differences you marked. "
+                + "The test stays fair however often you look; mark the waiting items in Review."
+        }
+    }
+}
+
+/// The proposer: Mochi reads the founder's marks on training days and puts one clear fix on trial.
+private struct ImproveRow: View {
+    let model: HelperModel
+    @State private var asking = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Space.xs) {
+            HStack(spacing: Space.m) {
+                Button(asking ? "Looking at your marks…" : "Improve from my marks") {
+                    asking = true
+                    Task {
+                        await model.improve()
+                        asking = false
+                    }
+                }
+                .disabled(asking || model.isPaused)
+                .help(
+                    "Mochi reads the items you marked on training days and tries one small change on past days. You decide."
+                )
+                if let note = model.improveNote { Text(note).textStyle(.callout).foregroundStyle(.supporting) }
+            }
+            History(model: model)
+        }
+    }
+}
+
+/// The machine's last decisions: trials, switches, rejections, rollbacks.
+private struct History: View {
+    let model: HelperModel
+
+    var body: some View {
+        let decisions = model.decisions.prefix(5)
+        if !decisions.isEmpty {
+            DisclosureGroup("History") {
+                ForEach(Array(decisions.enumerated()), id: \.offset) { _, decision in
+                    Text("\(decision.at.formatted(date: .abbreviated, time: .shortened)) · \(line(decision))")
+                        .textStyle(.callout).foregroundStyle(.supporting)
+                }
+            }
+            .textStyle(.callout)
+        }
+    }
+
+    private func line(_ decision: Decision) -> String {
+        let who = decision.by == .person ? "you" : decision.by == .proposer ? "Mochi" : "the alarm"
+        switch decision.kind {
+        case .trial: return "\(who) started a trial"
+        case .promote: return "you switched to the new brief"
+        case .reject: return "you kept the current brief"
+        case .rollback:
+            return
+                "rolled back by the alarm (\(decision.detail["wrong"] ?? "?") of \(decision.detail["answers"] ?? "?") wrong)"
+        }
+    }
+}
+
+/// One line about a change the app made by itself.
+private struct NoticeRow: View {
+    let text: String
+    let dismiss: () -> Void
+
+    var body: some View {
+        HStack {
+            Label(text, systemImage: "arrow.uturn.backward.circle").foregroundStyle(Tone.attention.color)
+            Button("Dismiss", action: dismiss).buttonStyle(.borderless)
         }
     }
 }

@@ -31,7 +31,7 @@ final class HelperModel {
     /// macOS blocks Workbench notifications; the nudge row offers System Settings.
     private(set) var notificationsBlocked = false
     /// A new brief being tried on past days, and how it compares with the current one.
-    private(set) var trial: (brief: String, days: [WorkDay], result: Trial)?
+    private(set) var trial: (brief: String, days: [WorkDay], by: Decision.By, why: String, result: Trial)?
     private(set) var trialPhase = ReadPhase.idle
     var nudge = NudgeSchedule() {
         didSet { attempt("save the nudge") { try store.saveState(Self.json(nudge), forKey: nudgeKey) } }
@@ -137,6 +137,7 @@ final class HelperModel {
             if case .screen(let screen) = source { sessions = try screen.sessions(on: day) }
             if case .pages(let pages) = source { pageReading = try pages.reading(on: day) }
             trial = try loadTrial()
+            decisions = try store.queries.decisions(of: spec.task)
         }
     }
 
@@ -203,15 +204,31 @@ final class HelperModel {
     private struct SavedTrial: Codable {
         var brief: String
         var days: [String]
+        var by: String?
+        var why: String?
     }
 
     private var trialKey: String { "\(spec.task).trial" }
     /// Most past days a trial reads: each is one model call.
-    static let trialDays = 5
+    static let trialDays = 30
+    /// Without marked training days, a trial reads this many recent ones.
+    static let unmarkedTrialDays = 5
+    /// Challengers tried within this window share the test's error budget.
+    static let budgetWindow: TimeInterval = 90 * 86_400
 
-    /// Runs `brief` on up to five recent training days that have items, beside the current version. Nothing of the
-    /// live machine changes; the trial's items wait in Review where they differ.
-    func startTrial(brief: String) async {
+    /// The machine's decisions, newest first.
+    private(set) var decisions: [Decision] = []
+
+    /// A change the app made by itself, such as a rollback, said once on the page.
+    var notice: String?
+
+    /// Why nothing changed after the founder asked the proposer, or nil.
+    private(set) var improveNote: String?
+
+    /// Replays `brief` on stored evidence beside the current version (research 20 §4): every training day the founder
+    /// marked, newest first, so old marks carry over to the items both versions give; or, with no marks yet, recent
+    /// training days. Held-out days are never read. Nothing of the live machine changes.
+    func startTrial(brief: String, by: Decision.By = .person, why: String = "") async {
         guard let brief = brief.cleaned, isReady, trialPhase != .reading else { return }
         trialPhase = .reading
         var challenger = spec
@@ -219,18 +236,28 @@ final class HelperModel {
         challenger.brief = brief
         let scope = scope
         do {
-            let since = WorkDay(containing: store.clock()).adding(days: -14)
-            let days = Array(
-                Set(try store.queries.items(of: spec.task, since: since).map(\.day)).filter { EvalSplit($0) == .dev }
-                    .sorted(by: >).prefix(Self.trialDays))
+            var days = try store.queries.markedDays(of: spec.task).filter { EvalSplit($0) == .dev }
+                .prefix(Self.trialDays)
+            if days.isEmpty {
+                let since = WorkDay(containing: store.clock()).adding(days: -14)
+                days = Set(try store.queries.items(of: spec.task, since: since).map(\.day)).filter {
+                    EvalSplit($0) == .dev
+                }
+                .sorted(by: >).prefix(Self.unmarkedTrialDays)
+            }
             let reader = HelperReader(spec: challenger, model: makeModel(try ModelChoice.saved(in: store)))
             for day in days {
                 _ = try await grant(scope)
                 let result = try await reader.read(day: day, scope: scope, evidence: try await gather(day))
                 try store.saveReading(result, of: challenger, day: day, scope: scope, grant: try await grant(scope))
             }
+            try store.log(
+                Decision(
+                    at: store.clock(), task: spec.task, kind: .trial, by: by, brief: brief, parentBrief: spec.brief,
+                    detail: ["days": String(days.count), "why": why]))
             try store.saveState(
-                Self.json(SavedTrial(brief: brief, days: days.map(\.description))), forKey: trialKey)
+                Self.json(SavedTrial(brief: brief, days: days.map(\.description), by: by.rawValue, why: why)),
+                forKey: trialKey)
             trialPhase = .idle
             reload()
             itemsChanged()
@@ -238,6 +265,41 @@ final class HelperModel {
             trialPhase = .idle
             problem = "Could not try the new brief: \(error.localizedDescription)"
         }
+    }
+
+    /// The proposer reads the founder's marks on training days and, when it finds one clear fix, starts a trial of it.
+    func improve() async {
+        guard trial == nil, trialPhase != .reading else { return }
+        improveNote = nil
+        do {
+            let marked = try store.queries.items(
+                of: spec.task, since: WorkDay(containing: store.clock()).adding(days: -60))
+            let improver = Improver(model: makeModel(try ModelChoice.saved(in: store)))
+            let (edit, run) = try await improver.propose(spec: spec, marked: marked)
+            guard let edit else {
+                improveNote =
+                    run == nil
+                    ? "Mark at least \(Improver.minimumWrong) wrong items on training days first."
+                    : "No clear fix in your marks yet."
+                return
+            }
+            await startTrial(brief: edit.apply(to: spec.brief), by: .proposer, why: edit.why)
+        } catch {
+            problem = "Could not look for an improvement: \(error.localizedDescription)"
+        }
+    }
+
+    /// The founder keeps the current brief: the trial's items go, and the decision is logged.
+    func keepCurrent() {
+        if let trial {
+            attempt("log the decision") {
+                try store.log(
+                    Decision(
+                        at: store.clock(), task: spec.task, kind: .reject, by: .person, brief: trial.brief,
+                        parentBrief: spec.brief, detail: Self.counts(trial.result)))
+            }
+        }
+        endTrial()
     }
 
     /// Removes the trial's items and its record; the current version stays as it is.
@@ -248,7 +310,8 @@ final class HelperModel {
         itemsChanged()
     }
 
-    private func loadTrial() throws -> (brief: String, days: [WorkDay], result: Trial)? {
+    /// The trial with its marked differences in the order the founder gave the marks.
+    private func loadTrial() throws -> (brief: String, days: [WorkDay], by: Decision.By, why: String, result: Trial)? {
         guard let text = try store.queries.state(forKey: trialKey), !text.isEmpty else { return nil }
         let saved = try JSONDecoder().decode(SavedTrial.self, from: Data(text.utf8))
         let days = saved.days.compactMap { WorkDay($0) }
@@ -258,7 +321,20 @@ final class HelperModel {
             current += try store.queries.items(of: spec.task, day: day, scope: scope)
             challenger += try store.queries.items(of: Trial.task(of: spec.task), day: day, scope: scope)
         }
-        return (saved.brief, days, Trial(current: current, challenger: challenger, citation: spec.citation))
+        let order = try store.queries.markOrder(of: (current + challenger).compactMap(\.id))
+        let since = store.clock().addingTimeInterval(-Self.budgetWindow)
+        let tried = try store.queries.decisions(of: spec.task).filter { $0.kind == .trial && $0.at >= since }.count
+        let result = Trial(
+            current: current, challenger: challenger, citation: spec.citation, markOrder: order,
+            threshold: EProcess.threshold(challengers: tried))
+        return (saved.brief, days, saved.by.flatMap(Decision.By.init) ?? .person, saved.why ?? "", result)
+    }
+
+    static func counts(_ trial: Trial) -> [String: String] {
+        [
+            "same": String(trial.same), "better": String(trial.better), "worse": String(trial.worse),
+            "verdict": trial.verdict.rawValue,
+        ]
     }
 
     // MARK: Nudge
@@ -335,9 +411,8 @@ final class Crew {
     private(set) var problem: String?
 
     /// Called when any machine's items change.
-    @ObservationIgnored var itemsChanged: () -> Void = {} {
-        didSet { for machine in machines { machine.itemsChanged = itemsChanged } }
-    }
+    /// Called when any machine's items change. Each machine also re-checks its rollback alarm then.
+    @ObservationIgnored var itemsChanged: () -> Void = {}
     @ObservationIgnored private let store: Store
     @ObservationIgnored private let capture: CaptureService
     @ObservationIgnored private let founder: () -> String
@@ -372,11 +447,49 @@ final class Crew {
         return Trial.isTrial(task) ? "\(name) · new brief" : name
     }
 
-    /// Makes the tried brief the machine's own, and ends the trial.
+    /// Makes the tried brief the machine's own, and ends the trial. From now on its held-out audit answers are
+    /// watched; see `watch`.
     func switchToTrial(_ helper: HelperModel) {
-        guard let brief = helper.trial?.brief else { return }
-        edit(helper, brief: brief)
+        guard let trial = helper.trial else { return }
+        let parent = helper.spec.brief
+        edit(helper, brief: trial.brief)
+        attempt("log the switch") {
+            try store.log(
+                Decision(
+                    at: store.clock(), task: helper.spec.task, kind: .promote, by: .person, brief: trial.brief,
+                    parentBrief: parent, detail: HelperModel.counts(trial.result)))
+        }
         helper.endTrial()
+    }
+
+    /// After a switch, the new brief's held-out audit answers feed an always-valid alarm against "wrong more than 10%
+    /// of the time" (research 20 §6, step 6). When it fires, the machine goes back to the brief it came from by
+    /// itself, logs why and says so: the only change the app makes without the founder.
+    func watch(_ helper: HelperModel) {
+        guard let switched = try? store.queries.decisions(of: helper.spec.task).first, switched.kind == .promote,
+            switched.brief == helper.spec.brief,
+            let answers = try? store.queries.auditAnswers(of: helper.spec.task, since: switched.at)
+        else { return }
+        let wrong = answers.filter { EvalSplit($0.day) == .heldOut }.map(\.wrong)
+        let evidence = EProcess.alarm(wrong)
+        guard evidence >= 1 / EProcess.level else { return }
+        let name = helper.name
+        let line =
+            "Back to \(name)'s earlier brief: the new one was wrong on \(wrong.filter { $0 }.count) of \(wrong.count) checked items."
+        edit(helper, brief: switched.parentBrief)
+        attempt("log the rollback") {
+            try store.log(
+                Decision(
+                    at: store.clock(), task: helper.spec.task, kind: .rollback, by: .alarm, brief: switched.parentBrief,
+                    parentBrief: switched.brief,
+                    detail: [
+                        "wrong": String(wrong.filter { $0 }.count), "answers": String(wrong.count),
+                        "evidence": String(format: "%.1f", evidence),
+                    ]))
+        }
+        helper.notice = line
+        let notifier = notifier
+        Task { try? await notifier.post(title: name, body: line) }
     }
 
     func reload() {
@@ -390,7 +503,10 @@ final class Crew {
                 let model = HelperModel(
                     machine: record, source: try source(for: record), store: store, makeModel: makeModel,
                     notifier: notifier)
-                model.itemsChanged = itemsChanged
+                model.itemsChanged = { [weak self, weak model] in
+                    self?.itemsChanged()
+                    if let model { self?.watch(model) }
+                }
                 model.startNudges()
                 return model
             }

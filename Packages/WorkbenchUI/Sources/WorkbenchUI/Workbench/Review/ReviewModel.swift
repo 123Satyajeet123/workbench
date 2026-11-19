@@ -12,7 +12,7 @@ final class ReviewModel {
     private(set) var items: [Item] = []
     private(set) var selected = 0
     private(set) var problem: String?
-    @ObservationIgnored private var undoStack: [(id: Int64, state: Mark)] = []
+    @ObservationIgnored private var undoStack: [(id: Int64, state: Mark, task: String)] = []
 
     @ObservationIgnored private let store: Store
     @ObservationIgnored private let crew: Crew
@@ -52,7 +52,7 @@ final class ReviewModel {
     func mark(_ mark: Mark) {
         guard let item = current, let id = item.id else { return }
         save(mark, on: item)
-        undoStack.append((id, item.state))
+        undoStack.append((id, item.state, item.task))
     }
 
     /// Takes the last mark back, so the item waits again.
@@ -63,9 +63,8 @@ final class ReviewModel {
         } catch {
             problem = "Could not undo: \(error.localizedDescription)"
         }
-        refresh()
+        changed(crew.machines.first { $0.spec.task == Trial.machineTask(of: last.task) })
         if let index = items.firstIndex(where: { $0.id == last.id }) { selected = index }
-        for machine in crew.machines { machine.reload() }
     }
 
     private func save(_ mark: Mark, on item: Item) {
@@ -75,7 +74,15 @@ final class ReviewModel {
         } catch {
             problem = "Could not save the mark: \(error.localizedDescription)"
         }
+        changed(helper(for: item))
+    }
+
+    /// A mark changes the machine's items: it reloads, and its own change hook refreshes this queue and re-checks
+    /// the machine's rollback alarm.
+    private func changed(_ helper: HelperModel?) {
         refresh()
-        helper(for: item)?.reload()
+        guard let helper else { return }
+        helper.reload()
+        helper.itemsChanged()
     }
 }

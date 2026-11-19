@@ -6,23 +6,6 @@ import WorkbenchCore
 
 @testable import WorkbenchUI
 
-/// Answers with the reply whose key its instructions contain: the current brief and the new one read differently.
-private final class BriefModel: StructuredModel, Sendable {
-    let name = "briefs"
-    private let replies: [String: String]
-    let calls = Mutex(0)
-
-    init(_ replies: [String: String]) { self.replies = replies }
-
-    func generate<T: Decodable & Sendable>(_ type: T.Type, schema: JSONSchema, instructions: String, input: String)
-        async throws -> ModelAnswer<T>
-    {
-        calls.withLock { $0 += 1 }
-        let reply = replies.first { instructions.contains($0.key) }?.value ?? #"{"items":[]}"#
-        return ModelAnswer(value: try JSONDecoder().decode(T.self, from: Data(reply.utf8)), model: "m", usage: Usage())
-    }
-}
-
 @Suite struct TrialTests {
     private let current =
         #"{"items":[{"task":"Review the PR","project":"","first":1,"last":1,"quote":"PR"},{"task":"Chat","project":"","first":2,"last":2,"quote":"Staff"}]}"#
@@ -52,7 +35,7 @@ private final class BriefModel: StructuredModel, Sendable {
         }
         clock.set(.now)
         try store.seedMachines(MachineTemplate.seeded.map { ($0.spec, $0.name) })
-        let model = BriefModel([HelperSpec.timeline.brief: current, "memos": tried])
+        let model = KeyedModel([HelperSpec.timeline.brief: current, "memos": tried])
         let crew = Crew(
             store: store, capture: try CaptureService(store: store), founder: { "" },
             makeModel: { _ in RecordedModel(model, store: store) }, notifier: FakeNotifier())
@@ -72,8 +55,11 @@ private final class BriefModel: StructuredModel, Sendable {
         let review = ReviewModel(store: store, crew: crew)
         #expect(review.items.contains { review.name(of: $0) == "Timeline · new brief" })
 
+        #expect(try store.queries.decisions(of: timeline.spec.task).map(\.kind) == [.trial])
         crew.switchToTrial(timeline)
         #expect(timeline.spec.brief == "Join windows into blocks; include writing memos.")
+        let switched = try #require(try store.queries.decisions(of: timeline.spec.task).first)
+        #expect(switched.kind == .promote && switched.parentBrief == HelperSpec.timeline.brief)
         #expect(timeline.trial == nil)
         #expect(try store.queries.items(of: Trial.task(of: timeline.spec.task), since: today.adding(days: -14)).isEmpty)
     }

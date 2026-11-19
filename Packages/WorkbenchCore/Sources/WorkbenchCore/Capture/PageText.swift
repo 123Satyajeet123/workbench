@@ -121,26 +121,49 @@ public enum PageHost {
         public var framed: Data { NativeMessage.frame((try? JSONEncoder().encode(self)) ?? Data()) }
     }
 
-    /// Every message in `input`, each answered by one reply frame. A broken frame ends the input.
+    /// Answers one message: keeps the page if the policy allows.
+    public static func answer(_ message: Data, store: Store) -> Reply {
+        do {
+            let page = try JSONDecoder().decode(WebPage.self, from: message)
+            let batch = page.batch(policy: try store.currentPolicy(), at: store.clock())
+            if let batch { try store.record(batch) }
+            return Reply(kept: batch != nil)
+        } catch {
+            return Reply(kept: false, error: "\(error)")
+        }
+    }
+
+    /// Serves a browser: reads one frame, answers it at once, and repeats until the input ends. A browser keeps the
+    /// pipe open until it has the answer, so the host must never wait for the end of the input before it answers.
+    /// A broken or oversize frame is answered and ends the session.
+    public static func serve(read: (Int) -> Data, write: (Data) -> Void, store: Store) {
+        while true {
+            let header = read(4)
+            guard header.count == 4 else { return }
+            let length = header.enumerated().reduce(0) { $0 | Int($1.element) << (8 * $1.offset) }
+            guard length <= NativeMessage.maximumLength else {
+                write(Reply(kept: false, error: "\(NativeMessage.Failure.tooLong(length))").framed)
+                return
+            }
+            let message = read(length)
+            guard message.count == length else {
+                write(Reply(kept: false, error: "\(NativeMessage.Failure.truncated)").framed)
+                return
+            }
+            write(answer(message, store: store).framed)
+        }
+    }
+
+    /// Every message in `input`, each answered by one reply frame.
     public static func receive(_ input: Data, store: Store) -> Data {
         var rest = input
         var out = Data()
-        while true {
-            let reply: Reply
-            do {
-                guard let (message, used) = try NativeMessage.first(in: rest) else { break }
-                rest = rest.dropFirst(used)
-                let page = try JSONDecoder().decode(WebPage.self, from: message)
-                let batch = page.batch(policy: try store.currentPolicy(), at: store.clock())
-                if let batch { try store.record(batch) }
-                reply = Reply(kept: batch != nil)
-            } catch {
-                out += Reply(kept: false, error: "\(error)").framed
-                if error is NativeMessage.Failure { break }
-                continue
-            }
-            out += reply.framed
-        }
+        serve(
+            read: { count in
+                let chunk = rest.prefix(count)
+                rest = rest.dropFirst(chunk.count)
+                return Data(chunk)
+            }, write: { out += $0 }, store: store)
         return out
     }
 }

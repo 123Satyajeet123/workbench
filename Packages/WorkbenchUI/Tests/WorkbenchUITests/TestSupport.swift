@@ -104,3 +104,21 @@ func whatsApp(at date: Date) throws -> URL {
 
 /// A reply type for model calls whose content a test does not read.
 nonisolated struct Nothing: Decodable, Sendable {}
+
+/// Answers with the reply whose key its instructions contain, so each brief or task reads differently. Replies can be
+/// set after items exist, for replies that cite their ids.
+final class KeyedModel: StructuredModel, Sendable {
+    let name = "keyed"
+    let replies: Mutex<[String: String]>
+    let calls = Mutex(0)
+
+    init(_ replies: [String: String]) { self.replies = Mutex(replies) }
+
+    func generate<T: Decodable & Sendable>(_ type: T.Type, schema: JSONSchema, instructions: String, input: String)
+        async throws -> ModelAnswer<T>
+    {
+        calls.withLock { $0 += 1 }
+        let reply = replies.withLock { $0.first { instructions.contains($0.key) }?.value } ?? #"{"items":[]}"#
+        return ModelAnswer(value: try JSONDecoder().decode(T.self, from: Data(reply.utf8)), model: "m", usage: Usage())
+    }
+}
