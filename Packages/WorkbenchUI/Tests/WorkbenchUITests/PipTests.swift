@@ -190,6 +190,21 @@ import WorkbenchCore
         #expect(input.contains("Asha: [photo] OTA 4.1.11 installed"))
         #expect(team.items.map(\.quote) == ["OTA 4.1.11 installed"], "a quote from the photo passes the quote check")
     }
+
+    /// Measured: macOS asked "access data from other apps" 7 times in one day. Opening Pip's page must not read
+    /// WhatsApp; only a read or a live check may.
+    @Test func openingThePageShowsTheLastKnownMembersWithoutReadingWhatsApp() async throws {
+        let (_, store, capture, _, source) = try makeTeam()
+        try source.loadGroups()
+        try source.choose(try #require(source.groups.first))
+        try await source.loadMembers()
+        let missing = FileManager.default.temporaryDirectory.appending(path: "no-whatsapp-\(UUID().uuidString)")
+        let reopened = try WhatsAppSource(
+            store: store, capture: capture, task: HelperSpec.team.task, founder: { "Kabir" }, container: missing)
+        #expect(reopened.members.map(\.name) == ["Asha", "Bharat"])
+        try await reopened.showMembers()
+        await #expect(throws: (any Error).self) { try await reopened.loadMembers() }
+    }
 }
 
 @Suite struct RunsModelTests {

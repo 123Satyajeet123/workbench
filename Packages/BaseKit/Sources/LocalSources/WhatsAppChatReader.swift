@@ -31,7 +31,7 @@ public struct WhatsAppChat: Codable, Sendable, Equatable, Identifiable {
     public var id: String { jid }
 }
 
-public struct WhatsAppMember: Sendable, Equatable {
+public struct WhatsAppMember: Codable, Sendable, Equatable {
     public var jid: String
     public var name: String
 

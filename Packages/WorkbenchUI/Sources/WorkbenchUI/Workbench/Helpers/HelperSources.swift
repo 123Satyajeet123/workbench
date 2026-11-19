@@ -70,6 +70,7 @@ final class WhatsAppSource {
     @ObservationIgnored private let founder: () -> String
     @ObservationIgnored private let container: URL
     @ObservationIgnored private let chatKey: String
+    @ObservationIgnored private let membersKey: String
 
     init(
         store: Store, capture: CaptureService, task: String, founder: @escaping () -> String,
@@ -80,9 +81,14 @@ final class WhatsAppSource {
         self.founder = founder
         self.container = container
         chatKey = "\(task).chat"
+        membersKey = "\(task).members"
         chat = try store.queries.state(forKey: chatKey).map {
             try JSONDecoder().decode(WhatsAppChat.self, from: Data($0.utf8))
         }
+        members =
+            try store.queries.state(forKey: membersKey).map {
+                try JSONDecoder().decode([WhatsAppMember].self, from: Data($0.utf8))
+            } ?? []
     }
 
     /// Group names to choose from. Listing names needs the WhatsApp switch on; no chat is readable until one is chosen.
@@ -101,16 +107,28 @@ final class WhatsAppSource {
         groups = []
     }
 
+    /// The group's members as WhatsApp has them now. Reading WhatsApp's data can make macOS ask the founder again
+    /// (measured: 7 "access data from other apps" prompts in one day), so only checks that must be live use this.
     func loadMembers() async throws {
         guard let chat else { return }
-        members = try await reader(chat).members()
+        try remember(try await reader(chat).members())
+    }
+
+    /// The members as of the last read, for showing a page; WhatsApp is read only when none are known yet.
+    func showMembers() async throws {
+        if members.isEmpty { try await loadMembers() }
+    }
+
+    private func remember(_ current: [WhatsAppMember]) throws {
+        members = current
+        try store.saveState(String(decoding: try JSONEncoder().encode(current), as: UTF8.self), forKey: membersKey)
     }
 
     /// The day's messages, each a numbered line, and the group's members.
     func evidence(on day: WorkDay) async throws -> EvidenceSet {
         guard let chat else { return EvidenceSet(lines: []) }
         let reader = reader(chat)
-        members = try await reader.members()
+        try remember(try await reader.members())
         let lines = try await reader.entries(from: day.start, to: day.end).compactMap(line)
         return EvidenceSet(lines: lines, context: ["members": members.map(\.name)])
     }

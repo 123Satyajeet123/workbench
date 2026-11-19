@@ -129,7 +129,7 @@ struct HelperContent: View {
     private func loadMembers() async {
         guard case .whatsapp(let source) = model.source else { return }
         do {
-            try await source.loadMembers()
+            try await source.showMembers()
         } catch {
             model.attempt("read the group members") { throw error }
         }
