@@ -258,6 +258,11 @@ final class Crew {
         for helper in [team, timeline] { helper.startNudges() }
     }
 
+    /// The shown name of the helper that runs a task; the task itself for one no helper runs.
+    func name(ofTask task: String) -> String {
+        [team, timeline].first { $0.spec.task == task }?.name ?? task
+    }
+
     /// The helper behind a sidebar page; Mochi's page holds the timeline.
     func helper(for page: SidebarSelection) -> HelperModel? {
         switch page {

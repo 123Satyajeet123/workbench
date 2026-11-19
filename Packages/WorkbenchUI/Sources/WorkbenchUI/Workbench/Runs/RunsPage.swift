@@ -3,6 +3,7 @@ import WorkbenchCore
 
 /// The loop made visible: what each model call cost, and how often the founder marked its entries right.
 struct RunsPage: View {
+    @Environment(Crew.self) private var crew
     @Environment(RunsModel.self) private var model
 
     var body: some View {
@@ -36,7 +37,7 @@ struct RunsPage: View {
     private var quality: some View {
         Card(title: "Quality", symbol: "checkmark.seal") {
             if model.quality.isEmpty {
-                Text("No finished run yet. Read a day on the Team page, then mark its entries.")
+                Text("No finished run yet. Read a day with a helper, then mark what it found.")
                     .foregroundStyle(.supporting)
             } else {
                 Grid(alignment: .leading, horizontalSpacing: Space.l, verticalSpacing: Space.s) {
@@ -50,7 +51,7 @@ struct RunsPage: View {
                     }
                     ForEach(model.quality) { row in
                         GridRow {
-                            Text(row.task)
+                            Text(crew.name(ofTask: row.task))
                             Text(row.model)
                             Text(row.version.map { "v\($0)" } ?? "–").monospacedDigit().help(row.prompt)
                             Text("\(row.runs)").monospacedDigit()
@@ -105,6 +106,7 @@ private struct MeterCell: View {
 }
 
 private struct RunRow: View {
+    @Environment(Crew.self) private var crew
     let run: Run
 
     var body: some View {
@@ -112,7 +114,7 @@ private struct RunRow: View {
             Image(systemName: run.outcome.symbol).foregroundStyle(run.outcome.tone.color)
                 .accessibilityLabel(run.outcome.rawValue)
             VStack(alignment: .leading, spacing: Space.xs) {
-                Text("\(run.task) · \(run.model)")
+                Text("\(crew.name(ofTask: run.task)) · \(run.model)")
                 Text(detail).font(.callout).foregroundStyle(.supporting)
                 if let error = run.error { Text(error).font(.callout).foregroundStyle(Tone.bad.color) }
             }

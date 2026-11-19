@@ -157,7 +157,7 @@ enum CaptureMode: CaseIterable, Identifiable {
     }
 }
 
-/// A source the founder switches on in Settings. WhatsApp is switched on by choosing a group on the Team page.
+/// A source the founder switches on in Settings. WhatsApp is switched on by choosing a group in the team helper.
 struct CaptureSource: Identifiable {
     let source: SourceKind
     let name: String

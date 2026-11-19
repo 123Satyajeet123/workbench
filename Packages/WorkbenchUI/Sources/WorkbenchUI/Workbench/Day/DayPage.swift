@@ -15,9 +15,9 @@ struct DayPage: View {
             title: greeting, subtitle: Date.now.formatted(date: .complete, time: .omitted),
             look: SidebarSelection.day.look
         ) {
+            TimelineSection(model: crew.timeline)
             HelperCard(page: .team, open: open) { pipStatus }
             HelperCard(page: .calls, open: open) { echoStatus }
-            TimelineSection(model: crew.timeline)
             Card(title: "Model use", symbol: "gauge.with.dots.needle.33percent") {
                 Text("\(runs.meter.today.tokensText) tokens · \(runs.meter.today.costText) today")
                 Button("Open Runs") { open(.runs) }
