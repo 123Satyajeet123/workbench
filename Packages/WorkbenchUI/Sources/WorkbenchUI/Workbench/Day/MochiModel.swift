@@ -14,6 +14,10 @@ final class MochiModel {
     private(set) var trainingDays = 0
     private(set) var phase = ReadPhase.idle
     private(set) var problem: String?
+    /// The latest morning brief.
+    private(set) var brief: MorningBrief?
+    private(set) var briefPhase = ReadPhase.idle
+    private static let briefKey = "mochi.brief"
 
     @ObservationIgnored private let store: Store
     @ObservationIgnored private let crew: Crew
@@ -39,8 +43,38 @@ final class MochiModel {
         do {
             proposals = try store.queries.proposals()
             trainingDays = Mochi.days(in: try blocks())
+            brief = try store.queries.state(forKey: Self.briefKey).map {
+                try JSONDecoder().decode(MorningBrief.self, from: Data($0.utf8))
+            }
         } catch {
             problem = "Could not read Mochi's proposals: \(error.localizedDescription)"
+        }
+    }
+
+    /// Writes the brief of `day` from every machine's items that day. Nil when the day had none: no call is made.
+    @discardableResult
+    func writeBrief(for day: WorkDay) async -> MorningBrief? {
+        let sources = crew.machines.flatMap { helper in
+            helper.items(on: day).map {
+                Briefer.Source(machine: helper.name, fields: helper.spec.fields.map(\.name), item: $0)
+            }
+        }
+        briefPhase = .reading
+        defer { briefPhase = .idle }
+        do {
+            let briefer = Briefer(model: makeModel(try ModelChoice.saved(in: store)))
+            guard let written = try await briefer.brief(sources, day: day) else {
+                problem = "No machine found anything on \(day) to brief."
+                return nil
+            }
+            try store.saveState(
+                String(decoding: try JSONEncoder().encode(written), as: UTF8.self), forKey: Self.briefKey)
+            brief = written
+            problem = nil
+            return written
+        } catch {
+            problem = "Mochi could not write the brief: \(error.localizedDescription)"
+            return nil
         }
     }
 

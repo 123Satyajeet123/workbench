@@ -17,6 +17,11 @@ struct RemindersSection: View {
                     Button("Allow in System Settings", action: SystemNotifier.openSettings)
                 }
             }
+            Toggle(
+                "Morning brief from Mochi at \(String(format: "%02d:00", Reminders.briefHour))",
+                isOn: Binding(
+                    get: { reminders.morningBrief },
+                    set: { on in Task { await reminders.setMorningBrief(on: on) } }))
             @Bindable var reminders = reminders
             Toggle("Mochi looks for repeated work every week", isOn: $reminders.settings.weeklyMochi)
         } header: {

@@ -15,6 +15,7 @@ struct DayPage: View {
             title: greeting, subtitle: Date.now.formatted(date: .complete, time: .omitted),
             look: SidebarSelection.day.look
         ) {
+            BriefCard()
             if let timeline = crew.timeline { TimelineSection(model: timeline) }
             MochiProposals(open: open)
             TeamCard()
@@ -137,6 +138,41 @@ private struct TimelineSection: View {
                 DayStepper(day: model.day, today: model.today, show: model.show)
             }
             HelperContent(model: model)
+        }
+    }
+}
+
+/// Mochi's brief: what happened, what is stuck, what to do first, each line resting on items the machines found.
+private struct BriefCard: View {
+    @Environment(MochiModel.self) private var mochi
+
+    var body: some View {
+        Card(title: title, symbol: "sun.horizon") {
+            if let brief = mochi.brief, !brief.lines.isEmpty {
+                ForEach(Array(brief.lines.enumerated()), id: \.offset) { _, line in
+                    Label(line.text, systemImage: symbol(line.kind))
+                        .foregroundStyle(line.kind == .stuck ? Tone.attention.color : .primary)
+                        .help("From \(line.cites.count) item\(line.cites.count == 1 ? "" : "s") your machines found.")
+                }
+            } else {
+                Text("No brief yet. Mochi writes one each morning when it is on in Settings › Reminders.")
+                    .foregroundStyle(.supporting)
+            }
+            if let problem = mochi.problem { Text(problem).textStyle(.callout).foregroundStyle(.supporting) }
+            Button(mochi.briefPhase == .reading ? "Writing…" : "Brief yesterday now") {
+                Task { await mochi.writeBrief(for: WorkDay(containing: .now).adding(days: -1)) }
+            }
+            .disabled(mochi.briefPhase == .reading)
+        }
+    }
+
+    private var title: String { mochi.brief.map { "Brief of \($0.day)" } ?? "Morning brief" }
+
+    private func symbol(_ kind: MorningBrief.Line.Kind) -> String {
+        switch kind {
+        case .happened: "checkmark.circle"
+        case .stuck: "exclamationmark.triangle"
+        case .next: "arrow.right.circle"
         }
     }
 }
