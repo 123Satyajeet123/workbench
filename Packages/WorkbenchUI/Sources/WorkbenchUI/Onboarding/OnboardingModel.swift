@@ -1,0 +1,88 @@
+import Foundation
+import Observation
+import WorkbenchCore
+
+@Observable
+final class OnboardingModel {
+    let screens = OnboardingScreen.allCases
+    let identityModel: IdentityModel
+    private(set) var index = 0 { didSet { save() } }
+    private(set) var isFinished = false { didSet { save() } }
+    private(set) var saveError: (any Error)?
+    @ObservationIgnored private let store: Store?
+
+    private struct Saved: Codable {
+        var index: Int
+        var isFinished: Bool
+    }
+
+    private static let stateKey = "onboarding"
+
+    init(store: Store? = nil, identity: IdentityModel = IdentityModel()) {
+        self.store = store
+        identityModel = identity
+        do {
+            guard let saved = try Self.savedState(in: store) else { return }
+            index = saved.index
+            isFinished = saved.isFinished
+        } catch {
+            saveError = OnboardingError.savedStateUnreadable
+        }
+    }
+
+    private static func savedState(in store: Store?) throws -> Saved? {
+        guard let text = try store?.queries.state(forKey: stateKey) else { return nil }
+        let saved = try JSONDecoder().decode(Saved.self, from: Data(text.utf8))
+        guard OnboardingScreen.allCases.indices.contains(saved.index) else {
+            throw OnboardingError.savedStateUnreadable
+        }
+        return saved
+    }
+
+    private func save() {
+        guard let store else { return }
+        do {
+            let saved = Saved(index: index, isFinished: isFinished)
+            try store.saveState(String(decoding: try JSONEncoder().encode(saved), as: UTF8.self), forKey: Self.stateKey)
+            saveError = nil
+        } catch {
+            saveError = OnboardingError.notSaved(error.localizedDescription)
+        }
+    }
+
+    var screen: OnboardingScreen { screens[index] }
+    var isFirst: Bool { index == 0 }
+    var isLast: Bool { index == screens.count - 1 }
+    var canContinue: Bool { screen != .you || identityModel.identity.hasName }
+
+    func next() {
+        guard canContinue else { return }
+        if isLast {
+            isFinished = true
+        } else {
+            index += 1
+        }
+    }
+
+    func back() {
+        index = max(index - 1, 0)
+    }
+
+    /// What the person must read: the setup or the name did not save, or the saved setup was unreadable.
+    var problem: String? {
+        saveError?.localizedDescription
+            ?? identityModel.saveError.map { "Your name was not saved: \($0.localizedDescription)" }
+    }
+}
+
+enum OnboardingError: Error, Equatable, LocalizedError {
+    case savedStateUnreadable
+    case notSaved(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .savedStateUnreadable: "Workbench could not read your saved setup, so setup starts again."
+        case .notSaved(let reason): "Your setup was not saved: \(reason)"
+        }
+    }
+}

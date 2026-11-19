@@ -1,0 +1,6 @@
+// The one place the signing team lives. Override it in the git-ignored Signing.local.xcconfig.
+DEVELOPMENT_TEAM =
+GOOGLE_CLIENT_ID =
+GOOGLE_CLIENT_SECRET =
+
+#include? "Signing.local.xcconfig"

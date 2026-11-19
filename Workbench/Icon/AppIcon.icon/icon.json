@@ -1,0 +1,60 @@
+{
+  "fill": {
+    "solid": "srgb:0.08235,0.09020,0.10588,1.00000"
+  },
+  "groups": [
+    {
+      "layers": [
+        {
+          "glass": true,
+          "image-name": "accent-block.svg",
+          "name": "accent-block",
+          "position": {
+            "scale": 1.14,
+            "translation-in-points": [
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "glass": true,
+          "image-name": "blocks.svg",
+          "name": "blocks",
+          "position": {
+            "scale": 1.14,
+            "translation-in-points": [
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "glass": true,
+          "image-name": "bench.svg",
+          "name": "bench",
+          "position": {
+            "scale": 1.14,
+            "translation-in-points": [
+              0,
+              0
+            ]
+          }
+        }
+      ],
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.5
+      },
+      "translucency": {
+        "enabled": false,
+        "value": 0
+      }
+    }
+  ],
+  "supported-platforms": {
+    "squares": [
+      "macOS"
+    ]
+  }
+}

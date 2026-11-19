@@ -1,0 +1,36 @@
+import Foundation
+
+/// A work day. Night updates sent after midnight still belong to the day before, so a day runs from 05:00 local
+/// time to 05:00 the next day.
+public struct WorkDay: Sendable, Hashable, Comparable, CustomStringConvertible {
+    public static let startHour = 5
+
+    /// yyyy-MM-dd
+    public let description: String
+    public let start: Date
+    public let end: Date
+
+    public init(containing date: Date, calendar: Calendar = .current) {
+        let shifted = date.addingTimeInterval(-Double(Self.startHour) * 3600)
+        let midnight = calendar.startOfDay(for: shifted)
+        start = calendar.date(byAdding: .hour, value: Self.startHour, to: midnight)!
+        end = calendar.date(byAdding: .day, value: 1, to: start)!
+        let parts = calendar.dateComponents([.year, .month, .day], from: midnight)
+        description = String(format: "%04d-%02d-%02d", parts.year!, parts.month!, parts.day!)
+    }
+
+    public init?(_ text: String, calendar: Calendar = .current) {
+        let parts = text.split(separator: "-").compactMap { Int($0) }
+        guard parts.count == 3,
+            let noon = calendar.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2], hour: 12))
+        else { return nil }
+        self.init(containing: noon, calendar: calendar)
+        guard description == text else { return nil }
+    }
+
+    public func adding(days: Int, calendar: Calendar = .current) -> WorkDay {
+        WorkDay(containing: calendar.date(byAdding: .day, value: days, to: start)!.addingTimeInterval(3600))
+    }
+
+    public static func < (lhs: Self, rhs: Self) -> Bool { lhs.start < rhs.start }
+}

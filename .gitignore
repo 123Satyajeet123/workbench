@@ -1,0 +1,39 @@
+# macOS
+.DS_Store
+
+# Xcode — per-user state (never commit; machine-specific noise)
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+
+# Xcode / build output
+DerivedData/
+build/
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM
+*.dSYM.zip
+
+# Swift Package Manager
+.build/
+.swiftpm/
+# (Package.resolved is deliberately COMMITTED — everyone resolves identical deps.)
+
+
+
+# Local Cloudflare and Python caches
+.wrangler/
+__pycache__/
+*.pyc
+
+# Per-developer signing override (see Signing.xcconfig) — each dev's own DEVELOPMENT_TEAM.
+Signing.local.xcconfig
+
+# Local agent instructions
+[Aa][Gg][Ee][Nn][Tt][Ss].[Mm][Dd]
+[Cc][Ll][Aa][Uu][Dd][Ee].[Mm][Dd]
+.claude/.edited-*
+
+# Claude Code: per-user settings
+.claude/settings.local.json

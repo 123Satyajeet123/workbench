@@ -1,0 +1,81 @@
+import Foundation
+import WorkbenchCore
+
+/// A model behind an agent CLI, run as a child process with no tools.
+public struct AgentRunner: StructuredModel {
+    public let kind: AgentCLIKind
+    /// Nil when the CLI is not installed; a call then fails with `notInstalled`.
+    public var executable: URL?
+    public var model: String
+    public var effort: String
+    public var timeout: Duration
+    private let launcher: any ProcessLauncher
+    private let inheritedEnvironment: [String: String]
+
+    public var name: String { "\(kind.rawValue) \(model)" }
+
+    public init(
+        kind: AgentCLIKind, model: String, effort: String, timeout: Duration,
+        launcher: any ProcessLauncher = SystemProcessLauncher(), executable: URL? = nil,
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) {
+        self.kind = kind
+        self.executable = executable ?? kind.installed(environment: environment)
+        self.model = model
+        self.effort = effort
+        self.timeout = timeout
+        self.launcher = launcher
+        inheritedEnvironment = environment
+    }
+
+    public func generate<T: Decodable & Sendable>(
+        _ type: T.Type, schema: JSONSchema, instructions: String, input: String
+    ) async throws -> ModelAnswer<T> {
+        let call = AgentCall(
+            prompt: input, instructions: instructions, schemaText: try schema.jsonText, model: model,
+            effort: effort, timeout: timeout)
+        let output = try await launch(call)
+        let (answer, answeredBy, usage) = try kind == .claude ? claudeAnswer(output) : codexAnswer(output)
+        do {
+            let value = try JSONDecoder().decode(T.self, from: Data(answer.utf8))
+            return ModelAnswer(value: value, model: answeredBy, usage: usage)
+        } catch {
+            throw StructuredModelError.invalidReply("\(error)")
+        }
+    }
+
+    private func claudeAnswer(_ output: ProcessOutput) throws -> (String, String, Usage) {
+        guard let result = ClaudeResult.last(in: output.stdout) else {
+            throw StructuredModelError.unavailable("claude exit \(output.status): \(output.stderr)")
+        }
+        if result.isError || output.status != 0 {
+            throw StructuredModelError.unavailable("claude failed: \(result.text ?? output.stderr)")
+        }
+        guard let answer = result.structuredAnswer ?? result.text else {
+            throw StructuredModelError.invalidReply("claude returned no result")
+        }
+        return (answer, result.model ?? model, result.usage)
+    }
+
+    private func codexAnswer(_ output: ProcessOutput) throws -> (String, String, Usage) {
+        let events = CodexEvents(stdout: output.stdout)
+        if output.status != 0 || events.failure != nil {
+            throw StructuredModelError.unavailable("codex failed: \(events.failure ?? output.stderr)")
+        }
+        guard let answer = output.answerFile else { throw StructuredModelError.invalidReply("codex wrote no answer") }
+        return (answer, model, events.usage)
+    }
+
+    func launch(_ call: AgentCall) async throws -> ProcessOutput {
+        guard let executable else { throw AgentCLIError.notInstalled(kind) }
+        let files = FileManager.default
+        let workDirectory = files.temporaryDirectory.appending(path: "agent-\(UUID().uuidString)")
+        try files.createDirectory(at: workDirectory, withIntermediateDirectories: true)
+        defer { try? files.removeItem(at: workDirectory) }
+        let plan = ProcessPlan.make(
+            call: call, kind: kind, executable: executable, environment: inheritedEnvironment,
+            workDirectory: workDirectory)
+        try plan.validate()
+        return try await launcher.launch(plan, timeout: call.timeout)
+    }
+}
