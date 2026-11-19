@@ -167,6 +167,29 @@ import WorkbenchCore
         #expect(team.items.isEmpty)
         #expect(try store.queries.runs().isEmpty)
     }
+
+    /// Teams post screenshots as updates (measured: 20 of 20 photos in a day of the founder's group held text).
+    @Test func aScreenshotIsReadOnThisMacAndCanBeQuotedAsAnUpdate() async throws {
+        let now = noon
+        let store = try scratchStore(clock: { now })
+        let container = try whatsApp(at: noon)
+        let photo = try addPhoto("OTA 4.1.11 installed", to: container, at: noon.addingTimeInterval(120))
+        let model = ScriptedModel(
+            #"{"items":[{"person":"Asha","kind":"done","text":"Installed the OTA","eta":"","cite":\#(photo),"quote":"OTA 4.1.11 installed"}]}"#
+        )
+        let source = try WhatsAppSource(
+            store: store, capture: try CaptureService(store: store), task: HelperSpec.team.task, founder: { "Kabir" },
+            container: container)
+        try source.loadGroups()
+        try source.choose(try #require(source.groups.first))
+        let team = HelperModel(
+            machine: .test(.team, "Pip"), source: .whatsapp(source), store: store,
+            makeModel: { _ in RecordedModel(model, store: store) }, notifier: FakeNotifier())
+        await team.read()
+        let input = try #require(model.inputs.withLock { $0.first })
+        #expect(input.contains("Asha: [photo] OTA 4.1.11 installed"))
+        #expect(team.items.map(\.quote) == ["OTA 4.1.11 installed"], "a quote from the photo passes the quote check")
+    }
 }
 
 @Suite struct RunsModelTests {
@@ -197,5 +220,4 @@ import WorkbenchCore
         #expect(quality.model == "scripted-1")
         #expect(runs.problem == nil)
     }
-
 }

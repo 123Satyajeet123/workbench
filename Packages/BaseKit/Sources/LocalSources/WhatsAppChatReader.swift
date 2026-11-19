@@ -13,7 +13,7 @@ public enum WhatsAppSender: Sendable, Equatable {
 }
 
 public struct WhatsAppEntry: Sendable, Equatable {
-    public enum Kind: Sendable, Equatable { case text, document, voiceNote }
+    public enum Kind: Sendable, Equatable { case text, photo, document, voiceNote }
 
     public var id: Int64
     public var date: Date
@@ -46,6 +46,7 @@ public struct WhatsAppMember: Sendable, Equatable {
 public struct WhatsAppChatReader: Sendable {
     private enum MessageType {
         static let text = 0
+        static let photo = 1
         static let voiceNote = 3
         static let document = 8
     }
@@ -96,13 +97,14 @@ public struct WhatsAppChatReader: Sendable {
             JOIN ZWACHATSESSION s ON s.Z_PK = m.ZCHATSESSION
             LEFT JOIN ZWAMEDIAITEM i ON i.ZMESSAGE = m.Z_PK
             LEFT JOIN ZWAGROUPMEMBER g ON g.Z_PK = m.ZGROUPMEMBER
-            WHERE s.ZCONTACTJID = ? AND s.ZSESSIONTYPE IN (?, ?) AND m.ZMESSAGETYPE IN (?, ?, ?)
+            WHERE s.ZCONTACTJID = ? AND s.ZSESSIONTYPE IN (?, ?) AND m.ZMESSAGETYPE IN (?, ?, ?, ?)
                 AND m.ZMESSAGEDATE >= ? AND m.ZMESSAGEDATE < ?
             ORDER BY m.ZMESSAGEDATE, m.Z_PK
             """,
             binding: [
                 .text(chatJID), .integer(Int64(SessionType.person)), .integer(Int64(SessionType.group)),
-                .integer(Int64(MessageType.text)), .integer(Int64(MessageType.voiceNote)),
+                .integer(Int64(MessageType.text)), .integer(Int64(MessageType.photo)),
+                .integer(Int64(MessageType.voiceNote)),
                 .integer(Int64(MessageType.document)),
                 .real(start.timeIntervalSinceReferenceDate), .real(end.timeIntervalSinceReferenceDate),
             ])
@@ -180,6 +182,7 @@ public struct WhatsAppChatReader: Sendable {
         let kind: WhatsAppEntry.Kind
         switch Int(row.integer(2)) {
         case MessageType.text: kind = .text
+        case MessageType.photo: kind = .photo
         case MessageType.voiceNote: kind = .voiceNote
         case MessageType.document: kind = .document
         default: return nil

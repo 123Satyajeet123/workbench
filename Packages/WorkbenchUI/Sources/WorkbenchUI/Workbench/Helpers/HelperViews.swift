@@ -103,7 +103,8 @@ struct HelperContent: View {
     private var note: String {
         switch model.source {
         case .whatsapp:
-            return "Reading sends this day's messages to \(models.choice.title). Each call is on the Runs page."
+            return
+                "Reading sends this day's messages, and the text in its photos (read on this Mac), to \(models.choice.title). Each call is on the Runs page."
         case .pages:
             let reading = model.pageReading
             guard !reading.pages.isEmpty else {

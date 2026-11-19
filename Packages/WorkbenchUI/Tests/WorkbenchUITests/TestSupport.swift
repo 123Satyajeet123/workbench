@@ -1,3 +1,4 @@
+import AppKit
 import CaptureService
 import Foundation
 import SQLite3
@@ -121,4 +122,30 @@ final class KeyedModel: StructuredModel, Sendable {
         let reply = replies.withLock { $0.first { instructions.contains($0.key) }?.value } ?? #"{"items":[]}"#
         return ModelAnswer(value: try JSONDecoder().decode(T.self, from: Data(reply.utf8)), model: "m", usage: Usage())
     }
+}
+
+/// Adds a photo message from Asha with `text` drawn in it to a fixture container; returns its message id.
+func addPhoto(_ text: String, to container: URL, at date: Date) throws -> Int64 {
+    let image = NSImage(size: NSSize(width: 900, height: 160))
+    image.lockFocus()
+    NSColor.white.setFill()
+    NSRect(x: 0, y: 0, width: 900, height: 160).fill()
+    (text as NSString).draw(
+        at: NSPoint(x: 30, y: 55),
+        withAttributes: [.font: NSFont.systemFont(ofSize: 44), .foregroundColor: NSColor.black])
+    image.unlockFocus()
+    let file = container.appending(path: "Message/Media/shot.png")
+    try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+    let rep = NSBitmapImageRep(data: image.tiffRepresentation ?? Data())
+    try (rep?.representation(using: .png, properties: [:]) ?? Data()).write(to: file)
+    let sql = """
+        INSERT INTO ZWAMESSAGE VALUES (20, 1, \(date.timeIntervalSinceReferenceDate), 1, NULL, 0, 1);
+        INSERT INTO ZWAMEDIAITEM (ZMESSAGE, ZMEDIALOCALPATH, ZTITLE) VALUES (20, 'Media/shot.png', NULL);
+        """
+    var db: OpaquePointer?
+    defer { sqlite3_close(db) }
+    guard sqlite3_open(container.appending(path: "ChatStorage.sqlite").path, &db) == SQLITE_OK,
+        sqlite3_exec(db, sql, nil, nil, nil) == SQLITE_OK
+    else { throw CocoaError(.fileWriteUnknown) }
+    return 20
 }

@@ -119,8 +119,14 @@ final class WhatsAppSource {
         WhatsAppChatReader(container: container, chatJID: chat.jid, policy: store)
     }
 
+    /// A message as one numbered line. A photo's line is the text in it, read on this Mac, and its caption.
     private func line(_ entry: WhatsAppEntry) -> Evidence? {
-        let text = [entry.title, entry.text].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " — ")
+        var parts = [entry.title, entry.text].compactMap { $0 }.filter { !$0.isEmpty }
+        if entry.kind == .photo, case .file(let url) = entry.media {
+            let seen = ImageText.recognize(url)
+            if !seen.isEmpty { parts.insert("[photo] \(seen)", at: 0) }
+        }
+        let text = parts.joined(separator: " — ")
         guard !text.isEmpty else { return nil }
         let sender: String
         switch entry.sender {
