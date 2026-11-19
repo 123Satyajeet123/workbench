@@ -102,13 +102,17 @@ private func whatsApp(at date: Date) throws -> URL {
 
     @Test func theNudgeStaysOffWhenMacOSRefusesNotificationsAndSurvivesARestart() async throws {
         let notifier = FakeNotifier()
-        notifier.allowed = false
+        notifier.access = .blocked
         let (team, store, capture, _, source) = try makeTeam(notifier: notifier)
         await team.setNudge(on: true)
-        #expect(!team.nudge.isOn)
-        #expect(team.problem?.contains("Notifications") == true)
-        notifier.allowed = true
+        #expect(!team.nudge.isOn && team.notificationsBlocked)
+        notifier.access = .failed("Notifications are not allowed for this application")
         await team.setNudge(on: true)
+        #expect(!team.nudge.isOn)
+        #expect(team.problem?.contains("not allowed for this application") == true)
+        notifier.access = .allowed
+        await team.setNudge(on: true)
+        #expect(team.nudge.isOn && !team.notificationsBlocked)
         team.nudge.hour = 20
         let again = HelperModel(spec: .team, name: "Pip", source: .whatsapp(source), store: store, notifier: notifier)
         #expect(again.nudge == NudgeSchedule(isOn: true, hour: 20, minute: 30))

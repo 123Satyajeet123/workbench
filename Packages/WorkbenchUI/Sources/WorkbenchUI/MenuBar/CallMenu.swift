@@ -26,7 +26,10 @@ struct CallMenu: View {
         if let failure = capture.failure {
             Text(failure.localizedDescription)
             if (failure as? CallStartError)?.needsCallSwitch == true {
-                SettingsLink { Text("Open Settings") }
+                Button("Turn on Calls") {
+                    capture.set(.call, on: true)
+                    capture.dismissFailure()
+                }
             }
             Button("Dismiss") { capture.dismissFailure() }
         }

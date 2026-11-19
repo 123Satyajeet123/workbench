@@ -22,6 +22,8 @@ final class HelperModel {
     private(set) var sessions: [ScreenSession] = []
     private(set) var phase = ReadPhase.idle
     private(set) var problem: String?
+    /// macOS blocks Workbench notifications; the nudge row offers System Settings.
+    private(set) var notificationsBlocked = false
     var nudge = NudgeSchedule() {
         didSet { attempt("save the nudge") { try store.saveState(Self.json(nudge), forKey: nudgeKey) } }
     }
@@ -176,13 +178,21 @@ final class HelperModel {
 
     // MARK: Nudge
 
-    /// Turning the nudge on asks macOS for permission to show it.
+    /// Turning the nudge on asks macOS for permission the first time; a refusal leaves it off and says why.
     func setNudge(on: Bool) async {
-        if on, !(await notifier.prepare()) {
-            problem = "macOS does not allow Workbench notifications. Allow them in System Settings › Notifications."
+        guard on else {
+            nudge.isOn = false
             return
         }
-        nudge.isOn = on
+        switch await notifier.authorize() {
+        case .allowed:
+            notificationsBlocked = false
+            nudge.isOn = true
+        case .blocked:
+            notificationsBlocked = true
+        case .failed(let reason):
+            problem = "macOS refused notifications: \(reason)"
+        }
     }
 
     /// Checks once a minute while the app runs.

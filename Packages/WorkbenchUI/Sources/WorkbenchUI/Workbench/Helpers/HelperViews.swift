@@ -25,6 +25,7 @@ struct HelperPage: View {
 struct HelperContent: View {
     let model: HelperModel
     @Environment(ModelSettings.self) private var models
+    @Environment(CaptureSettings.self) private var capture
 
     var body: some View {
         VStack(alignment: .leading, spacing: Space.l) {
@@ -55,6 +56,10 @@ struct HelperContent: View {
                     phase: model.phase, items: model.spec.itemsNoun, droppedBecause: "not backed by the source")
             }
             Text(note).font(.callout).foregroundStyle(.supporting)
+            if case .screen = model.source, !capture.isOn(.screen) {
+                Button("Turn on Screen") { capture.set(.screen, on: true) }
+                    .help("Workbench keeps which app, window and page you are in. Never pixels or keystrokes.")
+            }
         }
     }
 
@@ -68,7 +73,9 @@ struct HelperContent: View {
             return "Reading sends this day's messages to \(models.choice.title). Each call is on the Runs page."
         case .screen:
             guard !model.sessions.isEmpty else {
-                return "No screen activity on this day. Turn on Screen in Settings › Capture."
+                return capture.isOn(.screen)
+                    ? "Screen is on. The timeline fills as you work; read the day later."
+                    : "Screen is off, so there is no timeline yet. Turning it on keeps which app, window and page you are in; never pixels or keystrokes."
             }
             let minutes = model.sessions.reduce(0) { $0 + $1.minutes }
             return
@@ -247,6 +254,14 @@ private struct NudgeRow: View {
                 "At this time \(model.name) reads today with \(models.choice.title) and tells you who has no \(model.spec.itemsNoun). Silent; the Mac must be on."
             )
             .font(.callout).foregroundStyle(.supporting)
+            if model.notificationsBlocked {
+                HStack(spacing: Space.s) {
+                    Label("macOS blocks Workbench notifications.", systemImage: "bell.slash")
+                        .foregroundStyle(Tone.attention.color)
+                    Button("Allow in System Settings", action: SystemNotifier.openSettings)
+                }
+                .font(.callout)
+            }
         }
     }
 
