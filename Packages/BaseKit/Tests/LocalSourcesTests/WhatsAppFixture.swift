@@ -63,12 +63,6 @@ struct WhatsAppFixture {
         try run(sql)
     }
 
-    func writeMedia(_ relativePath: String) throws {
-        let url = container.appending(path: "Message/\(relativePath)")
-        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try Data("%PDF".utf8).write(to: url)
-    }
-
     private func run(_ sql: String) throws {
         var db: OpaquePointer?
         defer { sqlite3_close(db) }

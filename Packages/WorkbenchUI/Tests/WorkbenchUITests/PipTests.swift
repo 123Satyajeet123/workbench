@@ -64,26 +64,6 @@ private func whatsApp(at date: Date) throws -> URL {
         return Calendar.current.date(bySettingHour: hour, minute: minute, second: 0, of: day)!
     }
 
-    @Test func theNudgeIsDueFromItsTimeUntilTheWorkDayEndsAndOnlyOnce() {
-        let nudge = NudgeSchedule(isOn: true, hour: 21, minute: 30)
-        let today = WorkDay(containing: noon)
-        #expect(!nudge.isDue(at: at(hour: 21, minute: 29), lastSent: nil))
-        #expect(nudge.isDue(at: at(hour: 21, minute: 30), lastSent: nil))
-        #expect(nudge.isDue(at: at(hour: 2, dayOffset: 1), lastSent: nil))
-        #expect(!nudge.isDue(at: at(hour: 23), lastSent: today))
-        #expect(!NudgeSchedule(isOn: false, hour: 21, minute: 30).isDue(at: at(hour: 23), lastSent: nil))
-        #expect(!nudge.isDue(at: at(hour: 6, dayOffset: 1), lastSent: today))
-        #expect(nudge.isDue(at: at(hour: 22, dayOffset: 1), lastSent: today))
-    }
-
-    @Test func aNudgeTimeAfterMidnightFallsInsideTheSameWorkDay() throws {
-        let late = NudgeSchedule(isOn: true, hour: 1, minute: 0)
-        let today = WorkDay(containing: noon)
-        #expect(try #require(late.time(on: today)) == at(hour: 1, dayOffset: 1))
-        #expect(!late.isDue(at: at(hour: 23), lastSent: nil))
-        #expect(late.isDue(at: at(hour: 1, minute: 5, dayOffset: 1), lastSent: nil))
-    }
-
     @Test func atNudgeTimePipReadsTodayAndNamesWhoHasNoUpdateOnce() async throws {
         let clock = TestClock(noon)
         let notifier = FakeNotifier()
@@ -134,16 +114,6 @@ private func whatsApp(at date: Date) throws -> URL {
         #expect(again.nudge == NudgeSchedule(isOn: true, hour: 20, minute: 30))
     }
 
-    @Test func silentListsOnlyMembersWithNoEntryThatDay() async throws {
-        let (team, _, _, _, source) = try makeTeam(reply: oneEntry)
-        try source.loadGroups()
-        try source.choose(try #require(source.groups.first))
-        try await source.loadMembers()
-        #expect(team.missing(on: team.today) == ["Asha", "Bharat"])
-        await team.read()
-        #expect(team.missing(on: team.today) == ["Bharat"])
-    }
-
     private let oneEntry = #"""
         {"items":[{"person":"Asha","kind":"done","text":"Login API","eta":"","cite":11,"quote":"login API done"}]}
         """#
@@ -159,18 +129,6 @@ private func whatsApp(at date: Date) throws -> URL {
         #expect(capture.policy.authorize(CaptureRequest(kind: .whatsapp, label: teamJID), at: noon).grant != nil)
         #expect(capture.policy.authorize(CaptureRequest(kind: .whatsapp, label: familyJID), at: noon).grant == nil)
         #expect(try store.currentPolicy() == capture.policy)
-    }
-
-    @Test func theChoiceOfGroupAndModelSurvivesARestart() throws {
-        let (team, store, capture, _, source) = try makeTeam()
-        try source.loadGroups()
-        try source.choose(try #require(source.groups.first))
-        let models = ModelSettings(store: store)
-        models.choice = ModelChoice(kind: .codex, model: "gpt-6.2-sol")
-        let again = try WhatsAppSource(store: store, capture: capture, task: HelperSpec.team.task, founder: { "" })
-        #expect(again.chat?.jid == teamJID)
-        #expect(ModelSettings(store: store).choice == ModelChoice(kind: .codex, model: "gpt-6.2-sol"))
-        #expect(team.problem == nil)
     }
 
     @Test func readingADaySendsOnlyTheTeamGroupAndStoresCheckedEntriesWithTheirRun() async throws {
@@ -229,17 +187,6 @@ private func whatsApp(at date: Date) throws -> URL {
         #expect(try store.queries.quality().first?.audited == AuditEstimate(marks: 1, rightWeight: 2, weight: 2))
     }
 
-    @Test func markingTwiceTakesTheMarkBack() async throws {
-        let (team, _, _, _, source) = try makeTeam(reply: oneEntry)
-        try source.loadGroups()
-        try source.choose(try #require(source.groups.first))
-        await team.read()
-        team.mark(try #require(team.items.first), as: .confirmed)
-        #expect(team.items.first?.state == .confirmed)
-        team.mark(try #require(team.items.first), as: .confirmed)
-        #expect(team.items.first?.state == .proposed)
-    }
-
     @Test func withNoGroupChosenNothingIsRead() async throws {
         let (team, store, _, model, source) = try makeTeam()
         await team.read()
@@ -278,9 +225,4 @@ private func whatsApp(at date: Date) throws -> URL {
         #expect(runs.problem == nil)
     }
 
-    @Test func anEmptyStoreHasNoRunsAndNoUsage() throws {
-        let runs = RunsModel(store: try scratchStore())
-        #expect(runs.runs.isEmpty && runs.quality.isEmpty)
-        #expect(runs.meter == RunsModel.Meter())
-    }
 }

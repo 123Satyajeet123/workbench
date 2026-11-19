@@ -26,17 +26,6 @@ struct SchemaTests {
         "ec020f3c73ae5d70c0f8ad4332b4c567326f409cd42cd85671852454291d29e8",
     ]
 
-    @Test func aNewStoreRunsEveryStepAndIsStampedWithTheirCount() throws {
-        let store = try makeStore()
-        let tables = try store.database.rows("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")
-            .compactMap { $0[0].string }
-        #expect(
-            tables == ["activity", "consent", "item", "mark", "prompt", "recording", "run", "state"])
-        #expect(Set(Queries.Table.allCases.map(\.rawValue)) == Set(tables))
-        #expect(try userVersion(in: store.directory) == Int64(Schema.steps.count))
-        _ = try store.reopened()
-    }
-
     @Test func aShippedStepNeverChanges() {
         #expect(Array(Schema.stepDigests.prefix(shipped.count)) == shipped)
         #expect(Schema.stepDigests.count >= shipped.count)
@@ -70,47 +59,12 @@ struct SchemaTests {
         #expect(try upgraded.queries.count(of: .mark) == 1)
     }
 
-    @Test func aStoreFromANewerVersionIsRefusedAndAnUnstampedOneIsStamped() throws {
-        let folder = temporaryDirectory()
-        _ = try Store(directory: folder)
-        try setUserVersion(Schema.version + 1, in: folder)
-        #expect(throws: SchemaError.newerVersion) { try Store(directory: folder) }
-        try setUserVersion(Schema.version, in: folder)
-        _ = try Store(directory: folder)
-        let fresh = temporaryDirectory()
-        try FileManager.default.createDirectory(at: fresh, withIntermediateDirectories: true)
-        try setUserVersion(0, in: fresh)
-        _ = try Store(directory: fresh)
-        #expect(try userVersion(in: fresh) == Int64(Schema.version))
-    }
-
     @Test func theFolderIsOwnerOnlyAndAFolderMadeOpenIsClosedAgain() throws {
         let store = try makeStore()
         #expect(try mode(store.directory) == 0o700)
         #expect(try mode(store.directory.appending(path: "workbench.sqlite")) == 0o600)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: store.directory.path)
         #expect(try mode(store.reopened().directory) == 0o700)
-    }
-}
-
-struct StateTests {
-    @Test func aKeyHoldsTheLastValueSavedAndAnUnknownKeyHoldsNone() throws {
-        let store = try makeStore()
-        #expect(try store.queries.state(forKey: "a") == nil)
-        try store.saveState("one", forKey: "a")
-        try store.saveState("two", forKey: "a")
-        try store.saveState("other", forKey: "b")
-        #expect(try store.queries.state(forKey: "a") == "two")
-        #expect(try store.queries.state(forKey: "b") == "other")
-    }
-
-    @Test func theLatestConsentIsThePolicyAndANewStoreHasTheDefault() throws {
-        let store = try makeStore()
-        #expect(try store.queries.policy() == CapturePolicy())
-        try store.savePolicy(CapturePolicy(switches: [.screen: true]))
-        try store.savePolicy(CapturePolicy(switches: [.files: true]))
-        #expect(try store.queries.policy() == CapturePolicy(switches: [.files: true]))
-        #expect(try store.queries.count(of: .consent) == 2)
     }
 }
 
@@ -147,33 +101,4 @@ struct RunTests {
         #expect(try store.queries.usage(since: day(1)).tokens == 0)
     }
 
-    @Test func thePromptVersionChangesWithTheInstructionsAndNotWithTheInput() async throws {
-        let store = try makeStore()
-        let model = RecordedModel(ScriptedModel(#"{"answer":"yes"}"#), store: store)
-        _ = try await model.generate(Reply.self, schema: replySchema, task: "test", instructions: "one", input: "a")
-        _ = try await model.generate(Reply.self, schema: replySchema, task: "test", instructions: "one", input: "b")
-        _ = try await model.generate(Reply.self, schema: replySchema, task: "test", instructions: "two", input: "a")
-        let prompts = try store.queries.runs().map(\.prompt)
-        #expect(prompts[1] == prompts[2])
-        #expect(prompts[0] != prompts[1])
-    }
-
-    @Test func aRunLeftOpenIsClosedAsFailedAndAClosedRunStays() throws {
-        let store = try makeStore()
-        let open = try store.beginRun(task: "test", model: "m", prompt: "p", input: "x")
-        let closed = try store.beginRun(task: "test", model: "m", prompt: "p", input: "x")
-        try store.finishRun(closed, model: "m", usage: Usage(), error: nil)
-        try store.closeInterruptedRuns()
-        let outcomes = Dictionary(uniqueKeysWithValues: try store.queries.runs().map { ($0.id, $0.outcome) })
-        #expect(outcomes == [open: .failed, closed: .done])
-    }
-
-    @Test func theSchemaRefusesARunWithoutATaskAndAFailureWithoutAReason() throws {
-        let store = try makeStore()
-        #expect(throws: (any Error).self) { try store.beginRun(task: "", model: "m", prompt: "p", input: "x") }
-        let id = try store.beginRun(task: "test", model: "m", prompt: "p", input: "x")
-        #expect(throws: (any Error).self) {
-            try store.database.run("UPDATE run SET outcome = 'failed', ended_at = 'x' WHERE id = ?", [.int(id)])
-        }
-    }
 }

@@ -8,13 +8,13 @@ let package = Package(
         .library(name: "WorkbenchUI", targets: ["WorkbenchUI"])
     ],
     dependencies: [
-        .package(path: "../WorkbenchCore"), .package(path: "../BaseKit"), .package(path: "../GoogleConnector"),
+        .package(path: "../WorkbenchCore"), .package(path: "../BaseKit"),
     ],
     targets: [
         .target(
             name: "WorkbenchUI",
             dependencies: [
-                "WorkbenchCore", "GoogleConnector",
+                "WorkbenchCore",
                 .product(name: "AgentCLI", package: "BaseKit"),
                 .product(name: "CaptureService", package: "BaseKit"),
                 .product(name: "LocalSources", package: "BaseKit"),

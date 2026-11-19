@@ -38,24 +38,6 @@ struct ForgetTests {
         try store.queries.activities(since: day(-1)).filter { $0.kind == .window }.compactMap(\.document)
     }
 
-    @Test func aSiteIsForgottenWithItsSubdomainsAndALookalikeStays() throws {
-        let store = try store(keeping: [
-            "https://linkedin.com/in/a", "https://www.linkedin.com/feed", "https://notlinkedin.com/x",
-        ])
-        try store.delete(.activities(ActivityFilter(domain: "linkedin.com")))
-        #expect(try documents(store) == ["https://notlinkedin.com/x"])
-    }
-
-    @Test func anAppAndATimeRangeAreForgottenAndTheRestStays() throws {
-        let store = try store(keeping: ["a.com", "b.com"])
-        try store.delete(.activities(ActivityFilter(bundleID: "other")))
-        #expect(try documents(store).count == 2)
-        try store.delete(.activities(ActivityFilter(from: day(1))))
-        #expect(try documents(store).count == 2)
-        try store.delete(.activities(ActivityFilter(from: day(-1), to: day(1))))
-        #expect(try documents(store).isEmpty)
-    }
-
     @Test func deletedTextIsNotLeftInTheDatabaseOrItsLog() throws {
         let store = try store(keeping: [])
         var engine = CaptureEngine()

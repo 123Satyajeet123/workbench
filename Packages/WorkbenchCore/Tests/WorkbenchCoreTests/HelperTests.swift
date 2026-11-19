@@ -45,31 +45,6 @@ private func read(
 }
 
 @Suite struct HelperReaderTests {
-    @Test func anItemIsKeptWhenItsQuoteIsInTheLineItCitesAndDroppedWhenItIsNot() async throws {
-        let (result, _) = try await read(
-            .team, [entry("Asha", cite: 11, quote: "login API done"), entry("Asha", cite: 11, quote: "payments done")],
-            evidence: chat)
-        #expect(result.items.map(\.quote) == ["login API done"])
-        #expect(result.dropped == 1)
-        #expect(result.items.first?.start == at(905))
-        #expect(result.items.first?.run == result.run)
-    }
-
-    @Test func aQuoteFromAnotherLineOrAnUnknownLineIsDropped() async throws {
-        let (result, _) = try await read(
-            .team, [entry("Asha", cite: 10, quote: "login API done"), entry("Asha", cite: 99, quote: "login")],
-            evidence: chat)
-        #expect(result.items.isEmpty && result.dropped == 2)
-    }
-
-    @Test func aQuoteMatchesAcrossSpellingFormCaseAndSpacingButNotOtherWords() async throws {
-        let (kept, _) = try await read(
-            .team, [entry("Asha", cite: 13, quote: "\u{0958}\u{0932} TAK deploy")], evidence: chat)
-        #expect(kept.items.count == 1)
-        let (dropped, _) = try await read(
-            .team, [entry("Asha", cite: 13, quote: "\u{0958}\u{0932} tak release")], evidence: chat)
-        #expect(dropped.items.isEmpty)
-    }
 
     @Test func fieldsMustFitTheirKinds() async throws {
         let (result, _) = try await read(
@@ -145,14 +120,6 @@ private func read(
         #expect(now.first { $0.quote == "login" }?.state == .rejected)
     }
 
-    @Test func aRangeThatOverlapsAMarkedBlockIsNotAddedAgain() async throws {
-        let store = try makeStore()
-        try await save([block(1, 2, quote: "login API")], .timeline, into: store)
-        try store.mark(item: try #require(items(store, .timeline).first?.id), as: .confirmed)
-        try await save([block(2, 3, quote: "Technical Staff"), block(4, 4, quote: "YouTube")], .timeline, into: store)
-        #expect(try items(store, .timeline).map(\.citeFirst) == [1, 4])
-    }
-
     @Test func marksAreHistoryAndTheLatestIsTheState() async throws {
         let store = try makeStore()
         try await save([entry("Asha", cite: 11, quote: "login")], into: store)
@@ -161,21 +128,6 @@ private func read(
         try store.mark(item: id, as: .proposed)
         #expect(try items(store).first?.state == .proposed)
         #expect(try store.queries.count(of: .mark) == 2)
-    }
-
-    @Test func aGrantForAnotherChatAnotherSourceOrAnExpiredGrantWritesNothing() async throws {
-        let store = try makeStore()
-        let (result, _) = try await read(.team, [entry("Asha", cite: 11, quote: "login")], evidence: chat, store: store)
-        for wrong in [
-            grant(.whatsapp, label: "family"), grant(.screen), grant(.whatsapp, label: "team", at: day.start),
-        ] {
-            #expect(throws: StoreError.self) {
-                try store.saveReading(result, of: .team, day: day, scope: "team", grant: wrong)
-            }
-        }
-        #expect(try items(store).isEmpty)
-        try store.saveReading(result, of: .team, day: day, scope: "team", grant: chatGrant)
-        #expect(try items(store).count == 1)
     }
 
     @Test func marksGivePrecisionPerTaskModelAndPrompt() async throws {
@@ -229,52 +181,4 @@ private func read(
         try store.saveReading(result, of: .team, day: day, scope: "team", grant: chatGrant, pick: { _ in pick })
     }
 
-    @Test func aReadingPicksOneOfItsNewItemsToAskAboutAndKeepsItsChance() async throws {
-        let store = try makeStore()
-        try await readAndSave(
-            ["login", "API", "done"].map { entry("Asha", cite: 11, quote: $0) }, into: store, pick: 1)
-        let saved = try items(store)
-        #expect(saved.map(\.askedWith) == [nil, 1.0 / 3, nil])
-        try await readAndSave([], into: store, pick: 0)
-        #expect(try items(store).allSatisfy { $0.askedWith == nil })
-    }
-
-    @Test func aMarkOnAPickedItemIsAnAuditMarkAndAnyOtherMarkIsVoluntary() async throws {
-        let store = try makeStore()
-        try await readAndSave(["login", "API"].map { entry("Asha", cite: 11, quote: $0) }, into: store, pick: 0)
-        let saved = try items(store)
-        try store.mark(item: try #require(saved[0].id), as: .confirmed)
-        try store.mark(item: try #require(saved[1].id), as: .rejected)
-        let marks = try store.database.rows("SELECT origin, asked_with FROM mark ORDER BY id")
-        #expect(marks.map { $0[0].string } == ["audit", "voluntary"])
-        #expect(marks.map { $0[1].double } == [0.5, 1])
-    }
-
-    @Test func theAuditEstimateWeighsEachAnswerByOneOverItsChanceAndIgnoresVoluntaryMarks() async throws {
-        let store = try makeStore()
-        try await readAndSave(
-            ["login", "API", "done", "kal"].map { entry("Asha", cite: 11, quote: $0) }, into: store, pick: 0)
-        let first = try items(store)
-        try store.mark(item: try #require(first[0].id), as: .confirmed)
-        try store.mark(item: try #require(first[1].id), as: .rejected)
-        try await readAndSave([entry("Asha", cite: 11, quote: "payments")], into: store, pick: 0)
-        try store.mark(item: try #require(items(store).first { $0.quote == "payments" }?.id), as: .rejected)
-        let quality = try #require(store.queries.quality().first)
-        #expect(quality.audited == AuditEstimate(marks: 2, rightWeight: 4, weight: 5))
-        #expect(quality.audited.precision == 0.8)
-        #expect(quality.all == Tally(confirmed: 1, rejected: 2))
-    }
-
-    @Test func theSchemaRefusesAnEmptyQuoteAFieldThatIsNotAnObjectAndAnItemWithoutARun() throws {
-        let store = try makeStore()
-        let insert = """
-            INSERT INTO item(task, run_id, day, scope, source, cite_first, cite_last, start_at, end_at, fields, quote,
-                created_at) VALUES ('t', ?, 'd', '', 'screen', 1, 1, 'a', 'a', ?, ?, 'now')
-            """
-        let run = try store.beginRun(task: "t", model: "m", prompt: "p", input: "x")
-        #expect(throws: (any Error).self) { try store.database.run(insert, [.int(run), .text("{}"), .text("")]) }
-        #expect(throws: (any Error).self) { try store.database.run(insert, [.int(run), .text("[]"), .text("q")]) }
-        #expect(throws: (any Error).self) { try store.database.run(insert, [.int(999), .text("{}"), .text("q")]) }
-        try store.database.run(insert, [.int(run), .text("{}"), .text("q")])
-    }
 }

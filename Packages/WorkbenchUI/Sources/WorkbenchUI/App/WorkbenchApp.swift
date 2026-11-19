@@ -62,6 +62,5 @@ extension View {
             .environment(session.models)
             .environment(session.crew)
             .environment(session.runs)
-            .environment(session.google)
     }
 }

@@ -6,9 +6,5 @@
 	<string>Workbench records the other side of a call you start, so it can write it down for you. Audio stays on this Mac.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Workbench records your side of a call you start. Audio stays on this Mac.</string>
-	<key>GoogleClientID</key>
-	<string>$(GOOGLE_CLIENT_ID)</string>
-	<key>GoogleClientSecret</key>
-	<string>$(GOOGLE_CLIENT_SECRET)</string>
 </dict>
 </plist>

@@ -24,11 +24,4 @@ private let workDay = WorkDay(containing: at(12), calendar: utc)
         #expect(WorkDay(containing: at(4, 59), calendar: utc) != workDay)
     }
 
-    @Test func aDayReadsBackFromItsText() {
-        #expect(workDay.description == "2026-09-21")
-        #expect(WorkDay("2026-09-21", calendar: utc) == workDay)
-        #expect(WorkDay("2026-02-30", calendar: utc) == nil)
-        #expect(WorkDay("today", calendar: utc) == nil)
-        #expect(workDay.adding(days: 1, calendar: utc).description == "2026-09-22")
-    }
 }

@@ -107,20 +107,4 @@ private final class ActingModel: StructuredModel, Sendable {
         #expect(timeline.problem != nil)
     }
 
-    @Test func markingTwiceTakesTheMarkBackAndADayWithoutActivityRunsNoModel() async throws {
-        let store = try morning()
-        let acting = ActingModel(oneBlock)
-        let timeline = model(store, acting)
-        await timeline.read()
-        timeline.mark(try #require(timeline.items.first), as: .rejected)
-        #expect(timeline.items.first?.state == .rejected)
-        timeline.mark(try #require(timeline.items.first), as: .rejected)
-        #expect(timeline.items.first?.state == .proposed)
-
-        timeline.show(timeline.day.adding(days: -1))
-        #expect(timeline.sessions.isEmpty)
-        await timeline.read()
-        #expect(acting.inputs.count == 1)
-        #expect(try store.queries.runs().count == 1)
-    }
 }

@@ -127,15 +127,19 @@ public final class CaptureService {
 
     static let inPerson = "in-person"
 
+    /// Deletes every kind of captured data older than the retention, at most once an hour.
+    func pruneIfDue(at now: Date) async {
+        guard now.timeIntervalSince(lastPrune) >= 3600 else { return }
+        lastPrune = now
+        report(await loop.forget(before: now.addingTimeInterval(-Self.retention)))
+    }
+
     private func tick() {
         refreshStatus()
         let apps = AudioApps.playing()
         if apps != playingApps { playingApps = apps }
         let now = store.clock()
-        if now.timeIntervalSince(lastPrune) >= 3600 {
-            lastPrune = now
-            Task { report(await loop.forget(before: now.addingTimeInterval(-Self.retention))) }
-        }
+        Task { await pruneIfDue(at: now) }
         setFileWatcher(on: (status == .capturing || status == .needsPermission) && policy.isEnabled(.files))
         guard status == .capturing, policy.isEnabled(.screen), let app = FrontApp.current() else {
             requestTrustOnce()

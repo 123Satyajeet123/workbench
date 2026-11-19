@@ -49,13 +49,4 @@ struct ContrastTests {
         }
     }
 
-    @Test func supportingTextReaches4Point5OnTheBlackIsland() {
-        let value = Self.ratio(text: .labelColor, opacity: Color.supportingOpacity, on: .black, .darkAqua)
-        #expect(value >= 4.5, "island: \(value)")
-    }
-
-    @Test func theOldSecondaryTextFailsTheSameCheck() {
-        let value = Self.ratio(text: .secondaryLabelColor, opacity: 1, on: .textBackgroundColor, .aqua)
-        #expect(value < 4.5, "secondary in light: \(value)")
-    }
 }

@@ -15,7 +15,6 @@ struct AppSession {
     let models: ModelSettings
     let crew: Crew
     let runs: RunsModel
-    let google: GoogleAccountsModel
 }
 
 enum AppLaunch {
@@ -36,8 +35,7 @@ enum AppLaunch {
                 onboarding: OnboardingModel(store: store, identity: identity), identity: identity,
                 models: ModelSettings(store: store),
                 crew: try Crew(store: store, capture: service, founder: { identity.identity.name }),
-                runs: RunsModel(store: store),
-                google: GoogleAccountsModel(store: store))
+                runs: RunsModel(store: store))
             service.start()
             session.crew.startNudges()
             return .ready(session)

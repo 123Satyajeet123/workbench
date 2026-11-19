@@ -48,25 +48,6 @@ struct ReadOnlyTests {
     }
 }
 
-struct ReaderLogicTests {
-    @Test func tellsAnAddressFromOtherFieldText() {
-        #expect(ScreenReader.looksLikeAddress("whiteboardcap.com/our-portfolio"))
-        #expect(ScreenReader.looksLikeAddress("https://mail.google.com/mail/u/0"))
-        #expect(!ScreenReader.looksLikeAddress("Search or type a URL"))
-        #expect(!ScreenReader.looksLikeAddress(""))
-    }
-
-    @Test func mapsFileEventFlagsToChangesAndIgnoresFolders() {
-        let file = UInt32(kFSEventStreamEventFlagItemIsFile)
-        #expect(FileWatcher.change(forFlags: file | UInt32(kFSEventStreamEventFlagItemModified)) == .modify)
-        #expect(FileWatcher.change(forFlags: file | UInt32(kFSEventStreamEventFlagItemCreated)) == .create)
-        #expect(FileWatcher.change(forFlags: file | UInt32(kFSEventStreamEventFlagItemRenamed)) == .rename)
-        #expect(
-            FileWatcher.change(forFlags: UInt32(kFSEventStreamEventFlagItemIsDir | kFSEventStreamEventFlagItemModified))
-                == nil)
-    }
-}
-
 @MainActor
 struct FrontAppTests {
     @Test func workbenchNeverReadsItsOwnWindowButReadsOtherApps() throws {

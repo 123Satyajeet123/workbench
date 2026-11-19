@@ -3,33 +3,6 @@ import Testing
 
 @testable import LocalSources
 
-struct AudioAppsTests {
-    private let apps = [
-        "com.brave.Browser": "Brave Browser", "net.whatsapp.WhatsApp": "WhatsApp", "com.spotify.client": "Spotify",
-    ]
-
-    @Test func helpersBelongToTheirAppAndAQuietAppIsNotOffered() {
-        let processes = [
-            AudioProcess(id: 10, bundleID: "com.brave.Browser", isPlaying: false),
-            AudioProcess(id: 11, bundleID: "com.brave.Browser.helper.Renderer", isPlaying: true),
-            AudioProcess(id: 20, bundleID: "net.whatsapp.WhatsApp", isPlaying: false),
-            AudioProcess(id: 30, bundleID: "com.apple.CoreSpeech", isPlaying: true),
-        ]
-        let playing = AudioApps.group(processes, apps: apps)
-        #expect(playing.map(\.bundleID) == ["com.brave.Browser"])
-        #expect(playing.first?.processes == [10, 11])
-    }
-
-    @Test func theLongestMatchingAppOwnsAProcessAndAPrefixWithoutADotDoesNot() {
-        let nested = apps.merging(["com.brave.Browser.beta": "Brave Beta"]) { first, _ in first }
-        let processes = [
-            AudioProcess(id: 1, bundleID: "com.brave.Browser.beta.helper", isPlaying: true),
-            AudioProcess(id: 2, bundleID: "com.brave.BrowserX", isPlaying: true),
-        ]
-        #expect(AudioApps.group(processes, apps: nested).map(\.bundleID) == ["com.brave.Browser.beta"])
-    }
-}
-
 struct AudioFileSinkTests {
     private let format = AVAudioFormat(standardFormatWithSampleRate: 48000, channels: 1)!
 

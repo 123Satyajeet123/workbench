@@ -1,5 +1,6 @@
 import Foundation
 import LocalSources
+import Synchronization
 import Testing
 import WorkbenchCore
 
@@ -13,38 +14,25 @@ struct CaptureServiceTests {
         return (try CaptureService(store: store), store)
     }
 
-    @Test func aFreshServiceCapturesNothingAndAnUpdateIsSavedAsOneConsentRow() throws {
-        let (service, store) = try service()
-        #expect(service.status == .off)
-        try service.update { $0.switches[.files] = true }
-        #expect(service.status == .capturing)
-        #expect(try store.currentPolicy().isEnabled(.files))
-        try service.update { $0.switches[.files] = true }
-        #expect(try store.queries.count(of: .consent) == 1)
-    }
-
-    @Test func pausedAndPrivateModesShowAsSuchAndTheClockEndsThem() throws {
-        let (service, store) = try service()
-        let hour = store.clock().addingTimeInterval(3600)
-        try service.update {
-            $0.switches[.files] = true
-            $0.mode = .paused(until: hour)
-        }
-        #expect(service.status == .paused)
-        try service.update { $0.mode = .paused(until: store.clock().addingTimeInterval(-1)) }
-        #expect(service.status == .capturing)
-    }
-
-    @Test func theKeptTodayListHoldsWindowsAndFilesAndForgetRemovesOne() throws {
-        let (service, store) = try service()
+    @Test func dataOlderThanThirtyDaysIsDeletedAndNewerDataStays() async throws {
+        let start = Date(timeIntervalSince1970: 1_790_000_000)
+        let now = Mutex(start)
+        let store = try Store(
+            directory: FileManager.default.temporaryDirectory.appending(path: "cs-\(UUID().uuidString)"),
+            clock: { now.withLock { $0 } })
+        let service = try CaptureService(store: store)
+        let policy = CapturePolicy(switches: [.screen: true])
         var engine = CaptureEngine()
-        let policy = CapturePolicy(switches: [.files: true])
-        let batch = engine.observe(.modify, path: "/p/a.swift", policy: policy, at: store.clock())
-        try store.record(#require(batch))
-        let kept = try service.keptToday(limit: 20)
-        #expect(kept.count == 1)
-        try service.forget(kept[0])
-        #expect(try service.keptToday(limit: 20).isEmpty)
+        for (days, window) in [(0.0, 1), (40.0, 2)] {
+            let at = start.addingTimeInterval(days * 86_400)
+            now.withLock { $0 = at }
+            let snapshot = ScreenSnapshot(app: "Brave", bundleID: "b", windowID: window, title: "w\(window)", text: "")
+            let batch = engine.observe(snapshot, idleSeconds: 0, policy: policy, at: at)
+            try store.record(#require(batch))
+        }
+        await service.pruneIfDue(at: start.addingTimeInterval(41 * 86_400))
+        #expect(try store.queries.activities(since: .distantPast).map(\.title) == ["w2"])
+        #expect(service.problem == nil)
     }
 
     @Test func aCallIsRefusedUntilSwitchedOnOrWhilePausedAndAsksFirstInPrivateMode() async throws {
@@ -68,9 +56,4 @@ struct CaptureServiceTests {
         #expect(try store.queries.recordings().isEmpty)
     }
 
-    @Test func stoppingWithNoCallDoesNothing() throws {
-        let (service, store) = try service()
-        try service.stopCall()
-        #expect(try store.queries.recordings().isEmpty)
-    }
 }

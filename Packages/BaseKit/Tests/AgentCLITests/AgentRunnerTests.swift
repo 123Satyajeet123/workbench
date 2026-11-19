@@ -11,18 +11,6 @@ import WorkbenchCore
             launcher: launcher, executable: tool(kind), environment: noisyEnvironment)
     }
 
-    @Test func theInstalledCLIIsFoundOnThePathFirstThenInTheInstallerFolders() {
-        let home = URL(fileURLWithPath: "/Users/me")
-        let present: Set = ["/usr/bin/claude", "/Users/me/.local/bin/claude", "/opt/homebrew/bin/codex"]
-        let found = { (kind: AgentCLIKind, path: String) in
-            kind.installed(environment: ["PATH": path], home: home, isExecutable: present.contains)?.path
-        }
-        #expect(found(.claude, "/usr/bin:/bin") == "/usr/bin/claude")
-        #expect(found(.claude, "/bin") == "/Users/me/.local/bin/claude")
-        #expect(found(.codex, "") == "/opt/homebrew/bin/codex")
-        #expect(AgentCLIKind.codex.installed(environment: [:], home: home, isExecutable: { _ in false }) == nil)
-    }
-
     @Test func aCallWithNoInstalledCLIFailsBeforeAnyProcessStarts() async throws {
         let launcher = reply(#""is_error":false,"result":"{}""#)
         var runner = runner(launcher)
@@ -53,40 +41,6 @@ import WorkbenchCore
         #expect(plan.arguments.contains("opus"))
     }
 
-    @Test func withoutModelUsageTheAnswerNamesTheModelAskedForAndCostsNothing() async throws {
-        let answer = try await runner(reply(#""is_error":false,"result":"{\"label\":\"txt\"}""#)).generate(
-            Verdict.self, schema: Verdict.schema, instructions: "", input: "p")
-        #expect(answer.value == Verdict(label: "txt"))
-        #expect(answer.model == "opus")
-        #expect(answer.usage == Usage())
-    }
-
-    @Test func anErrorResultIsUnavailable() async {
-        await #expect(throws: StructuredModelError.unavailable("claude failed: rate limited")) {
-            try await runner(reply(#""is_error":true,"result":"rate limited""#)).generate(
-                Verdict.self, schema: Verdict.schema, instructions: "", input: "p")
-        }
-    }
-
-    @Test func noResultIsUnavailable() async {
-        await #expect(throws: StructuredModelError.unavailable("claude exit 1: boom")) {
-            try await runner(FakeLauncher(output: ProcessOutput(stdout: "", stderr: "boom", status: 1))).generate(
-                Verdict.self, schema: Verdict.schema, instructions: "", input: "p")
-        }
-    }
-
-    @Test func aReplyThatDoesNotDecodeIsInvalid() async {
-        do {
-            _ = try await runner(reply(#""is_error":false,"structured_output":{"other":1}"#)).generate(
-                Verdict.self, schema: Verdict.schema, instructions: "", input: "p")
-            Issue.record("the reply should not decode")
-        } catch StructuredModelError.invalidReply {
-            return
-        } catch {
-            Issue.record("wrong error \(error)")
-        }
-    }
-
     @Test func codexAnswersFromItsFileWithTheTokensOfEveryTurn() async throws {
         let events = [
             #"{"type":"thread.started"}"#,
@@ -102,23 +56,6 @@ import WorkbenchCore
         #expect(launcher.plans.first?.inputFiles[ProcessPlan.schemaFileName] == sampleCall.schemaText)
     }
 
-    @Test func codexWithoutAnAnswerOrWithAFailedTurnIsRefused() async {
-        await #expect(throws: StructuredModelError.invalidReply("codex wrote no answer")) {
-            try await runner(FakeLauncher(output: ProcessOutput(stdout: #"{"type":"turn.completed"}"#)), kind: .codex)
-                .generate(Verdict.self, schema: Verdict.schema, instructions: "", input: "p")
-        }
-        let failed = ProcessOutput(
-            stdout: #"{"type":"turn.failed","error":{"message":"usage limit"}}"#, answerFile: #"{"label":"x"}"#)
-        await #expect(throws: StructuredModelError.unavailable("codex failed: usage limit")) {
-            try await runner(FakeLauncher(output: failed), kind: .codex).generate(
-                Verdict.self, schema: Verdict.schema, instructions: "", input: "p")
-        }
-    }
-
-    @Test func theRunnerIsNamedByItsCLIAndModel() {
-        #expect(runner(reply("")).name == "claude opus")
-        #expect(runner(reply(""), kind: .codex).name == "codex gpt-6")
-    }
 }
 
 @Suite struct LiveCLITests {

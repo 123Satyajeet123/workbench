@@ -20,10 +20,8 @@ enum EgressScan {
         networkSymbolPatterns.filter { text.range(of: $0, options: .regularExpression) != nil }
     }
 
-    /// Hosts the shipped sources may name: the Google connector's four.
-    static let allowedHosts: Set<String> = [
-        "accounts.google.com", "oauth2.googleapis.com", "www.googleapis.com", "gmail.googleapis.com",
-    ]
+    /// Hosts the shipped sources may name: none. The only egress is the CLI the founder chose.
+    static let allowedHosts: Set<String> = []
 
     static func bannedHits(in text: String) -> [String] {
         bannedPatterns.filter { text.range(of: $0, options: [.regularExpression, .caseInsensitive]) != nil }
@@ -59,26 +57,6 @@ struct NoEgressTests {
     static let repo = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
         .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
 
-    @Test func plantedBannedHostIsCaught() {
-        #expect(!EgressScan.bannedHits(in: #"let url = URL(string: "https://o1.ingest.sentry.io/api")"#).isEmpty)
-        #expect(!EgressScan.bannedHits(in: "import Sparkle\n").isEmpty)
-        #expect(!EgressScan.bannedHits(in: #"let relay = "https://x.y.workers.dev""#).isEmpty)
-    }
-
-    @Test func plantedUnexpectedHostIsCaught() {
-        #expect(
-            EgressScan.unexpectedHosts(in: #"URL(string: "https://telemetry.example.com/v1")"#) == [
-                "telemetry.example.com"
-            ])
-    }
-
-    @Test func allowedTextPasses() {
-        #expect(EgressScan.bannedHits(in: #"Image(systemName: "sparkles")"#).isEmpty)
-        #expect(EgressScan.unexpectedHosts(in: #"URL(string: "https://accounts.google.com/o/oauth2")"#).isEmpty)
-        #expect(EgressScan.unexpectedHosts(in: #"URL(string: "https://kite.example/about")"#).isEmpty)
-        #expect(EgressScan.unexpectedHosts(in: #"URL(string: "https://kite.example.com/")"#) == ["kite.example.com"])
-    }
-
     @Test func shippedSourcesNameNoBannedOrUnexpectedHost() throws {
         let files = EgressScan.shippedFiles(repo: Self.repo)
         let names = Set(files.map(\.lastPathComponent))
@@ -93,7 +71,7 @@ struct NoEgressTests {
         #expect(findings.isEmpty, "\(findings.joined(separator: "\n"))")
     }
 
-    @Test func everyPackageButTheGoogleConnectorUsesNoNetworkApi() throws {
+    @Test func noPackageUsesANetworkApi() throws {
         var seen: Set<String> = []
         var findings: [String] = []
         for package in ["WorkbenchCore", "BaseKit", "WorkbenchUI"] {

@@ -39,6 +39,8 @@ cd ~/Projects/workbench && git pull && scripts/install.sh
 - `Packages/BaseKit`: the claude/codex runner (no tools, no session), local readers (screen, WhatsApp, files, call
   audio), the capture service.
 - `Packages/WorkbenchUI`: the app: sidebar, helper pages, settings, menu bar.
-- `Packages/GoogleConnector`: Google sign-in, calendar and mail clients (not used yet).
 
-Test: `swift test` in each package. Lint: `xcrun swift-format lint -r --configuration .swift-format Packages`.
+Test: `swift test` in each package. Tests guard product promises, not code details: a test stays only if it guards a
+promise (consent, privacy, quotes, marks and trust, deletion, upgrades, the main flows) or a bug that happened.
+`scripts/promises.sh` plants one bug behind each promise and shows which tests catch it; run it before deleting tests.
+Lint: `xcrun swift-format lint -r --configuration .swift-format Packages`.
