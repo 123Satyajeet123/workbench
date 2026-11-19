@@ -38,7 +38,9 @@ enum EgressScan {
 
     static func shippedFiles(repo: URL) -> [URL] {
         let fileManager = FileManager.default
-        let roots = ["Workbench", "Workbench.xcodeproj", "Workbench.entitlements"].map { repo.appending(path: $0) }
+        let roots = ["Workbench", "Workbench.xcodeproj", "Workbench.entitlements", "Extension"].map {
+            repo.appending(path: $0)
+        }
         let packages =
             ((try? fileManager.contentsOfDirectory(
                 at: repo.appending(path: "Packages"), includingPropertiesForKeys: nil))
@@ -46,7 +48,7 @@ enum EgressScan {
         return (roots + packages).flatMap { root -> [URL] in
             guard let walker = fileManager.enumerator(at: root, includingPropertiesForKeys: nil) else { return [root] }
             return walker.compactMap { $0 as? URL }.filter {
-                ["swift", "plist", "json", "entitlements", "pbxproj"].contains($0.pathExtension)
+                ["swift", "plist", "json", "entitlements", "pbxproj", "js"].contains($0.pathExtension)
                     && !$0.pathComponents.contains("xcuserdata")
             }
         }
@@ -69,6 +71,21 @@ struct NoEgressTests {
             findings += EgressScan.unexpectedHosts(in: text).map { "\(name): host \($0)" }
         }
         #expect(findings.isEmpty, "\(findings.joined(separator: "\n"))")
+    }
+
+    /// The extension's only way out is the native host on this Mac: no web request API, no host permission.
+    @Test func theBrowserExtensionSendsOnlyToTheLocalHost() throws {
+        let folder = Self.repo.appending(path: "Extension")
+        let manifest = try JSONSerialization.jsonObject(with: Data(contentsOf: folder.appending(path: "manifest.json")))
+        let keys = try #require(manifest as? [String: Any])
+        #expect(keys["permissions"] as? [String] == ["nativeMessaging"])
+        #expect(keys["host_permissions"] == nil && keys["optional_host_permissions"] == nil)
+        #expect(keys["incognito"] as? String == "not_allowed")
+        for name in ["content.js", "background.js"] {
+            let code = try String(contentsOf: folder.appending(path: name), encoding: .utf8)
+            let network = #/\b(fetch|XMLHttpRequest|WebSocket|EventSource|sendBeacon|importScripts)\b|\bimport\(/#
+            #expect(code.firstMatch(of: network) == nil, "\(name) has a network call")
+        }
     }
 
     @Test func noPackageUsesANetworkApi() throws {

@@ -21,6 +21,43 @@ struct ScreenSource {
     }
 }
 
+/// Pages the founder saw on the sites a machine's owner named. Naming the sites is the consent: no other site's text
+/// is read. The text comes from the browser extension, kept only under the Screen text switch.
+@Observable
+final class PageSource {
+    private(set) var sites: [String]
+
+    @ObservationIgnored private let store: Store
+    @ObservationIgnored private let sitesKey: String
+
+    init(store: Store, task: String) throws {
+        self.store = store
+        sitesKey = "\(task).sites"
+        sites =
+            try store.queries.state(forKey: sitesKey).map {
+                try JSONDecoder().decode([String].self, from: Data($0.utf8))
+            }
+            ?? []
+    }
+
+    /// Sites as the founder typed them, separated by commas or spaces. Anything that is not a site is left out.
+    func choose(_ typed: String) throws {
+        let chosen = Array(
+            Set(typed.split(whereSeparator: { $0 == "," || $0.isWhitespace }).compactMap { WebPage.site(String($0)) })
+        ).sorted()
+        try store.saveState(String(decoding: try JSONEncoder().encode(chosen), as: UTF8.self), forKey: sitesKey)
+        sites = chosen
+    }
+
+    func reading(on day: WorkDay) throws -> (pages: [Activity], leftOut: Int) {
+        WebPage.reading(try store.queries.activities(from: day.start, to: day.end), sites: sites)
+    }
+
+    func evidence(on day: WorkDay) throws -> EvidenceSet {
+        EvidenceSet(lines: try reading(on: day).pages.compactMap(\.pageEvidence))
+    }
+}
+
 /// One WhatsApp group the founder chose. Choosing it is the consent: this chat, and no other, may be read.
 @Observable
 final class WhatsAppSource {

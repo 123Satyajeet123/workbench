@@ -8,7 +8,7 @@ import WorkbenchCore
 @Suite struct TeamCatalogTests {
     private func setup() throws -> (TeamCatalogModel, Crew, Store) {
         let store = try scratchStore()
-        try store.seedMachines(MachineTemplate.all.map { ($0.spec, $0.name) })
+        try store.seedMachines(MachineTemplate.seeded.map { ($0.spec, $0.name) })
         let crew = Crew(
             store: store, capture: try CaptureService(store: store), founder: { "" }, notifier: FakeNotifier())
         return (TeamCatalogModel(store: store, crew: crew, author: { "Kabir" }), crew, store)

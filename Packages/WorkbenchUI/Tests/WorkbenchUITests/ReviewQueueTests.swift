@@ -26,7 +26,7 @@ import WorkbenchCore
             try store.record(#require(batch))
         }
         clock.set(.now)
-        try store.seedMachines(MachineTemplate.all.map { ($0.spec, $0.name) })
+        try store.seedMachines(MachineTemplate.seeded.map { ($0.spec, $0.name) })
         let scripted = ScriptedModel(blocks)
         let crew = Crew(
             store: store, capture: try CaptureService(store: store), founder: { "" },

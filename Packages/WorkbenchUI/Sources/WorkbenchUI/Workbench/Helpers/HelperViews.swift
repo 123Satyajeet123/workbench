@@ -15,8 +15,12 @@ struct HelperPage: View {
 
     private var subtitle: String {
         let role = model.isPaused ? "Paused" : MachineTemplate.of(model.machine)?.role ?? ""
-        guard case .whatsapp(let source) = model.source, let chat = source.chat else { return role }
-        return "\(role) · \(chat.name)"
+        switch model.source {
+        case .whatsapp(let source): return source.chat.map { "\(role) · \($0.name)" } ?? role
+        case .pages(let source):
+            return source.sites.isEmpty ? role : "\(role) · \(source.sites.joined(separator: ", "))"
+        case .screen: return role
+        }
     }
 }
 
@@ -36,6 +40,8 @@ struct HelperContent: View {
             if model.isPaused { PausedNote(model: model) }
             if case .whatsapp(let source) = model.source, source.chat == nil {
                 GroupChooser(model: model, source: source)
+            } else if case .pages(let source) = model.source, source.sites.isEmpty {
+                SiteChooser(model: model, source: source)
             } else {
                 controls
                 if let question = model.question { Question(model: model, item: question) }
@@ -70,17 +76,38 @@ struct HelperContent: View {
                 Button("Turn on Screen") { capture.set(.screen, on: true) }
                     .help("Workbench keeps which app, window and page you are in. Never pixels or keystrokes.")
             }
+            if case .pages(let source) = model.source {
+                HStack {
+                    if !capture.isOn(.screenText) {
+                        Button("Turn on Screen text") { capture.set(.screenText, on: true) }
+                    }
+                    Button("Change sites") { model.attempt("clear the sites") { try source.choose("") } }
+                }
+            }
         }
     }
 
     private var noScreenActivity: Bool {
-        if case .screen = model.source { model.sessions.isEmpty } else { false }
+        switch model.source {
+        case .screen: model.sessions.isEmpty
+        case .pages: model.pageReading.pages.isEmpty
+        case .whatsapp: false
+        }
     }
 
     private var note: String {
         switch model.source {
         case .whatsapp:
             return "Reading sends this day's messages to \(models.choice.title). Each call is on the Runs page."
+        case .pages:
+            let reading = model.pageReading
+            guard !reading.pages.isEmpty else {
+                return
+                    "No page text from these sites on this day. Pages come from the Workbench browser extension while Screen text is on."
+            }
+            let left =
+                reading.leftOut == 0 ? "" : " \(reading.leftOut) later pages are past the size limit and are left out."
+            return "\(reading.pages.count) page views. Reading sends their text to \(models.choice.title).\(left)"
         case .screen:
             guard !model.sessions.isEmpty else {
                 return capture.isOn(.screen)
@@ -196,6 +223,30 @@ struct TrustLine: View {
                 "\(name) earns trust at most 10% wrong, 90% sure. It needs at least \(more) more right answers on held-out days."
             )
             .textStyle(.callout).foregroundStyle(.supporting)
+        }
+    }
+}
+
+/// The sites a page machine reads. Only these sites' text is ever sent; the rest stays on the Mac.
+private struct SiteChooser: View {
+    let model: HelperModel
+    let source: PageSource
+    @State private var typed = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Space.s) {
+            Text(
+                "Name the sites \(model.name) reads, such as mail.google.com or linkedin.com. It reads only their text, only the day you ask."
+            )
+            .foregroundStyle(.supporting)
+            HStack {
+                TextField("mail.google.com, linkedin.com", text: $typed).frame(maxWidth: 360)
+                Button("Use these sites") {
+                    model.attempt("save the sites") { try source.choose(typed) }
+                    model.reload()
+                }
+                .buttonStyle(.borderedProminent).disabled(typed.isEmpty)
+            }
         }
     }
 }

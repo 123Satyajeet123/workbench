@@ -41,3 +41,12 @@ extension ScreenSession {
             quotable: [title, document ?? ""])
     }
 }
+
+extension Activity {
+    /// A page's text as one evidence line: its site, title and the text on screen. Nil for an activity with no text.
+    public var pageEvidence: Evidence? {
+        guard let id, let text, !text.isEmpty else { return nil }
+        let site = document.flatMap { URL(string: $0)?.host() } ?? app
+        return Evidence(id: id, start: at, line: "\(site) — \(title): \(text)", quotable: [text])
+    }
+}

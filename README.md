@@ -27,11 +27,24 @@ cd ~/Projects/workbench && git pull && scripts/install.sh
 ```
 
 ## Use
-- **Mochi** (top of the sidebar): your day, and the timeline of what you worked on. Press *Read this day*, then mark
-  each block right or wrong.
-- **Pip**: your team's WhatsApp group. Choose the group, read a day, mark the entries. Optional night nudge.
-- **Echo**: calls you record from the menu bar.
-- **Runs**: every model call, its cost, and how often each helper was right, on all days and on held-out days.
+- **Mochi** (top of the sidebar): your day and its timeline. After 3 work days it proposes machines for jobs that
+  repeat; build, skip or never each one.
+- **Review**: every machine's unmarked items in one queue. Keys: Y right, N wrong, J/K move, U undo.
+- **Crew**: your machines. **+** makes one from a template: Pip (a WhatsApp group), Timeline (your screen), Scout
+  (pages you saw on sites you name). Right-click to rename, edit the brief (try it on past days first), pause, share
+  or delete. Each machine page has a view switch, a share-this-day button and, on each item, *Draft a message* and
+  *Add to Reminders*.
+- **Team**: your team's shared days and machines. A day goes only to teammates who can already read its source.
+- **Echo**: calls you record from the menu bar. **Runs**: every model call, its cost, and how often each machine
+  was right.
+- ⌘+ / ⌘− zoom.
+
+### Browser pages (for Scout)
+Brave and Chrome do not show page text to Accessibility, so a small extension sends the text you see.
+1. `scripts/install-browser.sh` installs the local host and registers it for Brave and Chrome.
+2. In `brave://extensions` (or `chrome://extensions`): turn on Developer mode, *Load unpacked*, choose `Extension/`.
+3. Turn on **Screen text** in Settings › Capture. Text is kept only for sites that are not private or blocked, never
+   in private windows, and never what you type.
 
 ## Code map
 - `Packages/WorkbenchCore`: the store (SQLite, schema as append-only steps), consent grants, model runs, the helper
@@ -39,6 +52,7 @@ cd ~/Projects/workbench && git pull && scripts/install.sh
 - `Packages/BaseKit`: the claude/codex runner (no tools, no session), local readers (screen, WhatsApp, files, call
   audio), the capture service.
 - `Packages/WorkbenchUI`: the app: sidebar, helper pages, settings, menu bar.
+- `Extension/`: the browser extension (visible page text to the `workbench-pages` host in WorkbenchCore).
 
 Test: `swift test` in each package. Tests guard product promises, not code details: a test stays only if it guards a
 promise (consent, privacy, quotes, marks and trust, deletion, upgrades, the main flows) or a bug that happened.

@@ -20,7 +20,7 @@ import WorkbenchCore
         let clock = TestClock(monday)
         let store = try scratchStore(clock: { clock.now })
         try store.savePolicy(CapturePolicy(switches: [.screen: true]))
-        try store.seedMachines(MachineTemplate.all.map { ($0.spec, $0.name) })
+        try store.seedMachines(MachineTemplate.seeded.map { ($0.spec, $0.name) })
         let crew = Crew(
             store: store, capture: try CaptureService(store: store), founder: { "" }, notifier: FakeNotifier())
         let today = WorkDay(containing: monday)

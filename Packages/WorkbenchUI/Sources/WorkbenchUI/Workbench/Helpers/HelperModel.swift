@@ -10,6 +10,7 @@ final class HelperModel {
     enum Source {
         case screen(ScreenSource)
         case whatsapp(WhatsAppSource)
+        case pages(PageSource)
     }
 
     /// The record this model shows: its name, spec and state change when the founder renames, edits or pauses it.
@@ -23,6 +24,8 @@ final class HelperModel {
     private(set) var items: [Item] = []
     /// The screen sessions of the shown day; empty for other sources.
     private(set) var sessions: [ScreenSession] = []
+    /// For a page machine: the day's page texts on its sites, and how many were past the budget.
+    private(set) var pageReading: (pages: [Activity], leftOut: Int) = ([], 0)
     private(set) var phase = ReadPhase.idle
     private(set) var problem: String?
     /// macOS blocks Workbench notifications; the nudge row offers System Settings.
@@ -73,7 +76,7 @@ final class HelperModel {
     /// The chat for a chat helper; empty for the screen.
     var scope: String {
         switch source {
-        case .screen: ""
+        case .screen, .pages: ""
         case .whatsapp(let chat): chat.chat?.jid ?? ""
         }
     }
@@ -83,13 +86,14 @@ final class HelperModel {
         switch source {
         case .screen: true
         case .whatsapp(let chat): chat.chat != nil
+        case .pages(let pages): !pages.sites.isEmpty
         }
     }
 
     /// The named sets the view and the nudge use, as far as they are known now.
     var context: [String: [String]] {
         switch source {
-        case .screen: [:]
+        case .screen, .pages: [:]
         case .whatsapp(let chat): ["members": chat.members.map(\.name)]
         }
     }
@@ -131,6 +135,7 @@ final class HelperModel {
             items = try store.queries.items(of: spec.task, day: day, scope: scope)
             trust = try store.queries.quality().first { $0.task == spec.task }?.heldOutAudit.status
             if case .screen(let screen) = source { sessions = try screen.sessions(on: day) }
+            if case .pages(let pages) = source { pageReading = try pages.reading(on: day) }
             trial = try loadTrial()
         }
     }
@@ -189,6 +194,7 @@ final class HelperModel {
         switch source {
         case .screen(let screen): try screen.evidence(on: day)
         case .whatsapp(let chat): try await chat.evidence(on: day)
+        case .pages(let pages): try pages.evidence(on: day)
         }
     }
 
@@ -432,6 +438,7 @@ final class Crew {
     private func source(for machine: Machine) throws -> HelperModel.Source {
         switch machine.spec.source {
         case .screenSessions: .screen(ScreenSource(store: store))
+        case .pageText: .pages(try PageSource(store: store, task: machine.task))
         case .whatsappChat:
             .whatsapp(try WhatsAppSource(store: store, capture: capture, task: machine.task, founder: founder))
         }
@@ -462,7 +469,14 @@ struct MachineTemplate: Identifiable, Hashable {
     static let timeline = MachineTemplate(
         spec: .timeline, name: "Timeline", role: "Day timeline",
         detail: "Turns your screen sessions into blocks of work with the words they came from.")
-    static let all = [team, timeline]
+    static let pages = MachineTemplate(
+        spec: .pages, name: "Scout", role: "Page reader",
+        detail:
+            "Reads the text of pages you saw on sites you name, such as your mail or LinkedIn, and lists what needs your follow-up."
+    )
+    static let all = [team, timeline, pages]
+    /// The machines every store starts with; the others are made on request or from Mochi's proposals.
+    static let seeded = [team, timeline]
 
     static func == (lhs: Self, rhs: Self) -> Bool { lhs.id == rhs.id }
     func hash(into hasher: inout Hasher) { hasher.combine(id) }

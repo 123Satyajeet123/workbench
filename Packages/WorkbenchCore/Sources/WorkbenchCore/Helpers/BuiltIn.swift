@@ -43,4 +43,23 @@ extension HelperSpec {
         ],
         citation: .range, view: .timeline, title: "task", badges: ["project"], tones: [:], itemsNoun: "blocks",
         nudge: nil)
+
+    /// A page reader: what matters in the pages the founder saw on sites they name. Its brief says what to list.
+    public static let pages = HelperSpec(
+        task: "page.reader", source: .pageText,
+        brief: """
+            You read the web pages a founder saw on the sites they chose, such as their mail, LinkedIn or X. List each \
+            thing that needs the founder's attention or follow-up: a request, an introduction, a pitch, a deadline. \
+            Use only what a page says. Menus, ads and repeated page furniture give no item.
+            """,
+        fields: [
+            Field("title", .text(required: true), meaning: "The thing, in a few English words."),
+            Field(
+                "who", .text(required: false),
+                meaning: "The person or company it is about or from; empty when not said."),
+            Field(
+                "next", .text(required: false),
+                meaning: "What the founder could do next, in a few words; empty when nothing."),
+        ],
+        citation: .one, view: .table, title: "title", badges: ["who"], tones: [:], itemsNoun: "items", nudge: nil)
 }

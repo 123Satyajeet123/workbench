@@ -8,11 +8,14 @@ public struct HelperSpec: Codable, Sendable, Equatable {
     public enum Source: String, Codable, Sendable, CaseIterable {
         case whatsappChat = "whatsapp_chat"
         case screenSessions = "screen_sessions"
+        /// The text of web pages the person saw, only on the sites the machine's owner named.
+        case pageText = "page_text"
 
         public var kind: SourceKind {
             switch self {
             case .whatsappChat: .whatsapp
             case .screenSessions: .screen
+            case .pageText: .screenText
             }
         }
 
@@ -28,6 +31,11 @@ public struct HelperSpec: Codable, Sendable, Equatable {
                 """
                 the windows the founder had in front, in order. Each line is `[number] HH:mm–HH:mm (minutes) app — \
                 window title — address`; the address is a web page or a file and can be missing.
+                """
+            case .pageText:
+                """
+                the text of web pages the founder had on screen, in order. Each line is `[number] HH:mm site — page \
+                title: the text on screen`. The same page can appear again after a scroll, with new text.
                 """
             }
         }

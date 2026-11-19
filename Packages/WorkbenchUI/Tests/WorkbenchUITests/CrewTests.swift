@@ -8,7 +8,7 @@ import WorkbenchCore
 @Suite struct CrewTests {
     private func crew() throws -> (Crew, Store) {
         let store = try scratchStore()
-        try store.seedMachines(MachineTemplate.all.map { ($0.spec, $0.name) })
+        try store.seedMachines(MachineTemplate.seeded.map { ($0.spec, $0.name) })
         let capture = try CaptureService(store: store)
         return (Crew(store: store, capture: capture, founder: { "Kabir" }, notifier: FakeNotifier()), store)
     }

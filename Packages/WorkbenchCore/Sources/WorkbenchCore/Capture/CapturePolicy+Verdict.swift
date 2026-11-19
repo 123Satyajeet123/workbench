@@ -46,13 +46,13 @@ extension CapturePolicy {
     }
 
     /// The document's host is one of the domains or a subdomain of one. A trailing dot names the same host.
-    static func isSite(_ document: String, in domains: Set<String>) -> Bool {
+    public static func isSite(_ document: String, in domains: Set<String>) -> Bool {
         guard let host = host(of: document) else { return false }
         return domains.contains { host == $0 || host.hasSuffix("." + $0) }
     }
 
     /// Address bars often drop the scheme ("example.com/path").
-    private static func host(of document: String) -> String? {
+    public static func host(of document: String) -> String? {
         guard !document.isEmpty, !document.hasPrefix("file:") else { return nil }
         let withScheme = document.contains("://") ? document : "https://" + document
         guard var host = URLComponents(string: withScheme)?.host?.lowercased() else { return nil }
