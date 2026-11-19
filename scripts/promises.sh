@@ -41,11 +41,10 @@ run "11 trust threshold loosened to 20%" $C/Runs/Certificate.swift 's/if bound <
 run "13 screen text kept without its switch" $C/Capture/CaptureEngine.swift 's/if policy\.isEnabled\(\.screenText\), !snapshot/if true, !snapshot/' WorkbenchCore WorkbenchUI
 run "14 private windows not hidden" $C/Capture/CapturePolicy+Verdict.swift 's/return snapshot\.secureFocus \|\|/return false \&\& snapshot.secureFocus ||/' WorkbenchCore
 run "15 30-day retention never runs" BaseKit/Sources/CaptureService/CaptureService.swift 's/loop\.forget\(before: now\.addingTimeInterval\(-Self\.retention\)\)/loop.forget(before: .distantPast)/' BaseKit
-run "16 older store not upgraded" $C/Store/Schema.swift 's/guard found < steps\.count else \{ return \}/guard found == 0 else { return }/' WorkbenchCore
 run "17 rereading drops marked items" $C/Store/ItemStore.swift "s/AND scope = \\? AND state = 'proposed'\\)/AND scope = ?)/" WorkbenchCore WorkbenchUI
 run "18 a live call can be deleted" $C/Store/Delete.swift "s/let condition = \"state != 'recording' AND started_at < \\?\"/let condition = \"started_at < ?\"/" WorkbenchCore
 run "19 prompt texts not kept" $C/Runs/Quality.swift 's/"INSERT OR IGNORE INTO prompt\(hash/"INSERT OR IGNORE INTO prompt(hash, task, instructions, schema, first_used) SELECT * FROM (SELECT ?,?,?,?,?) WHERE 0 --(hash/' WorkbenchCore
-run "21 idle does not end a session" $C/Helpers/Sessions.swift 's/case \.idle, \.sleep:/case .sleep:/; s/case \.text, \.file:/case .text, .file, .idle:/' WorkbenchCore WorkbenchUI
+run "21 idle does not end a session" $C/Helpers/Sessions.swift 's/case \.idle, \.sleep:/case .sleep:/; s/case \.text, \.page, \.file:/case .text, .page, .file, .idle:/' WorkbenchCore WorkbenchUI
 run "22 nudge fires before its time" WorkbenchUI/Sources/WorkbenchUI/Workbench/Helpers/NudgeSchedule.swift 's/return now >= time/return true/' WorkbenchUI
 run "23 a silent call is saved" BaseKit/Sources/LocalSources/CallAudio.swift 's/guard !files\.isEmpty else \{ throw CallAudioError\.emptyTrack\(track\) \}/_ = files/' BaseKit
 run "24 WhatsApp reads every chat" BaseKit/Sources/LocalSources/WhatsAppChatReader.swift 's/WHERE s\.ZCONTACTJID = \? AND s\.ZSESSIONTYPE/WHERE (s.ZCONTACTJID = ? OR 1) AND s.ZSESSIONTYPE/' BaseKit WorkbenchUI

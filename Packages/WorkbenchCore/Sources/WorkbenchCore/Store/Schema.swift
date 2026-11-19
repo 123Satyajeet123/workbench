@@ -2,7 +2,9 @@ import Foundation
 
 /// The schema of `workbench.sqlite` as an append-only list of steps. `user_version` counts the steps a store has run;
 /// opening a store runs the steps it lacks, in one transaction. A shipped step never changes (`SchemaTests` pins each
-/// one's digest), so a step is literal text, never built from a Swift enum: a new need is a new step. A store from a newer Workbench is refused.
+/// one's digest), so a step is literal text: a new need is a new step after the last. A store from a newer Workbench
+/// is refused. The first step is the whole schema as of 2026-11-19; the steps that led to it, written while there was
+/// no data worth keeping, were folded into it.
 enum Schema {
     static var version: Int32 { Int32(steps.count) }
 
@@ -18,15 +20,14 @@ enum Schema {
 
     static var stepDigests: [String] { steps.map { Digest.sha256($0.joined(separator: ";\n")) } }
 
-    static let steps = [
-        base, timeline, prompts, items, audit, crew, proposals, proposalView, teamMemory, improvement, workObjects,
-    ]
+    static let steps = [baseline]
 
-    private static let base = [
-        "CREATE TABLE IF NOT EXISTS state(key TEXT PRIMARY KEY, value TEXT NOT NULL, saved_at TEXT NOT NULL)",
-        "CREATE TABLE IF NOT EXISTS consent(id INTEGER PRIMARY KEY, ts TEXT NOT NULL, policy TEXT NOT NULL)",
+    private static let baseline = [
+        // Settings, consent, and every model call with its cost and yield.
+        "CREATE TABLE state(key TEXT PRIMARY KEY, value TEXT NOT NULL, saved_at TEXT NOT NULL)",
+        "CREATE TABLE consent(id INTEGER PRIMARY KEY, ts TEXT NOT NULL, policy TEXT NOT NULL)",
         """
-        CREATE TABLE IF NOT EXISTS run(
+        CREATE TABLE run(
             id INTEGER PRIMARY KEY, task TEXT NOT NULL CHECK(task <> ''), model TEXT NOT NULL, prompt TEXT NOT NULL,
             input_bytes INTEGER NOT NULL, input_sha TEXT NOT NULL, started_at TEXT NOT NULL, ended_at TEXT,
             outcome TEXT NOT NULL CHECK(outcome IN ('running','done','failed')), error TEXT,
@@ -35,56 +36,31 @@ enum Schema {
             cost_usd REAL NOT NULL DEFAULT 0, kept INTEGER, dropped INTEGER,
             CHECK((outcome = 'running') = (ended_at IS NULL)), CHECK((outcome = 'failed') = (error IS NOT NULL)))
         """,
-        "CREATE INDEX IF NOT EXISTS run_started ON run(started_at)",
+        "CREATE INDEX run_started ON run(started_at)",
         """
-        CREATE TABLE IF NOT EXISTS activity(
-            id INTEGER PRIMARY KEY, ts TEXT NOT NULL,
-            kind TEXT NOT NULL CHECK(kind IN ('window','text','idle','active','skipped','file','sleep','wake')),
-            app TEXT NOT NULL, bundle_id TEXT NOT NULL, title TEXT NOT NULL, document TEXT, text TEXT,
-            CHECK(kind IN ('window','text','file') OR (app = '' AND title = '' AND document IS NULL AND text IS NULL)))
+        CREATE TABLE prompt(
+            hash TEXT PRIMARY KEY, task TEXT NOT NULL CHECK(task <> ''), instructions TEXT NOT NULL,
+            schema TEXT NOT NULL, first_used TEXT NOT NULL)
         """,
-        "CREATE INDEX IF NOT EXISTS activity_ts ON activity(ts)",
+        // What capture keeps. `page` is a page's visible text from the browser extension; `text` is a window's
+        // Accessibility text.
         """
-        CREATE TABLE IF NOT EXISTS recording(
+        CREATE TABLE activity(
+            id INTEGER PRIMARY KEY, ts TEXT NOT NULL,
+            kind TEXT NOT NULL CHECK(kind IN ('window','text','page','idle','active','skipped','file','sleep','wake')),
+            app TEXT NOT NULL, bundle_id TEXT NOT NULL, title TEXT NOT NULL, document TEXT, text TEXT,
+            CHECK(kind IN ('window','text','page','file') OR (app = '' AND title = '' AND document IS NULL AND text IS NULL)))
+        """,
+        "CREATE INDEX activity_ts ON activity(ts)",
+        """
+        CREATE TABLE recording(
             id INTEGER PRIMARY KEY, app TEXT NOT NULL, bundle_id TEXT NOT NULL, folder TEXT NOT NULL UNIQUE,
             started_at TEXT NOT NULL, ended_at TEXT,
             state TEXT NOT NULL CHECK(state IN ('recording','saved','failed')), error TEXT,
             CHECK((state = 'recording') = (ended_at IS NULL)), CHECK((state = 'failed') = (error IS NOT NULL)))
         """,
-        """
-        CREATE TABLE IF NOT EXISTS ledger_entry(
-            id INTEGER PRIMARY KEY, run_id INTEGER NOT NULL REFERENCES run(id),
-            chat TEXT NOT NULL, day TEXT NOT NULL, person TEXT NOT NULL,
-            kind TEXT NOT NULL CHECK(kind IN ('plan','done','blocker')),
-            text TEXT NOT NULL, eta TEXT NOT NULL, quote TEXT NOT NULL CHECK(quote <> ''),
-            message_id INTEGER NOT NULL, said_at TEXT NOT NULL,
-            state TEXT NOT NULL CHECK(state IN ('proposed','confirmed','rejected')), created_at TEXT NOT NULL)
-        """,
-        "CREATE INDEX IF NOT EXISTS ledger_day ON ledger_entry(chat, day)",
-        "CREATE INDEX IF NOT EXISTS ledger_run ON ledger_entry(run_id)",
-    ]
-
-    private static let timeline = [
-        """
-        CREATE TABLE timeline_block(
-            id INTEGER PRIMARY KEY, run_id INTEGER NOT NULL REFERENCES run(id), day TEXT NOT NULL,
-            start_at TEXT NOT NULL, end_at TEXT NOT NULL, task TEXT NOT NULL CHECK(task <> ''), project TEXT NOT NULL,
-            quote TEXT NOT NULL CHECK(quote <> ''), state TEXT NOT NULL CHECK(state IN ('proposed','confirmed','rejected')),
-            created_at TEXT NOT NULL, CHECK(end_at > start_at))
-        """,
-        "CREATE INDEX timeline_day ON timeline_block(day)",
-        "CREATE INDEX timeline_run ON timeline_block(run_id)",
-    ]
-
-    private static let prompts = [
-        """
-        CREATE TABLE prompt(
-            hash TEXT PRIMARY KEY, task TEXT NOT NULL CHECK(task <> ''), instructions TEXT NOT NULL,
-            schema TEXT NOT NULL, first_used TEXT NOT NULL)
-        """
-    ]
-
-    private static let items = [
+        // What machines find, and the founder's marks; the latest mark is an item's state. `asked_with` is the chance
+        // the app picked an item to ask about; null for an item it did not pick.
         """
         CREATE TABLE item(
             id INTEGER PRIMARY KEY, task TEXT NOT NULL CHECK(task <> ''), run_id INTEGER NOT NULL REFERENCES run(id),
@@ -92,6 +68,7 @@ enum Schema {
             cite_last INTEGER NOT NULL, start_at TEXT NOT NULL, end_at TEXT NOT NULL,
             fields TEXT NOT NULL CHECK(json_valid(fields) AND json_type(fields) = 'object'),
             quote TEXT NOT NULL CHECK(quote <> ''), created_at TEXT NOT NULL,
+            asked_with REAL CHECK(asked_with IS NULL OR (asked_with > 0 AND asked_with <= 1)),
             CHECK(end_at >= start_at), CHECK(cite_last >= cite_first))
         """,
         """
@@ -106,100 +83,11 @@ enum Schema {
             (SELECT state FROM mark WHERE mark.item_id = item.id ORDER BY mark.id DESC LIMIT 1), 'proposed') AS state
         FROM item
         """,
-        """
-        INSERT INTO item(task, run_id, day, scope, source, cite_first, cite_last, start_at, end_at, fields, quote,
-            created_at)
-        SELECT 'team.ledger', run_id, day, chat, 'whatsapp', message_id, message_id, said_at, said_at,
-            json_object('person', person, 'kind', kind, 'text', text, 'eta', eta), quote, created_at
-        FROM ledger_entry ORDER BY id
-        """,
-        """
-        INSERT INTO mark(item_id, ts, state, origin)
-        SELECT item.id, l.created_at, l.state, 'voluntary' FROM ledger_entry l JOIN item ON item.task = 'team.ledger'
-            AND item.run_id = l.run_id AND item.cite_first = l.message_id AND item.quote = l.quote
-            AND item.created_at = l.created_at
-        WHERE l.state <> 'proposed'
-        """,
-        """
-        INSERT INTO item(task, run_id, day, scope, source, cite_first, cite_last, start_at, end_at, fields, quote,
-            created_at)
-        SELECT 'day.timeline', run_id, day, '', 'screen', 0, 0, start_at, end_at,
-            json_object('task', task, 'project', project), quote, created_at
-        FROM timeline_block ORDER BY id
-        """,
-        """
-        INSERT INTO mark(item_id, ts, state, origin)
-        SELECT item.id, t.created_at, t.state, 'voluntary' FROM timeline_block t JOIN item ON item.task = 'day.timeline'
-            AND item.run_id = t.run_id AND item.start_at = t.start_at AND item.quote = t.quote
-        WHERE t.state <> 'proposed'
-        """,
-        "DROP TABLE ledger_entry",
-        "DROP TABLE timeline_block",
         "CREATE INDEX item_day ON item(task, day, scope)",
         "CREATE INDEX item_run ON item(run_id)",
         "CREATE INDEX mark_item ON mark(item_id, id)",
-    ]
-
-    /// The chance the app picked an item to ask the founder about; null for an item it did not pick.
-    private static let audit = [
-        "ALTER TABLE item ADD COLUMN asked_with REAL CHECK(asked_with IS NULL OR (asked_with > 0 AND asked_with <= 1))"
-    ]
-
-    /// The team and its people, and machines as records a person owns: renamed, edited, paused or deleted by a new
-    /// change row; the latest change is the machine's state.
-    /// Who each teammate is in a source (their WhatsApp id), set by the founder; the latest link wins. And every act
-    /// that leaves the founder's store, such as a shared day or a made reminder, logged once.
-    private static let teamMemory = [
-        """
-        CREATE TABLE member_handle(
-            id INTEGER PRIMARY KEY, member_id INTEGER NOT NULL REFERENCES member(id),
-            kind TEXT NOT NULL CHECK(kind IN ('whatsapp')), handle TEXT NOT NULL CHECK(handle <> ''), at TEXT NOT NULL)
-        """,
-        """
-        CREATE TABLE action(
-            id INTEGER PRIMARY KEY, at TEXT NOT NULL, kind TEXT NOT NULL CHECK(kind <> ''), target TEXT NOT NULL,
-            detail TEXT NOT NULL CHECK(json_valid(detail)))
-        """,
-    ]
-
-    /// A page's text from the browser extension gets its own kind, so a page machine reads what the extension saw
-    /// and never the Accessibility text of the same window. SQLite cannot change a CHECK, so the table is rebuilt
-    /// (sqlite.org/lang_altertable.html, "other kinds of table schema changes"). And every decision on a machine's
-    /// brief, never updated: a trial started, a switch, a rejection, a rollback.
-    private static let improvement = [
-        """
-        CREATE TABLE activity_next(
-            id INTEGER PRIMARY KEY, ts TEXT NOT NULL,
-            kind TEXT NOT NULL CHECK(kind IN ('window','text','page','idle','active','skipped','file','sleep','wake')),
-            app TEXT NOT NULL, bundle_id TEXT NOT NULL, title TEXT NOT NULL, document TEXT, text TEXT,
-            CHECK(kind IN ('window','text','page','file') OR (app = '' AND title = '' AND document IS NULL AND text IS NULL)))
-        """,
-        "INSERT INTO activity_next SELECT id, ts, kind, app, bundle_id, title, document, text FROM activity",
-        "DROP TABLE activity",
-        "ALTER TABLE activity_next RENAME TO activity",
-        "CREATE INDEX activity_ts ON activity(ts)",
-        """
-        CREATE TABLE machine_decision(
-            id INTEGER PRIMARY KEY, task TEXT NOT NULL CHECK(task <> ''), at TEXT NOT NULL,
-            kind TEXT NOT NULL CHECK(kind IN ('trial','promote','reject','rollback')),
-            decided_by TEXT NOT NULL CHECK(decided_by IN ('person','proposer','alarm')),
-            brief TEXT NOT NULL, parent_brief TEXT NOT NULL, detail TEXT NOT NULL CHECK(json_valid(detail)))
-        """,
-    ]
-
-    /// Every event on shared work objects, from every teammate: a union by event id, never updated.
-    private static let workObjects = [
-        """
-        CREATE TABLE work_event(
-            id INTEGER PRIMARY KEY, event_id TEXT NOT NULL UNIQUE CHECK(event_id <> ''), object TEXT NOT NULL,
-            author TEXT NOT NULL, clock INTEGER NOT NULL, at TEXT NOT NULL,
-            kind TEXT NOT NULL CHECK(kind IN ('create','title','stage','note','link','claim','release','archive')),
-            body TEXT NOT NULL CHECK(json_valid(body)))
-        """,
-        "CREATE INDEX work_event_object ON work_event(object)",
-    ]
-
-    private static let crew = [
+        // The team and its people, and machines as records a person owns: renamed, edited, paused or deleted by a
+        // new change row; the latest change is the machine's state.
         "CREATE TABLE team(id INTEGER PRIMARY KEY, name TEXT NOT NULL CHECK(name <> ''), created_at TEXT NOT NULL)",
         """
         CREATE TABLE member(
@@ -222,15 +110,21 @@ enum Schema {
             change.state FROM machine JOIN machine_change change ON change.id =
             (SELECT MAX(id) FROM machine_change WHERE machine_id = machine.id)
         """,
-    ]
-
-    /// Mochi's proposals and the founder's decisions on them; the latest decision is a proposal's state.
-    private static let proposals = [
+        // Every decision on a machine's brief, never updated: a trial started, a switch, a rejection, a rollback.
+        """
+        CREATE TABLE machine_decision(
+            id INTEGER PRIMARY KEY, task TEXT NOT NULL CHECK(task <> ''), at TEXT NOT NULL,
+            kind TEXT NOT NULL CHECK(kind IN ('trial','promote','reject','rollback')),
+            decided_by TEXT NOT NULL CHECK(decided_by IN ('person','proposer','alarm')),
+            brief TEXT NOT NULL, parent_brief TEXT NOT NULL, detail TEXT NOT NULL CHECK(json_valid(detail)))
+        """,
+        // Mochi's proposals and the founder's decisions on them; the latest decision is a proposal's state.
         """
         CREATE TABLE proposal(
             id INTEGER PRIMARY KEY, run_id INTEGER NOT NULL REFERENCES run(id), name TEXT NOT NULL CHECK(name <> ''),
             template TEXT NOT NULL, brief TEXT NOT NULL CHECK(brief <> ''), why TEXT NOT NULL,
-            evidence TEXT NOT NULL CHECK(json_valid(evidence)), created_at TEXT NOT NULL)
+            evidence TEXT NOT NULL CHECK(json_valid(evidence)), created_at TEXT NOT NULL,
+            view TEXT NOT NULL DEFAULT 'table')
         """,
         """
         CREATE TABLE proposal_decision(
@@ -243,8 +137,26 @@ enum Schema {
             'waiting') AS decision
         FROM proposal
         """,
+        // Who each teammate is in a source (their WhatsApp id), set by the founder; the latest link wins. Every act
+        // that leaves the founder's store, logged once. Every event on shared work objects, from every teammate: a
+        // union by event id, never updated.
+        """
+        CREATE TABLE member_handle(
+            id INTEGER PRIMARY KEY, member_id INTEGER NOT NULL REFERENCES member(id),
+            kind TEXT NOT NULL CHECK(kind IN ('whatsapp')), handle TEXT NOT NULL CHECK(handle <> ''), at TEXT NOT NULL)
+        """,
+        """
+        CREATE TABLE action(
+            id INTEGER PRIMARY KEY, at TEXT NOT NULL, kind TEXT NOT NULL CHECK(kind <> ''), target TEXT NOT NULL,
+            detail TEXT NOT NULL CHECK(json_valid(detail)))
+        """,
+        """
+        CREATE TABLE work_event(
+            id INTEGER PRIMARY KEY, event_id TEXT NOT NULL UNIQUE CHECK(event_id <> ''), object TEXT NOT NULL,
+            author TEXT NOT NULL, clock INTEGER NOT NULL, at TEXT NOT NULL,
+            kind TEXT NOT NULL CHECK(kind IN ('create','title','stage','note','link','claim','release','archive')),
+            body TEXT NOT NULL CHECK(json_valid(body)))
+        """,
+        "CREATE INDEX work_event_object ON work_event(object)",
     ]
-
-    /// The view Mochi chose for a proposed machine.
-    private static let proposalView = ["ALTER TABLE proposal ADD COLUMN view TEXT NOT NULL DEFAULT 'table'"]
 }

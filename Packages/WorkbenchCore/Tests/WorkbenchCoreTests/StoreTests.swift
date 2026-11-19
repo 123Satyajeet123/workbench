@@ -8,68 +8,26 @@ private func userVersion(in folder: URL) throws -> Int64? {
         .integer
 }
 
-private func setUserVersion(_ version: Int32, in folder: URL) throws {
-    try Database(path: folder.appending(path: "workbench.sqlite").path).run("PRAGMA user_version = \(version)")
-}
-
 private func mode(_ url: URL) throws -> Int {
     try #require(FileManager.default.attributesOfItem(atPath: url.path)[.posixPermissions] as? Int)
 }
 
 struct SchemaTests {
-    /// The digest of each shipped step. A shipped step never changes; a new step adds a line here.
-    private let shipped = [
-        "dc7fb56e82933109fc9d23e8f416cef704a7442c446deb45c4779f39fce7a7a5",
-        "d5f3a25c3985b819a4dba11053332e828911467e850086d34be39652a062e927",
-        "b08e6b2a7bb7f102beeb8ce85674463fb1bfc3871c0496810997c4d8dbdea6ba",
-        "a6a9d2a81a24b147d2f2fa8fde1016a72e2044fba57648a92387e9b5776c769c",
-        "ec020f3c73ae5d70c0f8ad4332b4c567326f409cd42cd85671852454291d29e8",
-        "a9ba3c5c9d444b9787422a6c40c98beb729c35826a4454549a885888216fae92",
-        "6d598c0deae57d5c9eda7c91cad26085ba8aeef7636d2dedccc77b324dd3564d",
-        "237f908f481decf062cf374df069108d4b572954c113e1837073fadf5b20d1b2",
-        "7141c180ff356fbff4bf68167686bd6dd50ad7f8cb3e4913c70f50b63599754e",
-        "66744bbe5e5aac90b63adff2ecf85281e35a2daf43acc69d1478041b07bc3a2a",
-        "dfbe9c6baba4dfed49feefb368f0dbc5c07377012948e06f36ce79b69c2f7f4a",
-    ]
+    /// The digest of each shipped step. A shipped step never changes; a new step adds a line here. The first is the
+    /// whole schema as of 2026-11-19 (checked equal, table by table, to the chain of steps it replaced).
+    private let shipped = ["00fdbbe73d6e0a0a4a4a3d12e117d15fcc162b0d35f7458d557a70b8cb937137"]
 
     @Test func aShippedStepNeverChanges() {
         #expect(Array(Schema.stepDigests.prefix(shipped.count)) == shipped)
         #expect(Schema.stepDigests.count >= shipped.count)
     }
 
-    @Test func anOlderStoreGetsTheMissingStepsAndItsLedgerBecomesItemsWithTheirMarks() throws {
+    @Test func aNewStoreIsAtTheLatestVersionAndKeepsItsDataWhenOpenedAgain() throws {
         let folder = temporaryDirectory()
         let store = try Store(directory: folder)
         try store.saveState("kept", forKey: "probe")
-        for table in ["work_event", "machine_decision", "action", "member_handle"] {
-            try store.database.run("DROP TABLE \(table)")
-        }
-        try store.database.run("DROP VIEW proposal_now")
-        for table in ["proposal_decision", "proposal"] { try store.database.run("DROP TABLE \(table)") }
-        try store.database.run("DROP VIEW machine_now")
-        for table in ["machine_change", "machine", "member", "team"] { try store.database.run("DROP TABLE \(table)") }
-        try store.database.run("DROP VIEW item_mark")
-        for table in ["mark", "item", "prompt"] { try store.database.run("DROP TABLE \(table)") }
-        for statement in Schema.steps[0] { try store.database.run(statement) }
-        let run = try store.beginRun(task: "team.ledger", model: "m", prompt: "p", input: "x")
-        for (message, state) in [(11, "confirmed"), (12, "proposed")] {
-            try store.database.run(
-                """
-                INSERT INTO ledger_entry(run_id, chat, day, person, kind, text, eta, quote, message_id, said_at, state,
-                    created_at) VALUES (?, 'team', '2026-09-21', 'Asha', 'done', 'Login', '', 'login done', ?,
-                    '2026-09-21T15:00:00Z', ?, '2026-09-21T16:00:00Z')
-                """, [.int(run), .int(Int64(message)), .text(state)])
-        }
-        try setUserVersion(1, in: folder)
-        let upgraded = try Store(directory: folder)
         #expect(try userVersion(in: folder) == Int64(Schema.steps.count))
-        #expect(try upgraded.queries.state(forKey: "probe") == "kept")
-        let items = try upgraded.queries.items(
-            of: "team.ledger", day: try #require(WorkDay("2026-09-21")), scope: "team")
-        #expect(items.map(\.citeFirst) == [11, 12])
-        #expect(items.map(\.state) == [.confirmed, .proposed])
-        #expect(items.first?["person"] == "Asha")
-        #expect(try upgraded.queries.count(of: .mark) == 1)
+        #expect(try Store(directory: folder).queries.state(forKey: "probe") == "kept")
     }
 
     @Test func theFolderIsOwnerOnlyAndAFolderMadeOpenIsClosedAgain() throws {
