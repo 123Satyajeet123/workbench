@@ -70,6 +70,8 @@ extension View {
             .environment(session.reminders)
             .environment(session.catalog)
             .environment(session.actions)
+            .environment(session.deals)
+            .environment(session.memory)
             .environment(session.runs)
     }
 }

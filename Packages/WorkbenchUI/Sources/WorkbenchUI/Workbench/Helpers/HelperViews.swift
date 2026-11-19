@@ -560,6 +560,7 @@ private struct ItemActions: View {
     let model: HelperModel
     let item: Item
     @Environment(ActionsModel.self) private var actions
+    @Environment(DealsModel.self) private var deals
 
     var body: some View {
         if actions.drafting == item.id {
@@ -569,6 +570,15 @@ private struct ItemActions: View {
                 Button("Draft a message…") { Task { await actions.draft(item, from: model.machine) } }
                 Button("Add to Reminders") {
                     Task { await actions.remind(item, from: model.machine, title: item[model.spec.title]) }
+                }
+                Divider()
+                Button("New deal from this item") { Task { await deals.newDeal(from: item, of: model) } }
+                if !deals.deals.isEmpty {
+                    Menu("Add to a deal") {
+                        ForEach(deals.deals) { deal in
+                            Button(deal.title) { Task { await deals.link(item, from: model, to: deal.id) } }
+                        }
+                    }
                 }
             }
             .labelStyle(.iconOnly).menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()

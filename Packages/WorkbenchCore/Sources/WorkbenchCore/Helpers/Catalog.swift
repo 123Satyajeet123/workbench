@@ -56,6 +56,15 @@ public struct SharedMachine: TeamFile, Equatable, Identifiable {
     public var fileParts: [String] { [spec.task] }
 }
 
+/// Names in the team folder.
+public enum TeamFolder {
+    /// Letters, digits, dash, dot and underscore only, with no leading dot: a name cannot leave its folder or hide.
+    public static func safe(_ text: String) -> String {
+        let allowed = CharacterSet.alphanumerics.union(.init(charactersIn: "-._"))
+        return String(String(text.unicodeScalars.filter(allowed.contains)).drop { $0 == "." })
+    }
+}
+
 /// A file one teammate writes in the team folder. Its name is its author and parts, so each person writes only their
 /// own files and no name can leave the folder.
 public protocol TeamFile: Codable, Sendable {
@@ -68,11 +77,7 @@ public protocol TeamFile: Codable, Sendable {
 
 extension TeamFile {
     public static func fileName(author: String, parts: [String]) -> String {
-        let allowed = CharacterSet.alphanumerics.union(.init(charactersIn: "-._"))
-        let safe = { (text: String) in
-            String(String(text.unicodeScalars.filter(allowed.contains)).drop { $0 == "." })
-        }
-        return ([author] + parts).map(safe).joined(separator: "--") + ".json"
+        ([author] + parts).map(TeamFolder.safe).joined(separator: "--") + ".json"
     }
 
     public func write(to folder: URL) throws {

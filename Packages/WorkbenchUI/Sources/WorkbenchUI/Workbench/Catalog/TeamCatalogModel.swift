@@ -115,6 +115,17 @@ final class TeamCatalogModel {
 
     /// The teammates a share would go to, and those among them who cannot read the source. Sets the refusal.
     private func audience(of helper: HelperModel) async throws -> (recipients: [Team.Person], missing: [Team.Person]) {
+        let found = try await readers(of: helper)
+        refusal =
+            found.missing.isEmpty ? nil : Refusal(task: helper.spec.task, missing: found.missing, group: found.group)
+        return (found.recipients, found.missing)
+    }
+
+    /// Who can already read the machine's source, by the audience rule: a group's linked members; for the founder's
+    /// screen and pages, nobody else.
+    func readers(of helper: HelperModel) async throws -> (
+        recipients: [Team.Person], missing: [Team.Person], group: [WhatsAppMember]
+    ) {
         let recipients = (try store.queries.team()?.people ?? []).filter { !$0.isMe }
         var readers: Set<Int64> = []
         var group: [WhatsAppMember] = []
@@ -123,9 +134,7 @@ final class TeamCatalogModel {
             group = source.members
             readers = Audience.readers(links: try store.queries.whatsappLinks(), group: Set(group.map(\.jid)))
         }
-        let missing = Audience.missing(recipients: recipients, readers: readers)
-        refusal = missing.isEmpty ? nil : Refusal(task: helper.spec.task, missing: missing, group: group)
-        return (recipients, missing)
+        return (recipients, Audience.missing(recipients: recipients, readers: readers), group)
     }
 
     /// Writes the machine's spec and its record in counts to the team folder.

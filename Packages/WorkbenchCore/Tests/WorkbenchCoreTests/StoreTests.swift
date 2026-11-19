@@ -29,6 +29,7 @@ struct SchemaTests {
         "237f908f481decf062cf374df069108d4b572954c113e1837073fadf5b20d1b2",
         "7141c180ff356fbff4bf68167686bd6dd50ad7f8cb3e4913c70f50b63599754e",
         "66744bbe5e5aac90b63adff2ecf85281e35a2daf43acc69d1478041b07bc3a2a",
+        "dfbe9c6baba4dfed49feefb368f0dbc5c07377012948e06f36ce79b69c2f7f4a",
     ]
 
     @Test func aShippedStepNeverChanges() {
@@ -40,7 +41,9 @@ struct SchemaTests {
         let folder = temporaryDirectory()
         let store = try Store(directory: folder)
         try store.saveState("kept", forKey: "probe")
-        for table in ["machine_decision", "action", "member_handle"] { try store.database.run("DROP TABLE \(table)") }
+        for table in ["work_event", "machine_decision", "action", "member_handle"] {
+            try store.database.run("DROP TABLE \(table)")
+        }
         try store.database.run("DROP VIEW proposal_now")
         for table in ["proposal_decision", "proposal"] { try store.database.run("DROP TABLE \(table)") }
         try store.database.run("DROP VIEW machine_now")

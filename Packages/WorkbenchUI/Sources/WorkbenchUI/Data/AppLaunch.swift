@@ -20,6 +20,8 @@ struct AppSession {
     let reminders: Reminders
     let catalog: TeamCatalogModel
     let actions: ActionsModel
+    let deals: DealsModel
+    let memory: MemoryModel
     let runs: RunsModel
 }
 
@@ -41,13 +43,15 @@ enum AppLaunch {
             let crew = Crew(store: store, capture: service, founder: { identity.identity.name })
             let review = ReviewModel(store: store, crew: crew)
             let mochi = MochiModel(store: store, crew: crew)
+            let catalog = TeamCatalogModel(store: store, crew: crew, author: { identity.identity.name })
+            let deals = DealsModel(store: store, catalog: catalog)
             let session = AppSession(
                 store: store, capture: CaptureSettings(service: service), onboarding: onboarding, identity: identity,
                 team: onboarding.teamModel, models: ModelSettings(store: store),
                 crew: crew, review: review, mochi: mochi,
                 reminders: Reminders(store: store, review: review, mochi: mochi),
-                catalog: TeamCatalogModel(store: store, crew: crew, author: { identity.identity.name }),
-                actions: ActionsModel(store: store, founder: { identity.identity.name }),
+                catalog: catalog, actions: ActionsModel(store: store, founder: { identity.identity.name }),
+                deals: deals, memory: MemoryModel(store: store, crew: crew, deals: deals),
                 runs: RunsModel(store: store))
             service.start()
             session.reminders.start()

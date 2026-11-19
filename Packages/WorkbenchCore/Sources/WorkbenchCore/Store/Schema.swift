@@ -18,7 +18,9 @@ enum Schema {
 
     static var stepDigests: [String] { steps.map { Digest.sha256($0.joined(separator: ";\n")) } }
 
-    static let steps = [base, timeline, prompts, items, audit, crew, proposals, proposalView, teamMemory, improvement]
+    static let steps = [
+        base, timeline, prompts, items, audit, crew, proposals, proposalView, teamMemory, improvement, workObjects,
+    ]
 
     private static let base = [
         "CREATE TABLE IF NOT EXISTS state(key TEXT PRIMARY KEY, value TEXT NOT NULL, saved_at TEXT NOT NULL)",
@@ -183,6 +185,18 @@ enum Schema {
             decided_by TEXT NOT NULL CHECK(decided_by IN ('person','proposer','alarm')),
             brief TEXT NOT NULL, parent_brief TEXT NOT NULL, detail TEXT NOT NULL CHECK(json_valid(detail)))
         """,
+    ]
+
+    /// Every event on shared work objects, from every teammate: a union by event id, never updated.
+    private static let workObjects = [
+        """
+        CREATE TABLE work_event(
+            id INTEGER PRIMARY KEY, event_id TEXT NOT NULL UNIQUE CHECK(event_id <> ''), object TEXT NOT NULL,
+            author TEXT NOT NULL, clock INTEGER NOT NULL, at TEXT NOT NULL,
+            kind TEXT NOT NULL CHECK(kind IN ('create','title','stage','note','link','claim','release','archive')),
+            body TEXT NOT NULL CHECK(json_valid(body)))
+        """,
+        "CREATE INDEX work_event_object ON work_event(object)",
     ]
 
     private static let crew = [
