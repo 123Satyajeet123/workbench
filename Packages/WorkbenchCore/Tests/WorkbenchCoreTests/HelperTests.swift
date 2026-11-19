@@ -37,9 +37,9 @@ private func block(_ first: Int, _ last: Int, task: String = "Work", quote: Stri
 }
 
 private func read(
-    _ spec: HelperSpec, _ items: [String], evidence: EvidenceSet, store: Store? = nil
+    _ spec: HelperSpec, _ items: [String], evidence: EvidenceSet, store: Store? = nil, offSchema: Bool = false
 ) async throws -> (HelperReader.Result, ScriptedModel) {
-    let model = ScriptedModel(#"{"items":[\#(items.joined(separator: ","))]}"#)
+    let model = ScriptedModel(#"{"items":[\#(items.joined(separator: ","))]}"#, offSchema: offSchema)
     let reader = HelperReader(spec: spec, model: RecordedModel(model, store: try store ?? makeStore()))
     return (try await reader.read(day: day, scope: "team", evidence: evidence), model)
 }
@@ -52,7 +52,7 @@ private func read(
             [
                 entry("Asha", cite: 11, quote: "login"), entry("Rahul", cite: 11, quote: "login"),
                 entry("Asha", "maybe", cite: 11, quote: "login"), entry("Asha", cite: 11, quote: "login", text: " "),
-            ], evidence: chat)
+            ], evidence: chat, offSchema: true)
         #expect(result.items.count == 1)
         #expect(result.dropped == 3)
     }

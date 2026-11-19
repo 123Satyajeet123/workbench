@@ -9,7 +9,8 @@ private let day = WorkDay(containing: t0)
 private func addItem(to machine: Machine, in store: Store) async throws -> Item {
     let model = RecordedModel(ScriptedModel(#"{"items":[]}"#), store: store)
     let (_, run) = try await model.generate(
-        HelperReader.Reply.self, schema: .object([]), task: machine.task, instructions: machine.spec.brief, input: "x")
+        HelperReader.Reply.self, schema: .object([.init("items", .array(.string))]), task: machine.task,
+        instructions: machine.spec.brief, input: "x")
     let item = Item(
         task: machine.task, day: day, scope: "", source: machine.spec.source.kind, citeFirst: 1, citeLast: 1,
         start: day.start,

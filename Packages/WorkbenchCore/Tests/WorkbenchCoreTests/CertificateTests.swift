@@ -42,7 +42,8 @@ import Testing
         let store = try makeStore()
         let model = RecordedModel(ScriptedModel(#"{"items":[]}"#), store: store)
         let (_, run) = try await model.generate(
-            HelperReader.Reply.self, schema: .object([]), task: "day.timeline", instructions: "v1", input: "x")
+            HelperReader.Reply.self, schema: .object([.init("items", .array(.string))]), task: "day.timeline",
+            instructions: "v1", input: "x")
         for (day, mark) in zip(Array(heldOut) + [dev], [Mark.confirmed, .rejected, .rejected]) {
             let items = (0..<2).map { index in
                 Item(

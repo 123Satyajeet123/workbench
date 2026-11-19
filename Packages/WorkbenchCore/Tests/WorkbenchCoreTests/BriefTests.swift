@@ -15,7 +15,7 @@ import Testing
     }
 
     private func briefer(_ reply: String) throws -> (Briefer, ScriptedModel) {
-        let scripted = ScriptedModel(reply)
+        let scripted = ScriptedModel(reply, offSchema: true)
         return (Briefer(model: RecordedModel(scripted, store: try makeStore())), scripted)
     }
 

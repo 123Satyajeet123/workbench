@@ -7,7 +7,8 @@ import Testing
     private func save(_ spec: HelperSpec, day: WorkDay, quotes: [String], pick: Int, into store: Store) async throws {
         let model = RecordedModel(ScriptedModel(#"{"items":[]}"#), store: store)
         let (_, run) = try await model.generate(
-            HelperReader.Reply.self, schema: .object([]), task: spec.task, instructions: spec.brief, input: "x")
+            HelperReader.Reply.self, schema: .object([.init("items", .array(.string))]), task: spec.task,
+            instructions: spec.brief, input: "x")
         let items = quotes.enumerated().map { index, quote in
             Item(
                 task: spec.task, day: day, scope: "", source: .screen, citeFirst: Int64(index), citeLast: Int64(index),

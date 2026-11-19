@@ -9,7 +9,8 @@ import Testing
         let machine = try store.createMachine(from: .timeline, name: "Deck triage")
         let model = RecordedModel(ScriptedModel(#"{"items":[]}"#), store: store)
         let (_, run) = try await model.generate(
-            HelperReader.Reply.self, schema: .object([]), task: machine.task, instructions: machine.spec.brief,
+            HelperReader.Reply.self, schema: .object([.init("items", .array(.string))]), task: machine.task,
+            instructions: machine.spec.brief,
             input: "x")
         let day = WorkDay(containing: t0)
         let secret = "Acme raises at a 40 crore valuation"

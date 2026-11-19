@@ -15,7 +15,8 @@ import Testing
         for offset in 0..<count {
             let day = WorkDay(containing: t0).adding(days: -offset)
             let (_, run) = try await model.generate(
-                HelperReader.Reply.self, schema: .object([]), task: "day.timeline", instructions: "v1", input: "x")
+                HelperReader.Reply.self, schema: .object([.init("items", .array(.string))]), task: "day.timeline",
+                instructions: "v1", input: "x")
             let item = Item(
                 task: "day.timeline", day: day, scope: "", source: .screen, citeFirst: 1, citeLast: 1,
                 start: day.start.addingTimeInterval(3600), end: day.start.addingTimeInterval(7200),

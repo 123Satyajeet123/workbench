@@ -40,10 +40,11 @@ private let dayTwo = EvidenceSet(lines: [
         try store.saveReading(result, of: .context, day: first, scope: "work", grant: chatGrant)
     }
 
-    private func readDayTwo(_ store: Store, closes: [String], evidence: EvidenceSet = dayTwo) async throws
-        -> (HelperReader.Result, ScriptedModel)
-    {
-        let model = ScriptedModel(#"{"items":[],"closes":["# + closes.joined(separator: ",") + "]}")
+    private func readDayTwo(
+        _ store: Store, closes: [String], evidence: EvidenceSet = dayTwo, offSchema: Bool = false
+    ) async throws -> (HelperReader.Result, ScriptedModel) {
+        let model = ScriptedModel(
+            #"{"items":[],"closes":["# + closes.joined(separator: ",") + "]}", offSchema: offSchema)
         let reader = HelperReader(spec: .context, model: RecordedModel(model, store: store))
         let open = try store.queries.openItems(of: HelperSpec.context.task, lifecycle: HelperSpec.context.lifecycle!)
         return (try await reader.read(day: second, scope: "work", evidence: evidence, open: open), model)
@@ -77,7 +78,7 @@ private let dayTwo = EvidenceSet(lines: [
     func aCloseThatFailsACheckIsDropped(_ check: String, _ given: String) async throws {
         let store = try makeStore()
         try await openDayOne(store)
-        let (result, _) = try await readDayTwo(store, closes: [given])
+        let (result, _) = try await readDayTwo(store, closes: [given], offSchema: check == "outcome not allowed")
         #expect(result.closes.isEmpty, "\(check)")
         #expect(result.dropped == 1, "\(check)")
     }
