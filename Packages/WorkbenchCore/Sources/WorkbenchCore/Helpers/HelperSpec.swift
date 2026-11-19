@@ -62,6 +62,9 @@ public struct HelperSpec: Codable, Sendable, Equatable {
             case choice([String])
             /// A name from a context set the source gives, such as the group's members.
             case member(of: String)
+            /// A short name that should stay the same over days, such as a project: the values this machine used
+            /// before are shown under `set` for reuse, and a new one is allowed. Never empty.
+            case label(of: String)
         }
 
         public var name: String
@@ -92,14 +95,14 @@ public struct HelperSpec: Codable, Sendable, Equatable {
     }
 
     /// The views this spec can fill, by name: a board needs a field that names a member, a timeline needs time spans,
-    /// and each choice field gives a view grouped by its values ("by rating").
+    /// and each choice or label field gives a view grouped by its values ("by rating", "by topic").
     public var views: [String: View] {
         var views: [String: View] = ["table": .table]
         if citation == .range { views["timeline"] = .timeline }
         for field in fields {
             switch field.kind {
             case .member(let set): views["board"] = .board(groupBy: field.name, expected: set)
-            case .choice: views["by \(field.name)"] = .grouped(by: field.name)
+            case .choice, .label: views["by \(field.name)"] = .grouped(by: field.name)
             case .text: break
             }
         }

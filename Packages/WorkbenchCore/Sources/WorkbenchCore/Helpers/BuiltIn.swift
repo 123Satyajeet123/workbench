@@ -118,4 +118,40 @@ extension HelperSpec {
         ],
         citation: .one, view: .table, title: "text", badges: ["company", "signal"],
         tones: ["funding": .good, "launch": .good, "risk": .bad, "departure": .bad], itemsNoun: "signals", nudge: nil)
+
+    /// The work context: commitments, decisions, open questions, status and roles from the founder's work chats, each
+    /// with its topic, so a project's state builds up across days and chats.
+    public static let context = HelperSpec(
+        task: "work.context", source: .whatsappChat,
+        brief: """
+            You keep a founder's work context from their work chats: groups and direct chats at their company. From \
+            each message that states one, give an item:
+            - commitment: someone says they or another person will do something;
+            - decision: something agreed or chosen;
+            - question: asked and not answered in these lines;
+            - status: where a piece of work stands now;
+            - role: who is responsible for what.
+            Use only what a message says. Chatter, greetings, thanks and bare links give no item. Write the fact in \
+            plain English even when the message is in Hindi or Hinglish.
+            """,
+        fields: [
+            Field(
+                "kind", .choice(["commitment", "decision", "question", "status", "role"]),
+                meaning: "What kind of fact it is."),
+            Field("text", .text(required: true), meaning: "The fact in one short English line."),
+            Field(
+                "who", .text(required: false),
+                meaning: "The person it is about or who owes it, as named in the chat; empty when no one is."),
+            Field("topic", .label(of: "topics"), meaning: "The project or topic, in two to four words."),
+            Field(
+                "due", .text(required: false),
+                meaning:
+                    "When it is due, as an absolute date worked out from the message date (\"Fri 21 Nov\"); empty when not said, never guessed."
+            ),
+            Field(
+                "stance", .choice(["said", "reported"]),
+                meaning: "said: written by the person it is about. reported: written by someone else."),
+        ],
+        citation: .one, view: .grouped(by: "topic"), title: "text", badges: ["kind", "who", "due"], tones: [:],
+        itemsNoun: "facts", nudge: nil)
 }

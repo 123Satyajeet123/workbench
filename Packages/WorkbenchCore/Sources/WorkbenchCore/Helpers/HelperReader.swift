@@ -54,6 +54,8 @@ public struct HelperReader: Sendable {
             case .text: "- \(field.name): \(field.meaning)"
             case .choice(let values): "- \(field.name): one of \(values.joined(separator: ", ")). \(field.meaning)"
             case .member(let set): "- \(field.name): exactly one name from the \(set) list. \(field.meaning)"
+            case .label(let set):
+                "- \(field.name): reuse a name from the \(set) list when it fits; otherwise a short new name. \(field.meaning)"
             }
         }
         let citeRules =
@@ -105,7 +107,7 @@ public struct HelperReader: Sendable {
     public var schema: JSONSchema {
         let fields = spec.fields.map { field -> JSONSchema.Property in
             switch field.kind {
-            case .text, .member: .init(field.name, .string)
+            case .text, .member, .label: .init(field.name, .string)
             case .choice(let values): .init(field.name, .enumeration(values))
             }
         }
@@ -168,6 +170,7 @@ public struct HelperReader: Sendable {
         case .text(let required): !required || value.cleaned != nil
         case .choice(let values): values.contains(value)
         case .member(let set): context[set]?.contains(value) == true
+        case .label: value.cleaned != nil
         }
     }
 }

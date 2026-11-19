@@ -193,7 +193,8 @@ final class HelperModel {
             // A reading starts where the last one stopped: earlier lines go along as context only, so nothing is
             // read twice and nothing comes back reworded.
             let last = try lastLine(read: day, scope: scope)
-            let evidence = full.after(last)
+            var evidence = full.after(last)
+            for (set, names) in try recentLabels() { evidence.context[set] = names }
             if last != nil, evidence.newLines.isEmpty {
                 phase = .upToDate
                 problem = nil
@@ -216,6 +217,24 @@ final class HelperModel {
             problem = "Could not read the day: \(error.localizedDescription)"
             return false
         }
+    }
+
+    /// For each label field, the values this machine gave in the last 30 days, most used first, so a project keeps
+    /// one name across days; the model may still start a new one.
+    private func recentLabels() throws -> [String: [String]] {
+        let fields = spec.fields.compactMap { field -> (name: String, set: String)? in
+            if case .label(let set) = field.kind { (field.name, set) } else { nil }
+        }
+        guard !fields.isEmpty else { return [:] }
+        let recent = try store.queries.items(
+            of: spec.task, since: WorkDay(containing: store.clock()).adding(days: -30)
+        ).filter { $0.state != .rejected }
+        return Dictionary(
+            fields.map { field in
+                let counts = Dictionary(recent.map { ($0[field.name], 1) }, uniquingKeysWith: +)
+                    .filter { !$0.key.isEmpty }
+                return (field.set, counts.sorted { ($0.value, $1.key) > ($1.value, $0.key) }.prefix(50).map(\.key))
+            }, uniquingKeysWith: { first, _ in first })
     }
 
     private func lastLineKey(day: WorkDay, scope: String) -> String { "\(spec.task).read.\(scope).\(day)" }
@@ -766,7 +785,12 @@ struct MachineTemplate: Identifiable, Hashable {
     static let companySignals = MachineTemplate(
         spec: .companySignals, name: "Signals", role: "Company signals",
         detail: "Reads news and social pages and lists funding, hires, launches and risks of companies you follow.")
-    static let all = [team, timeline, pages, dealIntake, founderCheck, companySignals]
+    static let workContext = MachineTemplate(
+        spec: .context, name: "Atlas", role: "Work context",
+        detail:
+            "Reads the work chats you choose and keeps commitments, decisions, open questions, status and roles, by project."
+    )
+    static let all = [team, timeline, pages, workContext, dealIntake, founderCheck, companySignals]
     /// The machines every store starts with; the others are made on request or from Mochi's proposals.
     static let seeded = [team, timeline]
 
