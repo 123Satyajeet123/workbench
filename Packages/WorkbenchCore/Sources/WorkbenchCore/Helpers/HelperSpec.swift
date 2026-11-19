@@ -92,21 +92,41 @@ public struct HelperSpec: Codable, Sendable, Equatable {
         case table
         /// One section per value of a choice field, in the choice's order: hot, warm, cold.
         case grouped(by: String)
+        /// Open items first, one section per value of a field; closed items below with how they closed. Needs a
+        /// lifecycle.
+        case checklist(by: String)
     }
 
     /// The views this spec can fill, by name: a board needs a field that names a member, a timeline needs time spans,
-    /// and each choice or label field gives a view grouped by its values ("by rating", "by topic").
+    /// each choice or label field gives a view grouped by its values ("by rating", "by topic"), and with a lifecycle
+    /// a checklist of what is still open, by project when a label field names one ("open by topic").
     public var views: [String: View] {
         var views: [String: View] = ["table": .table]
         if citation == .range { views["timeline"] = .timeline }
         for field in fields {
             switch field.kind {
             case .member(let set): views["board"] = .board(groupBy: field.name, expected: set)
-            case .choice, .label: views["by \(field.name)"] = .grouped(by: field.name)
+            case .choice: views["by \(field.name)"] = .grouped(by: field.name)
+            case .label:
+                views["by \(field.name)"] = .grouped(by: field.name)
+                if lifecycle != nil { views["open by \(field.name)"] = .checklist(by: field.name) }
             case .text: break
             }
         }
+        if let lifecycle, !views.values.contains(where: { if case .checklist = $0 { true } else { false } }) {
+            views["open"] = .checklist(by: lifecycle.field)
+        }
         return views
+    }
+
+    /// Items of some values of a choice field stay open until a later line closes them: a commitment kept, a question
+    /// answered, a decision reversed (research 32).
+    public struct Lifecycle: Codable, Sendable, Equatable {
+        public var field: String
+        /// The values of `field` whose items stay open.
+        public var open: [String]
+        /// How a line may close one.
+        public var outcomes: [String]
     }
 
     /// Once a work day, at the founder's time, name who in a context set has no item.
@@ -132,6 +152,8 @@ public struct HelperSpec: Codable, Sendable, Equatable {
     /// What one item is called on screen: "entries", "blocks".
     public var itemsNoun: String
     public var nudge: Nudge?
+    /// Nil for a machine whose items are only things that happened.
+    public var lifecycle: Lifecycle? = nil
     /// How many items the founder marked on other training days the machine sees as examples; nil for none. It is
     /// part of the instructions, so changing it makes a new version that earns trust again (research 20 §9.2).
     public var examples: Int? = nil

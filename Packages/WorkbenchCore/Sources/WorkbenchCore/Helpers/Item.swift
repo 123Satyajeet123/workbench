@@ -19,6 +19,15 @@ public struct Item: Sendable, Equatable, Identifiable {
     /// The chance the app picked this item to ask about; nil when it did not pick it. A mark on a picked item is an
     /// audit mark: valid evidence of the helper's error rate, because the founder did not choose it.
     public var askedWith: Double?
+    /// How a later line, or the founder, closed it; nil while it is open or for an item that never opens.
+    public var closed: Closed?
+
+    public struct Closed: Sendable, Equatable {
+        public var outcome: String
+        /// The closing words; nil when the founder closed it by hand.
+        public var quote: String?
+        public var at: Date
+    }
 
     public init(
         id: Int64? = nil, task: String, day: WorkDay, scope: String, source: SourceKind, citeFirst: Int64,

@@ -18,7 +18,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        if case .ready(let session) = launch { island = IslandPanel(capture: session.capture) }
+        if case .ready(let session) = launch { island = IslandPanel(session: session) }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

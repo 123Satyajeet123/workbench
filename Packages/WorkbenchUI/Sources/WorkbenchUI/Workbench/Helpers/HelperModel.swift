@@ -22,6 +22,10 @@ final class HelperModel {
     var isPaused: Bool { machine.state == .paused }
     private(set) var day: WorkDay
     private(set) var items: [Item] = []
+    /// Items still open from every day, for a machine whose items open and close.
+    private(set) var open: [Item] = []
+    /// Items closed on the shown day.
+    private(set) var closed: [Item] = []
     /// The screen sessions of the shown day; empty for other sources.
     private(set) var sessions: [ScreenSession] = []
     /// For a page machine: the day's page texts on its sites, and how many were past the budget.
@@ -151,6 +155,10 @@ final class HelperModel {
     func reload() {
         attempt("read the day") {
             items = try store.queries.items(of: spec.task, day: day, scope: scope)
+            if let lifecycle = spec.lifecycle {
+                open = try store.queries.openItems(of: spec.task, lifecycle: lifecycle)
+                closed = try store.queries.closedItems(of: spec.task, from: day.start, to: day.end)
+            }
             trust = try store.queries.quality().first { $0.task == spec.task }?.heldOutAudit.status
             if case .screen(let screen) = source { sessions = try screen.sessions(on: day) }
             if case .pages(let pages) = source { pageReading = try pages.reading(on: day) }
@@ -161,6 +169,21 @@ final class HelperModel {
 
     /// Sends the shown day to the chosen model and stores the items that pass the checks.
     func read() async { await read(day) }
+
+    /// The founder closes an open item by hand, or reopens one a line closed by mistake.
+    func close(_ item: Item, as outcome: String) {
+        guard let id = item.id else { return }
+        attempt("close the item") { try store.close(item: id, as: outcome) }
+        reload()
+        itemsChanged()
+    }
+
+    func reopen(_ item: Item) {
+        guard let id = item.id else { return }
+        attempt("reopen the item") { try store.reopen(item: id) }
+        reload()
+        itemsChanged()
+    }
 
     /// Marking an item the same way again takes the mark back.
     func mark(_ item: Item, as mark: Mark) {
@@ -201,7 +224,9 @@ final class HelperModel {
                 return true
             }
             let reader = HelperReader(spec: spec, model: makeModel(try runner(for: Version(spec))))
-            let result = try await reader.read(day: day, scope: scope, evidence: evidence, marked: try marked())
+            let open = try spec.lifecycle.map { try store.queries.openItems(of: spec.task, lifecycle: $0) } ?? []
+            let result = try await reader.read(
+                day: day, scope: scope, evidence: evidence, marked: try marked(), open: open)
             try store.saveReading(
                 result, of: spec, day: day, scope: scope, grant: try await grant(scope), replacing: last == nil)
             if let top = full.lines.map(\.id).max() {

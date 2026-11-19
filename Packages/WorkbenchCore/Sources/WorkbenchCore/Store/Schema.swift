@@ -20,7 +20,28 @@ enum Schema {
 
     static var stepDigests: [String] { steps.map { Digest.sha256($0.joined(separator: ";\n")) } }
 
-    static let steps = [baseline]
+    static let steps = [baseline, itemEvents]
+
+    /// Items that open and close (research 32): a later line closes a commitment or answers a question. An event is
+    /// never rewritten; the latest one is the item's state. Valid time is when the closing line was said; record time
+    /// is when the app learned it.
+    private static let itemEvents = [
+        """
+        CREATE TABLE item_event(
+            id INTEGER PRIMARY KEY, item_id INTEGER NOT NULL REFERENCES item(id) ON DELETE CASCADE,
+            kind TEXT NOT NULL CHECK(kind IN ('close','reopen')), outcome TEXT, line_id INTEGER, quote TEXT,
+            valid_at TEXT NOT NULL, recorded_at TEXT NOT NULL, run_id INTEGER REFERENCES run(id),
+            actor TEXT NOT NULL CHECK(actor IN ('model','person')),
+            CHECK((kind = 'close') = (outcome IS NOT NULL AND outcome <> '')),
+            CHECK((actor = 'model') = (run_id IS NOT NULL AND line_id IS NOT NULL AND quote IS NOT NULL)))
+        """,
+        "CREATE INDEX item_event_item ON item_event(item_id, id)",
+        """
+        CREATE VIEW item_status AS SELECT item_id, kind AS status_kind, outcome AS status_outcome,
+            quote AS status_quote, valid_at AS status_at, actor AS status_actor
+        FROM item_event WHERE id IN (SELECT MAX(id) FROM item_event GROUP BY item_id)
+        """,
+    ]
 
     private static let baseline = [
         // Settings, consent, and every model call with its cost and yield.

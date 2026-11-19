@@ -15,7 +15,10 @@ private func mode(_ url: URL) throws -> Int {
 struct SchemaTests {
     /// The digest of each shipped step. A shipped step never changes; a new step adds a line here. The first is the
     /// whole schema as of 2026-11-19 (checked equal, table by table, to the chain of steps it replaced).
-    private let shipped = ["00fdbbe73d6e0a0a4a4a3d12e117d15fcc162b0d35f7458d557a70b8cb937137"]
+    private let shipped = [
+        "00fdbbe73d6e0a0a4a4a3d12e117d15fcc162b0d35f7458d557a70b8cb937137",
+        "3e5bb4786866f0e70a7ffe1c95d129e977c00e587edbd8cbe841fa97f06b9e03",
+    ]
 
     @Test func aShippedStepNeverChanges() {
         #expect(Array(Schema.stepDigests.prefix(shipped.count)) == shipped)

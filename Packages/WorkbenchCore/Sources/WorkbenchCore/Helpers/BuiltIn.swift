@@ -152,6 +152,9 @@ extension HelperSpec {
                 "stance", .choice(["said", "reported"]),
                 meaning: "said: written by the person it is about. reported: written by someone else."),
         ],
-        citation: .one, view: .grouped(by: "topic"), title: "text", badges: ["kind", "who", "due"], tones: [:],
-        itemsNoun: "facts", nudge: nil)
+        citation: .one, view: .checklist(by: "topic"), title: "text", badges: ["kind", "who", "due"], tones: [:],
+        itemsNoun: "facts", nudge: nil,
+        lifecycle: Lifecycle(
+            field: "kind", open: ["commitment", "question", "decision"],
+            outcomes: ["kept", "answered", "reversed", "dropped"]))
 }

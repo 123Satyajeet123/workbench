@@ -28,6 +28,8 @@ struct WorkbenchView: View {
         }
         .frame(
             minWidth: Self.minimumSize.width, idealWidth: Self.idealSize.width, minHeight: Self.minimumSize.height,
-            idealHeight: Self.idealSize.height)
+            idealHeight: Self.idealSize.height
+        )
+        .onReceive(NotificationCenter.default.publisher(for: .openReview)) { _ in selection = .review }
     }
 }
