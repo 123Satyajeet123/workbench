@@ -19,6 +19,7 @@ struct AppSession {
     let mochi: MochiModel
     let reminders: Reminders
     let catalog: TeamCatalogModel
+    let actions: ActionsModel
     let runs: RunsModel
 }
 
@@ -46,6 +47,7 @@ enum AppLaunch {
                 crew: crew, review: review, mochi: mochi,
                 reminders: Reminders(store: store, review: review, mochi: mochi),
                 catalog: TeamCatalogModel(store: store, crew: crew, author: { identity.identity.name }),
+                actions: ActionsModel(store: store, founder: { identity.identity.name }),
                 runs: RunsModel(store: store))
             service.start()
             session.reminders.start()

@@ -1,8 +1,8 @@
 import AppKit
 import UserNotifications
 
-/// Whether macOS lets Workbench show a notification, and why not.
-enum NotificationAccess: Equatable {
+/// Whether macOS lets Workbench use something the founder controls (notifications, Reminders), and why not.
+enum SystemAccess: Equatable {
     case allowed
     /// The founder said no, now or before; only System Settings can change it.
     case blocked
@@ -13,12 +13,12 @@ enum NotificationAccess: Equatable {
 /// Shows a message to the founder outside the window. Silent: no notification plays a sound.
 protocol Notifier {
     /// Asks macOS once when it has not asked before; otherwise reports what the founder chose.
-    func authorize() async -> NotificationAccess
+    func authorize() async -> SystemAccess
     func post(title: String, body: String) async throws
 }
 
 struct SystemNotifier: Notifier {
-    func authorize() async -> NotificationAccess {
+    func authorize() async -> SystemAccess {
         let center = UNUserNotificationCenter.current()
         switch await center.notificationSettings().authorizationStatus {
         case .authorized, .provisional: return .allowed

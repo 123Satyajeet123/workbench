@@ -69,6 +69,7 @@ extension View {
             .environment(session.mochi)
             .environment(session.reminders)
             .environment(session.catalog)
+            .environment(session.actions)
             .environment(session.runs)
     }
 }

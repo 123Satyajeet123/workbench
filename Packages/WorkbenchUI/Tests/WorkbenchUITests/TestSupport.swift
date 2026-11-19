@@ -49,10 +49,10 @@ extension OnboardingModel {
 
 /// Records each notification instead of showing it.
 final class FakeNotifier: Notifier {
-    var access = NotificationAccess.allowed
+    var access = SystemAccess.allowed
     var posted: [(title: String, body: String)] = []
 
-    func authorize() async -> NotificationAccess { access }
+    func authorize() async -> SystemAccess { access }
     func post(title: String, body: String) async throws { posted.append((title, body)) }
 }
 

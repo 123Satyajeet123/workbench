@@ -25,7 +25,7 @@ struct TeamCatalogPage: View {
             if !catalog.teammatesDays.isEmpty {
                 Text("Shared days").textStyle(.title3)
                 ForEach(catalog.teammatesDays) { SharedDayCard(day: $0) }
-                Text("Machines").textStyle(.title3)
+                if !catalog.teammates.isEmpty { Text("Machines").textStyle(.title3) }
             }
             ForEach(catalog.teammates) { SharedCard(machine: $0, open: open) }
             if !catalog.unreadable.isEmpty {

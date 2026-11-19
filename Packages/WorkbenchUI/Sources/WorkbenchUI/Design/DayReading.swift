@@ -20,8 +20,12 @@ struct ReadPhaseLabel: View {
         case .idle: EmptyView()
         case .reading: ProgressView("Reading the day…").controlSize(.small)
         case .read(let kept, let dropped):
-            Text(dropped == 0 ? "\(kept) \(items)." : "\(kept) \(items). \(dropped) dropped: \(droppedBecause).")
-                .textStyle(.callout).foregroundStyle(.supporting)
+            Text(
+                dropped == 0
+                    ? "\(items.capitalized): \(kept)."
+                    : "\(items.capitalized): \(kept). Dropped: \(dropped), \(droppedBecause)."
+            )
+            .textStyle(.callout).foregroundStyle(.supporting)
         }
     }
 }

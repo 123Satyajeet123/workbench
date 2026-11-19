@@ -27,10 +27,12 @@ struct HelperContent: View {
     @Environment(ModelSettings.self) private var models
     @Environment(CaptureSettings.self) private var capture
     @Environment(TeamCatalogModel.self) private var catalog
+    @Environment(ActionsModel.self) private var actions
 
     var body: some View {
         VStack(alignment: .leading, spacing: Space.l) {
             if let problem = model.problem { ProblemBanner(text: problem, dismiss: model.dismissProblem) }
+            ActionNotice()
             if model.isPaused { PausedNote(model: model) }
             if case .whatsapp(let source) = model.source, source.chat == nil {
                 GroupChooser(model: model, source: source)
@@ -47,6 +49,7 @@ struct HelperContent: View {
                 }
             }
         }
+        .sheet(item: Binding(get: { actions.draft }, set: { actions.draft = $0 })) { DraftSheet(draft: $0) }
         .task(id: model.scope) { await loadMembers() }
         .onAppear(perform: model.reload)
     }
@@ -291,7 +294,10 @@ private struct Table: View {
                 GridRow {
                     ForEach(model.spec.fields, id: \.name) { Text(item[$0.name]) }
                     Text("“\(item.quote)”").textStyle(.callout).foregroundStyle(.supporting).textSelection(.enabled)
-                    MarkButtons(state: item.state) { model.mark(item, as: $0) }
+                    HStack(spacing: Space.s) {
+                        MarkButtons(state: item.state) { model.mark(item, as: $0) }
+                        ItemActions(model: model, item: item)
+                    }
                 }
                 .opacity(item.state == .rejected ? 0.5 : 1)
             }
@@ -327,6 +333,7 @@ private struct ItemRow: View {
             .strikethrough(item.state == .rejected)
             Spacer()
             MarkButtons(state: item.state) { model.mark(item, as: $0) }
+            ItemActions(model: model, item: item)
         }
     }
 
@@ -403,6 +410,72 @@ private struct RefusalCard: View {
         }
         .padding(Space.m)
         .background(.quaternary.opacity(0.5), in: .rect(cornerRadius: Radius.card))
+    }
+}
+
+/// What the founder can do with one item. Each choice is the founder's click; nothing is sent.
+private struct ItemActions: View {
+    let model: HelperModel
+    let item: Item
+    @Environment(ActionsModel.self) private var actions
+
+    var body: some View {
+        if actions.drafting == item.id {
+            ProgressView().controlSize(.small)
+        } else {
+            Menu("Act on this", systemImage: "ellipsis.circle") {
+                Button("Draft a message…") { Task { await actions.draft(item, from: model.machine) } }
+                Button("Add to Reminders") {
+                    Task { await actions.remind(item, from: model.machine, title: item[model.spec.title]) }
+                }
+            }
+            .labelStyle(.iconOnly).menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+            .disabled(item.state == .rejected)
+        }
+    }
+}
+
+/// The drafted message, editable. Copy is the only way out; the founder sends it themselves.
+private struct DraftSheet: View {
+    @State var draft: ActionsModel.Draft
+    @Environment(ActionsModel.self) private var actions
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Space.m) {
+            Text(draft.to.isEmpty ? "Draft" : "Draft for \(draft.to)").textStyle(.headline)
+            TextEditor(text: $draft.text).frame(minWidth: 420, minHeight: 140).textStyle(.body)
+            Text("Workbench never sends it. Copy it, then paste it where you send it.").textStyle(.callout)
+                .foregroundStyle(.supporting)
+            HStack {
+                Spacer()
+                Button("Cancel") { dismiss() }
+                Button("Copy") { actions.copy(draft) }.buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(Space.l)
+    }
+}
+
+/// The result of the last act, or why it could not happen.
+private struct ActionNotice: View {
+    @Environment(ActionsModel.self) private var actions
+
+    var body: some View {
+        if let problem = actions.problem {
+            ProblemBanner(text: problem, dismiss: actions.dismiss)
+        } else if actions.remindersBlocked {
+            HStack {
+                Text("Reminders is off for Workbench. Turn it on in System Settings, then try again.")
+                Button("Open Settings", action: AppleReminders.openSettings)
+                Button("Dismiss", action: actions.dismiss)
+            }
+        } else if let notice = actions.notice {
+            HStack {
+                Label(notice, systemImage: "checkmark.circle").foregroundStyle(Tone.good.color)
+                Button("Dismiss", action: actions.dismiss).buttonStyle(.borderless)
+            }
+        }
     }
 }
 
