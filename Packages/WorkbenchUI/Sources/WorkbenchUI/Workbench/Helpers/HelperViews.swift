@@ -52,7 +52,7 @@ struct HelperContent: View {
                     ImproveRow(model: model)
                 }
                 if model.spec.nudge != nil { NudgeRow(model: model) }
-                if model.spec.source.keepsLineNumbers { WatchRow(model: model) }
+                WatchRow(model: model)
                 if catalog.folder != nil { ShareDayRow(model: model) }
                 switch model.spec.view {
                 case .board(let field, let expected): Board(model: model, field: field, expected: expected)
@@ -700,13 +700,19 @@ private struct WatchRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Space.xs) {
             Toggle(
-                "Read new \(model.spec.source.lineNoun) every hour, \(model.watch.fromHour):00–\(model.watch.untilHour):00",
-                isOn: Binding(get: { model.watch.isOn }, set: { on in Task { await model.setWatch(on: on) } }))
-            Text(
-                "Each reading with something new is one call to \(models.choice.title); nothing new, no call. You get an alert for new \(alarming)."
-            )
-            .textStyle(.callout).foregroundStyle(.supporting)
+                label, isOn: Binding(get: { model.watch.isOn }, set: { on in Task { await model.setWatch(on: on) } }))
+            Text(note)
+                .textStyle(.callout).foregroundStyle(.supporting)
         }
+    }
+
+    private var label: String {
+        "Read new \(model.spec.source.lineNoun) every hour, \(model.watch.fromHour):00–\(model.watch.untilHour):00"
+    }
+
+    private var note: String {
+        let alert = model.spec.tones.values.contains(.bad) ? " You get an alert for new \(alarming)." : ""
+        return "Each reading with something new is one call to \(models.choice.title); nothing new, no call.\(alert)"
     }
 
     private var alarming: String {

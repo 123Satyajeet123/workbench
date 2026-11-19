@@ -25,6 +25,10 @@ import WorkbenchCore
             let batch = engine.observe(snapshot, idleSeconds: 0, policy: on, at: clock.now)
             try store.record(#require(batch))
         }
+        clock.set(start.addingTimeInterval(3600))
+        let idle = ScreenSnapshot(app: "App", bundleID: "a", windowID: 9, title: "x", text: "")
+        let closing = engine.observe(idle, idleSeconds: 600, policy: on, at: clock.now)
+        try store.record(#require(closing))
         clock.set(.now)
         try store.seedMachines(MachineTemplate.seeded.map { ($0.spec, $0.name) })
         let scripted = ScriptedModel(blocks)

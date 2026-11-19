@@ -122,7 +122,19 @@ final class KeyedModel: StructuredModel, Sendable {
         calls.withLock { $0 += 1 }
         inputs.withLock { $0.append(input) }
         let reply = replies.withLock { $0.first { instructions.contains($0.key) }?.value } ?? #"{"items":[]}"#
-        return ModelAnswer(value: try JSONDecoder().decode(T.self, from: Data(reply.utf8)), model: "m", usage: Usage())
+        return ModelAnswer(
+            value: try JSONDecoder().decode(T.self, from: Data(Self.cite(reply, in: input).utf8)), model: "m",
+            usage: Usage())
+    }
+
+    /// `@Open PR@` in a reply becomes the number of the input line that holds "Open PR", as a model cites a line by
+    /// what it says; lines keep their ids across days and readings, so a reply cannot hard-code them.
+    static func cite(_ reply: String, in input: String) -> String {
+        reply.replacing(#/@([^@"]+)@/#) { match in
+            let words = String(match.output.1)
+            let line = input.split(separator: "\n").first { $0.hasPrefix("[") && $0.contains(words) }
+            return line.flatMap { $0.dropFirst().split(separator: "]").first }.map(String.init) ?? "0"
+        }
     }
 }
 

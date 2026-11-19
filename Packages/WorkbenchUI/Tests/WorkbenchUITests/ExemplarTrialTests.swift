@@ -8,7 +8,7 @@ import WorkbenchCore
 
 @Suite struct ExemplarTrialTests {
     private let current =
-        #"{"items":[{"task":"Review the PR","project":"","first":1,"last":1,"quote":"PR"},{"task":"Chat","project":"","first":2,"last":2,"quote":"Staff"}]}"#
+        #"{"items":[{"task":"Review the PR","project":"","first":@Open PR@,"last":@Open PR@,"quote":"PR"},{"task":"Chat","project":"","first":@Brave Staff@,"last":@Brave Staff@,"quote":"Staff"}]}"#
 
     @Test func learningFromMarksIsTriedThenSwitchedThenRolledBackByTheAlarm() async throws {
         let clock = TestClock(Date(timeIntervalSince1970: 1_790_000_000))

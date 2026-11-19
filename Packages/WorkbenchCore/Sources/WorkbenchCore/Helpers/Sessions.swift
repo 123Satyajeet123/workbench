@@ -2,8 +2,9 @@ import Foundation
 
 /// A stretch of time on one window: one app, one title, one address.
 public struct ScreenSession: Sendable, Equatable {
-    /// The number the model cites, from 1.
-    public var number: Int
+    /// The id the model cites: the activity row that opened this stretch (a window, or back from idle). It stays the
+    /// same however often the day is read, so a reading can start where the last one stopped.
+    public var id: Int64
     public var start: Date
     public var end: Date
     public var app: String
@@ -26,28 +27,35 @@ public enum Sessions {
         var closed: [ScreenSession] = []
         var place: Activity?
         var opened: Date?
+        var opener: Int64 = 0
         func close(at time: Date) {
             if let place, let opened, time > opened {
                 closed.append(
                     ScreenSession(
-                        number: 0, start: opened, end: time, app: place.app, title: place.title,
+                        id: opener, start: opened, end: time, app: place.app, title: place.title,
                         document: place.document))
             }
             opened = nil
         }
-        for activity in activities.sorted(by: { $0.at < $1.at }) where activity.at < end {
+        for (offset, activity) in activities.sorted(by: { $0.at < $1.at }).enumerated() where activity.at < end {
+            // Rows read from the store have ids; rows built in memory get one from their place in the list.
+            let rowID = activity.id ?? -Int64(offset + 1)
             switch activity.kind {
             case .window:
                 close(at: activity.at)
                 place = activity
                 opened = activity.at
+                opener = rowID
             case .idle, .sleep:
                 close(at: activity.at)
             case .skipped, .wake:
                 close(at: activity.at)
                 place = nil
             case .active:
-                if opened == nil, place != nil { opened = activity.at }
+                if opened == nil, place != nil {
+                    opened = activity.at
+                    opener = rowID
+                }
             case .text, .page, .file:
                 break
             }
@@ -58,7 +66,7 @@ public enum Sessions {
             session.start = max(session.start, start)
             return session.end > session.start ? session : nil
         }
-        return numbered(joined(joined(clipped).filter { $0.end.timeIntervalSince($0.start) >= shortest }))
+        return joined(joined(clipped).filter { $0.end.timeIntervalSince($0.start) >= shortest })
     }
 
     private static func joined(_ sessions: [ScreenSession]) -> [ScreenSession] {
@@ -70,14 +78,6 @@ public enum Sessions {
             } else {
                 result.append(session)
             }
-        }
-    }
-
-    private static func numbered(_ sessions: [ScreenSession]) -> [ScreenSession] {
-        sessions.enumerated().map { offset, session in
-            var session = session
-            session.number = offset + 1
-            return session
         }
     }
 }

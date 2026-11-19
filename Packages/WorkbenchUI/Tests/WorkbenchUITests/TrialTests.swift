@@ -8,9 +8,9 @@ import WorkbenchCore
 
 @Suite struct TrialTests {
     private let current =
-        #"{"items":[{"task":"Review the PR","project":"","first":1,"last":1,"quote":"PR"},{"task":"Chat","project":"","first":2,"last":2,"quote":"Staff"}]}"#
+        #"{"items":[{"task":"Review the PR","project":"","first":@Open PR@,"last":@Open PR@,"quote":"PR"},{"task":"Chat","project":"","first":@Brave Staff@,"last":@Brave Staff@,"quote":"Staff"}]}"#
     private let tried =
-        #"{"items":[{"task":"Review the pull request","project":"","first":1,"last":1,"quote":"PR"},{"task":"Write the memo","project":"","first":3,"last":3,"quote":"Memo"}]}"#
+        #"{"items":[{"task":"Review the pull request","project":"","first":@Open PR@,"last":@Open PR@,"quote":"PR"},{"task":"Write the memo","project":"","first":@Memo draft@,"last":@Memo draft@,"quote":"Memo"}]}"#
 
     @Test func aNewBriefIsTriedOnPastDaysBesideTheCurrentAndOnlySwitchingChangesTheMachine() async throws {
         let clock = TestClock(.now)

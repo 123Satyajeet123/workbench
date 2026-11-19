@@ -16,8 +16,16 @@ struct ScreenSource {
         return Sessions.make(from: activity, start: day.start, end: min(day.end, store.clock()))
     }
 
+    /// The window in front now is still growing: it waits until it closes, so a block never stops mid-task and a
+    /// later reading never finds its line already read.
+    static let stillOpen: TimeInterval = 60
+
     func evidence(on day: WorkDay) throws -> EvidenceSet {
-        EvidenceSet(lines: try sessions(on: day).map(\.evidence))
+        var sessions = try sessions(on: day)
+        if let last = sessions.last, store.clock().timeIntervalSince(last.end) < Self.stillOpen {
+            sessions.removeLast()
+        }
+        return EvidenceSet(lines: sessions.map(\.evidence))
     }
 }
 

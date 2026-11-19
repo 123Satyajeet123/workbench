@@ -190,9 +190,9 @@ final class HelperModel {
         do {
             _ = try await grant(scope)
             let full = try await gather(day)
-            // A source whose lines keep their numbers is read from where the last reading stopped: earlier lines
-            // go along as context only, so nothing is read twice and nothing comes back reworded.
-            let last = spec.source.keepsLineNumbers ? try lastLine(read: day, scope: scope) : nil
+            // A reading starts where the last one stopped: earlier lines go along as context only, so nothing is
+            // read twice and nothing comes back reworded.
+            let last = try lastLine(read: day, scope: scope)
             let evidence = full.after(last)
             if last != nil, evidence.newLines.isEmpty {
                 phase = .upToDate
@@ -203,7 +203,7 @@ final class HelperModel {
             let result = try await reader.read(day: day, scope: scope, evidence: evidence, marked: try marked())
             try store.saveReading(
                 result, of: spec, day: day, scope: scope, grant: try await grant(scope), replacing: last == nil)
-            if spec.source.keepsLineNumbers, let top = full.lines.map(\.id).max() {
+            if let top = full.lines.map(\.id).max() {
                 try store.saveState(String(top), forKey: lastLineKey(day: day, scope: scope))
             }
             if self.day == day { reload() }
@@ -447,7 +447,7 @@ final class HelperModel {
     /// about new items whose value the spec marks bad (a blocker, for the team machine).
     func readIfDue() async {
         let now = store.clock()
-        guard spec.source.keepsLineNumbers, watch.isOn, isReady, !isPaused, phase != .reading else { return }
+        guard watch.isOn, isReady, !isPaused, phase != .reading else { return }
         let lastRead = (try? store.queries.state(forKey: watchedKey)).flatMap { $0 }.flatMap {
             try? Date($0, strategy: .iso8601)
         }
@@ -473,7 +473,6 @@ final class HelperModel {
 
     /// Checks once a minute while the app runs.
     func startNudges() {
-        guard spec.nudge != nil || spec.source.keepsLineNumbers else { return }
         nudges?.cancel()
         nudges = Task { [weak self] in
             while !Task.isCancelled {

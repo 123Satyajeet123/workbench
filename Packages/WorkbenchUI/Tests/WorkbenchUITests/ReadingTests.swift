@@ -82,6 +82,45 @@ import WorkbenchCore
     }
 }
 
+/// The timeline is Mochi's view of the day, so it reads through the day like a chat: a window keeps its id, and the
+/// window still open waits until it closes.
+@Suite struct TimelineReadingTests {
+    @Test func theTimelineReadsNewWindowsAndHoldsTheOpenOneUntilItCloses() async throws {
+        let start = Calendar.current.date(bySettingHour: 10, minute: 0, second: 0, of: .now)!
+        let clock = TestClock(start)
+        let store = try scratchStore(clock: { clock.now })
+        let on = CapturePolicy(switches: [.screen: true])
+        try store.savePolicy(on)
+        var engine = CaptureEngine()
+        func window(_ title: String, at minutes: Double, idle: Double = 0) throws {
+            clock.set(start.addingTimeInterval(minutes * 60))
+            let snapshot = ScreenSnapshot(app: "App", bundleID: "a", windowID: title.count, title: title, text: "")
+            let batch = engine.observe(snapshot, idleSeconds: idle, policy: on, at: clock.now)
+            try store.record(#require(batch))
+        }
+        try window("Open PR", at: 0)
+        try window("Memo draft", at: 30)
+        clock.set(start.addingTimeInterval(50 * 60))
+        let model = KeyedModel([
+            HelperSpec.timeline.brief:
+                #"{"items":[{"task":"Review","project":"","first":@Open PR@,"last":@Open PR@,"quote":"PR"},{"task":"Memo","project":"","first":@Memo draft@,"last":@Memo draft@,"quote":"Memo"}]}"#
+        ])
+        let timeline = HelperModel(
+            machine: .test(.timeline, "Timeline"), source: .screen(ScreenSource(store: store)), store: store,
+            makeModel: { _ in RecordedModel(model, store: store) }, notifier: FakeNotifier())
+        await timeline.read()
+        #expect(timeline.items.map(\.quote) == ["PR"], "the memo window is still open: it waits")
+        #expect(model.inputs.withLock { $0.last?.contains("Memo draft") } == false)
+
+        try window("Slides", at: 60)
+        clock.set(start.addingTimeInterval(70 * 60))
+        await timeline.read()
+        #expect(timeline.items.map(\.quote) == ["PR", "Memo"], "the closed memo is read once, the review not again")
+        let input = try #require(model.inputs.withLock { $0.last })
+        #expect(input.contains("Read before") && !input.contains("Slides"))
+    }
+}
+
 @Suite struct NotificationsTests {
     @Test func whatWaitedForNotificationsTurnsOnWhenTheAppSeesThemAllowed() async {
         let notifier = FakeNotifier()

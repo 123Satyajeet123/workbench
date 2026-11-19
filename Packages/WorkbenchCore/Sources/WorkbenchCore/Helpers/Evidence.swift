@@ -50,7 +50,7 @@ public struct EvidenceSet: Sendable, Equatable {
 extension ScreenSession {
     public var evidence: Evidence {
         Evidence(
-            id: Int64(number), start: start, end: end,
+            id: id, start: start, end: end,
             line: [app, title, document ?? ""].filter { !$0.isEmpty }.joined(separator: " — "),
             quotable: [title, document ?? ""])
     }
