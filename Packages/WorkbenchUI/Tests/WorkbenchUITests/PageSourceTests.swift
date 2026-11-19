@@ -28,7 +28,7 @@ import WorkbenchCore
         let machine = try store.createMachine(from: .pages, name: "Scout")
         let source = try PageSource(store: store, task: machine.task)
         let scout = HelperModel(
-            machine: machine, source: .pages(source), store: store,
+            machine: machine, source: source, store: store,
             makeModel: { _ in RecordedModel(scripted, store: store) }, notifier: FakeNotifier())
 
         #expect(!scout.isReady)
@@ -38,7 +38,7 @@ import WorkbenchCore
         try source.choose("https://www.mail.google.com/, not-a-site")
         #expect(source.sites == ["mail.google.com"])
         scout.reload()
-        #expect(scout.pageReading.pages.count == 1)
+        #expect(source.pageReading.pages.count == 1)
         await scout.read()
         let input = try #require(scripted.inputs.withLock { $0.first })
         #expect(input.contains("mail.google.com — Inbox: Acme: raising a 2M seed"))
@@ -71,7 +71,7 @@ import WorkbenchCore
         let source = try PageSource(store: store, task: machine.task)
         try source.choose("mail.google.com")
         let intake = HelperModel(
-            machine: machine, source: .pages(source), store: store,
+            machine: machine, source: source, store: store,
             makeModel: { _ in RecordedModel(scripted, store: store) }, notifier: FakeNotifier())
         await intake.read()
         #expect(intake.items.map { $0["company"] } == ["Acme"])

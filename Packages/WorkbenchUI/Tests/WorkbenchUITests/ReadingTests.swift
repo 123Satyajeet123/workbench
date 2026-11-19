@@ -33,7 +33,7 @@ import WorkbenchCore
         let model = KeyedModel(["team ledger": reply])
         let notifier = FakeNotifier()
         let pip = HelperModel(
-            machine: .test(.team, "Pip"), source: .whatsapp(source), store: store,
+            machine: .test(.team, "Pip"), source: source, store: store,
             makeModel: { _ in RecordedModel(model, store: store) }, notifier: notifier)
         return Setup(pip: pip, model: model, notifier: notifier, container: container, clock: clock, store: store)
     }
@@ -106,7 +106,7 @@ import WorkbenchCore
                 #"{"items":[{"task":"Review","project":"","first":@Open PR@,"last":@Open PR@,"quote":"PR"},{"task":"Memo","project":"","first":@Memo draft@,"last":@Memo draft@,"quote":"Memo"}]}"#
         ])
         let timeline = HelperModel(
-            machine: .test(.timeline, "Timeline"), source: .screen(ScreenSource(store: store)), store: store,
+            machine: .test(.timeline, "Timeline"), source: ScreenSource(store: store), store: store,
             makeModel: { _ in RecordedModel(model, store: store) }, notifier: FakeNotifier())
         await timeline.read()
         #expect(timeline.items.map(\.quote) == ["PR"], "the memo window is still open: it waits")

@@ -17,7 +17,7 @@ final class OnboardingModel {
         var isFinished: Bool
     }
 
-    private static let stateKey = "onboarding"
+    private static let stateKey = StateKey<Saved>.json("onboarding")
 
     init(store: Store? = nil, identity: IdentityModel = IdentityModel(), team: TeamModel? = nil) {
         self.store = store
@@ -33,8 +33,7 @@ final class OnboardingModel {
     }
 
     private static func savedState(in store: Store?) throws -> Saved? {
-        guard let text = try store?.queries.state(forKey: stateKey) else { return nil }
-        let saved = try JSONDecoder().decode(Saved.self, from: Data(text.utf8))
+        guard let store, let saved = try stateKey.load(from: store) else { return nil }
         guard OnboardingScreen.allCases.indices.contains(saved.index) else {
             throw OnboardingError.savedStateUnreadable
         }
@@ -45,7 +44,7 @@ final class OnboardingModel {
         guard let store else { return }
         do {
             let saved = Saved(index: index, isFinished: isFinished)
-            try store.saveState(String(decoding: try JSONEncoder().encode(saved), as: UTF8.self), forKey: Self.stateKey)
+            try Self.stateKey.save(saved, to: store)
             saveError = nil
         } catch {
             saveError = OnboardingError.notSaved(error.localizedDescription)

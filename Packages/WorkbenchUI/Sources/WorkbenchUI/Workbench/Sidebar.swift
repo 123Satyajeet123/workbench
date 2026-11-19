@@ -184,7 +184,7 @@ private struct MachineSheet: View {
                     dismiss()
                 }
                 .help(
-                    "Reads up to \(HelperModel.trialDays) recent days with the new brief beside the current one. Nothing changes until you switch."
+                    "Reads up to \(HelperImprovement.trialDays) recent days with the new brief beside the current one. Nothing changes until you switch."
                 )
                 Text("A new brief is a new version. Its marks and trust start again; the old version's stay on Runs.")
                     .foregroundStyle(.supporting)

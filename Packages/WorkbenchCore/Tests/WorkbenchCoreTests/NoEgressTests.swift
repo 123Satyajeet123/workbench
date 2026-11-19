@@ -62,7 +62,7 @@ struct NoEgressTests {
     @Test func shippedSourcesNameNoBannedOrUnexpectedHost() throws {
         let files = EgressScan.shippedFiles(repo: Self.repo)
         let names = Set(files.map(\.lastPathComponent))
-        #expect(names.isSuperset(of: ["Store.swift", "AgentRunner.swift", "HelperViews.swift", "project.pbxproj"]))
+        #expect(names.isSuperset(of: ["Store.swift", "AgentRunner.swift", "HelperContent.swift", "project.pbxproj"]))
         var findings: [String] = []
         for file in files {
             guard let text = try? String(contentsOf: file, encoding: .utf8) else { continue }
@@ -100,7 +100,7 @@ struct NoEgressTests {
                 findings += EgressScan.networkSymbolHits(in: text).map { "\(file.lastPathComponent): \($0)" }
             }
         }
-        #expect(seen.isSuperset(of: ["Store.swift", "AgentRunner.swift", "HelperViews.swift"]))
+        #expect(seen.isSuperset(of: ["Store.swift", "AgentRunner.swift", "HelperContent.swift"]))
         #expect(findings.isEmpty, "\(findings.joined(separator: "\n"))")
     }
 

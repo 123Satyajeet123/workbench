@@ -4,73 +4,11 @@ import LocalSources
 import Observation
 import WorkbenchCore
 
-/// The founder's screen sessions, from the activity the capture service kept.
-struct ScreenSource {
-    /// Activity this long before the day starts tells which window was open at its start.
-    private static let lookBack: TimeInterval = 6 * 3600
-
-    let store: Store
-
-    func sessions(on day: WorkDay) throws -> [ScreenSession] {
-        let activity = try store.queries.activities(from: day.start.addingTimeInterval(-Self.lookBack), to: day.end)
-        return Sessions.make(from: activity, start: day.start, end: min(day.end, store.clock()))
-    }
-
-    /// The window in front now is still growing: it waits until it closes, so a block never stops mid-task and a
-    /// later reading never finds its line already read.
-    static let stillOpen: TimeInterval = 60
-
-    func evidence(on day: WorkDay) throws -> EvidenceSet {
-        var sessions = try sessions(on: day)
-        if let last = sessions.last, store.clock().timeIntervalSince(last.end) < Self.stillOpen {
-            sessions.removeLast()
-        }
-        return EvidenceSet(lines: sessions.map(\.evidence))
-    }
-}
-
-/// Pages the founder saw on the sites a machine's owner named. Naming the sites is the consent: no other site's text
-/// is read. The text comes from the browser extension, kept only under the Screen text switch.
-@Observable
-final class PageSource {
-    private(set) var sites: [String]
-
-    @ObservationIgnored private let store: Store
-    @ObservationIgnored private let sitesKey: String
-
-    init(store: Store, task: String) throws {
-        self.store = store
-        sitesKey = "\(task).sites"
-        sites =
-            try store.queries.state(forKey: sitesKey).map {
-                try JSONDecoder().decode([String].self, from: Data($0.utf8))
-            }
-            ?? []
-    }
-
-    /// Sites as the founder typed them, separated by commas or spaces. Anything that is not a site is left out.
-    func choose(_ typed: String) throws {
-        let chosen = Array(
-            Set(typed.split(whereSeparator: { $0 == "," || $0.isWhitespace }).compactMap { WebPage.site(String($0)) })
-        ).sorted()
-        try store.saveState(String(decoding: try JSONEncoder().encode(chosen), as: UTF8.self), forKey: sitesKey)
-        sites = chosen
-    }
-
-    func reading(on day: WorkDay) throws -> (pages: [Activity], leftOut: Int) {
-        WebPage.reading(try store.queries.activities(from: day.start, to: day.end), sites: sites)
-    }
-
-    func evidence(on day: WorkDay) throws -> EvidenceSet {
-        EvidenceSet(lines: try reading(on: day).pages.compactMap(\.pageEvidence))
-    }
-}
-
 /// The WhatsApp chats a machine reads: one group the founder chose, or several chats chosen by a rule (groups whose
 /// name holds some words, and direct chats with their members). Choosing is the consent: these chats, and no other,
 /// may be read.
 @Observable
-final class WhatsAppSource {
+final class WhatsAppSource: MachineSource {
     private(set) var chats: [WhatsAppChat] = []
     private(set) var groups: [WhatsAppChat] = []
     /// The chats a rule would choose, shown before the founder confirms.
@@ -81,8 +19,8 @@ final class WhatsAppSource {
     @ObservationIgnored private let capture: CaptureService
     @ObservationIgnored private let founder: () -> String
     @ObservationIgnored private let container: URL
-    @ObservationIgnored private let chatsKey: String
-    @ObservationIgnored private let membersKey: String
+    @ObservationIgnored private let chatsKey: StateKey<[WhatsAppChat]>
+    @ObservationIgnored private let membersKey: StateKey<[WhatsAppMember]>
 
     init(
         store: Store, capture: CaptureService, task: String, founder: @escaping () -> String,
@@ -92,21 +30,22 @@ final class WhatsAppSource {
         self.capture = capture
         self.founder = founder
         self.container = container
-        chatsKey = "\(task).chats"
-        membersKey = "\(task).members"
-        chats =
-            try store.queries.state(forKey: chatsKey).map {
-                try JSONDecoder().decode([WhatsAppChat].self, from: Data($0.utf8))
-            } ?? []
-        members =
-            try store.queries.state(forKey: membersKey).map {
-                try JSONDecoder().decode([WhatsAppMember].self, from: Data($0.utf8))
-            } ?? []
+        chatsKey = MachineKey.chats(task)
+        membersKey = MachineKey.members(task)
+        chats = try chatsKey.load(from: store) ?? []
+        members = try membersKey.load(from: store) ?? []
     }
 
     /// The one chosen group, for a machine that reads one.
     var chat: WhatsAppChat? { chats.count == 1 ? chats.first : nil }
     var isSeveral: Bool { chats.count > 1 }
+
+    /// One chat is the machine's scope; several chats are one scope for the machine.
+    var scope: String { chat?.jid ?? "" }
+    var isReady: Bool { !chats.isEmpty }
+    var context: [String: [String]] { ["members": members.map(\.name)] }
+    /// With several chats, each one of them must be allowed.
+    var grantLabels: [String?] { isSeveral ? chats.map(\.jid) : [scope.isEmpty ? nil : scope] }
 
     /// Group names to choose from. Listing names needs the WhatsApp switch on; no chat is readable until one is chosen.
     func loadGroups() throws {
@@ -128,7 +67,7 @@ final class WhatsAppSource {
             $0.switches[.whatsapp] = true
             $0.allowList[.whatsapp, default: []].formUnion(chosen.map(\.jid))
         }
-        try store.saveState(String(decoding: try JSONEncoder().encode(chosen), as: UTF8.self), forKey: chatsKey)
+        try chatsKey.save(chosen, to: store)
         chats = chosen
         groups = []
         matching = []
@@ -152,7 +91,7 @@ final class WhatsAppSource {
 
     private func remember(_ current: [WhatsAppMember]) throws {
         members = current
-        try store.saveState(String(decoding: try JSONEncoder().encode(current), as: UTF8.self), forKey: membersKey)
+        try membersKey.save(current, to: store)
     }
 
     /// The day's messages of every chosen chat, each a numbered line, and the people in them, from one read. With

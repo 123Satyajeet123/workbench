@@ -6,17 +6,17 @@ struct Identity: Codable, Equatable {
     var name: String
 
     static let empty = Identity(name: "")
-    private static let stateKey = "identity"
+    private static let stateKey = StateKey<Identity>.json("identity")
 
     var hasName: Bool { !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 
     static func load(from store: Store) throws -> Identity? {
-        try store.queries.state(forKey: stateKey).map { try JSONDecoder().decode(Identity.self, from: Data($0.utf8)) }
+        try stateKey.load(from: store)
     }
 
     func save(to store: Store) throws {
         let trimmed = Identity(name: name.trimmingCharacters(in: .whitespacesAndNewlines))
-        try store.saveState(String(decoding: try JSONEncoder().encode(trimmed), as: UTF8.self), forKey: Self.stateKey)
+        try Self.stateKey.save(trimmed, to: store)
     }
 }
 

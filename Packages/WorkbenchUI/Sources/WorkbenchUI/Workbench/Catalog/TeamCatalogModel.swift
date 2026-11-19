@@ -187,12 +187,12 @@ final class TeamCatalogModel {
         let recipients = (try store.queries.team()?.people ?? []).filter { !$0.isMe }
         var readers: Set<Int64> = []
         var group: [WhatsAppMember] = []
-        if case .whatsapp(let source) = helper.source, source.isSeveral {
+        if let source = helper.source as? WhatsAppSource, source.isSeveral {
             // Items come from chats with different people: who may read all of them is not known per item yet, so
             // the audience is unknown and the share is refused (fail closed).
             return (recipients, recipients, [])
         }
-        if case .whatsapp(let source) = helper.source {
+        if let source = helper.source as? WhatsAppSource {
             try await source.loadMembers()
             group = source.members
             readers = Audience.readers(links: try store.queries.whatsappLinks(), group: Set(group.map(\.jid)))

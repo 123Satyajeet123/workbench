@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import os
 
 /// Whether macOS lets Workbench notify: one answer for the whole app. Every feature that notifies asks here, and the
 /// answer is checked again whenever the app becomes active, so allowing in System Settings takes effect at once and
@@ -8,6 +9,8 @@ import Observation
 final class Notifications {
     private(set) var blocked = false
     private(set) var problem: String?
+
+    private static let log = Logger(subsystem: "Workbench", category: "notifications")
 
     @ObservationIgnored let notifier: Notifier
     @ObservationIgnored private var waiting: [() -> Void] = []
@@ -42,5 +45,16 @@ final class Notifications {
 
     func post(title: String, body: String) async throws {
         try await notifier.post(title: title, body: body)
+    }
+
+    /// Posts without waiting, for a caller that has no page to show a failure on. A failure goes to the log.
+    func announce(title: String, body: String) {
+        Task {
+            do {
+                try await post(title: title, body: body)
+            } catch {
+                Self.log.error("Could not show \"\(title, privacy: .public)\": \(error.localizedDescription)")
+            }
+        }
     }
 }

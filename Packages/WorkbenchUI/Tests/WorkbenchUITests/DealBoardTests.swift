@@ -14,7 +14,7 @@ import WorkbenchCore
         let deals = DealsModel(store: store, catalog: catalog)
         let machine = try store.createMachine(from: .dealIntake, name: "Deal intake")
         let intake = HelperModel(
-            machine: machine, source: .pages(try PageSource(store: store, task: machine.task)), store: store,
+            machine: machine, source: try PageSource(store: store, task: machine.task), store: store,
             makeModel: { _ in RecordedModel(ScriptedModel("{}"), store: store) }, notifier: FakeNotifier())
         let item = Item(
             id: 7, task: machine.task, day: WorkDay(containing: .now), scope: "", source: .screenText, citeFirst: 1,

@@ -24,16 +24,11 @@ struct ModelChoice: Codable, Hashable, Identifiable {
 
     static func with(id: String) -> ModelChoice? { choices.first { $0.id == id } }
 
-    private static let stateKey = "model"
+    private static let stateKey = StateKey<ModelChoice>.json("model")
 
-    static func saved(in store: Store) throws -> ModelChoice {
-        try store.queries.state(forKey: stateKey).map { try JSONDecoder().decode(Self.self, from: Data($0.utf8)) }
-            ?? choices[0]
-    }
+    static func saved(in store: Store) throws -> ModelChoice { try stateKey.load(from: store) ?? choices[0] }
 
-    func save(to store: Store) throws {
-        try store.saveState(String(decoding: try JSONEncoder().encode(self), as: UTF8.self), forKey: Self.stateKey)
-    }
+    func save(to store: Store) throws { try Self.stateKey.save(self, to: store) }
 
     /// The runner for this choice, billed as the founder chose: their Claude sign-in, or their own API key. A key goes
     /// only to the Claude CLI; with billing set to a key and none saved, calls stop rather than use the sign-in.
@@ -60,13 +55,12 @@ enum Billing: String, CaseIterable, Identifiable {
     }
 
     static let keyName = "anthropic-api-key"
-    private static let stateKey = "model.billing"
+    private static let stateKey = StateKey<Billing>(
+        name: "model.billing", write: \.rawValue, read: { Billing(rawValue: $0) })
 
-    static func saved(in store: Store) -> Billing {
-        ((try? store.queries.state(forKey: stateKey)) ?? nil).flatMap(Billing.init(rawValue:)) ?? .plan
-    }
+    static func saved(in store: Store) -> Billing { ((try? stateKey.load(from: store)) ?? nil) ?? .plan }
 
-    func save(to store: Store) throws { try store.saveState(rawValue, forKey: Self.stateKey) }
+    func save(to store: Store) throws { try Self.stateKey.save(self, to: store) }
 }
 
 /// The founder's model pick, shared by every helper. The store holds it; a helper reads it when it starts a read.
@@ -76,15 +70,16 @@ final class ModelSettings {
         didSet {
             do {
                 try choice.save(to: store)
-                problem = nil
+                problems.dismiss()
             } catch {
-                problem = "Your model choice was not saved: \(error.localizedDescription)"
+                problems.show("Your model choice was not saved: \(error.localizedDescription)")
             }
         }
     }
-    private(set) var problem: String?
+    let problems = ProblemSlot()
+    var problem: String? { problems.text }
     var billing: Billing {
-        didSet { attempt("save the billing choice") { try billing.save(to: store) } }
+        didSet { problems.attempt("save the billing choice", clearing: true) { try billing.save(to: store) } }
     }
     private(set) var hasAPIKey: Bool
 
@@ -100,28 +95,19 @@ final class ModelSettings {
             choice = try ModelChoice.saved(in: store)
         } catch {
             choice = ModelChoice.choices[0]
-            problem = "Your saved model choice could not be read: \(error.localizedDescription)"
+            problems.show("Your saved model choice could not be read: \(error.localizedDescription)")
         }
     }
 
     /// Keeps the key in the Keychain only; the store holds just the billing choice.
     func saveAPIKey(_ key: String) {
         guard let key = key.cleaned else { return }
-        attempt("save the key") { try secrets.save(key, as: Billing.keyName) }
+        problems.attempt("save the key", clearing: true) { try secrets.save(key, as: Billing.keyName) }
         hasAPIKey = secrets.read(Billing.keyName) != nil
     }
 
     func removeAPIKey() {
-        attempt("remove the key") { try secrets.remove(Billing.keyName) }
+        problems.attempt("remove the key", clearing: true) { try secrets.remove(Billing.keyName) }
         hasAPIKey = secrets.read(Billing.keyName) != nil
-    }
-
-    private func attempt(_ step: String, _ work: () throws -> Void) {
-        do {
-            try work()
-            problem = nil
-        } catch {
-            problem = "Could not \(step): \(error.localizedDescription)"
-        }
     }
 }

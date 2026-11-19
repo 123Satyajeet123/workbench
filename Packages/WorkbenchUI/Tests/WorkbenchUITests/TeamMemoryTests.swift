@@ -32,7 +32,7 @@ import WorkbenchCore
         try source.choose(try #require(source.groups.first { $0.jid == teamJID }))
         let scripted = ScriptedModel(reply)
         let pip = HelperModel(
-            machine: .test(.team, "Pip"), source: .whatsapp(source), store: store,
+            machine: .test(.team, "Pip"), source: source, store: store,
             makeModel: { _ in RecordedModel(scripted, store: store) }, notifier: FakeNotifier())
         await pip.read()
         let crew = Crew(store: store, capture: capture, founder: { "Kabir" }, notifier: FakeNotifier())
@@ -119,7 +119,7 @@ import WorkbenchCore
             .init(items: [block], dropped: 0, run: run), of: .timeline, day: today, scope: "",
             grant: try await store.grant(for: .screen, at: now))
         let timeline = HelperModel(
-            machine: .test(.timeline, "Timeline"), source: .screen(ScreenSource(store: store)), store: store,
+            machine: .test(.timeline, "Timeline"), source: ScreenSource(store: store), store: store,
             makeModel: { _ in model }, notifier: FakeNotifier())
         timeline.reload()
         #expect(timeline.items.count == 1)

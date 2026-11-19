@@ -17,7 +17,7 @@ final class MochiModel {
     /// The latest morning brief.
     private(set) var brief: MorningBrief?
     private(set) var briefPhase = ReadPhase.idle
-    private static let briefKey = "mochi.brief"
+    private static let briefKey = StateKey<MorningBrief>.json("mochi.brief")
 
     @ObservationIgnored private let store: Store
     @ObservationIgnored private let crew: Crew
@@ -43,9 +43,7 @@ final class MochiModel {
         do {
             proposals = try store.queries.proposals()
             trainingDays = Mochi.days(in: try blocks())
-            brief = try store.queries.state(forKey: Self.briefKey).map {
-                try JSONDecoder().decode(MorningBrief.self, from: Data($0.utf8))
-            }
+            brief = try Self.briefKey.load(from: store)
         } catch {
             problem = "Could not read Mochi's proposals: \(error.localizedDescription)"
         }
@@ -68,8 +66,7 @@ final class MochiModel {
                 problem = "No machine found anything on \(day) to brief."
                 return nil
             }
-            try store.saveState(
-                String(decoding: try JSONEncoder().encode(written), as: UTF8.self), forKey: Self.briefKey)
+            try Self.briefKey.save(written, to: store)
             brief = written
             problem = nil
             return written

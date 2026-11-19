@@ -29,7 +29,7 @@ import WorkbenchCore
         spec.task = "work.context-1"
         let atlas = HelperModel(
             machine: Machine(id: 1, name: "Atlas", template: HelperSpec.context.task, spec: spec, state: .active),
-            source: .whatsapp(source), store: store, makeModel: { _ in RecordedModel(model, store: store) },
+            source: source, store: store, makeModel: { _ in RecordedModel(model, store: store) },
             notifier: FakeNotifier())
         await atlas.read()
         #expect(atlas.items.map { $0["topic"] } == ["Login API"])
@@ -63,7 +63,7 @@ import WorkbenchCore
         spec.task = "work.context-1"
         let atlas = HelperModel(
             machine: Machine(id: 1, name: "Atlas", template: HelperSpec.context.task, spec: spec, state: .active),
-            source: .whatsapp(source), store: store, makeModel: { _ in RecordedModel(model, store: store) },
+            source: source, store: store, makeModel: { _ in RecordedModel(model, store: store) },
             notifier: FakeNotifier())
         await atlas.read()
         #expect(atlas.open.map { $0["text"] } == ["Ship the login API"])

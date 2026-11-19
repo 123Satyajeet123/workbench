@@ -23,7 +23,7 @@ import WorkbenchCore
             store: store, capture: capture, task: HelperSpec.team.task, founder: { "Kabir" },
             container: try whatsApp(at: noon))
         let team = HelperModel(
-            machine: .test(.team, "Pip"), source: .whatsapp(source), store: store,
+            machine: .test(.team, "Pip"), source: source, store: store,
             makeModel: { _ in RecordedModel(model, store: store) }, notifier: notifier)
         return (team, store, capture, model, source)
     }
@@ -84,7 +84,7 @@ import WorkbenchCore
         #expect(team.nudge.isOn && !team.notifications.blocked)
         team.nudge.hour = 20
         let again = HelperModel(
-            machine: .test(.team, "Pip"), source: .whatsapp(source), store: store, notifier: notifier)
+            machine: .test(.team, "Pip"), source: source, store: store, notifier: notifier)
         #expect(again.nudge == NudgeSchedule(isOn: true, hour: 20, minute: 30))
     }
 
@@ -184,7 +184,7 @@ import WorkbenchCore
         try source.loadGroups()
         try source.choose(try #require(source.groups.first))
         let team = HelperModel(
-            machine: .test(.team, "Pip"), source: .whatsapp(source), store: store,
+            machine: .test(.team, "Pip"), source: source, store: store,
             makeModel: { _ in RecordedModel(model, store: store) }, notifier: FakeNotifier())
         await team.read()
         let input = try #require(model.inputs.withLock { $0.first })
@@ -255,7 +255,7 @@ import WorkbenchCore
             store: store, capture: capture, task: HelperSpec.team.task, founder: { "Kabir" },
             container: try whatsApp(at: Date()))
         let team = HelperModel(
-            machine: .test(.team, "Pip"), source: .whatsapp(source), store: store,
+            machine: .test(.team, "Pip"), source: source, store: store,
             makeModel: { _ in RecordedModel(model, store: store) })
         try source.loadGroups()
         try source.choose(try #require(source.groups.first))

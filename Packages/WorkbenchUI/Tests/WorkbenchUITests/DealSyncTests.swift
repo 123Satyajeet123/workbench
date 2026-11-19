@@ -36,7 +36,7 @@ import WorkbenchCore
         try source.loadGroups()
         try source.choose(try #require(source.groups.first { $0.jid == teamJID }))
         let pip = HelperModel(
-            machine: .test(.team, "Pip"), source: .whatsapp(source), store: kabirStore,
+            machine: .test(.team, "Pip"), source: source, store: kabirStore,
             makeModel: { _ in
                 RecordedModel(
                     ScriptedModel(
@@ -50,7 +50,7 @@ import WorkbenchCore
             task: "day.timeline", day: WorkDay(containing: noon), scope: "", source: .screen, citeFirst: 1, citeLast: 1,
             start: noon, end: noon, fields: ["task": "Read the term sheet"], quote: "Term sheet - Acme.pdf", run: 1)
         let timeline = HelperModel(
-            machine: .test(.timeline, "Timeline"), source: .screen(ScreenSource(store: kabirStore)), store: kabirStore,
+            machine: .test(.timeline, "Timeline"), source: ScreenSource(store: kabirStore), store: kabirStore,
             makeModel: { _ in RecordedModel(ScriptedModel("{}"), store: kabirStore) }, notifier: FakeNotifier())
 
         let id = try #require(kabir.create(title: "Acme"))
