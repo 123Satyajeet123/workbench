@@ -19,6 +19,24 @@ public struct HelperSpec: Codable, Sendable, Equatable {
             }
         }
 
+        /// What one line of this source is, for the founder.
+        public var lineNoun: String {
+            switch self {
+            case .whatsappChat: "messages"
+            case .screenSessions: "windows"
+            case .pageText: "pages"
+            }
+        }
+
+        /// Whether a line keeps its number from one reading to the next (a message, a page view), so a reading can
+        /// start where the last one stopped. Screen sessions are numbered afresh each time and are read whole.
+        public var keepsLineNumbers: Bool {
+            switch self {
+            case .whatsappChat, .pageText: true
+            case .screenSessions: false
+            }
+        }
+
         /// What the model is told about the lines it reads.
         var lines: String {
             switch self {

@@ -28,39 +28,57 @@ final class HelperModel {
     private(set) var pageReading: (pages: [Activity], leftOut: Int) = ([], 0)
     private(set) var phase = ReadPhase.idle
     private(set) var problem: String?
-    /// macOS blocks Workbench notifications; the nudge row offers System Settings.
-    private(set) var notificationsBlocked = false
     /// A new brief being tried on past days, and how it compares with the current one.
     private(set) var trial: (version: Version, days: [WorkDay], by: Decision.By, why: String, result: Trial)?
     private(set) var trialPhase = ReadPhase.idle
     var nudge = NudgeSchedule() {
         didSet { attempt("save the nudge") { try store.saveState(Self.json(nudge), forKey: nudgeKey) } }
     }
+    /// Reading new lines by itself through the day, for a source whose lines keep their numbers.
+    var watch = WatchSchedule() {
+        didSet { attempt("save the reading hours") { try store.saveState(Self.json(watch), forKey: watchKey) } }
+    }
 
     /// Called after a read or a mark changed this machine's items, so the review queue can follow.
     @ObservationIgnored var itemsChanged: () -> Void = {}
     @ObservationIgnored private let store: Store
     @ObservationIgnored private let makeModel: (ModelChoice) -> RecordedModel
-    @ObservationIgnored private let notifier: Notifier
+    /// Shared by every machine and feature: one answer to whether macOS lets Workbench notify.
+    let notifications: Notifications
     @ObservationIgnored private var nudges: Task<Void, Never>?
     private var nudgeKey: String { "\(spec.task).nudge" }
     private var nudgedKey: String { "\(spec.task).nudged" }
+    private var watchKey: String { "\(spec.task).watch" }
+    private var watchedKey: String { "\(spec.task).watched" }
 
-    init(
+    convenience init(
         machine: Machine, source: Source, store: Store, makeModel: ((ModelChoice) -> RecordedModel)? = nil,
         notifier: Notifier = SystemNotifier()
+    ) {
+        self.init(
+            machine: machine, source: source, store: store, makeModel: makeModel,
+            notifications: Notifications(notifier: notifier))
+    }
+
+    init(
+        machine: Machine, source: Source, store: Store, makeModel: ((ModelChoice) -> RecordedModel)?,
+        notifications: Notifications
     ) {
         self.machine = machine
         self.source = source
         self.store = store
         self.makeModel = makeModel ?? { $0.model(store: store) }
-        self.notifier = notifier
+        self.notifications = notifications
         day = WorkDay(containing: store.clock())
         attempt("read the saved nudge") {
             nudge =
                 try store.queries.state(forKey: nudgeKey).map {
                     try JSONDecoder().decode(NudgeSchedule.self, from: Data($0.utf8))
                 } ?? NudgeSchedule()
+            watch =
+                try store.queries.state(forKey: watchKey).map {
+                    try JSONDecoder().decode(WatchSchedule.self, from: Data($0.utf8))
+                } ?? WatchSchedule()
         }
         reload()
     }
@@ -171,10 +189,23 @@ final class HelperModel {
         let scope = scope
         do {
             _ = try await grant(scope)
-            let evidence = try await gather(day)
+            let full = try await gather(day)
+            // A source whose lines keep their numbers is read from where the last reading stopped: earlier lines
+            // go along as context only, so nothing is read twice and nothing comes back reworded.
+            let last = spec.source.keepsLineNumbers ? try lastLine(read: day, scope: scope) : nil
+            let evidence = full.after(last)
+            if last != nil, evidence.newLines.isEmpty {
+                phase = .upToDate
+                problem = nil
+                return true
+            }
             let reader = HelperReader(spec: spec, model: makeModel(try runner(for: Version(spec))))
             let result = try await reader.read(day: day, scope: scope, evidence: evidence, marked: try marked())
-            try store.saveReading(result, of: spec, day: day, scope: scope, grant: try await grant(scope))
+            try store.saveReading(
+                result, of: spec, day: day, scope: scope, grant: try await grant(scope), replacing: last == nil)
+            if spec.source.keepsLineNumbers, let top = full.lines.map(\.id).max() {
+                try store.saveState(String(top), forKey: lastLineKey(day: day, scope: scope))
+            }
             if self.day == day { reload() }
             phase = .read(kept: result.items.count, dropped: result.dropped)
             problem = nil
@@ -185,6 +216,13 @@ final class HelperModel {
             problem = "Could not read the day: \(error.localizedDescription)"
             return false
         }
+    }
+
+    private func lastLineKey(day: WorkDay, scope: String) -> String { "\(spec.task).read.\(scope).\(day)" }
+
+    /// The last line a reading of this day saw, or nil before the first reading.
+    private func lastLine(read day: WorkDay, scope: String) throws -> Int64? {
+        try store.queries.state(forKey: lastLineKey(day: day, scope: scope)).flatMap { Int64($0) }
     }
 
     private func grant(_ scope: String) async throws -> CaptureGrant {
@@ -386,29 +424,60 @@ final class HelperModel {
 
     // MARK: Nudge
 
-    /// Turning the nudge on asks macOS for permission the first time; a refusal leaves it off and says why.
+    /// Turning the nudge on asks macOS for permission the first time; while macOS blocks it, it waits and turns on
+    /// once the founder allows notifications.
     func setNudge(on: Bool) async {
         guard on else {
             nudge.isOn = false
             return
         }
-        switch await notifier.authorize() {
-        case .allowed:
-            notificationsBlocked = false
-            nudge.isOn = true
-        case .blocked:
-            notificationsBlocked = true
-        case .failed(let reason):
-            problem = "macOS refused notifications: \(reason)"
+        await notifications.whenAllowed { [weak self] in self?.nudge.isOn = true }
+    }
+
+    /// Reading through the day alerts the founder, so it needs notifications as the nudge does.
+    func setWatch(on: Bool) async {
+        guard on else {
+            watch.isOn = false
+            return
+        }
+        await notifications.whenAllowed { [weak self] in self?.watch.isOn = true }
+    }
+
+    /// Reads the lines that are new since the last reading, when the reading hours say so, and tells the founder
+    /// about new items whose value the spec marks bad (a blocker, for the team machine).
+    func readIfDue() async {
+        let now = store.clock()
+        guard spec.source.keepsLineNumbers, watch.isOn, isReady, !isPaused, phase != .reading else { return }
+        let lastRead = (try? store.queries.state(forKey: watchedKey)).flatMap { $0 }.flatMap {
+            try? Date($0, strategy: .iso8601)
+        }
+        guard watch.isDue(at: now, lastRead: lastRead) else { return }
+        attempt("save the reading time") { try store.saveState(now.ISO8601Format(), forKey: watchedKey) }
+        let today = WorkDay(containing: now)
+        let before = Set(items(on: today).compactMap(\.id))
+        guard await read(today) else { return }
+        let alarming = items(on: today).filter { item in
+            !before.contains(item.id ?? -1) && item.fields.values.contains { spec.tones[$0] == .bad }
+        }
+        guard !alarming.isEmpty else { return }
+        let group: String? = if case .board(let field, _) = spec.view { field } else { nil }
+        let lines = alarming.map { item in
+            [group.map { item[$0] } ?? "", item[spec.title]].filter { !$0.isEmpty }.joined(separator: ": ")
+        }
+        do {
+            try await notifications.post(title: name, body: lines.joined(separator: "\n"))
+        } catch {
+            problem = "Could not show the alert: \(error.localizedDescription)"
         }
     }
 
     /// Checks once a minute while the app runs.
     func startNudges() {
-        guard spec.nudge != nil else { return }
+        guard spec.nudge != nil || spec.source.keepsLineNumbers else { return }
         nudges?.cancel()
         nudges = Task { [weak self] in
             while !Task.isCancelled {
+                await self?.readIfDue()
                 await self?.nudgeIfDue()
                 try? await Task.sleep(for: .seconds(60))
             }
@@ -439,7 +508,7 @@ final class HelperModel {
             body = problem ?? "Could not read today."
         }
         do {
-            try await notifier.post(title: name, body: body)
+            try await notifications.post(title: name, body: body)
         } catch {
             problem = "Could not show the nudge: \(error.localizedDescription)"
         }
@@ -464,17 +533,26 @@ final class Crew {
     @ObservationIgnored private let capture: CaptureService
     @ObservationIgnored private let founder: () -> String
     @ObservationIgnored private let makeModel: ((ModelChoice) -> RecordedModel)?
-    @ObservationIgnored private let notifier: Notifier
+    let notifications: Notifications
+
+    convenience init(
+        store: Store, capture: CaptureService, founder: @escaping () -> String,
+        makeModel: ((ModelChoice) -> RecordedModel)? = nil, notifier: Notifier = SystemNotifier()
+    ) {
+        self.init(
+            store: store, capture: capture, founder: founder, makeModel: makeModel,
+            notifications: Notifications(notifier: notifier))
+    }
 
     init(
         store: Store, capture: CaptureService, founder: @escaping () -> String,
-        makeModel: ((ModelChoice) -> RecordedModel)? = nil, notifier: Notifier = SystemNotifier()
+        makeModel: ((ModelChoice) -> RecordedModel)?, notifications: Notifications
     ) {
         self.store = store
         self.capture = capture
         self.founder = founder
         self.makeModel = makeModel
-        self.notifier = notifier
+        self.notifications = notifications
         reload()
     }
 
@@ -539,8 +617,8 @@ final class Crew {
                     ]))
         }
         helper.notice = line
-        let notifier = notifier
-        Task { try? await notifier.post(title: name, body: line) }
+        let notifications = notifications
+        Task { try? await notifications.post(title: name, body: line) }
     }
 
     /// The same alarm on a version that has no earlier one to return to: a model can change behind its name, or the
@@ -557,9 +635,9 @@ final class Crew {
         let line =
             "\(helper.name) may have got worse: wrong on \(wrong.filter { $0 }.count) of \(wrong.count) checked items on held-out days. Try a change from your marks."
         helper.notice = line
-        let notifier = notifier
+        let notifications = notifications
         let name = helper.name
-        Task { try? await notifier.post(title: name, body: line) }
+        Task { try? await notifications.post(title: name, body: line) }
     }
 
     func reload() {
@@ -572,7 +650,7 @@ final class Crew {
                 }
                 let model = HelperModel(
                     machine: record, source: try source(for: record), store: store, makeModel: makeModel,
-                    notifier: notifier)
+                    notifications: notifications)
                 model.itemsChanged = { [weak self, weak model] in
                     self?.itemsChanged()
                     if let model { self?.watch(model) }

@@ -122,12 +122,19 @@ public struct HelperReader: Sendable {
         let context = evidence.context.sorted { $0.key < $1.key }.map {
             "\($0.key.prefix(1).uppercased() + $0.key.dropFirst()): \($0.value.joined(separator: ", "))"
         }
-        let lines = evidence.lines.map { line in
+        let format = { (line: Evidence) -> String in
             guard let end = line.end else { return "[\(line.id)] \(line.start.formatted(time)) \(line.line)" }
             let minutes = Int((end.timeIntervalSince(line.start) / 60).rounded())
             return "[\(line.id)] \(line.start.formatted(time))–\(end.formatted(time)) (\(minutes)) \(line.line)"
         }
-        return (["Work day: \(day)"] + context + [""] + lines).joined(separator: "\n")
+        guard let readUpTo = evidence.readUpTo else {
+            return (["Work day: \(day)"] + context + [""] + evidence.lines.map(format)).joined(separator: "\n")
+        }
+        let seen = evidence.lines.filter { $0.id <= readUpTo }.map(format)
+        let new = evidence.newLines.map(format)
+        return
+            (["Work day: \(day)"] + context + ["", "Read before; context only, cite nothing here:"] + seen
+            + ["", "New since the last reading; give items only from these lines:"] + new).joined(separator: "\n")
     }
 
     private func item(_ raw: [String: JSONValue], day: WorkDay, scope: String, evidence: EvidenceSet, run: RunID)
@@ -138,7 +145,8 @@ public struct HelperReader: Sendable {
             case .one: (raw["cite"]?.integer, raw["cite"]?.integer)
             case .range: (raw["first"]?.integer, raw["last"]?.integer)
             }
-        guard let firstID, let lastID, firstID <= lastID, let quote = raw["quote"]?.string,
+        guard let firstID, let lastID, firstID <= lastID, firstID > (evidence.readUpTo ?? .min),
+            let quote = raw["quote"]?.string,
             let first = evidence.lines.first(where: { $0.id == firstID }),
             let last = evidence.lines.first(where: { $0.id == lastID }),
             evidence.lines.filter({ (firstID...lastID).contains($0.id) }).contains(where: { $0.contains(quote: quote) })

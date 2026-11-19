@@ -73,14 +73,14 @@ import WorkbenchCore
         notifier.access = .blocked
         let (team, store, capture, _, source) = try makeTeam(notifier: notifier)
         await team.setNudge(on: true)
-        #expect(!team.nudge.isOn && team.notificationsBlocked)
+        #expect(!team.nudge.isOn && team.notifications.blocked)
         notifier.access = .failed("Notifications are not allowed for this application")
         await team.setNudge(on: true)
         #expect(!team.nudge.isOn)
-        #expect(team.problem?.contains("not allowed for this application") == true)
+        #expect(team.notifications.problem?.contains("not allowed for this application") == true)
         notifier.access = .allowed
         await team.setNudge(on: true)
-        #expect(team.nudge.isOn && !team.notificationsBlocked)
+        #expect(team.nudge.isOn && !team.notifications.blocked)
         team.nudge.hour = 20
         let again = HelperModel(
             machine: .test(.team, "Pip"), source: .whatsapp(source), store: store, notifier: notifier)

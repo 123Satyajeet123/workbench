@@ -22,6 +22,9 @@ public struct WorkbenchApp: App {
                 }
                 .zoomed(Zoom(zoom))
                 .environment(session)
+                .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+                    Task { await session.crew.notifications.recheck() }
+                }
             case .failed(let failure):
                 StartupErrorView(failure: failure)
             }
@@ -65,6 +68,7 @@ extension View {
             .environment(session.team)
             .environment(session.models)
             .environment(session.crew)
+            .environment(session.crew.notifications)
             .environment(session.review)
             .environment(session.mochi)
             .environment(session.reminders)

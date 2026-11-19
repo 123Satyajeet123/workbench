@@ -26,10 +26,24 @@ public struct Evidence: Sendable, Equatable {
 public struct EvidenceSet: Sendable, Equatable {
     public var lines: [Evidence]
     public var context: [String: [String]]
+    /// Lines up to this number were read before: they are shown for context, and no item may cite them.
+    public var readUpTo: Int64?
 
-    public init(lines: [Evidence], context: [String: [String]] = [:]) {
+    public init(lines: [Evidence], context: [String: [String]] = [:], readUpTo: Int64? = nil) {
         self.lines = lines
         self.context = context
+        self.readUpTo = readUpTo
+    }
+
+    /// Lines no earlier reading saw.
+    public var newLines: [Evidence] { lines.filter { $0.id > (readUpTo ?? .min) } }
+
+    /// The lines after `last`, with up to `context` earlier lines before them so a reply such as "done" keeps its
+    /// question. Nil `last` keeps every line.
+    public func after(_ last: Int64?, context: Int = 20) -> EvidenceSet {
+        guard let last else { return self }
+        let seen = lines.filter { $0.id <= last }.suffix(context)
+        return EvidenceSet(lines: seen + lines.filter { $0.id > last }, context: self.context, readUpTo: last)
     }
 }
 

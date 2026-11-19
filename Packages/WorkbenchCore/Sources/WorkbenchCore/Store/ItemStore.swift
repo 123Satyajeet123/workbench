@@ -1,22 +1,25 @@
 import Foundation
 
 extension Store {
-    /// Stores one reading of a day by one helper. Items the founder has not marked are replaced; a marked item stays,
-    /// and a new item that repeats it is not added. Of the new items, the app picks one at random to ask the founder
+    /// Stores one reading of a day by one helper. A whole reading replaces the items the founder has not marked; a
+    /// reading of only new lines (`replacing: false`) keeps them. A marked item stays, and a new item that repeats it
+    /// is not added. Of the new items, the app picks one at random to ask the founder
     /// about, and keeps the chance it had. The grant is asked after the model ran, so consent withdrawn meanwhile
     /// stops the write.
     public func saveReading(
         _ result: HelperReader.Result, of spec: HelperSpec, day: WorkDay, scope: String, grant: CaptureGrant,
-        pick: (Int) -> Int = { Int.random(in: 0..<$0) }
+        replacing: Bool = true, pick: (Int) -> Int = { Int.random(in: 0..<$0) }
     ) throws {
         try check(grant, kind: spec.source.kind, label: scope.isEmpty ? nil : scope)
         try database.transaction {
-            try database.run(
-                """
-                DELETE FROM item WHERE id IN (
-                    SELECT id FROM item_mark WHERE task = ? AND day = ? AND scope = ? AND state = 'proposed')
-                """,
-                [.text(spec.task), .text(day.description), .text(scope)])
+            if replacing {
+                try database.run(
+                    """
+                    DELETE FROM item WHERE id IN (
+                        SELECT id FROM item_mark WHERE task = ? AND day = ? AND scope = ? AND state = 'proposed')
+                    """,
+                    [.text(spec.task), .text(day.description), .text(scope)])
+            }
             let marked = try queries.items(of: spec.task, day: day, scope: scope)
             var added: [Int64] = []
             for item in result.items where !marked.contains(where: { item.repeats($0, citation: spec.citation) }) {

@@ -151,3 +151,17 @@ func addPhoto(_ text: String, to container: URL, at date: Date) throws -> Int64 
     else { throw CocoaError(.fileWriteUnknown) }
     return 20
 }
+
+/// Adds a text message from Asha (or the founder when `member` is nil) to a fixture container.
+func addMessage(_ id: Int64, _ text: String, member: Int? = 1, at date: Date, to container: URL) throws {
+    let fromMe = member == nil ? 1 : 0
+    let sql = """
+        INSERT INTO ZWAMESSAGE VALUES (\(id), 1, \(date.timeIntervalSinceReferenceDate), 0, '\(text)', \(fromMe),
+            \(member.map(String.init) ?? "NULL"));
+        """
+    var db: OpaquePointer?
+    defer { sqlite3_close(db) }
+    guard sqlite3_open(container.appending(path: "ChatStorage.sqlite").path, &db) == SQLITE_OK,
+        sqlite3_exec(db, sql, nil, nil, nil) == SQLITE_OK
+    else { throw CocoaError(.fileWriteUnknown) }
+}

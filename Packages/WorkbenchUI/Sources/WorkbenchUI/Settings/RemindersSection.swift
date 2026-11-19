@@ -3,6 +3,7 @@ import SwiftUI
 /// Settings › General › Reminders: the digest and Mochi's weekly run, both off until turned on.
 struct RemindersSection: View {
     @Environment(Reminders.self) private var reminders
+    @Environment(Notifications.self) private var notifications
 
     var body: some View {
         Section {
@@ -10,7 +11,7 @@ struct RemindersSection: View {
                 "Digest of what waits in Review",
                 isOn: Binding(
                     get: { reminders.settings.digest }, set: { on in Task { await reminders.setDigest(on: on) } }))
-            if reminders.notificationsBlocked {
+            if notifications.blocked {
                 HStack {
                     FormNote("macOS blocks Workbench notifications.")
                     Button("Allow in System Settings", action: SystemNotifier.openSettings)

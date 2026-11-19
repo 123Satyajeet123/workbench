@@ -6,6 +6,8 @@ enum ReadPhase: Equatable {
     case idle
     case reading
     case read(kept: Int, dropped: Int)
+    /// A reading found no line the last reading had not seen.
+    case upToDate
 }
 
 struct ReadPhaseLabel: View {
@@ -19,6 +21,8 @@ struct ReadPhaseLabel: View {
         switch phase {
         case .idle: EmptyView()
         case .reading: ProgressView("Reading the day…").controlSize(.small)
+        case .upToDate:
+            Text("Nothing new since the last reading.").textStyle(.callout).foregroundStyle(.supporting)
         case .read(let kept, let dropped):
             Text(
                 dropped == 0

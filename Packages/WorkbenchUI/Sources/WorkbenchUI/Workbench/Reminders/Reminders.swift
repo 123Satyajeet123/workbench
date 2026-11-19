@@ -25,19 +25,22 @@ final class Reminders {
         didSet { attempt { try store.saveState(Self.json(settings), forKey: Self.settingsKey) } }
     }
     private(set) var problem: String?
-    private(set) var notificationsBlocked = false
 
     @ObservationIgnored private let store: Store
     @ObservationIgnored private let review: ReviewModel
     @ObservationIgnored private let mochi: MochiModel
-    @ObservationIgnored private let notifier: Notifier
+    let notifications: Notifications
     @ObservationIgnored private var ticker: Task<Void, Never>?
 
-    init(store: Store, review: ReviewModel, mochi: MochiModel, notifier: Notifier = SystemNotifier()) {
+    convenience init(store: Store, review: ReviewModel, mochi: MochiModel, notifier: Notifier = SystemNotifier()) {
+        self.init(store: store, review: review, mochi: mochi, notifications: Notifications(notifier: notifier))
+    }
+
+    init(store: Store, review: ReviewModel, mochi: MochiModel, notifications: Notifications) {
         self.store = store
         self.review = review
         self.mochi = mochi
-        self.notifier = notifier
+        self.notifications = notifications
         attempt {
             settings =
                 try store.queries.state(forKey: Self.settingsKey).map {
@@ -52,13 +55,7 @@ final class Reminders {
             settings.digest = false
             return
         }
-        switch await notifier.authorize() {
-        case .allowed:
-            notificationsBlocked = false
-            settings.digest = true
-        case .blocked: notificationsBlocked = true
-        case .failed(let reason): problem = "macOS refused notifications: \(reason)"
-        }
+        await notifications.whenAllowed { [weak self] in self?.settings.digest = true }
     }
 
     func start() {
@@ -112,7 +109,7 @@ final class Reminders {
 
     private func post(_ title: String, _ body: String) async {
         do {
-            try await notifier.post(title: title, body: body)
+            try await notifications.post(title: title, body: body)
         } catch {
             problem = "Could not show a reminder: \(error.localizedDescription)"
         }

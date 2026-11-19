@@ -21,3 +21,17 @@ struct NudgeSchedule: Codable, Equatable {
         return time.flatMap { $0 < day.start ? calendar.date(byAdding: .day, value: 1, to: $0) : $0 }
     }
 }
+
+/// When a machine reads new lines by itself through the day: every so many minutes, inside the founder's hours.
+struct WatchSchedule: Codable, Equatable {
+    var isOn = false
+    var everyMinutes = 60
+    var fromHour = 9
+    var untilHour = 22
+
+    func isDue(at now: Date, lastRead: Date?, calendar: Calendar = .current) -> Bool {
+        let hour = calendar.component(.hour, from: now)
+        guard isOn, (fromHour..<untilHour).contains(hour) else { return false }
+        return lastRead.map { now.timeIntervalSince($0) >= Double(everyMinutes * 60) } ?? true
+    }
+}

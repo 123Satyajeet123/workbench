@@ -52,6 +52,7 @@ struct HelperContent: View {
                     ImproveRow(model: model)
                 }
                 if model.spec.nudge != nil { NudgeRow(model: model) }
+                if model.spec.source.keepsLineNumbers { WatchRow(model: model) }
                 if catalog.folder != nil { ShareDayRow(model: model) }
                 switch model.spec.view {
                 case .board(let field, let expected): Board(model: model, field: field, expected: expected)
@@ -690,6 +691,30 @@ private struct ActionNotice: View {
     }
 }
 
+/// Reading through the day: new lines once an hour inside the reading hours, and an alert for new items the spec
+/// marks bad.
+private struct WatchRow: View {
+    let model: HelperModel
+    @Environment(ModelSettings.self) private var models
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Space.xs) {
+            Toggle(
+                "Read new \(model.spec.source.lineNoun) every hour, \(model.watch.fromHour):00–\(model.watch.untilHour):00",
+                isOn: Binding(get: { model.watch.isOn }, set: { on in Task { await model.setWatch(on: on) } }))
+            Text(
+                "Each reading with something new is one call to \(models.choice.title); nothing new, no call. You get an alert for new \(alarming)."
+            )
+            .textStyle(.callout).foregroundStyle(.supporting)
+        }
+    }
+
+    private var alarming: String {
+        let values = model.spec.tones.filter { $0.value == .bad }.keys.sorted()
+        return values.isEmpty ? model.spec.itemsNoun : values.map { "\($0)s" }.formatted(.list(type: .or))
+    }
+}
+
 /// The once-a-day nudge: on or off, and its time.
 private struct NudgeRow: View {
     let model: HelperModel
@@ -709,7 +734,7 @@ private struct NudgeRow: View {
                 "At this time \(model.name) reads today with \(models.choice.title) and tells you who has no \(model.spec.itemsNoun). Silent; the Mac must be on."
             )
             .textStyle(.callout).foregroundStyle(.supporting)
-            if model.notificationsBlocked {
+            if model.notifications.blocked {
                 HStack(spacing: Space.s) {
                     Label("macOS blocks Workbench notifications.", systemImage: "bell.slash")
                         .foregroundStyle(Tone.attention.color)
