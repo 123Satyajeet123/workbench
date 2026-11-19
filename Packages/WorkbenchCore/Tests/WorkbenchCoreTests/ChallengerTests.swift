@@ -28,22 +28,46 @@ import Testing
         #expect(result.better == 2 && result.worse == 1 && result.waiting == 0)
     }
 
-    @Test func theVerdictNeedsAOneSidedSplitNotAPercentage() {
-        func verdict(better: Int, worse: Int) -> Trial.Verdict {
-            let current =
-                (0..<better).map { item("wrong\($0)", minutes: Double($0) * 20, .rejected) }
-                + (0..<worse).map { item("right\($0)", minutes: 1000 + Double($0) * 20, .confirmed) }
-            return Trial(current: current, challenger: [], citation: .range).verdict
-        }
-        #expect(verdict(better: 4, worse: 0) == .better)
-        #expect(verdict(better: 3, worse: 0) == .notSure)
-        #expect(verdict(better: 6, worse: 2) == .notSure)
-        #expect(verdict(better: 9, worse: 2) == .better)
-        #expect(verdict(better: 0, worse: 5) == .worse)
-        #expect(verdict(better: 0, worse: 0) == .notSure)
-        #expect(abs(Binomial.atLeast(4, of: 4) - 0.0625) < 1e-12)
+    @Test func theVerdictComesFromMarksInTheOrderTheyCame() {
+        let current =
+            (0..<9).map { item("wrong\($0)", minutes: Double($0) * 20, .rejected) }
+            + (0..<2).map { item("right\($0)", minutes: 1000 + Double($0) * 20, .confirmed) }
+        let ids = Dictionary(uniqueKeysWithValues: current.indices.map { (Int64($0 + 1), $0) })
+        var numbered = current
+        for (id, index) in ids { numbered[index].id = id }
+        let winsFirst = Dictionary(uniqueKeysWithValues: (1...11).map { (Int64($0), Int64($0)) })
+        // Items 1–9 are the wins, 10–11 the losses; here the two losses were marked first.
+        var lossesFirst: [Int64: Int64] = [10: 1, 11: 2]
+        for id in Int64(1)...9 { lossesFirst[id] = id + 2 }
+        let early = Trial(current: numbered, challenger: [], citation: .range, markOrder: winsFirst)
+        let late = Trial(current: numbered, challenger: [], citation: .range, markOrder: lossesFirst)
+        #expect(Array(early.outcomes.prefix(2)) == [true, true])
+        #expect(Array(late.outcomes.prefix(2)) == [false, false])
+        #expect(early.verdict == .better)
+        #expect(late.verdict == .notSure)
+    }
+}
+
+@Suite struct EProcessTests {
+    @Test func aRunNeedsSevenStraightWinsAtTheDefaultThresholdAndMoreWhenMoreChallengersShareIt() {
+        #expect(EProcess.threshold(challengers: 1) == 20 && EProcess.threshold(challengers: 2) == 40)
+        #expect(EProcess.verdict(Array(repeating: true, count: 6), threshold: 20) == .notSure)
+        #expect(EProcess.verdict(Array(repeating: true, count: 7), threshold: 20) == .better)
+        #expect(EProcess.verdict(Array(repeating: false, count: 7), threshold: 20) == .worse)
+        #expect(EProcess.verdict(Array(repeating: true, count: 7), threshold: 40) == .notSure)
+        #expect(EProcess.verdict([true, true, true, true, true, true, false, false], threshold: 20) == .notSure)
+        #expect(EProcess.verdict([], threshold: 20) == .notSure)
     }
 
+    @Test func theAlarmFiresOnASteadyRunOfWrongAnswersAndNotOnRightOnes() {
+        #expect(EProcess.alarm([true, true]) >= 10)
+        #expect(EProcess.alarm(Array(repeating: false, count: 30)) == 1)
+        #expect(EProcess.alarm([true] + Array(repeating: false, count: 20)) < 10)
+        #expect(EProcess.alarm(Array(repeating: false, count: 7) + [true, true, true]) < 10)
+    }
+}
+
+@Suite struct TrialTaskTests {
     @Test func aTrialTaskMapsBackToItsMachine() {
         #expect(Trial.task(of: "team.ledger") == "team.ledger#trial")
         #expect(Trial.isTrial("team.ledger#trial") && !Trial.isTrial("team.ledger"))

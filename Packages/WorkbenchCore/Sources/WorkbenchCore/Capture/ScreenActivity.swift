@@ -31,7 +31,8 @@ public struct ScreenSnapshot: Equatable, Sendable {
 
 public struct Activity: Equatable, Sendable {
     public enum Kind: String, Sendable, CaseIterable {
-        case window, text, idle, active, skipped, file, sleep, wake
+        /// `page` is a page's visible text from the browser extension; `text` is a window's Accessibility text.
+        case window, text, page, idle, active, skipped, file, sleep, wake
 
         var source: SourceKind { self == .file ? .files : .screen }
     }

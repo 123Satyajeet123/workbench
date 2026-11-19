@@ -48,7 +48,7 @@ public enum Sessions {
                 place = nil
             case .active:
                 if opened == nil, place != nil { opened = activity.at }
-            case .text, .file:
+            case .text, .page, .file:
                 break
             }
         }

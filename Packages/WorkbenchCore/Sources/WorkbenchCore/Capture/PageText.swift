@@ -29,7 +29,7 @@ public struct WebPage: Codable, Sendable, Equatable {
         return ActivityBatch(
             [
                 Activity(
-                    at: now, kind: .text, app: browserName, bundleID: browser, title: title,
+                    at: now, kind: .page, app: browserName, bundleID: browser, title: title,
                     document: CaptureEngine.address(url), text: text)
             ], grant: grant)
     }
@@ -54,7 +54,7 @@ extension WebPage {
         return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
     }
 
-    /// The page texts of a day a machine reads: only browser text on the named sites, a page's repeated text once,
+    /// The page texts of a day a machine reads: only the extension's pages on the named sites, a repeated text once,
     /// earliest first up to the budget. `leftOut` counts the pages past the budget.
     public static func reading(_ activities: [Activity], sites: [String], budget: Int = budget) -> (
         pages: [Activity], leftOut: Int
@@ -65,7 +65,7 @@ extension WebPage {
         var used = 0
         var leftOut = 0
         for activity in activities.sorted(by: { $0.at < $1.at })
-        where activity.kind == .text && CapturePolicy.browserBundleIDs.contains(activity.bundleID) {
+        where activity.kind == .page {
             guard let text = activity.text, let document = activity.document,
                 CapturePolicy.isSite(document, in: named), seen.insert(document + "\n" + text).inserted
             else { continue }

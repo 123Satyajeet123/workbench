@@ -18,7 +18,7 @@ enum Schema {
 
     static var stepDigests: [String] { steps.map { Digest.sha256($0.joined(separator: ";\n")) } }
 
-    static let steps = [base, timeline, prompts, items, audit, crew, proposals, proposalView, teamMemory]
+    static let steps = [base, timeline, prompts, items, audit, crew, proposals, proposalView, teamMemory, improvement]
 
     private static let base = [
         "CREATE TABLE IF NOT EXISTS state(key TEXT PRIMARY KEY, value TEXT NOT NULL, saved_at TEXT NOT NULL)",
@@ -157,6 +157,31 @@ enum Schema {
         CREATE TABLE action(
             id INTEGER PRIMARY KEY, at TEXT NOT NULL, kind TEXT NOT NULL CHECK(kind <> ''), target TEXT NOT NULL,
             detail TEXT NOT NULL CHECK(json_valid(detail)))
+        """,
+    ]
+
+    /// A page's text from the browser extension gets its own kind, so a page machine reads what the extension saw
+    /// and never the Accessibility text of the same window. SQLite cannot change a CHECK, so the table is rebuilt
+    /// (sqlite.org/lang_altertable.html, "other kinds of table schema changes"). And every decision on a machine's
+    /// brief, never updated: a trial started, a switch, a rejection, a rollback.
+    private static let improvement = [
+        """
+        CREATE TABLE activity_next(
+            id INTEGER PRIMARY KEY, ts TEXT NOT NULL,
+            kind TEXT NOT NULL CHECK(kind IN ('window','text','page','idle','active','skipped','file','sleep','wake')),
+            app TEXT NOT NULL, bundle_id TEXT NOT NULL, title TEXT NOT NULL, document TEXT, text TEXT,
+            CHECK(kind IN ('window','text','page','file') OR (app = '' AND title = '' AND document IS NULL AND text IS NULL)))
+        """,
+        "INSERT INTO activity_next SELECT id, ts, kind, app, bundle_id, title, document, text FROM activity",
+        "DROP TABLE activity",
+        "ALTER TABLE activity_next RENAME TO activity",
+        "CREATE INDEX activity_ts ON activity(ts)",
+        """
+        CREATE TABLE machine_decision(
+            id INTEGER PRIMARY KEY, task TEXT NOT NULL CHECK(task <> ''), at TEXT NOT NULL,
+            kind TEXT NOT NULL CHECK(kind IN ('trial','promote','reject','rollback')),
+            decided_by TEXT NOT NULL CHECK(decided_by IN ('person','proposer','alarm')),
+            brief TEXT NOT NULL, parent_brief TEXT NOT NULL, detail TEXT NOT NULL CHECK(json_valid(detail)))
         """,
     ]
 

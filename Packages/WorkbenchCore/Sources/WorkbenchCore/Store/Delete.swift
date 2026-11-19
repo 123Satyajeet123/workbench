@@ -102,7 +102,7 @@ extension Store {
         switch kind {
         case .screen:
             try removeActivity(Activity.Kind.allCases.filter { $0 != .file }, before: cutoff)
-        case .screenText: try removeActivity([.text], before: cutoff)
+        case .screenText: try removeActivity([.text, .page], before: cutoff)
         case .files: try removeActivity([.file], before: cutoff)
         case .whatsapp: break
         case .call:

@@ -12,7 +12,7 @@ import Testing
     @Test func aPageIsKeptAsScreenTextWithoutItsQuery() throws {
         let batch = try #require(page("https://mail.google.com/mail/u/0/?tab=rm#inbox").batch(policy: on, at: t0))
         let kept = try #require(batch.activities.first)
-        #expect(batch.activities.count == 1 && kept.kind == .text)
+        #expect(batch.activities.count == 1 && kept.kind == .page)
         #expect(kept.document == "https://mail.google.com/mail/u/0/" && kept.app == "Brave Browser")
         #expect(kept.text == "Deck from Acme: seed round, 2M")
     }
@@ -60,12 +60,10 @@ import Testing
         #expect(try store.queries.activities(since: t0.addingTimeInterval(-1)).isEmpty)
     }
 
-    private func text(_ url: String, _ text: String, at offset: Double, bundle: String = "com.brave.Browser")
-        -> Activity
-    {
+    private func text(_ url: String, _ text: String, at offset: Double, kind: Activity.Kind = .page) -> Activity {
         Activity(
-            at: t0.addingTimeInterval(offset), kind: .text, app: "Brave Browser", bundleID: bundle, title: "t",
-            document: url, text: text)
+            at: t0.addingTimeInterval(offset), kind: kind, app: "Brave Browser", bundleID: "com.brave.Browser",
+            title: "t", document: url, text: text)
     }
 
     @Test func aMachineReadsOnlyItsNamedSitesEachTextOnceWithinTheBudget() {
@@ -75,7 +73,7 @@ import Testing
             text("https://www.linkedin.com/in/someone", "Partner at Fund", at: 2),
             text("https://x.com/home", "a post", at: 1),
             text("https://mail.google.com/mail/u/0/", "Intro to Bolt", at: 5),
-            text("file:///Users/me/notes.txt", "mail.google.com", at: 6, bundle: "com.apple.TextEdit"),
+            text("https://mail.google.com/mail/u/0/", "Accessibility text of the same window", at: 6, kind: .text),
         ]
         let read = WebPage.reading(day, sites: ["mail.google.com", "linkedin.com"])
         #expect(read.pages.compactMap(\.text) == ["Partner at Fund", "Deck from Acme", "Intro to Bolt"])
