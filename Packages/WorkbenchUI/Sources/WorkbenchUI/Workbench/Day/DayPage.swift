@@ -148,11 +148,18 @@ private struct BriefCard: View {
 
     var body: some View {
         Card(title: title, symbol: "sun.horizon") {
-            if let brief = mochi.brief, !brief.lines.isEmpty {
+            if let brief = mochi.brief {
+                Text(brief.headline).textStyle(.headline)
                 ForEach(Array(brief.lines.enumerated()), id: \.offset) { _, line in
-                    Label(line.text, systemImage: symbol(line.kind))
-                        .foregroundStyle(line.kind == .stuck ? Tone.attention.color : .primary)
-                        .help("From \(line.cites.count) item\(line.cites.count == 1 ? "" : "s") your machines found.")
+                    Label(
+                        line.basis == .inferred ? "\(line.text) (inferred)" : line.text, systemImage: symbol(line.kind)
+                    )
+                    .foregroundStyle(line.kind == .stuck || line.kind == .ask ? Tone.attention.color : .primary)
+                    .help("From \(line.cites.count) item\(line.cites.count == 1 ? "" : "s") your machines found.")
+                }
+                if !brief.unseen.isEmpty {
+                    Text("Not seen: \(brief.unseen.joined(separator: ", ")) found nothing that day.")
+                        .textStyle(.callout).foregroundStyle(.supporting)
                 }
             } else {
                 Text("No brief yet. Mochi writes one each morning when it is on in Settings › Reminders.")
@@ -170,6 +177,7 @@ private struct BriefCard: View {
 
     private func symbol(_ kind: MorningBrief.Line.Kind) -> String {
         switch kind {
+        case .ask: "person.wave.2"
         case .happened: "checkmark.circle"
         case .stuck: "exclamationmark.triangle"
         case .next: "arrow.right.circle"

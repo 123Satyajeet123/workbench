@@ -22,28 +22,35 @@ import Testing
     @Test func aLineIsKeptOnlyWhenItCitesItemsItWasGiven() async throws {
         let (briefer, scripted) = try briefer(
             #"""
-            {"lines":[
-            {"kind":"stuck","text":"Asha waits for the OTA push.","cites":[1]},
-            {"kind":"next","text":"Ask Debayan to push the OTA.","cites":[1,2]},
-            {"kind":"happened","text":"Made up.","cites":[99]},
-            {"kind":"happened","text":"Uncited.","cites":[]},
-            {"kind":"gossip","text":"Wrong kind.","cites":[1]}]}
+            {"headline":"Asha is blocked on the OTA push.","lines":[
+            {"kind":"stuck","basis":"seen","text":"Asha waits for the OTA push.","cites":[1]},
+            {"kind":"next","basis":"inferred","text":"Ask Debayan to push the OTA.","cites":[1,2]},
+            {"kind":"ask","basis":"seen","text":"Asha asks you to approve the push.","cites":[1]},
+            {"kind":"happened","basis":"seen","text":"Made up.","cites":[99]},
+            {"kind":"happened","basis":"seen","text":"Uncited.","cites":[]},
+            {"kind":"happened","basis":"guessed","text":"Wrong basis.","cites":[1]},
+            {"kind":"gossip","basis":"seen","text":"Wrong kind.","cites":[1]}]}
             """#)
         let brief = try #require(
             try await briefer.brief([source(1, "no OTA yet"), source(2, "flashed", .confirmed)], day: day))
-        #expect(brief.lines.map(\.kind) == [.stuck, .next])
-        #expect(brief.dropped == 3 && brief.run != nil)
+        #expect(brief.lines.map(\.kind) == [.ask, .stuck, .next], "asks first")
+        #expect(brief.lines.map(\.basis) == [.seen, .seen, .inferred])
+        #expect(brief.headline == "Asha is blocked on the OTA push." && !brief.isQuiet)
+        #expect(brief.dropped == 4 && brief.run != nil)
         let input = try #require(scripted.inputs.withLock { $0.first })
         #expect(input.contains(#"[1] Pip · person=Asha kind=blocker text=no OTA yet — "no OTA yet" — unmarked"#))
         #expect(input.contains("— right"))
     }
 
     @Test func aDayWithNoItemsMakesNoCallAndABriefHasAtMostEightLines() async throws {
-        let (empty, scripted) = try briefer(#"{"lines":[]}"#)
+        let (empty, scripted) = try briefer(#"{"headline":"","lines":[]}"#)
         #expect(try await empty.brief([], day: day) == nil)
         #expect(scripted.inputs.withLock { $0.isEmpty })
-        let many = (0..<12).map { _ in #"{"kind":"happened","text":"Done.","cites":[1]}"# }.joined(separator: ",")
-        let (long, _) = try briefer("{\"lines\":[\(many)]}")
-        #expect(try await long.brief([source(1, "done")], day: day)?.lines.count == Briefer.maximumLines)
+        let many = (0..<12).map { _ in #"{"kind":"happened","basis":"seen","text":"Done.","cites":[1]}"# }
+            .joined(separator: ",")
+        let (long, _) = try briefer("{\"headline\":\"Quiet day.\",\"lines\":[\(many)]}")
+        let brief = try #require(try await long.brief([source(1, "done")], day: day, unseen: ["Timeline"]))
+        #expect(brief.lines.count == Briefer.maximumLines)
+        #expect(brief.isQuiet && brief.unseen == ["Timeline"], "nothing asked or stuck: a quiet day")
     }
 }

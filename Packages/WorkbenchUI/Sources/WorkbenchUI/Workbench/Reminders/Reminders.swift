@@ -100,9 +100,10 @@ final class Reminders {
             state(Self.briefDayKey) != today.description
         {
             attempt { try store.saveState(today.description, forKey: Self.briefDayKey) }
-            if let brief = await mochi.writeBrief(for: today.adding(days: -1)) {
-                let first = brief.lines.first { $0.kind == .next } ?? brief.lines.first
-                await post("Mochi's brief", first.map { "\($0.text) (\(brief.lines.count) lines in Workbench)" } ?? "")
+            // A quiet day is kept on Mochi's page without an alert: alerts that rarely matter teach people to ignore
+            // them (research: clinical alert override rates).
+            if let brief = await mochi.writeBrief(for: today.adding(days: -1)), !brief.isQuiet {
+                await post("Mochi's brief", brief.headline)
             }
         }
         if settings.digest, let slot = Self.slot(at: now, hours: settings.digestHours), slot != state(Self.digestKey) {

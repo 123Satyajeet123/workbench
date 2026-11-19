@@ -63,7 +63,8 @@ final class MochiModel {
         defer { briefPhase = .idle }
         do {
             let briefer = Briefer(model: makeModel(try ModelChoice.saved(in: store)))
-            guard let written = try await briefer.brief(sources, day: day) else {
+            let unseen = crew.machines.filter { !$0.isPaused && $0.items(on: day).isEmpty }.map(\.name)
+            guard let written = try await briefer.brief(sources, day: day, unseen: unseen) else {
                 problem = "No machine found anything on \(day) to brief."
                 return nil
             }
