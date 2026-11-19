@@ -6,9 +6,9 @@ struct StartupErrorView: View {
 
     var body: some View {
         VStack(spacing: Space.m) {
-            Text("Workbench cannot open its store").font(.title2.bold())
+            Text("Workbench cannot open its store").textStyle(.title2, weight: .bold)
             Text(failure.cause).foregroundStyle(.supporting).textSelection(.enabled)
-            Text(failure.storeFolder.path).font(.caption).foregroundStyle(.supporting).textSelection(.enabled)
+            Text(failure.storeFolder.path).textStyle(.caption).foregroundStyle(.supporting).textSelection(.enabled)
             Button("Quit") { NSApplication.shared.terminate(nil) }
         }
         .multilineTextAlignment(.center)

@@ -30,7 +30,7 @@ struct RunsPage: View {
             Text(
                 "Cost is at list price, as Claude reports it. On a plan it is what the calls would cost, not what you pay. Codex reports tokens only."
             )
-            .font(.callout).foregroundStyle(.supporting)
+            .textStyle(.callout).foregroundStyle(.supporting)
         }
     }
 
@@ -46,7 +46,7 @@ struct RunsPage: View {
                             ["Task", "Model", "Prompt", "Runs", "Dropped", "Right", "Held-out", "Audited", "Trust"],
                             id: \.self
                         ) {
-                            Text($0).font(.callout.weight(.semibold)).foregroundStyle(.supporting)
+                            Text($0).textStyle(.callout, weight: .semibold).foregroundStyle(.supporting)
                         }
                     }
                     ForEach(model.quality) { row in
@@ -76,7 +76,7 @@ struct RunsPage: View {
                 Text(
                     "Right is the share of your marks that say right. Held-out days (3 in 10, fixed by date) only judge a prompt; they never shape one. Audited counts only your answers to the item each reading picked at random, so it is the fair number."
                 )
-                .font(.callout).foregroundStyle(.supporting)
+                .textStyle(.callout).foregroundStyle(.supporting)
             }
         }
     }
@@ -97,8 +97,8 @@ private struct MeterCell: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Space.xs) {
-            Text(title).font(.callout).foregroundStyle(.supporting)
-            Text(usage.tokensText + " tokens").font(.title2.weight(.semibold)).monospacedDigit()
+            Text(title).textStyle(.callout).foregroundStyle(.supporting)
+            Text(usage.tokensText + " tokens").textStyle(.title2, weight: .semibold).monospacedDigit()
             Text(usage.costText).monospacedDigit().foregroundStyle(.supporting)
         }
         .accessibilityElement(children: .combine)
@@ -115,11 +115,11 @@ private struct RunRow: View {
                 .accessibilityLabel(run.outcome.rawValue)
             VStack(alignment: .leading, spacing: Space.xs) {
                 Text("\(crew.name(ofTask: run.task)) · \(run.model)")
-                Text(detail).font(.callout).foregroundStyle(.supporting)
-                if let error = run.error { Text(error).font(.callout).foregroundStyle(Tone.bad.color) }
+                Text(detail).textStyle(.callout).foregroundStyle(.supporting)
+                if let error = run.error { Text(error).textStyle(.callout).foregroundStyle(Tone.bad.color) }
             }
             Spacer()
-            Text(run.startedAt.formatted(date: .abbreviated, time: .shortened)).font(.callout)
+            Text(run.startedAt.formatted(date: .abbreviated, time: .shortened)).textStyle(.callout)
                 .foregroundStyle(.supporting).monospacedDigit()
         }
     }

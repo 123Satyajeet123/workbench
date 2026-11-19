@@ -39,7 +39,10 @@ final class ScriptedModel: StructuredModel, Sendable {
 extension OnboardingModel {
     func advance(to target: OnboardingScreen) {
         identityModel.identity.name = "Rhea"
-        for _ in screens where screen != target { next() }
+        for _ in screens where screen != target {
+            if screen == .team { teamModel.team.name = "Brave" }
+            next()
+        }
     }
 }
 
@@ -58,4 +61,11 @@ nonisolated final class TestClock: Sendable {
     init(_ start: Date) { value = Mutex(start) }
     var now: Date { value.withLock { $0 } }
     func set(_ date: Date) { value.withLock { $0 = date } }
+}
+
+extension Machine {
+    /// A machine record for a model under test, as the store would hand it out.
+    static func test(_ spec: HelperSpec, _ name: String, id: Int64 = 0) -> Machine {
+        Machine(id: id, name: name, template: spec.task, spec: spec, state: .active)
+    }
 }

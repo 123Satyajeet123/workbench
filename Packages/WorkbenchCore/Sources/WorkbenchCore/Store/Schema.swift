@@ -18,7 +18,7 @@ enum Schema {
 
     static var stepDigests: [String] { steps.map { Digest.sha256($0.joined(separator: ";\n")) } }
 
-    static let steps = [base, timeline, prompts, items, audit]
+    static let steps = [base, timeline, prompts, items, audit, crew]
 
     private static let base = [
         "CREATE TABLE IF NOT EXISTS state(key TEXT PRIMARY KEY, value TEXT NOT NULL, saved_at TEXT NOT NULL)",
@@ -141,5 +141,32 @@ enum Schema {
     /// The chance the app picked an item to ask the founder about; null for an item it did not pick.
     private static let audit = [
         "ALTER TABLE item ADD COLUMN asked_with REAL CHECK(asked_with IS NULL OR (asked_with > 0 AND asked_with <= 1))"
+    ]
+
+    /// The team and its people, and machines as records a person owns: renamed, edited, paused or deleted by a new
+    /// change row; the latest change is the machine's state.
+    private static let crew = [
+        "CREATE TABLE team(id INTEGER PRIMARY KEY, name TEXT NOT NULL CHECK(name <> ''), created_at TEXT NOT NULL)",
+        """
+        CREATE TABLE member(
+            id INTEGER PRIMARY KEY, team_id INTEGER NOT NULL REFERENCES team(id), name TEXT NOT NULL CHECK(name <> ''),
+            role TEXT NOT NULL, is_me INTEGER NOT NULL CHECK(is_me IN (0,1)), added_at TEXT NOT NULL, removed_at TEXT)
+        """,
+        """
+        CREATE TABLE machine(
+            id INTEGER PRIMARY KEY, task TEXT NOT NULL UNIQUE CHECK(task <> ''), template TEXT NOT NULL,
+            created_at TEXT NOT NULL)
+        """,
+        """
+        CREATE TABLE machine_change(
+            id INTEGER PRIMARY KEY, machine_id INTEGER NOT NULL REFERENCES machine(id), at TEXT NOT NULL,
+            name TEXT NOT NULL CHECK(name <> ''), spec TEXT NOT NULL CHECK(json_valid(spec)),
+            state TEXT NOT NULL CHECK(state IN ('active','paused','deleted')))
+        """,
+        """
+        CREATE VIEW machine_now AS SELECT machine.id, machine.task, machine.template, change.name, change.spec,
+            change.state FROM machine JOIN machine_change change ON change.id =
+            (SELECT MAX(id) FROM machine_change WHERE machine_id = machine.id)
+        """,
     ]
 }

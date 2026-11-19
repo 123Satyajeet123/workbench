@@ -6,6 +6,7 @@ import WorkbenchCore
 final class OnboardingModel {
     let screens = OnboardingScreen.allCases
     let identityModel: IdentityModel
+    let teamModel: TeamModel
     private(set) var index = 0 { didSet { save() } }
     private(set) var isFinished = false { didSet { save() } }
     private(set) var saveError: (any Error)?
@@ -18,9 +19,10 @@ final class OnboardingModel {
 
     private static let stateKey = "onboarding"
 
-    init(store: Store? = nil, identity: IdentityModel = IdentityModel()) {
+    init(store: Store? = nil, identity: IdentityModel = IdentityModel(), team: TeamModel? = nil) {
         self.store = store
         identityModel = identity
+        teamModel = team ?? TeamModel(store: store, me: { identity.identity.name })
         do {
             guard let saved = try Self.savedState(in: store) else { return }
             index = saved.index
@@ -53,10 +55,18 @@ final class OnboardingModel {
     var screen: OnboardingScreen { screens[index] }
     var isFirst: Bool { index == 0 }
     var isLast: Bool { index == screens.count - 1 }
-    var canContinue: Bool { screen != .you || identityModel.identity.hasName }
+    var canContinue: Bool {
+        switch screen {
+        case .you: identityModel.identity.hasName
+        case .team: teamModel.team.name.cleaned != nil
+        case .welcome, .sources, .done: true
+        }
+    }
 
     func next() {
         guard canContinue else { return }
+        if screen == .you { teamModel.reload() }
+        if screen == .team { teamModel.save() }
         if isLast {
             isFinished = true
         } else {
@@ -72,6 +82,7 @@ final class OnboardingModel {
     var problem: String? {
         saveError?.localizedDescription
             ?? identityModel.saveError.map { "Your name was not saved: \($0.localizedDescription)" }
+            ?? teamModel.problem
     }
 }
 

@@ -13,7 +13,12 @@ struct WorkbenchView: View {
         } detail: {
             switch selection {
             case .day: DayPage(open: { selection = $0 })
-            case .team: HelperPage(page: .team, model: crew.team)
+            case .machine(let id):
+                if let helper = crew.helper(id: id) {
+                    HelperPage(model: helper)
+                } else {
+                    ContentUnavailableView("This machine was deleted", systemImage: "trash")
+                }
             case .calls: CallsPage()
             case .runs: RunsPage()
             }

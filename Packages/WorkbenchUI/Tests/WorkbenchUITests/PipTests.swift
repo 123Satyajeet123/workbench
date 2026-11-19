@@ -54,7 +54,7 @@ private func whatsApp(at date: Date) throws -> URL {
             store: store, capture: capture, task: HelperSpec.team.task, founder: { "Kabir" },
             container: try whatsApp(at: noon))
         let team = HelperModel(
-            spec: .team, name: "Pip", source: .whatsapp(source), store: store,
+            machine: .test(.team, "Pip"), source: .whatsapp(source), store: store,
             makeModel: { _ in RecordedModel(model, store: store) }, notifier: notifier)
         return (team, store, capture, model, source)
     }
@@ -114,7 +114,8 @@ private func whatsApp(at date: Date) throws -> URL {
         await team.setNudge(on: true)
         #expect(team.nudge.isOn && !team.notificationsBlocked)
         team.nudge.hour = 20
-        let again = HelperModel(spec: .team, name: "Pip", source: .whatsapp(source), store: store, notifier: notifier)
+        let again = HelperModel(
+            machine: .test(.team, "Pip"), source: .whatsapp(source), store: store, notifier: notifier)
         #expect(again.nudge == NudgeSchedule(isOn: true, hour: 20, minute: 30))
     }
 
@@ -212,7 +213,7 @@ private func whatsApp(at date: Date) throws -> URL {
             store: store, capture: capture, task: HelperSpec.team.task, founder: { "Kabir" },
             container: try whatsApp(at: Date()))
         let team = HelperModel(
-            spec: .team, name: "Pip", source: .whatsapp(source), store: store,
+            machine: .test(.team, "Pip"), source: .whatsapp(source), store: store,
             makeModel: { _ in RecordedModel(model, store: store) })
         try source.loadGroups()
         try source.choose(try #require(source.groups.first))

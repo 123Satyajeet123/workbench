@@ -9,7 +9,7 @@ struct FormNote: View {
 
     var body: some View {
         Text(text)
-            .font(.callout)
+            .textStyle(.callout)
             .foregroundStyle(.supporting)
             .multilineTextAlignment(.leading)
             .frame(maxWidth: .infinity, alignment: .leading)

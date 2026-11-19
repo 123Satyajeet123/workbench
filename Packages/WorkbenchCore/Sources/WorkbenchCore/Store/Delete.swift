@@ -6,6 +6,8 @@ public enum DeleteSelector: Sendable {
     /// What one kind of source produced before the cutoff (all of it when nil): its activity, its recordings, and
     /// the items helpers read from it. A call still being recorded stays.
     case kind(SourceKind, before: Date?)
+    /// One machine: its items and their marks, its saved settings, and a deleted state. Its runs stay in the meter.
+    case machine(String)
     /// Every kind. The consent history and the record of model runs hold no captured content, and stay.
     case everything(before: Date?)
 }
@@ -71,6 +73,21 @@ extension Store {
                 return [String]()
             case .kind(let kind, let cutoff):
                 return try remove(kind, before: cutoff ?? .distantFuture)
+            case .machine(let task):
+                try database.run("DELETE FROM item WHERE task = ?", [.text(task)])
+                try database.run("DELETE FROM state WHERE key LIKE ? ESCAPE '\\'", [.text(Self.likePrefix(task))])
+                if let row = try database.rows(
+                    "SELECT id, name, template, spec FROM machine_now WHERE task = ?", [.text(task)]
+                ).first, let id = row[0].integer,
+                    let spec = try? Coding.value(HelperSpec.self, from: row[3].string ?? "")
+                {
+                    try change(
+                        Machine(
+                            id: id, name: row[1].string ?? "", template: row[2].string ?? "", spec: spec, state: .active
+                        ),
+                        name: row[1].string ?? "", spec: spec, state: .deleted)
+                }
+                return [String]()
             case .everything(let cutoff):
                 return try SourceKind.allCases.flatMap { try remove($0, before: cutoff ?? .distantFuture) }
             }
@@ -102,6 +119,11 @@ extension Store {
         try database.run(
             "DELETE FROM activity WHERE kind IN (\(marks)) AND ts < ?",
             kinds.map { .text($0.rawValue) } + [SQLValue(cutoff)])
+    }
+
+    private static func likePrefix(_ task: String) -> String {
+        task.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "%", with: "\\%")
+            .replacingOccurrences(of: "_", with: "\\_") + ".%"
     }
 
     private func removeFile(_ path: String) throws {

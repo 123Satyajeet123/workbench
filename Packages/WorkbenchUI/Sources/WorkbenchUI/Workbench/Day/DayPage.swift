@@ -15,9 +15,20 @@ struct DayPage: View {
             title: greeting, subtitle: Date.now.formatted(date: .complete, time: .omitted),
             look: SidebarSelection.day.look
         ) {
-            TimelineSection(model: crew.timeline)
-            HelperCard(page: .team, open: open) { pipStatus }
-            HelperCard(page: .calls, open: open) { echoStatus }
+            if let timeline = crew.timeline { TimelineSection(model: timeline) }
+            TeamCard()
+            ForEach(crew.crew, id: \.machine.id) { helper in
+                MachineCard(helper: helper, open: { open(.machine(helper.machine.id)) })
+            }
+            Card(
+                title: "\(SidebarSelection.calls.title) · \(SidebarSelection.calls.role)",
+                icon: {
+                    SidebarSelection.calls.look.map { Mascot(look: $0, size: 22) }
+                }
+            ) {
+                echoStatus
+                Button("Open \(SidebarSelection.calls.title)") { open(.calls) }
+            }
             Card(title: "Model use", symbol: "gauge.with.dots.needle.33percent") {
                 Text("\(runs.meter.today.tokensText) tokens · \(runs.meter.today.costText) today")
                 Button("Open Runs") { open(.runs) }
@@ -41,24 +52,6 @@ struct DayPage: View {
         return identity.identity.hasName ? "\(part), \(identity.identity.name)" : part
     }
 
-    @ViewBuilder private var pipStatus: some View {
-        let team = crew.team
-        if case .whatsapp(let source) = team.source, let chat = source.chat {
-            let missing = team.missing(on: team.today)
-            Text("\(chat.name): \(team.items(on: team.today).count) \(team.spec.itemsNoun) today.")
-            if !missing.isEmpty {
-                Text("No update yet from \(missing.formatted(.list(type: .and))).").foregroundStyle(
-                    Tone.attention.color)
-            }
-            if team.nudge.isOn {
-                Text("Night nudge at \(String(format: "%02d:%02d", team.nudge.hour, team.nudge.minute)).")
-                    .foregroundStyle(.supporting)
-            }
-        } else {
-            Text("No team group chosen yet.").foregroundStyle(.supporting)
-        }
-    }
-
     @ViewBuilder private var echoStatus: some View {
         if let call = capture.call {
             Label(
@@ -80,19 +73,54 @@ struct DayPage: View {
     }
 }
 
-/// A crew helper on Mochi's page: its face, its role, what it has for you, and a way to open it.
-private struct HelperCard<Status: View>: View {
-    let page: SidebarSelection
-    let open: (SidebarSelection) -> Void
-    @ViewBuilder let status: Status
+/// A machine on Mochi's page: its face, what it has for you today, and a way to open it.
+private struct MachineCard: View {
+    let helper: HelperModel
+    let open: () -> Void
 
     var body: some View {
         Card(
-            title: "\(page.title) · \(page.role)", icon: { page.look.map { Mascot(look: $0, size: 22) } },
+            title: "\(helper.name) · \(helper.isPaused ? "Paused" : MachineTemplate.of(helper.machine)?.role ?? "")",
+            icon: { Mascot(look: .of(helper.machine), size: 22, mood: helper.mood) },
             content: {
                 status
-                Button("Open \(page.title)") { open(page) }
+                Button("Open \(helper.name)", action: open)
             })
+    }
+
+    @ViewBuilder private var status: some View {
+        let today = helper.items(on: helper.today)
+        if case .whatsapp(let source) = helper.source, source.chat == nil {
+            Text("No group chosen yet.").foregroundStyle(.supporting)
+        } else {
+            Text("\(today.count) \(helper.spec.itemsNoun) today.")
+            let missing = helper.missing(on: helper.today)
+            if !missing.isEmpty {
+                Text("No update yet from \(missing.formatted(.list(type: .and))).")
+                    .foregroundStyle(Tone.attention.color)
+            }
+            if helper.question != nil {
+                Text("\(helper.name) has a question for you.").foregroundStyle(Tone.attention.color)
+            }
+        }
+    }
+}
+
+/// The team on Mochi's page: its name and people, with a way to edit them.
+private struct TeamCard: View {
+    @Environment(TeamModel.self) private var team
+
+    var body: some View {
+        Card(title: team.team.name.cleaned ?? "Your team", symbol: "person.3") {
+            if team.team.people.isEmpty {
+                Text("No team yet. Add your team and its people in Settings.").foregroundStyle(.supporting)
+            } else {
+                Text(
+                    team.team.people.map { $0.role.isEmpty ? $0.name : "\($0.name) (\($0.role))" }.formatted(
+                        .list(type: .and)))
+            }
+            SettingsLink { Text("Edit team") }
+        }
     }
 }
 
@@ -103,7 +131,7 @@ private struct TimelineSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Space.m) {
             HStack(alignment: .firstTextBaseline) {
-                Text("Timeline").font(.title2.bold())
+                Text("Timeline").textStyle(.title2, weight: .bold)
                 Spacer()
                 DayStepper(day: model.day, today: model.today, show: model.show)
             }

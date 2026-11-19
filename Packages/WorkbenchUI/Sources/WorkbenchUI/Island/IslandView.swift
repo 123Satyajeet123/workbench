@@ -13,7 +13,7 @@ struct IslandView: View {
                     Image(systemName: "record.circle.fill").foregroundStyle(Tone.bad.color)
                         .frame(width: IslandMetrics.earWidth)
                     Spacer(minLength: IslandMetrics.notchWidth)
-                    Text(recordingSince, style: .timer).font(.callout.weight(.medium)).monospacedDigit()
+                    Text(recordingSince, style: .timer).textStyle(.callout, weight: .medium).monospacedDigit()
                         .frame(width: IslandMetrics.earWidth)
                 }
                 .transition(.opacity)

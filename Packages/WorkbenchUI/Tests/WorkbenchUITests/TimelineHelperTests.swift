@@ -66,7 +66,7 @@ private final class ActingModel: StructuredModel, Sendable {
 
     private func model(_ store: Store, _ model: ActingModel) -> HelperModel {
         HelperModel(
-            spec: .timeline, name: "Timeline", source: .screen(ScreenSource(store: store)), store: store,
+            machine: .test(.timeline, "Timeline"), source: .screen(ScreenSource(store: store)), store: store,
             makeModel: { _ in RecordedModel(model, store: store) })
     }
 

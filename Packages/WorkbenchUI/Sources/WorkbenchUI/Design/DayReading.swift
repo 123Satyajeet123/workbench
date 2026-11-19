@@ -21,7 +21,7 @@ struct ReadPhaseLabel: View {
         case .reading: ProgressView("Reading the day…").controlSize(.small)
         case .read(let kept, let dropped):
             Text(dropped == 0 ? "\(kept) \(items)." : "\(kept) \(items). \(dropped) dropped: \(droppedBecause).")
-                .font(.callout).foregroundStyle(.supporting)
+                .textStyle(.callout).foregroundStyle(.supporting)
         }
     }
 }

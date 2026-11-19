@@ -52,7 +52,7 @@ struct Page<Content: View, Accessory: View>: View {
                 HStack(alignment: .center, spacing: Space.m) {
                     if let look { Mascot(look: look, size: 52) }
                     VStack(alignment: .leading, spacing: Space.xs) {
-                        Text(title).font(.largeTitle.bold())
+                        Text(title).textStyle(.largeTitle, weight: .bold)
                         if let subtitle { Text(subtitle).foregroundStyle(.supporting) }
                     }
                     Spacer()
@@ -86,7 +86,7 @@ struct Card<Icon: View, Content: View>: View {
                 Text(title)
             } icon: {
                 icon
-            }.font(.headline)
+            }.textStyle(.headline)
             content
         }
         .padding(Space.l)
@@ -113,6 +113,6 @@ struct ProblemBanner: View {
             Spacer()
             if let dismiss { Button("Dismiss", action: dismiss).buttonStyle(.borderless) }
         }
-        .font(.callout)
+        .textStyle(.callout)
     }
 }

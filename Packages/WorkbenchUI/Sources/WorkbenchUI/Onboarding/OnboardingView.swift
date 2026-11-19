@@ -47,7 +47,7 @@ struct OnboardingView: View {
         switch model.screen {
         case .welcome: "Get started"
         case .done: "Open Workbench"
-        case .you, .sources: "Continue"
+        case .you, .team, .sources: "Continue"
         }
     }
 }

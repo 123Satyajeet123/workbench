@@ -58,6 +58,6 @@ struct SourceToggles: View {
                 }
             }
         }
-        .font(.callout)
+        .textStyle(.callout)
     }
 }

@@ -31,7 +31,7 @@ struct OnboardingTests {
     @Test func everyScreenSaysOnlyWhatIsTrue() {
         let words = OnboardingScreen.allCases.map { $0.title + " " + $0.lead }.joined(separator: " ")
         for untrue in ["calendar", "research", "deal", "fund"] { #expect(!words.lowercased().contains(untrue)) }
-        let pages = SidebarSelection.allCases.map(\.title)
+        let pages = SidebarSelection.fixed.map(\.title) + MachineTemplate.all.map(\.name) + ["Settings"]
         let named = words.matches(of: #/(?:Open|in|on the) ([A-Z][a-z]+)/#).map { String($0.1) }
         #expect(!named.isEmpty && named.allSatisfy(pages.contains), "\(named) must be pages that exist")
     }

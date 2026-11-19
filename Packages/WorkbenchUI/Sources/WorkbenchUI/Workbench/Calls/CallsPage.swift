@@ -33,7 +33,7 @@ struct CallsPage: View {
                 }, id: \.key
             ) { day, calls in
                 VStack(alignment: .leading, spacing: Space.s) {
-                    Text(day.formatted(.dateTime.weekday(.wide).day().month())).font(.headline)
+                    Text(day.formatted(.dateTime.weekday(.wide).day().month())).textStyle(.headline)
                     ForEach(calls.sorted { $0.startedAt > $1.startedAt }) { RecordingRow(recording: $0) }
                 }
                 Divider()
@@ -58,7 +58,7 @@ private struct RecordingRow: View {
                 Text(recording.error ?? "Failed").foregroundStyle(Tone.bad.color).textSelection(.enabled)
             }
         }
-        .font(.callout)
+        .textStyle(.callout)
     }
 
     private var span: String {

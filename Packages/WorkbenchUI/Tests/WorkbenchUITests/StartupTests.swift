@@ -13,7 +13,8 @@ struct StartupTests {
             Issue.record("the store should open")
             return
         }
-        #expect(!session.crew.team.isReady)
+        #expect(session.crew.machines.map(\.name) == ["Pip", "Timeline"])
+        #expect(session.crew.crew.map(\.name) == ["Pip"] && session.crew.crew.first?.isReady == false)
         #expect(session.runs.runs.isEmpty)
         #expect(!session.onboarding.isFinished)
         #expect(try session.store.queries.count(of: .activity) == 0)

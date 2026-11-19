@@ -140,7 +140,7 @@ extension Mascot {
 
 #Preview {
     HStack(spacing: 24) {
-        ForEach(SidebarSelection.allCases.compactMap(\.look), id: \.hue) { Mascot(look: $0, size: 96) }
+        ForEach(SidebarSelection.fixed.compactMap(\.look), id: \.hue) { Mascot(look: $0, size: 96) }
     }
     .padding(32)
 }

@@ -2,21 +2,21 @@ import LocalSources
 import SwiftUI
 import WorkbenchCore
 
-/// A crew helper's page: its face and name, the day, and the helper's content.
+/// A machine's page: its face and name, the day, and the machine's content.
 struct HelperPage: View {
-    let page: SidebarSelection
     let model: HelperModel
 
     var body: some View {
         Page(
-            title: page.title, subtitle: subtitle, look: page.look,
+            title: model.name, subtitle: subtitle, look: .of(model.machine),
             accessory: { DayStepper(day: model.day, today: model.today, show: model.show) },
             content: { HelperContent(model: model) })
     }
 
     private var subtitle: String {
-        guard case .whatsapp(let source) = model.source, let chat = source.chat else { return page.role }
-        return "\(page.role) · \(chat.name)"
+        let role = model.isPaused ? "Paused" : MachineTemplate.of(model.machine)?.role ?? ""
+        guard case .whatsapp(let source) = model.source, let chat = source.chat else { return role }
+        return "\(role) · \(chat.name)"
     }
 }
 
@@ -30,6 +30,7 @@ struct HelperContent: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Space.l) {
             if let problem = model.problem { ProblemBanner(text: problem, dismiss: model.dismissProblem) }
+            if model.isPaused { PausedNote(model: model) }
             if case .whatsapp(let source) = model.source, source.chat == nil {
                 GroupChooser(model: model, source: source)
             } else {
@@ -51,11 +52,11 @@ struct HelperContent: View {
             HStack(spacing: Space.m) {
                 Button("Read this day") { Task { await model.read() } }
                     .buttonStyle(.borderedProminent)
-                    .disabled(model.phase == .reading || noScreenActivity)
+                    .disabled(model.phase == .reading || noScreenActivity || model.isPaused)
                 ReadPhaseLabel(
                     phase: model.phase, items: model.spec.itemsNoun, droppedBecause: "not backed by the source")
             }
-            Text(note).font(.callout).foregroundStyle(.supporting)
+            Text(note).textStyle(.callout).foregroundStyle(.supporting)
             if case .screen = model.source, !capture.isOn(.screen) {
                 Button("Turn on Screen") { capture.set(.screen, on: true) }
                     .help("Workbench keeps which app, window and page you are in. Never pixels or keystrokes.")
@@ -93,6 +94,20 @@ struct HelperContent: View {
     }
 }
 
+/// A paused machine reads and nudges nothing until the founder resumes it.
+private struct PausedNote: View {
+    let model: HelperModel
+    @Environment(Crew.self) private var crew
+
+    var body: some View {
+        HStack(spacing: Space.s) {
+            Label("\(model.name) is paused. It reads and nudges nothing.", systemImage: "pause.circle")
+            Button("Resume") { crew.setPaused(model, false) }
+        }
+        .foregroundStyle(Tone.attention.color)
+    }
+}
+
 /// The one item the app picked from the last reading. Answering it measures the helper without your choice of what
 /// to check.
 private struct Question: View {
@@ -101,10 +116,10 @@ private struct Question: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Space.s) {
-            Label("\(model.name) asks: is this right?", systemImage: "questionmark.bubble").font(.headline)
+            Label("\(model.name) asks: is this right?", systemImage: "questionmark.bubble").textStyle(.headline)
             ItemRow(model: model, item: item, showsSpan: model.spec.citation == .range)
             Text("Picked at random from this reading, so your answer shows how often \(model.name) is right.")
-                .font(.callout).foregroundStyle(.supporting)
+                .textStyle(.callout).foregroundStyle(.supporting)
             if let trust = model.trust { TrustLine(name: model.name, status: trust) }
         }
         .padding(Space.m)
@@ -124,12 +139,12 @@ struct TrustLine: View {
                 "\(name) has earned trust: wrong at most \(bound.formatted(.percent.precision(.fractionLength(1)))) of the time, 90% sure.",
                 systemImage: "checkmark.shield"
             )
-            .foregroundStyle(Tone.good.color).font(.callout)
+            .foregroundStyle(Tone.good.color).textStyle(.callout)
         case .needsMore(let more):
             Text(
                 "\(name) earns trust at most 10% wrong, 90% sure. It needs at least \(more) more right answers on held-out days."
             )
-            .font(.callout).foregroundStyle(.supporting)
+            .textStyle(.callout).foregroundStyle(.supporting)
         }
     }
 }
@@ -173,7 +188,7 @@ private struct Board: View {
         ForEach(groups, id: \.self) { group in
             let own = model.items.filter { $0[field] == group }
             VStack(alignment: .leading, spacing: Space.s) {
-                Text(group).font(.headline)
+                Text(group).textStyle(.headline)
                 if own.isEmpty {
                     Label("No \(model.spec.itemsNoun)", systemImage: "questionmark.circle")
                         .foregroundStyle(Tone.attention.color)
@@ -199,7 +214,7 @@ private struct ItemRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: Space.m) {
             if showsSpan {
-                Text(span).font(.callout.monospacedDigit()).foregroundStyle(.supporting)
+                Text(span).textStyle(.callout, digits: true).foregroundStyle(.supporting)
                     .frame(width: 110, alignment: .leading)
             } else if let (value, tone) = toned {
                 Image(systemName: tone.symbol).foregroundStyle(tone.color).frame(width: 18).accessibilityLabel(value)
@@ -208,12 +223,12 @@ private struct ItemRow: View {
                 HStack(spacing: Space.s) {
                     Text(item[model.spec.title])
                     ForEach(model.spec.badges.map { item[$0] }.filter { !$0.isEmpty }, id: \.self) { badge in
-                        Text(badge).font(.caption).padding(.horizontal, Space.s).padding(.vertical, 2)
+                        Text(badge).textStyle(.caption).padding(.horizontal, Space.s).padding(.vertical, 2)
                             .background(.quaternary, in: .capsule)
                     }
                 }
                 Text(showsSpan ? "“\(item.quote)”" : "“\(item.quote)” · \(time(item.start))")
-                    .font(.callout).foregroundStyle(.supporting).textSelection(.enabled)
+                    .textStyle(.callout).foregroundStyle(.supporting).textSelection(.enabled)
             }
             .opacity(item.state == .rejected ? 0.5 : 1)
             .strikethrough(item.state == .rejected)
@@ -253,14 +268,14 @@ private struct NudgeRow: View {
             Text(
                 "At this time \(model.name) reads today with \(models.choice.title) and tells you who has no \(model.spec.itemsNoun). Silent; the Mac must be on."
             )
-            .font(.callout).foregroundStyle(.supporting)
+            .textStyle(.callout).foregroundStyle(.supporting)
             if model.notificationsBlocked {
                 HStack(spacing: Space.s) {
                     Label("macOS blocks Workbench notifications.", systemImage: "bell.slash")
                         .foregroundStyle(Tone.attention.color)
                     Button("Allow in System Settings", action: SystemNotifier.openSettings)
                 }
-                .font(.callout)
+                .textStyle(.callout)
             }
         }
     }

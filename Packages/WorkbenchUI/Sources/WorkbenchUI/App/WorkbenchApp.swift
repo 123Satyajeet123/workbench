@@ -5,6 +5,7 @@ public struct WorkbenchApp: App {
     private static let titleBarAndToolbarHeight: CGFloat = 52
 
     @NSApplicationDelegateAdaptor private var appDelegate: AppDelegate
+    @AppStorage("zoom") private var zoom = 1.0
 
     public init() {}
 
@@ -19,11 +20,13 @@ public struct WorkbenchApp: App {
                         OnboardingView()
                     }
                 }
+                .zoomed(Zoom(zoom))
                 .environment(session)
             case .failed(let failure):
                 StartupErrorView(failure: failure)
             }
         }
+        .commands { ZoomCommands() }
         .windowResizability(.contentSize)
         .defaultWindowPlacement { _, context in
             let visible = context.defaultDisplay.visibleRect
@@ -47,7 +50,7 @@ public struct WorkbenchApp: App {
 
         Settings {
             if case .ready(let session) = appDelegate.launch {
-                SettingsView().environment(session)
+                SettingsView().zoomed(Zoom(zoom)).environment(session)
             }
         }
     }
@@ -59,6 +62,7 @@ extension View {
         environment(session.onboarding)
             .environment(session.capture)
             .environment(session.identity)
+            .environment(session.team)
             .environment(session.models)
             .environment(session.crew)
             .environment(session.runs)

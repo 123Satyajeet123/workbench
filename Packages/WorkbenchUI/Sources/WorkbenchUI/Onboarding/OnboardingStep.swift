@@ -8,11 +8,12 @@ struct OnboardingStep: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Space.l) {
-            Text(screen.title).font(.largeTitle.bold()).fixedSize(horizontal: false, vertical: true)
-            Text(screen.lead).font(.title3).fixedSize(horizontal: false, vertical: true)
+            Text(screen.title).textStyle(.largeTitle, weight: .bold).fixedSize(horizontal: false, vertical: true)
+            Text(screen.lead).textStyle(.title3).fixedSize(horizontal: false, vertical: true)
             switch screen {
-            case .welcome: Text(Self.dataLine).font(.title3.weight(.semibold))
+            case .welcome: Text(Self.dataLine).textStyle(.title3, weight: .semibold)
             case .you: YouStep()
+            case .team: TeamEditor()
             case .sources: Form { SourceToggles() }.formStyle(.grouped).scrollDisabled(true)
             case .done: LoginItemToggle().toggleStyle(.switch)
             }
