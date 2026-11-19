@@ -31,7 +31,8 @@ final class HelperModel {
     /// macOS blocks Workbench notifications; the nudge row offers System Settings.
     private(set) var notificationsBlocked = false
     /// A new brief being tried on past days, and how it compares with the current one.
-    private(set) var trial: (brief: String, days: [WorkDay], by: Decision.By, why: String, result: Trial)?
+    private(set) var trial:
+        (brief: String, examples: Int?, days: [WorkDay], by: Decision.By, why: String, result: Trial)?
     private(set) var trialPhase = ReadPhase.idle
     var nudge = NudgeSchedule() {
         didSet { attempt("save the nudge") { try store.saveState(Self.json(nudge), forKey: nudgeKey) } }
@@ -173,7 +174,7 @@ final class HelperModel {
             _ = try await grant(scope)
             let evidence = try await gather(day)
             let reader = HelperReader(spec: spec, model: makeModel(try ModelChoice.saved(in: store)))
-            let result = try await reader.read(day: day, scope: scope, evidence: evidence)
+            let result = try await reader.read(day: day, scope: scope, evidence: evidence, marked: try marked())
             try store.saveReading(result, of: spec, day: day, scope: scope, grant: try await grant(scope))
             if self.day == day { reload() }
             phase = .read(kept: result.items.count, dropped: result.dropped)
@@ -206,6 +207,7 @@ final class HelperModel {
         var days: [String]
         var by: String?
         var why: String?
+        var examples: Int?
     }
 
     private var trialKey: String { "\(spec.task).trial" }
@@ -229,11 +231,17 @@ final class HelperModel {
     /// marked, newest first, so old marks carry over to the items both versions give; or, with no marks yet, recent
     /// training days. Held-out days are never read. Nothing of the live machine changes.
     func startTrial(brief: String, by: Decision.By = .person, why: String = "") async {
+        await startTrial(brief: brief, examples: spec.examples, by: by, why: why)
+    }
+
+    /// A trial of a new brief and example policy together.
+    func startTrial(brief: String, examples: Int?, by: Decision.By, why: String) async {
         guard let brief = brief.cleaned, isReady, trialPhase != .reading else { return }
         trialPhase = .reading
         var challenger = spec
         challenger.task = Trial.task(of: spec.task)
         challenger.brief = brief
+        challenger.examples = examples
         let scope = scope
         do {
             var days = try store.queries.markedDays(of: spec.task).filter { EvalSplit($0) == .dev }
@@ -248,15 +256,21 @@ final class HelperModel {
             let reader = HelperReader(spec: challenger, model: makeModel(try ModelChoice.saved(in: store)))
             for day in days {
                 _ = try await grant(scope)
-                let result = try await reader.read(day: day, scope: scope, evidence: try await gather(day))
+                let result = try await reader.read(
+                    day: day, scope: scope, evidence: try await gather(day), marked: try marked())
                 try store.saveReading(result, of: challenger, day: day, scope: scope, grant: try await grant(scope))
             }
             try store.log(
                 Decision(
                     at: store.clock(), task: spec.task, kind: .trial, by: by, brief: brief, parentBrief: spec.brief,
-                    detail: ["days": String(days.count), "why": why]))
+                    detail: [
+                        "days": String(days.count), "why": why, "examples": Self.text(examples),
+                        "parentExamples": Self.text(spec.examples),
+                    ]))
             try store.saveState(
-                Self.json(SavedTrial(brief: brief, days: days.map(\.description), by: by.rawValue, why: why)),
+                Self.json(
+                    SavedTrial(
+                        brief: brief, days: days.map(\.description), by: by.rawValue, why: why, examples: examples)),
                 forKey: trialKey)
             trialPhase = .idle
             reload()
@@ -311,7 +325,9 @@ final class HelperModel {
     }
 
     /// The trial with its marked differences in the order the founder gave the marks.
-    private func loadTrial() throws -> (brief: String, days: [WorkDay], by: Decision.By, why: String, result: Trial)? {
+    private func loadTrial() throws -> (
+        brief: String, examples: Int?, days: [WorkDay], by: Decision.By, why: String, result: Trial
+    )? {
         guard let text = try store.queries.state(forKey: trialKey), !text.isEmpty else { return nil }
         let saved = try JSONDecoder().decode(SavedTrial.self, from: Data(text.utf8))
         let days = saved.days.compactMap { WorkDay($0) }
@@ -327,8 +343,27 @@ final class HelperModel {
         let result = Trial(
             current: current, challenger: challenger, citation: spec.citation, markOrder: order,
             threshold: EProcess.threshold(challengers: tried))
-        return (saved.brief, days, saved.by.flatMap(Decision.By.init) ?? .person, saved.why ?? "", result)
+        return (
+            saved.brief, saved.examples, days, saved.by.flatMap(Decision.By.init) ?? .person, saved.why ?? "", result
+        )
     }
+
+    /// The founder's marked items of the last 60 days: the reader takes examples from them by its own rule.
+    private func marked() throws -> [Item] {
+        try store.queries.items(of: spec.task, since: WorkDay(containing: store.clock()).adding(days: -60))
+            .filter { $0.state != .proposed }
+    }
+
+    /// Learning from marks is a trial like any change: the same brief with marked examples, judged on past days.
+    func learnFromMarks() async {
+        await startTrial(
+            brief: spec.brief, examples: Self.exampleCount, by: .person, why: "Learn from my marked examples")
+    }
+
+    /// Research 20 §9.2 starts at three right and two wrong examples.
+    static let exampleCount = 5
+
+    static func text(_ examples: Int?) -> String { examples.map(String.init) ?? "" }
 
     static func counts(_ trial: Trial) -> [String: String] {
         [
@@ -451,13 +486,17 @@ final class Crew {
     /// watched; see `watch`.
     func switchToTrial(_ helper: HelperModel) {
         guard let trial = helper.trial else { return }
-        let parent = helper.spec.brief
-        edit(helper, brief: trial.brief)
+        let parent = helper.spec
+        edit(helper, brief: trial.brief, examples: trial.examples)
         attempt("log the switch") {
             try store.log(
                 Decision(
                     at: store.clock(), task: helper.spec.task, kind: .promote, by: .person, brief: trial.brief,
-                    parentBrief: parent, detail: HelperModel.counts(trial.result)))
+                    parentBrief: parent.brief,
+                    detail: HelperModel.counts(trial.result).merging([
+                        "examples": HelperModel.text(trial.examples),
+                        "parentExamples": HelperModel.text(parent.examples),
+                    ]) { a, _ in a }))
         }
         helper.endTrial()
     }
@@ -468,6 +507,7 @@ final class Crew {
     func watch(_ helper: HelperModel) {
         guard let switched = try? store.queries.decisions(of: helper.spec.task).first, switched.kind == .promote,
             switched.brief == helper.spec.brief,
+            switched.detail["examples", default: ""] == HelperModel.text(helper.spec.examples),
             let answers = try? store.queries.auditAnswers(of: helper.spec.task, since: switched.at)
         else { return }
         let wrong = answers.filter { EvalSplit($0.day) == .heldOut }.map(\.wrong)
@@ -476,7 +516,7 @@ final class Crew {
         let name = helper.name
         let line =
             "Back to \(name)'s earlier brief: the new one was wrong on \(wrong.filter { $0 }.count) of \(wrong.count) checked items."
-        edit(helper, brief: switched.parentBrief)
+        edit(helper, brief: switched.parentBrief, examples: Int(switched.detail["parentExamples", default: ""]))
         attempt("log the rollback") {
             try store.log(
                 Decision(
@@ -529,6 +569,11 @@ final class Crew {
 
     func rename(_ helper: HelperModel, to name: String) {
         attempt("rename \(helper.name)") { try store.rename(helper.machine, to: name) }
+        reload()
+    }
+
+    func edit(_ helper: HelperModel, brief: String, examples: Int?) {
+        attempt("change \(helper.name)") { try store.edit(helper.machine, brief: brief, examples: examples) }
         reload()
     }
 

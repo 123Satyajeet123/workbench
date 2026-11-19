@@ -205,6 +205,13 @@ private struct ImproveRow: View {
                 .help(
                     "Mochi reads the items you marked on training days and tries one small change on past days. You decide."
                 )
+                if model.spec.examples == nil {
+                    Button("Learn from my marked examples") { Task { await model.learnFromMarks() } }
+                        .disabled(asking || model.isPaused)
+                        .help(
+                            "The machine sees a few items you marked on other training days when it reads. It is tried on past days first; you decide."
+                        )
+                }
                 if let note = model.improveNote { Text(note).textStyle(.callout).foregroundStyle(.supporting) }
             }
             History(model: model)

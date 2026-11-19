@@ -113,4 +113,7 @@ public struct HelperSpec: Codable, Sendable, Equatable {
     /// What one item is called on screen: "entries", "blocks".
     public var itemsNoun: String
     public var nudge: Nudge?
+    /// How many items the founder marked on other training days the machine sees as examples; nil for none. It is
+    /// part of the instructions, so changing it makes a new version that earns trust again (research 20 §9.2).
+    public var examples: Int? = nil
 }

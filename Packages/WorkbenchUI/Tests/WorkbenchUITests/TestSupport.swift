@@ -112,6 +112,7 @@ final class KeyedModel: StructuredModel, Sendable {
     let name = "keyed"
     let replies: Mutex<[String: String]>
     let calls = Mutex(0)
+    let inputs = Mutex<[String]>([])
 
     init(_ replies: [String: String]) { self.replies = Mutex(replies) }
 
@@ -119,6 +120,7 @@ final class KeyedModel: StructuredModel, Sendable {
         async throws -> ModelAnswer<T>
     {
         calls.withLock { $0 += 1 }
+        inputs.withLock { $0.append(input) }
         let reply = replies.withLock { $0.first { instructions.contains($0.key) }?.value } ?? #"{"items":[]}"#
         return ModelAnswer(value: try JSONDecoder().decode(T.self, from: Data(reply.utf8)), model: "m", usage: Usage())
     }
