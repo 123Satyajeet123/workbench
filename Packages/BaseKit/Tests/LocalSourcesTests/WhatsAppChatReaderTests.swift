@@ -61,4 +61,60 @@ import WorkbenchCore
             """)
         #expect(try await reader(fixture, chat: groupJID).members().map(\.name) == ["Asha", "Bharat", "Tattwa"])
     }
+
+    /// The founder's rule (2026-11-19): every group with "Brave" in its name, and direct chats with people in them.
+    @Test func aSelectionTakesMatchingGroupsAndDirectChatsWithTheirMembersOnly() throws {
+        let fixture = try WhatsAppFixture()
+        try fixture.run(
+            """
+            INSERT INTO ZWACHATSESSION VALUES (6, 'b@s.whatsapp.net', 0, 'Bharat K', 60),
+                (7, 'z@s.whatsapp.net', 0, 'Stranger', 70);
+            """)
+        let policy = CapturePolicy(switches: [.whatsapp: true])
+        let chosen = try WhatsAppChatReader.chats(
+            matching: ChatSelection(nameContains: "tea", directWithMembers: true), container: fixture.container,
+            policy: policy)
+        #expect(chosen.map(\.name) == ["Team", "Bharat K"])
+        #expect(chosen.map(\.isGroup) == [true, false])
+        let groupsOnly = try WhatsAppChatReader.chats(
+            matching: ChatSelection(nameContains: "TEAM", directWithMembers: false), container: fixture.container,
+            policy: policy)
+        #expect(groupsOnly.map(\.name) == ["Team"])
+        #expect(
+            try WhatsAppChatReader.chats(
+                matching: ChatSelection(nameContains: " ", directWithMembers: true), container: fixture.container,
+                policy: policy
+            ).isEmpty, "no words, no chats")
+    }
+
+    @Test func oneReadCoversAGroupAndADirectChatAndNamesEachPersonOnce() async throws {
+        let fixture = try WhatsAppFixture()
+        try fixture.run(
+            """
+            INSERT INTO ZWACHATSESSION VALUES (6, 'b@s.whatsapp.net', 0, 'Bharat K', 60);
+            INSERT INTO ZWAGROUPMEMBER VALUES (5, 4, 'd@s.whatsapp.net', 'Dad', NULL, 0);
+            """)
+        try fixture.message(chat: 4, type: 0, text: "login done", member: 1, date: 100)
+        try fixture.message(chat: 6, type: 0, text: "shipped the build", date: 110)
+        try fixture.run("UPDATE ZWAMESSAGE SET ZISFROMME = 0 WHERE ZTEXT = 'shipped the build'")
+        let policy = FixedPolicy(
+            policy: CapturePolicy(
+                switches: [.whatsapp: true], allowList: [.whatsapp: [groupJID, otherGroupJID, "b@s.whatsapp.net"]]))
+        let reader = WhatsAppChatReader(
+            container: fixture.container, chatJIDs: [groupJID, otherGroupJID, "b@s.whatsapp.net"], policy: policy)
+        let (entries, members) = try await reader.read(from: .distantPast, to: .distantFuture)
+        #expect(entries.map(\.chat) == [groupJID, "b@s.whatsapp.net"])
+        #expect(entries.last?.sender == .member(jid: "b@s.whatsapp.net", name: "Bharat"), "the other person, named")
+        try fixture.message(chat: 4, type: 0, text: "a notice", date: 120)
+        try fixture.run("UPDATE ZWAMESSAGE SET ZISFROMME = 0 WHERE ZTEXT = 'a notice'")
+        let notice = try #require(try await reader.entries().last)
+        #expect(
+            notice.sender != .member(jid: groupJID, name: MemberNames.fallback(for: groupJID)), "a group is no person")
+        #expect(members.map(\.name) == ["Asha", "Bharat", "Dad"], "Dad is in two groups, once, without a suffix")
+        await #expect(throws: (any Error).self, "every chat must be allowed") {
+            _ = try await WhatsAppChatReader(
+                container: fixture.container, chatJIDs: [groupJID, "z@s.whatsapp.net"], policy: policy
+            ).read(from: .distantPast, to: .distantFuture)
+        }
+    }
 }

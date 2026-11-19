@@ -1,5 +1,6 @@
 import CaptureService
 import Foundation
+import LocalSources
 import Synchronization
 import Testing
 import WorkbenchCore
@@ -219,6 +220,26 @@ import WorkbenchCore
         try second.choose(try #require(second.groups.first { $0.jid == familyJID }))
         #expect(capture.policy.allowList[.whatsapp] == [teamJID, familyJID])
         #expect(capture.policy.authorize(CaptureRequest(kind: .whatsapp, label: teamJID), at: noon).grant != nil)
+    }
+
+    /// The founder's rule: several chats at once. Each line names its chat, every chat must be allowed, and a day from
+    /// chats with different people is not shared (its audience is not known per item yet).
+    @Test func aSeveralChatSourceNamesEachLineSChatAndItsDayIsNotShared() async throws {
+        let now = noon
+        let store = try scratchStore(clock: { now })
+        let capture = try CaptureService(store: store)
+        let source = try WhatsAppSource(
+            store: store, capture: capture, task: "context", founder: { "Kabir" }, container: try whatsApp(at: noon))
+        try source.preview(ChatSelection(nameContains: "a", directWithMembers: false))
+        #expect(source.matching.map(\.name) == ["Team", "Family"])
+        try source.choose(source.matching)
+        #expect(source.isSeveral && capture.policy.allowList[.whatsapp] == [teamJID, familyJID])
+        let lines = try await source.evidence(on: WorkDay(containing: now)).lines.map(\.line)
+        #expect(lines.contains("[Team] Asha: login API done"))
+        #expect(lines.contains { $0.hasPrefix("[Family] ") && $0.contains("dinner at 8") })
+        let reopened = try WhatsAppSource(
+            store: store, capture: capture, task: "context", founder: { "Kabir" }, container: try whatsApp(at: noon))
+        #expect(reopened.chats.map(\.name) == ["Team", "Family"], "the choice is kept")
     }
 }
 

@@ -95,7 +95,7 @@ final class HelperModel {
     var scope: String {
         switch source {
         case .screen, .pages: ""
-        case .whatsapp(let chat): chat.chat?.jid ?? ""
+        case .whatsapp(let chat): chat.chat?.jid ?? ""  // several chats: one scope for the machine
         }
     }
 
@@ -103,7 +103,7 @@ final class HelperModel {
     var isReady: Bool {
         switch source {
         case .screen: true
-        case .whatsapp(let chat): chat.chat != nil
+        case .whatsapp(let chat): !chat.chats.isEmpty
         case .pages(let pages): !pages.sites.isEmpty
         }
     }
@@ -225,8 +225,16 @@ final class HelperModel {
         try store.queries.state(forKey: lastLineKey(day: day, scope: scope)).flatMap { Int64($0) }
     }
 
+    /// The source must allow the read: for several chats, each one of them.
     private func grant(_ scope: String) async throws -> CaptureGrant {
-        try await store.grant(for: spec.source.kind, label: scope.isEmpty ? nil : scope, at: store.clock())
+        if case .whatsapp(let source) = source, source.isSeveral {
+            var last: CaptureGrant?
+            for chat in source.chats {
+                last = try await store.grant(for: .whatsapp, label: chat.jid, at: store.clock())
+            }
+            if let last { return last }
+        }
+        return try await store.grant(for: spec.source.kind, label: scope.isEmpty ? nil : scope, at: store.clock())
     }
 
     private func gather(_ day: WorkDay) async throws -> EvidenceSet {

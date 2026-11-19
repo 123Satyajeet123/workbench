@@ -92,7 +92,7 @@ private struct MachineCard: View {
 
     @ViewBuilder private var status: some View {
         let today = helper.items(on: helper.today)
-        if case .whatsapp(let source) = helper.source, source.chat == nil {
+        if case .whatsapp(let source) = helper.source, source.chats.isEmpty {
             Text("No group chosen yet.").foregroundStyle(.supporting)
         } else {
             Text("\(today.count) \(helper.spec.itemsNoun) today.")

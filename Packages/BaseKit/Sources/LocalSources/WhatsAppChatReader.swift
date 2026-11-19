@@ -16,6 +16,8 @@ public struct WhatsAppEntry: Sendable, Equatable {
     public enum Kind: Sendable, Equatable { case text, photo, document, voiceNote }
 
     public var id: Int64
+    /// The chat it was sent in: a group or a direct chat.
+    public var chat: String
     public var date: Date
     public var kind: Kind
     public var sender: WhatsAppSender
@@ -25,10 +27,24 @@ public struct WhatsAppEntry: Sendable, Equatable {
     public var media: WhatsAppMedia?
 }
 
-public struct WhatsAppChat: Codable, Sendable, Equatable, Identifiable {
+public struct WhatsAppChat: Codable, Sendable, Equatable, Identifiable, Hashable {
     public var jid: String
     public var name: String
     public var id: String { jid }
+    /// WhatsApp names groups `…@g.us`; a direct chat is the other person's id.
+    public var isGroup: Bool { jid.hasSuffix("@g.us") }
+}
+
+/// Which chats a several-chat machine reads, as the founder put it: groups whose name holds some words, and the direct
+/// chats with people in those groups.
+public struct ChatSelection: Codable, Sendable, Equatable {
+    public var nameContains: String
+    public var directWithMembers: Bool
+
+    public init(nameContains: String, directWithMembers: Bool) {
+        self.nameContains = nameContains
+        self.directWithMembers = directWithMembers
+    }
 }
 
 public struct WhatsAppMember: Codable, Sendable, Equatable {
@@ -62,13 +78,49 @@ public struct WhatsAppChatReader: Sendable {
     }
 
     private let container: URL
-    public let chatJID: String
+    /// The chats this reader may read; the policy must allow each one.
+    public let chatJIDs: [String]
     private let policy: any CapturePolicyProvider
 
-    public init(container: URL = defaultContainer, chatJID: String, policy: any CapturePolicyProvider) {
+    public init(container: URL = defaultContainer, chatJIDs: [String], policy: any CapturePolicyProvider) {
         self.container = container
-        self.chatJID = chatJID
+        self.chatJIDs = chatJIDs
         self.policy = policy
+    }
+
+    public init(container: URL = defaultContainer, chatJID: String, policy: any CapturePolicyProvider) {
+        self.init(container: container, chatJIDs: [chatJID], policy: policy)
+    }
+
+    /// The chats that match a selection: groups whose name holds its words, and, when asked, direct chats with people
+    /// in those groups. Only names and IDs, and only while the WhatsApp source is on.
+    public static func chats(
+        matching selection: ChatSelection, container: URL = defaultContainer, policy: CapturePolicy
+    ) throws -> [WhatsAppChat] {
+        guard policy.mode != .off else { throw ReadError.denied(.captureOff) }
+        guard policy.isEnabled(.whatsapp) else { throw ReadError.denied(.sourceSwitchedOff) }
+        let words = selection.nameContains.trimmingCharacters(in: .whitespaces)
+        guard !words.isEmpty else { return [] }
+        let snapshot = try Self.snapshot(container)
+        let groups = try snapshot.rows(
+            """
+            SELECT ZCONTACTJID, ZPARTNERNAME FROM ZWACHATSESSION
+            WHERE ZSESSIONTYPE = ? AND ZPARTNERNAME IS NOT NULL AND instr(lower(ZPARTNERNAME), lower(?)) > 0
+            ORDER BY ZLASTMESSAGEDATE DESC
+            """, binding: [.integer(Int64(SessionType.group)), .text(words)]
+        ).compactMap { row in row.text(0).map { WhatsAppChat(jid: $0, name: row.text(1) ?? $0) } }
+        guard selection.directWithMembers, !groups.isEmpty else { return groups }
+        let marks = Array(repeating: "?", count: groups.count).joined(separator: ",")
+        let direct = try snapshot.rows(
+            """
+            SELECT s.ZCONTACTJID, s.ZPARTNERNAME FROM ZWACHATSESSION s
+            WHERE s.ZSESSIONTYPE = ? AND s.ZCONTACTJID IN (
+                SELECT g.ZMEMBERJID FROM ZWAGROUPMEMBER g JOIN ZWACHATSESSION c ON c.Z_PK = g.ZCHATSESSION
+                WHERE c.ZCONTACTJID IN (\(marks)))
+            ORDER BY s.ZLASTMESSAGEDATE DESC
+            """, binding: [.integer(Int64(SessionType.person))] + groups.map { .text($0.jid) }
+        ).compactMap { row in row.text(0).map { WhatsAppChat(jid: $0, name: row.text(1) ?? $0) } }
+        return groups + direct
     }
 
     /// The groups on this Mac, by name, so the founder can choose one. Only names and IDs, and only while the WhatsApp
@@ -83,59 +135,88 @@ public struct WhatsAppChatReader: Sendable {
         ).compactMap { row in row.text(0).map { WhatsAppChat(jid: $0, name: row.text(1) ?? $0) } }
     }
 
-    /// Messages of the chat in [start, end), oldest first.
+    /// Messages of the chats in [start, end), oldest first.
     public func entries(from start: Date = .distantPast, to end: Date = .distantFuture, now: Date = .now)
         async throws -> [WhatsAppEntry]
     {
-        _ = try await policy.grant(for: .whatsapp, label: chatJID, at: now)
+        try await read(from: start, to: end, now: now).entries
+    }
+
+    /// The people in the chats now: the groups' members and the other person of each direct chat.
+    public func members(now: Date = .now) async throws -> [WhatsAppMember] {
+        try await read(from: .distantFuture, to: .distantFuture, now: now).members
+    }
+
+    /// The messages of the chats in [start, end) and the people in them, from one copy of WhatsApp's database: a copy
+    /// per chat would copy the whole database dozens of times for a several-chat machine.
+    public func read(from start: Date, to end: Date, now: Date = .now) async throws -> (
+        entries: [WhatsAppEntry], members: [WhatsAppMember]
+    ) {
+        for chat in chatJIDs { _ = try await policy.grant(for: .whatsapp, label: chat, at: now) }
+        guard !chatJIDs.isEmpty else { return ([], []) }
         let snapshot = try Self.snapshot(container)
+        let marks = Array(repeating: "?", count: chatJIDs.count).joined(separator: ",")
         let rows = try snapshot.rows(
             """
             SELECT m.Z_PK, m.ZMESSAGEDATE, m.ZMESSAGETYPE, m.ZTEXT, i.ZMEDIALOCALPATH, i.ZTITLE, m.ZISFROMME,
-                g.ZMEMBERJID
+                g.ZMEMBERJID, s.ZCONTACTJID, s.ZSESSIONTYPE
             FROM ZWAMESSAGE m
             JOIN ZWACHATSESSION s ON s.Z_PK = m.ZCHATSESSION
             LEFT JOIN ZWAMEDIAITEM i ON i.ZMESSAGE = m.Z_PK
             LEFT JOIN ZWAGROUPMEMBER g ON g.Z_PK = m.ZGROUPMEMBER
-            WHERE s.ZCONTACTJID = ? AND s.ZSESSIONTYPE IN (?, ?) AND m.ZMESSAGETYPE IN (?, ?, ?, ?)
+            WHERE s.ZCONTACTJID IN (\(marks)) AND s.ZSESSIONTYPE IN (?, ?) AND m.ZMESSAGETYPE IN (?, ?, ?, ?)
                 AND m.ZMESSAGEDATE >= ? AND m.ZMESSAGEDATE < ?
             ORDER BY m.ZMESSAGEDATE, m.Z_PK
             """,
-            binding: [
-                .text(chatJID), .integer(Int64(SessionType.person)), .integer(Int64(SessionType.group)),
+            binding: chatJIDs.map { .text($0) } + [
+                .integer(Int64(SessionType.person)), .integer(Int64(SessionType.group)),
                 .integer(Int64(MessageType.text)), .integer(Int64(MessageType.photo)),
-                .integer(Int64(MessageType.voiceNote)),
-                .integer(Int64(MessageType.document)),
+                .integer(Int64(MessageType.voiceNote)), .integer(Int64(MessageType.document)),
                 .real(start.timeIntervalSinceReferenceDate), .real(end.timeIntervalSinceReferenceDate),
             ])
-        let names = try memberNames(snapshot).names
-        return rows.compactMap { entry($0, names: names) }
-    }
-
-    /// The group's current members. Empty for the founder's own chat.
-    public func members(now: Date = .now) async throws -> [WhatsAppMember] {
-        _ = try await policy.grant(for: .whatsapp, label: chatJID, at: now)
-        let (names, active) = try memberNames(try Self.snapshot(container))
-        return active.compactMap { jid in names[jid].map { WhatsAppMember(jid: jid, name: $0) } }
+        let (names, active) = try memberNames(snapshot)
+        let members = active.compactMap { jid in names[jid].map { WhatsAppMember(jid: jid, name: $0) } }
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        return (rows.compactMap { entry($0, names: names) }, members)
     }
 
-    /// The name of every member the group ever had, by member ID, and the IDs of its current members. Names come
-    /// from the founder's address book as WhatsApp keeps it, then the name a member chose, then WhatsApp's contact
-    /// name; see `MemberNames`.
+    /// The name of everyone in the chats, by ID, and the IDs of those in them now: every member a group ever had, and
+    /// the other person of each direct chat. Names come from the founder's address book as WhatsApp keeps it, then
+    /// the name a person chose, then WhatsApp's contact name; see `MemberNames`.
     private func memberNames(_ snapshot: SQLiteSnapshot) throws -> (names: [String: String], active: [String]) {
-        let rows = try snapshot.rows(
+        let marks = Array(repeating: "?", count: chatJIDs.count).joined(separator: ",")
+        let groupRows = try snapshot.rows(
             """
             SELECT g.ZMEMBERJID, g.ZCONTACTNAME, p.ZPUSHNAME, g.ZISACTIVE
             FROM ZWAGROUPMEMBER g
             JOIN ZWACHATSESSION s ON s.Z_PK = g.ZCHATSESSION
             LEFT JOIN ZWAPROFILEPUSHNAME p ON p.ZJID = g.ZMEMBERJID
-            WHERE s.ZCONTACTJID = ? AND s.ZSESSIONTYPE = ?
+            WHERE s.ZCONTACTJID IN (\(marks)) AND s.ZSESSIONTYPE = ?
             """,
-            binding: [.text(chatJID), .integer(Int64(SessionType.group))])
-        let members = rows.compactMap { row in
-            row.text(0).map { (jid: $0, contactName: row.text(1), pushName: row.text(2), active: row.integer(3) == 1) }
+            binding: chatJIDs.map { .text($0) } + [.integer(Int64(SessionType.group))])
+        let directRows = try snapshot.rows(
+            """
+            SELECT s.ZCONTACTJID, s.ZPARTNERNAME, p.ZPUSHNAME, 1 FROM ZWACHATSESSION s
+            LEFT JOIN ZWAPROFILEPUSHNAME p ON p.ZJID = s.ZCONTACTJID
+            WHERE s.ZCONTACTJID IN (\(marks)) AND s.ZSESSIONTYPE = ?
+            """,
+            binding: chatJIDs.map { .text($0) } + [.integer(Int64(SessionType.person))])
+        // One person per ID, in whichever chats: in a chat now if in any of them now.
+        var byID: [String: (jid: String, contactName: String?, pushName: String?, active: Bool)] = [:]
+        var order: [String] = []
+        for row in groupRows + directRows {
+            guard let jid = row.text(0) else { continue }
+            if let known = byID[jid] {
+                byID[jid] = (
+                    jid, known.contactName ?? row.text(1), known.pushName ?? row.text(2),
+                    known.active || row.integer(3) == 1
+                )
+            } else {
+                byID[jid] = (jid, row.text(1), row.text(2), row.integer(3) == 1)
+                order.append(jid)
+            }
         }
+        let members = order.compactMap { byID[$0] }
         let book = Self.addressBook(container, for: members.map(\.jid))
         let names = MemberNames.resolve(
             members.map { (jid: $0.jid, candidates: [book[$0.jid], $0.pushName, $0.contactName]) })
@@ -187,11 +268,14 @@ public struct WhatsAppChatReader: Sendable {
         case MessageType.document: kind = .document
         default: return nil
         }
-        let jid = row.text(7) ?? ""
+        // In a direct chat a received message has no group member: it is from the other person of the chat.
+        let chat = row.text(8) ?? ""
+        let jid = row.text(7) ?? (Int(row.integer(9)) == SessionType.person ? chat : "")
         let sender: WhatsAppSender =
             row.integer(6) != 0 ? .me : .member(jid: jid, name: names[jid] ?? MemberNames.fallback(for: jid))
         return WhatsAppEntry(
-            id: row.integer(0), date: Date(timeIntervalSinceReferenceDate: row.real(1)), kind: kind, sender: sender,
+            id: row.integer(0), chat: chat, date: Date(timeIntervalSinceReferenceDate: row.real(1)), kind: kind,
+            sender: sender,
             text: MemberNames.mentions(in: row.text(3) ?? "", names: names), title: row.text(5),
             media: kind == .text ? nil : media(atRelativePath: row.text(4)))
     }

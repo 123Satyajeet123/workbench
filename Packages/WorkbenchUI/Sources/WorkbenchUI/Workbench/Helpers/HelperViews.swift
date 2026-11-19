@@ -16,7 +16,9 @@ struct HelperPage: View {
     private var subtitle: String {
         let role = model.isPaused ? "Paused" : MachineTemplate.of(model.machine)?.role ?? ""
         switch model.source {
-        case .whatsapp(let source): return source.chat.map { "\(role) · \($0.name)" } ?? role
+        case .whatsapp(let source):
+            if source.isSeveral { return "\(role) · \(source.chats.count) chats" }
+            return source.chat.map { "\(role) · \($0.name)" } ?? role
         case .pages(let source):
             return source.sites.isEmpty ? role : "\(role) · \(source.sites.joined(separator: ", "))"
         case .screen: return role
@@ -38,7 +40,7 @@ struct HelperContent: View {
             if let problem = model.problem { ProblemBanner(text: problem, dismiss: model.dismissProblem) }
             ActionNotice()
             if model.isPaused { PausedNote(model: model) }
-            if case .whatsapp(let source) = model.source, source.chat == nil {
+            if case .whatsapp(let source) = model.source, source.chats.isEmpty {
                 GroupChooser(model: model, source: source)
             } else if case .pages(let source) = model.source, source.sites.isEmpty {
                 SiteChooser(model: model, source: source)
@@ -387,6 +389,44 @@ private struct GroupChooser: View {
                     }
                 }
                 Divider()
+            }
+            SeveralChatsChooser(model: model, source: source)
+        }
+    }
+}
+
+/// Several chats by a rule: groups whose name holds some words, and direct chats with people in them. The founder
+/// sees every chat the rule chooses before any is read.
+private struct SeveralChatsChooser: View {
+    let model: HelperModel
+    let source: WhatsAppSource
+    @State private var words = ""
+    @State private var direct = true
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Space.s) {
+            Text("Or read several chats").textStyle(.headline)
+            HStack {
+                TextField("Groups whose name holds", text: $words).frame(maxWidth: 260)
+                Toggle("and direct chats with their members", isOn: $direct)
+                Button("Find chats") {
+                    model.attempt("list the chats") {
+                        try source.preview(ChatSelection(nameContains: words, directWithMembers: direct))
+                    }
+                }
+                .disabled(words.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+            if !source.matching.isEmpty {
+                let groups = source.matching.filter(\.isGroup).count
+                Text(
+                    "\(groups) groups and \(source.matching.count - groups) direct chats: \(source.matching.prefix(12).map(\.name).joined(separator: ", "))\(source.matching.count > 12 ? ", …" : "")"
+                )
+                .textStyle(.callout).foregroundStyle(.supporting)
+                Button("Read these \(source.matching.count) chats") {
+                    model.attempt("save the chats") { try source.choose(source.matching) }
+                    model.reload()
+                }
+                .buttonStyle(.borderedProminent)
             }
         }
     }

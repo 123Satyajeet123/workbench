@@ -66,18 +66,22 @@ final class PageSource {
     }
 }
 
-/// One WhatsApp group the founder chose. Choosing it is the consent: this chat, and no other, may be read.
+/// The WhatsApp chats a machine reads: one group the founder chose, or several chats chosen by a rule (groups whose
+/// name holds some words, and direct chats with their members). Choosing is the consent: these chats, and no other,
+/// may be read.
 @Observable
 final class WhatsAppSource {
-    private(set) var chat: WhatsAppChat?
+    private(set) var chats: [WhatsAppChat] = []
     private(set) var groups: [WhatsAppChat] = []
+    /// The chats a rule would choose, shown before the founder confirms.
+    private(set) var matching: [WhatsAppChat] = []
     private(set) var members: [WhatsAppMember] = []
 
     @ObservationIgnored private let store: Store
     @ObservationIgnored private let capture: CaptureService
     @ObservationIgnored private let founder: () -> String
     @ObservationIgnored private let container: URL
-    @ObservationIgnored private let chatKey: String
+    @ObservationIgnored private let chatsKey: String
     @ObservationIgnored private let membersKey: String
 
     init(
@@ -88,39 +92,53 @@ final class WhatsAppSource {
         self.capture = capture
         self.founder = founder
         self.container = container
-        chatKey = "\(task).chat"
+        chatsKey = "\(task).chats"
         membersKey = "\(task).members"
-        chat = try store.queries.state(forKey: chatKey).map {
-            try JSONDecoder().decode(WhatsAppChat.self, from: Data($0.utf8))
-        }
+        chats =
+            try store.queries.state(forKey: chatsKey).map {
+                try JSONDecoder().decode([WhatsAppChat].self, from: Data($0.utf8))
+            } ?? []
         members =
             try store.queries.state(forKey: membersKey).map {
                 try JSONDecoder().decode([WhatsAppMember].self, from: Data($0.utf8))
             } ?? []
     }
 
+    /// The one chosen group, for a machine that reads one.
+    var chat: WhatsAppChat? { chats.count == 1 ? chats.first : nil }
+    var isSeveral: Bool { chats.count > 1 }
+
     /// Group names to choose from. Listing names needs the WhatsApp switch on; no chat is readable until one is chosen.
     func loadGroups() throws {
-        if !capture.policy.isEnabled(.whatsapp) { try capture.update { $0.switches[.whatsapp] = true } }
+        try switchOn()
         groups = try WhatsAppChatReader.groups(container: container, policy: capture.policy)
     }
 
-    /// Choosing a group adds it to the chats WhatsApp may be read for; it never takes another machine's chat away.
-    func choose(_ group: WhatsAppChat) throws {
-        try capture.update {
-            $0.switches[.whatsapp] = true
-            $0.allowList[.whatsapp, default: []].insert(group.jid)
-        }
-        try store.saveState(String(decoding: try JSONEncoder().encode(group), as: UTF8.self), forKey: chatKey)
-        chat = group
-        groups = []
+    /// The chats a rule chooses, to show before the founder confirms.
+    func preview(_ selection: ChatSelection) throws {
+        try switchOn()
+        matching = try WhatsAppChatReader.chats(matching: selection, container: container, policy: capture.policy)
     }
 
-    /// The group's members as WhatsApp has them now. Reading WhatsApp's data can make macOS ask the founder again
+    func choose(_ group: WhatsAppChat) throws { try choose([group]) }
+
+    /// Choosing adds the chats to those WhatsApp may be read for; it never takes another machine's chat away.
+    func choose(_ chosen: [WhatsAppChat]) throws {
+        try capture.update {
+            $0.switches[.whatsapp] = true
+            $0.allowList[.whatsapp, default: []].formUnion(chosen.map(\.jid))
+        }
+        try store.saveState(String(decoding: try JSONEncoder().encode(chosen), as: UTF8.self), forKey: chatsKey)
+        chats = chosen
+        groups = []
+        matching = []
+    }
+
+    /// The people in the chats as WhatsApp has them now. Reading WhatsApp's data can make macOS ask the founder again
     /// (measured: 7 "access data from other apps" prompts in one day), so only checks that must be live use this.
     func loadMembers() async throws {
-        guard let chat else { return }
-        try remember(try await reader(chat).members())
+        guard !chats.isEmpty else { return }
+        try remember(try await reader().members())
     }
 
     /// The members as of the last read, for showing a page; WhatsApp is read only when none are known yet.
@@ -128,22 +146,35 @@ final class WhatsAppSource {
         if members.isEmpty { try await loadMembers() }
     }
 
+    private func switchOn() throws {
+        if !capture.policy.isEnabled(.whatsapp) { try capture.update { $0.switches[.whatsapp] = true } }
+    }
+
     private func remember(_ current: [WhatsAppMember]) throws {
         members = current
         try store.saveState(String(decoding: try JSONEncoder().encode(current), as: UTF8.self), forKey: membersKey)
     }
 
-    /// The day's messages, each a numbered line, and the group's members.
+    /// The day's messages of every chosen chat, each a numbered line, and the people in them, from one read. With
+    /// several chats each line names its chat.
     func evidence(on day: WorkDay) async throws -> EvidenceSet {
-        guard let chat else { return EvidenceSet(lines: []) }
-        let reader = reader(chat)
-        try remember(try await reader.members())
-        let lines = try await reader.entries(from: day.start, to: day.end).compactMap(line)
+        guard !chats.isEmpty else { return EvidenceSet(lines: []) }
+        let (entries, people) = try await reader().read(from: day.start, to: day.end)
+        try remember(people)
+        let names = Dictionary(chats.map { ($0.jid, $0.name) }, uniquingKeysWith: { first, _ in first })
+        let lines = entries.compactMap { entry in
+            line(entry).map { line in
+                guard isSeveral, let chat = names[entry.chat] else { return line }
+                var named = line
+                named.line = "[\(chat)] " + line.line
+                return named
+            }
+        }
         return EvidenceSet(lines: lines, context: ["members": members.map(\.name)])
     }
 
-    private func reader(_ chat: WhatsAppChat) -> WhatsAppChatReader {
-        WhatsAppChatReader(container: container, chatJID: chat.jid, policy: store)
+    private func reader() -> WhatsAppChatReader {
+        WhatsAppChatReader(container: container, chatJIDs: chats.map(\.jid), policy: store)
     }
 
     /// A message as one numbered line. A photo's line is the text in it, read on this Mac, and its caption.
