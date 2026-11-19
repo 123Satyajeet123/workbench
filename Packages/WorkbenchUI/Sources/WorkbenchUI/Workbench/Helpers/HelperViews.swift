@@ -144,7 +144,7 @@ private struct TrialCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Space.s) {
             Label(
-                model.trial?.by == .proposer ? "Mochi proposed a change; it is on trial" : "A new brief is on trial",
+                model.trial?.by == .proposer ? "Mochi proposed a change; it is on trial" : "A new version is on trial",
                 systemImage: "flask"
             )
             .textStyle(.headline)
@@ -159,7 +159,7 @@ private struct TrialCard: View {
                     .foregroundStyle(
                         trial.result.verdict == .better
                             ? Tone.good.color : trial.result.verdict == .worse ? Tone.bad.color : .primary)
-                Text("“\(trial.brief)”").textStyle(.callout).foregroundStyle(.supporting).lineLimit(3)
+                Text(change(trial.version)).textStyle(.callout).foregroundStyle(.supporting).lineLimit(3)
                 HStack {
                     Button("Switch to the new brief") { crew.switchToTrial(model) }
                     Button("Keep the current brief", action: model.keepCurrent)
@@ -168,6 +168,19 @@ private struct TrialCard: View {
         }
         .padding(Space.m)
         .background(.quaternary.opacity(0.5), in: .rect(cornerRadius: Radius.card))
+    }
+
+    /// What the trial changes against the live machine, in one line.
+    private func change(_ version: HelperModel.Version) -> String {
+        var parts: [String] = []
+        if version.brief != model.spec.brief { parts.append("New brief: “\(version.brief)”") }
+        if version.examples != model.spec.examples {
+            parts.append(version.examples.map { "Sees \($0) of your marked examples" } ?? "No examples")
+        }
+        if version.runner != model.spec.runner {
+            parts.append("Reads with \(version.runner.flatMap(ModelChoice.with(id:))?.title ?? "your chosen model")")
+        }
+        return parts.joined(separator: " · ")
     }
 
     private func summary(_ result: Trial, days: Int) -> String {
@@ -205,6 +218,13 @@ private struct ImproveRow: View {
                 .help(
                     "Mochi reads the items you marked on training days and tries one small change on past days. You decide."
                 )
+                Menu("Try another model") {
+                    ForEach(ModelChoice.choices.filter { $0.id != model.spec.runner }) { choice in
+                        Button(choice.title) { Task { await model.tryModel(choice) } }
+                    }
+                }
+                .fixedSize().disabled(asking || model.isPaused)
+                .help("Reads your marked past days with that model and compares. The days go to that model's maker.")
                 if model.spec.examples == nil {
                     Button("Learn from my marked examples") { Task { await model.learnFromMarks() } }
                         .disabled(asking || model.isPaused)

@@ -116,4 +116,7 @@ public struct HelperSpec: Codable, Sendable, Equatable {
     /// How many items the founder marked on other training days the machine sees as examples; nil for none. It is
     /// part of the instructions, so changing it makes a new version that earns trust again (research 20 §9.2).
     public var examples: Int? = nil
+    /// The model this machine reads with, as a model choice id such as "claude sonnet"; nil uses the founder's choice.
+    /// Trust is counted per model, so a new runner earns trust again (research 20 §7.1).
+    public var runner: String? = nil
 }

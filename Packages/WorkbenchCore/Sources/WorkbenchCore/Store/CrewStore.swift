@@ -29,15 +29,16 @@ extension Store {
 
     /// A new brief is a new prompt version: the earlier versions' marks and trust stay with them.
     public func edit(_ machine: Machine, brief: String) throws {
-        try edit(machine, brief: brief, examples: machine.spec.examples)
+        try revise(machine, brief: brief, examples: machine.spec.examples, runner: machine.spec.runner)
     }
 
-    /// A new brief or a new example policy is a new prompt version.
-    public func edit(_ machine: Machine, brief: String, examples: Int?) throws {
+    /// A new brief, example policy or model is a new version of the machine.
+    public func revise(_ machine: Machine, brief: String, examples: Int?, runner: String?) throws {
         guard let brief = brief.cleaned else { return }
         var spec = machine.spec
         spec.brief = brief
         spec.examples = examples
+        spec.runner = runner
         try change(machine, name: machine.name, spec: spec, state: machine.state)
     }
 

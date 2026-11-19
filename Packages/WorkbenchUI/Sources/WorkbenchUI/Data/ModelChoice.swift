@@ -22,6 +22,8 @@ struct ModelChoice: Codable, Hashable, Identifiable {
         ModelChoice(kind: .codex, model: "gpt-6.2-sol"),
     ]
 
+    static func with(id: String) -> ModelChoice? { choices.first { $0.id == id } }
+
     private static let stateKey = "model"
 
     static func saved(in store: Store) throws -> ModelChoice {

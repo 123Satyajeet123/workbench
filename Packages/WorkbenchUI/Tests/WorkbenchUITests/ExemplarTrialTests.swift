@@ -1,5 +1,6 @@
 import CaptureService
 import Foundation
+import Synchronization
 import Testing
 import WorkbenchCore
 
@@ -48,7 +49,7 @@ import WorkbenchCore
 
         await timeline.learnFromMarks()
         let trial = try #require(timeline.trial)
-        #expect(trial.examples == 5 && trial.brief == HelperSpec.timeline.brief)
+        #expect(trial.version.examples == 5 && trial.version.brief == HelperSpec.timeline.brief)
         #expect(timeline.spec.examples == nil, "the live machine does not change")
         #expect(model.calls.withLock { $0 } - callsBefore == 3, "one replay call per marked training day")
         let replayed = model.inputs.withLock { Array($0.suffix(3)) }
@@ -79,5 +80,73 @@ import WorkbenchCore
         }
         #expect(timeline.spec.examples == nil, "the rollback restores the earlier example policy")
         #expect(try store.queries.decisions(of: timeline.spec.task).first?.kind == .rollback)
+    }
+
+    @Test func anotherModelIsTriedOnPastDaysThenTheMachineKeepsItAndARollbackReturnsIt() async throws {
+        let clock = TestClock(Date(timeIntervalSince1970: 1_790_000_000))
+        let store = try scratchStore(clock: { clock.now })
+        let on = CapturePolicy(switches: [.screen: true])
+        try store.savePolicy(on)
+        let today = WorkDay(containing: clock.now)
+        let devDay = try #require((1...20).map { today.adding(days: -$0) }.first { EvalSplit($0) == .dev })
+        var engine = CaptureEngine()
+        let start = clock.now
+        for (index, title) in ["Open PR", "Brave Staff"].enumerated() {
+            clock.set(devDay.start.addingTimeInterval(Double(4 + index) * 3600))
+            let snapshot = ScreenSnapshot(app: "App", bundleID: "a", windowID: index, title: title, text: "")
+            let batch = engine.observe(snapshot, idleSeconds: 0, policy: on, at: clock.now)
+            try store.record(#require(batch))
+        }
+        clock.set(devDay.start.addingTimeInterval(8 * 3600))
+        let idle = engine.observe(
+            ScreenSnapshot(app: "App", bundleID: "a", windowID: 9, title: "x", text: ""), idleSeconds: 600, policy: on,
+            at: clock.now)
+        try store.record(#require(idle))
+        clock.set(start)
+        try store.seedMachines(MachineTemplate.seeded.map { ($0.spec, $0.name) })
+        let asked = Mutex<[String]>([])
+        let model = KeyedModel([HelperSpec.timeline.brief: current])
+        let crew = Crew(
+            store: store, capture: try CaptureService(store: store), founder: { "" },
+            makeModel: { choice in
+                asked.withLock { $0.append(choice.id) }
+                return RecordedModel(model, store: store)
+            }, notifier: FakeNotifier())
+        let timeline = try #require(crew.timeline)
+        timeline.show(devDay)
+        await timeline.read()
+        for item in timeline.items { timeline.mark(item, as: .confirmed) }
+        let sonnet = try #require(ModelChoice.with(id: "claude sonnet"))
+
+        await timeline.tryModel(sonnet)
+        #expect(timeline.trial?.version.runner == "claude sonnet" && timeline.spec.runner == nil)
+        #expect(asked.withLock { $0 } == ["claude opus", "claude sonnet"], "the trial reads with the tried model")
+
+        crew.switchToTrial(timeline)
+        #expect(timeline.spec.runner == "claude sonnet")
+        timeline.show(devDay)
+        await timeline.read()
+        #expect(
+            asked.withLock { $0.last } == "claude sonnet", "the machine keeps its model; the global pick is unchanged")
+        #expect(try ModelChoice.saved(in: store).id == "claude opus")
+
+        let switched = try #require(try store.queries.decisions(of: timeline.spec.task).first)
+        #expect(switched.detail["runner"] == "claude sonnet" && switched.detail["parentRunner"] == "")
+        let heldOut = (1...60).map { today.adding(days: -$0) }.filter { EvalSplit($0) == .heldOut }.prefix(2)
+        for day in heldOut {
+            clock.set(clock.now.addingTimeInterval(3600))
+            let recorded = RecordedModel(ScriptedModel(#"{"items":[]}"#), store: store)
+            let (_, run) = try await recorded.generate(
+                Nothing.self, schema: .object([]), task: timeline.spec.task, instructions: "v", input: "x")
+            let item = Item(
+                task: timeline.spec.task, day: day, scope: "", source: .screen, citeFirst: 1, citeLast: 1,
+                start: day.start, end: day.start.addingTimeInterval(600), fields: ["task": "t"], quote: "q", run: run)
+            try store.saveReading(
+                .init(items: [item], dropped: 0, run: run), of: timeline.spec, day: day, scope: "",
+                grant: try await store.grant(for: .screen, at: clock.now), pick: { _ in 0 })
+            timeline.show(day)
+            timeline.mark(try #require(timeline.items.first), as: .rejected)
+        }
+        #expect(timeline.spec.runner == nil, "the rollback returns the machine to the founder's model")
     }
 }

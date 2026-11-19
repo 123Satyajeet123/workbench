@@ -31,8 +31,7 @@ final class HelperModel {
     /// macOS blocks Workbench notifications; the nudge row offers System Settings.
     private(set) var notificationsBlocked = false
     /// A new brief being tried on past days, and how it compares with the current one.
-    private(set) var trial:
-        (brief: String, examples: Int?, days: [WorkDay], by: Decision.By, why: String, result: Trial)?
+    private(set) var trial: (version: Version, days: [WorkDay], by: Decision.By, why: String, result: Trial)?
     private(set) var trialPhase = ReadPhase.idle
     var nudge = NudgeSchedule() {
         didSet { attempt("save the nudge") { try store.saveState(Self.json(nudge), forKey: nudgeKey) } }
@@ -173,7 +172,7 @@ final class HelperModel {
         do {
             _ = try await grant(scope)
             let evidence = try await gather(day)
-            let reader = HelperReader(spec: spec, model: makeModel(try ModelChoice.saved(in: store)))
+            let reader = HelperReader(spec: spec, model: makeModel(try runner(for: Version(spec))))
             let result = try await reader.read(day: day, scope: scope, evidence: evidence, marked: try marked())
             try store.saveReading(result, of: spec, day: day, scope: scope, grant: try await grant(scope))
             if self.day == day { reload() }
@@ -208,6 +207,7 @@ final class HelperModel {
         var by: String?
         var why: String?
         var examples: Int?
+        var runner: String?
     }
 
     private var trialKey: String { "\(spec.task).trial" }
@@ -227,21 +227,21 @@ final class HelperModel {
     /// Why nothing changed after the founder asked the proposer, or nil.
     private(set) var improveNote: String?
 
-    /// Replays `brief` on stored evidence beside the current version (research 20 §4): every training day the founder
-    /// marked, newest first, so old marks carry over to the items both versions give; or, with no marks yet, recent
-    /// training days. Held-out days are never read. Nothing of the live machine changes.
+    /// Replays `brief` on stored evidence beside the current version; the example policy and model stay as they are.
     func startTrial(brief: String, by: Decision.By = .person, why: String = "") async {
-        await startTrial(brief: brief, examples: spec.examples, by: by, why: why)
+        var version = Version(spec)
+        version.brief = brief
+        await startTrial(version, by: by, why: why)
     }
 
-    /// A trial of a new brief and example policy together.
-    func startTrial(brief: String, examples: Int?, by: Decision.By, why: String) async {
-        guard let brief = brief.cleaned, isReady, trialPhase != .reading else { return }
+    /// Replays a new version (brief, example policy and model) on stored evidence beside the current one (research
+    /// 20 §4): every training day the founder marked, newest first, so old marks carry over to the items both versions
+    /// give; or, with no marks yet, recent training days. Held-out days are never read. Nothing live changes.
+    func startTrial(_ version: Version, by: Decision.By, why: String) async {
+        guard version.brief.cleaned != nil, version != Version(spec), isReady, trialPhase != .reading else { return }
         trialPhase = .reading
-        var challenger = spec
+        var challenger = version.apply(to: spec)
         challenger.task = Trial.task(of: spec.task)
-        challenger.brief = brief
-        challenger.examples = examples
         let scope = scope
         do {
             var days = try store.queries.markedDays(of: spec.task).filter { EvalSplit($0) == .dev }
@@ -253,7 +253,7 @@ final class HelperModel {
                 }
                 .sorted(by: >).prefix(Self.unmarkedTrialDays)
             }
-            let reader = HelperReader(spec: challenger, model: makeModel(try ModelChoice.saved(in: store)))
+            let reader = HelperReader(spec: challenger, model: makeModel(try runner(for: version)))
             for day in days {
                 _ = try await grant(scope)
                 let result = try await reader.read(
@@ -262,23 +262,37 @@ final class HelperModel {
             }
             try store.log(
                 Decision(
-                    at: store.clock(), task: spec.task, kind: .trial, by: by, brief: brief, parentBrief: spec.brief,
-                    detail: [
-                        "days": String(days.count), "why": why, "examples": Self.text(examples),
-                        "parentExamples": Self.text(spec.examples),
-                    ]))
+                    at: store.clock(), task: spec.task, kind: .trial, by: by, brief: version.brief,
+                    parentBrief: spec.brief,
+                    detail: version.detail(parent: Version(spec)).merging(["days": String(days.count), "why": why]) {
+                        a, _ in a
+                    }))
             try store.saveState(
                 Self.json(
                     SavedTrial(
-                        brief: brief, days: days.map(\.description), by: by.rawValue, why: why, examples: examples)),
+                        brief: version.brief, days: days.map(\.description), by: by.rawValue, why: why,
+                        examples: version.examples, runner: version.runner)),
                 forKey: trialKey)
             trialPhase = .idle
             reload()
             itemsChanged()
         } catch {
             trialPhase = .idle
-            problem = "Could not try the new brief: \(error.localizedDescription)"
+            problem = "Could not try the new version: \(error.localizedDescription)"
         }
+    }
+
+    /// The model a version reads with: its own runner, else the founder's choice.
+    private func runner(for version: Version) throws -> ModelChoice {
+        try version.runner.flatMap(ModelChoice.with(id:)) ?? ModelChoice.saved(in: store)
+    }
+
+    /// Another model on trial: the same brief and examples, read by `choice` on past days. The days' evidence goes to
+    /// that model's vendor, so this runs only on the founder's click.
+    func tryModel(_ choice: ModelChoice) async {
+        var version = Version(spec)
+        version.runner = choice.id
+        await startTrial(version, by: .person, why: "Try \(choice.title)")
     }
 
     /// The proposer reads the founder's marks on training days and, when it finds one clear fix, starts a trial of it.
@@ -309,7 +323,7 @@ final class HelperModel {
             attempt("log the decision") {
                 try store.log(
                     Decision(
-                        at: store.clock(), task: spec.task, kind: .reject, by: .person, brief: trial.brief,
+                        at: store.clock(), task: spec.task, kind: .reject, by: .person, brief: trial.version.brief,
                         parentBrief: spec.brief, detail: Self.counts(trial.result)))
             }
         }
@@ -326,7 +340,7 @@ final class HelperModel {
 
     /// The trial with its marked differences in the order the founder gave the marks.
     private func loadTrial() throws -> (
-        brief: String, examples: Int?, days: [WorkDay], by: Decision.By, why: String, result: Trial
+        version: Version, days: [WorkDay], by: Decision.By, why: String, result: Trial
     )? {
         guard let text = try store.queries.state(forKey: trialKey), !text.isEmpty else { return nil }
         let saved = try JSONDecoder().decode(SavedTrial.self, from: Data(text.utf8))
@@ -343,9 +357,8 @@ final class HelperModel {
         let result = Trial(
             current: current, challenger: challenger, citation: spec.citation, markOrder: order,
             threshold: EProcess.threshold(challengers: tried))
-        return (
-            saved.brief, saved.examples, days, saved.by.flatMap(Decision.By.init) ?? .person, saved.why ?? "", result
-        )
+        let version = Version(brief: saved.brief, examples: saved.examples, runner: saved.runner)
+        return (version, days, saved.by.flatMap(Decision.By.init) ?? .person, saved.why ?? "", result)
     }
 
     /// The founder's marked items of the last 60 days: the reader takes examples from them by its own rule.
@@ -356,14 +369,13 @@ final class HelperModel {
 
     /// Learning from marks is a trial like any change: the same brief with marked examples, judged on past days.
     func learnFromMarks() async {
-        await startTrial(
-            brief: spec.brief, examples: Self.exampleCount, by: .person, why: "Learn from my marked examples")
+        var version = Version(spec)
+        version.examples = Self.exampleCount
+        await startTrial(version, by: .person, why: "Learn from my marked examples")
     }
 
     /// Research 20 §9.2 starts at three right and two wrong examples.
     static let exampleCount = 5
-
-    static func text(_ examples: Int?) -> String { examples.map(String.init) ?? "" }
 
     static func counts(_ trial: Trial) -> [String: String] {
         [
@@ -486,17 +498,16 @@ final class Crew {
     /// watched; see `watch`.
     func switchToTrial(_ helper: HelperModel) {
         guard let trial = helper.trial else { return }
-        let parent = helper.spec
-        edit(helper, brief: trial.brief, examples: trial.examples)
+        let parent = HelperModel.Version(helper.spec)
+        revise(helper, to: trial.version)
         attempt("log the switch") {
             try store.log(
                 Decision(
-                    at: store.clock(), task: helper.spec.task, kind: .promote, by: .person, brief: trial.brief,
+                    at: store.clock(), task: helper.spec.task, kind: .promote, by: .person, brief: trial.version.brief,
                     parentBrief: parent.brief,
-                    detail: HelperModel.counts(trial.result).merging([
-                        "examples": HelperModel.text(trial.examples),
-                        "parentExamples": HelperModel.text(parent.examples),
-                    ]) { a, _ in a }))
+                    detail: HelperModel.counts(trial.result).merging(trial.version.detail(parent: parent)) { a, _ in a }
+                )
+            )
         }
         helper.endTrial()
     }
@@ -506,8 +517,7 @@ final class Crew {
     /// itself, logs why and says so: the only change the app makes without the founder.
     func watch(_ helper: HelperModel) {
         guard let switched = try? store.queries.decisions(of: helper.spec.task).first, switched.kind == .promote,
-            switched.brief == helper.spec.brief,
-            switched.detail["examples", default: ""] == HelperModel.text(helper.spec.examples),
+            HelperModel.Version(decision: switched) == HelperModel.Version(helper.spec),
             let answers = try? store.queries.auditAnswers(of: helper.spec.task, since: switched.at)
         else { return }
         let wrong = answers.filter { EvalSplit($0.day) == .heldOut }.map(\.wrong)
@@ -516,7 +526,7 @@ final class Crew {
         let name = helper.name
         let line =
             "Back to \(name)'s earlier brief: the new one was wrong on \(wrong.filter { $0 }.count) of \(wrong.count) checked items."
-        edit(helper, brief: switched.parentBrief, examples: Int(switched.detail["parentExamples", default: ""]))
+        revise(helper, to: HelperModel.Version(parentOf: switched))
         attempt("log the rollback") {
             try store.log(
                 Decision(
@@ -572,8 +582,11 @@ final class Crew {
         reload()
     }
 
-    func edit(_ helper: HelperModel, brief: String, examples: Int?) {
-        attempt("change \(helper.name)") { try store.edit(helper.machine, brief: brief, examples: examples) }
+    func revise(_ helper: HelperModel, to version: HelperModel.Version) {
+        attempt("change \(helper.name)") {
+            try store.revise(
+                helper.machine, brief: version.brief, examples: version.examples, runner: version.runner)
+        }
         reload()
     }
 
@@ -656,4 +669,50 @@ struct MachineTemplate: Identifiable, Hashable {
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
 
     static func of(_ machine: Machine) -> MachineTemplate? { all.first { $0.spec.task == machine.template } }
+}
+
+extension HelperModel {
+    /// What a trial changes: the brief, the example policy and the model, together. Trust is earned per version.
+    struct Version: Equatable {
+        var brief: String
+        var examples: Int?
+        var runner: String?
+
+        init(brief: String, examples: Int?, runner: String?) {
+            self.brief = brief
+            self.examples = examples
+            self.runner = runner
+        }
+
+        init(_ spec: HelperSpec) { self.init(brief: spec.brief, examples: spec.examples, runner: spec.runner) }
+
+        /// The version a decision moved to, and the one it came from.
+        init(decision: Decision) {
+            self.init(
+                brief: decision.brief, examples: Int(decision.detail["examples", default: ""]),
+                runner: decision.detail["runner"].flatMap(\.cleaned))
+        }
+
+        init(parentOf decision: Decision) {
+            self.init(
+                brief: decision.parentBrief, examples: Int(decision.detail["parentExamples", default: ""]),
+                runner: decision.detail["parentRunner"].flatMap(\.cleaned))
+        }
+
+        func apply(to spec: HelperSpec) -> HelperSpec {
+            var spec = spec
+            spec.brief = brief
+            spec.examples = examples
+            spec.runner = runner
+            return spec
+        }
+
+        /// How a decision records this version and its parent.
+        func detail(parent: Version) -> [String: String] {
+            [
+                "examples": examples.map(String.init) ?? "", "parentExamples": parent.examples.map(String.init) ?? "",
+                "runner": runner ?? "", "parentRunner": parent.runner ?? "",
+            ]
+        }
+    }
 }

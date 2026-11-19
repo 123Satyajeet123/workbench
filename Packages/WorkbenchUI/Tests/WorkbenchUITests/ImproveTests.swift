@@ -56,7 +56,7 @@ import WorkbenchCore
         await timeline.improve()
         let trial = try #require(timeline.trial)
         #expect(trial.by == .proposer && trial.why == "Staff chats were marked wrong")
-        #expect(trial.brief == HelperSpec.timeline.brief + " Leave out staff chats.")
+        #expect(trial.version.brief == HelperSpec.timeline.brief + " Leave out staff chats.")
         #expect(trial.days.count == 3, "every marked training day is replayed")
         #expect(timeline.spec.brief == HelperSpec.timeline.brief, "the live machine does not change")
 
