@@ -205,6 +205,21 @@ import WorkbenchCore
         try await reopened.showMembers()
         await #expect(throws: (any Error).self) { try await reopened.loadMembers() }
     }
+
+    /// Measured in the code: choosing a group replaced the allowed chats, so a second WhatsApp machine silently took
+    /// the first one's chat away.
+    @Test func choosingASecondGroupKeepsTheFirstOneReadable() throws {
+        let (_, store, capture, _, first) = try makeTeam()
+        try first.loadGroups()
+        try first.choose(try #require(first.groups.first { $0.jid == teamJID }))
+        let second = try WhatsAppSource(
+            store: store, capture: capture, task: "team.ledger-2", founder: { "Kabir" },
+            container: try whatsApp(at: noon))
+        try second.loadGroups()
+        try second.choose(try #require(second.groups.first { $0.jid == familyJID }))
+        #expect(capture.policy.allowList[.whatsapp] == [teamJID, familyJID])
+        #expect(capture.policy.authorize(CaptureRequest(kind: .whatsapp, label: teamJID), at: noon).grant != nil)
+    }
 }
 
 @Suite struct RunsModelTests {

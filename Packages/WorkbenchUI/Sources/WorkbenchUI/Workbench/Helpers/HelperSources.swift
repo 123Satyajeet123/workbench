@@ -105,10 +105,11 @@ final class WhatsAppSource {
         groups = try WhatsAppChatReader.groups(container: container, policy: capture.policy)
     }
 
+    /// Choosing a group adds it to the chats WhatsApp may be read for; it never takes another machine's chat away.
     func choose(_ group: WhatsAppChat) throws {
         try capture.update {
             $0.switches[.whatsapp] = true
-            $0.allowList[.whatsapp] = [group.jid]
+            $0.allowList[.whatsapp, default: []].insert(group.jid)
         }
         try store.saveState(String(decoding: try JSONEncoder().encode(group), as: UTF8.self), forKey: chatKey)
         chat = group
