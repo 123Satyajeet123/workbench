@@ -34,7 +34,7 @@ private nonisolated struct Nothing: Decodable, Sendable {}
     }
 
     private func reply(_ name: String, evidence: [Int64]) -> String {
-        #"{"proposals":[{"name":"\#(name)","template":"day.timeline","brief":"List each inbound deck with its sector.","why":"You triage decks every day.","evidence":\#(evidence)}]}"#
+        #"{"proposals":[{"name":"\#(name)","template":"day.timeline","brief":"List each inbound deck with its sector.","why":"You triage decks every day.","view":"table","evidence":\#(evidence)}]}"#
     }
 
     @Test func mochiProposesFromTrainingDaysAndBuildingAProposalMakesTheMachine() async throws {
@@ -51,6 +51,8 @@ private nonisolated struct Nothing: Decodable, Sendable {}
         let built = try #require(crew.helper(id: id))
         #expect(built.name == "Deck triage")
         #expect(built.spec.brief == "List each inbound deck with its sector.")
+        #expect(HelperSpec.timeline.view == .timeline && built.spec.view == .table)
+        #expect(scripted.inputs.withLock { $0.first?.contains("Views: table, timeline.") == true })
         #expect(mochi.waiting.isEmpty)
         #expect(mochi.acceptance.accepted == 1 && mochi.acceptance.decided == 1)
     }

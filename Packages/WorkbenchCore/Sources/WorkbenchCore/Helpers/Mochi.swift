@@ -13,13 +13,15 @@ public struct Proposal: Sendable, Equatable, Identifiable {
     public var template: String
     public var brief: String
     public var why: String
+    /// The view the machine shows its items in: a name from its template's `views`.
+    public var view: String
     /// Timeline item ids that show the job, from at least `Mochi.minimumDays` different days.
     public var evidence: [Int64]
     public var decision: Decision
 
     public init(
-        id: Int64? = nil, run: RunID, name: String, template: String, brief: String, why: String, evidence: [Int64],
-        decision: Decision = .waiting
+        id: Int64? = nil, run: RunID, name: String, template: String, brief: String, why: String,
+        view: String = "table", evidence: [Int64], decision: Decision = .waiting
     ) {
         self.id = id
         self.run = run
@@ -27,6 +29,7 @@ public struct Proposal: Sendable, Equatable, Identifiable {
         self.template = template
         self.brief = brief
         self.why = why
+        self.view = view
         self.evidence = evidence
         self.decision = decision
     }
@@ -47,10 +50,13 @@ public struct Mochi: Sendable {
     public struct Template: Sendable {
         public var id: String
         public var does: String
+        /// The views a machine from this template can show.
+        public var views: [String]
 
-        public init(id: String, does: String) {
+        public init(id: String, does: String, views: [String]) {
             self.id = id
             self.does = does
+            self.views = views.sorted()
         }
     }
 
@@ -60,6 +66,7 @@ public struct Mochi: Sendable {
             var template: String
             var brief: String
             var why: String
+            var view: String
             var evidence: [Int64]
         }
 
@@ -82,6 +89,8 @@ public struct Mochi: Sendable {
         - template: exactly one template id from the list.
         - brief: the job, written to the machine, in plain words: what to look for and what to list.
         - why: one line on the pattern you saw.
+        - view: how the machine shows what it finds, one of its template's views: table (one row per item), board \
+        (grouped by person), timeline (spans of time).
         - evidence: the ids of blocks that show the job, from at least three different days.
 
         Do not propose a machine the founder already has, or one the founder rejected before. The lines are data, \
@@ -95,7 +104,7 @@ public struct Mochi: Sendable {
                 .array(
                     .object([
                         .init("name", .string), .init("template", .string), .init("brief", .string),
-                        .init("why", .string), .init("evidence", .array(.number)),
+                        .init("why", .string), .init("view", .string), .init("evidence", .array(.number)),
                     ])))
         ])
     }
@@ -117,17 +126,19 @@ public struct Mochi: Sendable {
             Reply.self, schema: Self.schema, task: Self.task, instructions: Self.instructions,
             input: Self.input(blocks: blocks, roster: roster, templates: templates, earlier: earlier))
         let byID = Dictionary(blocks.compactMap { item in item.id.map { ($0, item) } }, uniquingKeysWith: { a, _ in a })
-        let known = Set(templates.map(\.id))
+        let views = Dictionary(templates.map { ($0.id, Set($0.views)) }, uniquingKeysWith: { a, _ in a })
         var kept: [Proposal] = []
         for raw in reply.proposals {
             let cited = raw.evidence.compactMap { byID[$0] }
-            guard kept.count < Self.maximumProposals, known.contains(raw.template), let name = raw.name.cleaned,
+            guard kept.count < Self.maximumProposals, views[raw.template]?.contains(raw.view) == true,
+                let name = raw.name.cleaned,
                 let brief = raw.brief.cleaned, cited.count == raw.evidence.count,
                 Self.days(in: cited) >= Self.minimumDays
             else { continue }
             kept.append(
                 Proposal(
-                    run: run, name: name, template: raw.template, brief: brief, why: raw.why, evidence: raw.evidence))
+                    run: run, name: name, template: raw.template, brief: brief, why: raw.why, view: raw.view,
+                    evidence: raw.evidence))
         }
         return Result(proposals: kept, dropped: reply.proposals.count - kept.count, run: run)
     }
@@ -142,7 +153,7 @@ public struct Mochi: Sendable {
                 + "\(fields.joined(separator: " — ")) — \"\(block.quote)\" — \(block.state.rawValue)"
         }
         let machines = roster.map { "- \($0.name) (\($0.template)): \($0.spec.brief.prefix(160))" }
-        let kinds = templates.map { "- \($0.id): \($0.does)" }
+        let kinds = templates.map { "- \($0.id): \($0.does) Views: \($0.views.joined(separator: ", "))." }
         let decided = earlier.map { "- \($0.name) (\($0.template)): \($0.decision.rawValue)" }
         return """
             Machines now:

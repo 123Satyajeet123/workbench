@@ -33,6 +33,14 @@ extension Store {
         try change(machine, name: machine.name, spec: spec, state: machine.state)
     }
 
+    /// Shows the machine's items in another view its spec can fill; a view it cannot fill is refused.
+    public func show(_ machine: Machine, as view: String) throws {
+        guard let chosen = machine.spec.views[view] else { return }
+        var spec = machine.spec
+        spec.view = chosen
+        try change(machine, name: machine.name, spec: spec, state: machine.state)
+    }
+
     public func setState(_ machine: Machine, _ state: Machine.State) throws {
         guard state != .deleted else { return try delete(.machine(machine.task)) }
         try change(machine, name: machine.name, spec: machine.spec, state: state)
@@ -69,6 +77,7 @@ extension Store {
         }
     }
 
+    @discardableResult
     private func addMachine(spec: HelperSpec, template: String, name: String) throws -> Machine {
         let id = try database.run(
             "INSERT INTO machine(task, template, created_at) VALUES (?,?,?)",

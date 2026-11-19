@@ -169,8 +169,16 @@ private struct MachineSheet: View {
             case .rename:
                 TextField("Name", text: $text).textFieldStyle(.roundedBorder)
                 Text("A new name keeps its items, marks and trust.").foregroundStyle(.supporting)
-            case .brief:
+            case .brief(let helper):
                 TextEditor(text: $text).textStyle(.body).frame(minHeight: 180).border(.quaternary)
+                Button("Try on past days first") {
+                    let brief = text
+                    Task { await helper.startTrial(brief: brief) }
+                    dismiss()
+                }
+                .help(
+                    "Reads up to \(HelperModel.trialDays) recent days with the new brief beside the current one. Nothing changes until you switch."
+                )
                 Text("A new brief is a new version. Its marks and trust start again; the old version's stay on Runs.")
                     .foregroundStyle(.supporting)
             }

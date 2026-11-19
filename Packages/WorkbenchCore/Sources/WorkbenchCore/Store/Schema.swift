@@ -18,7 +18,7 @@ enum Schema {
 
     static var stepDigests: [String] { steps.map { Digest.sha256($0.joined(separator: ";\n")) } }
 
-    static let steps = [base, timeline, prompts, items, audit, crew, proposals]
+    static let steps = [base, timeline, prompts, items, audit, crew, proposals, proposalView]
 
     private static let base = [
         "CREATE TABLE IF NOT EXISTS state(key TEXT PRIMARY KEY, value TEXT NOT NULL, saved_at TEXT NOT NULL)",
@@ -190,4 +190,7 @@ enum Schema {
         FROM proposal
         """,
     ]
+
+    /// The view Mochi chose for a proposed machine.
+    private static let proposalView = ["ALTER TABLE proposal ADD COLUMN view TEXT NOT NULL DEFAULT 'table'"]
 }

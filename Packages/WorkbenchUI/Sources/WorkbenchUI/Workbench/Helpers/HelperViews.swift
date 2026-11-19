@@ -36,10 +36,12 @@ struct HelperContent: View {
             } else {
                 controls
                 if let question = model.question { Question(model: model, item: question) }
+                if model.trial != nil || model.trialPhase == .reading { TrialCard(model: model) }
                 if model.spec.nudge != nil { NudgeRow(model: model) }
                 switch model.spec.view {
                 case .board(let field, let expected): Board(model: model, field: field, expected: expected)
                 case .timeline: ForEach(model.items) { ItemRow(model: model, item: $0, showsSpan: true) }
+                case .table: Table(model: model)
                 }
             }
         }
@@ -55,6 +57,8 @@ struct HelperContent: View {
                     .disabled(model.phase == .reading || noScreenActivity || model.isPaused)
                 ReadPhaseLabel(
                     phase: model.phase, items: model.spec.itemsNoun, droppedBecause: "not backed by the source")
+                Spacer()
+                ViewPicker(model: model)
             }
             Text(note).textStyle(.callout).foregroundStyle(.supporting)
             if case .screen = model.source, !capture.isOn(.screen) {
@@ -90,6 +94,48 @@ struct HelperContent: View {
             try await source.loadMembers()
         } catch {
             model.attempt("read the group members") { throw error }
+        }
+    }
+}
+
+/// A new brief on trial: how it compares with the current one on past days, and the choice to switch.
+private struct TrialCard: View {
+    let model: HelperModel
+    @Environment(Crew.self) private var crew
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Space.s) {
+            Label("A new brief is on trial", systemImage: "flask").textStyle(.headline)
+            if model.trialPhase == .reading {
+                ProgressView("Reading past days with the new brief…").controlSize(.small)
+            } else if let trial = model.trial {
+                Text(summary(trial.result, days: trial.days.count))
+                Text(verdict(trial.result)).fontWeight(.medium)
+                    .foregroundStyle(
+                        trial.result.verdict == .better
+                            ? Tone.good.color : trial.result.verdict == .worse ? Tone.bad.color : .primary)
+                Text("“\(trial.brief)”").textStyle(.callout).foregroundStyle(.supporting).lineLimit(3)
+                HStack {
+                    Button("Switch to the new brief") { crew.switchToTrial(model) }
+                    Button("Keep the current brief", action: model.endTrial)
+                }
+            }
+        }
+        .padding(Space.m)
+        .background(.quaternary.opacity(0.5), in: .rect(cornerRadius: Radius.card))
+    }
+
+    private func summary(_ result: Trial, days: Int) -> String {
+        "On \(days) past days: \(result.same) the same, \(result.added.count) new, \(result.dropped.count) no longer given. "
+            + (result.waiting == 0 ? "" : "\(result.waiting) new ones wait for your mark in Review.")
+    }
+
+    private func verdict(_ result: Trial) -> String {
+        switch result.verdict {
+        case .better: "Better: right on \(result.better) of the \(result.better + result.worse) differences you marked."
+        case .worse: "Worse: wrong on \(result.worse) of the \(result.better + result.worse) differences you marked."
+        case .notSure:
+            "Not sure yet: better on \(result.better), worse on \(result.worse) of the differences you marked."
         }
     }
 }
@@ -203,6 +249,51 @@ private struct Board: View {
     private var groups: [String] {
         let names = model.context[expected] ?? []
         return names + Set(model.items.map { $0[field] }).subtracting(names).sorted()
+    }
+}
+
+/// The views this machine's spec can fill, as a switch. Hidden when there is only one.
+private struct ViewPicker: View {
+    let model: HelperModel
+    @Environment(Crew.self) private var crew
+
+    var body: some View {
+        let views = model.spec.views
+        if views.count > 1 {
+            Picker("View", selection: Binding(get: { current(in: views) }, set: { crew.show(model, as: $0) })) {
+                ForEach(views.keys.sorted(), id: \.self) { Text($0.capitalized).tag($0) }
+            }
+            .pickerStyle(.segmented).labelsHidden().fixedSize()
+        }
+    }
+
+    private func current(in views: [String: HelperSpec.View]) -> String {
+        views.first { $0.value == model.spec.view }?.key ?? "table"
+    }
+}
+
+/// One row per item: a column per field, then the quote it came from and the marks.
+private struct Table: View {
+    let model: HelperModel
+
+    var body: some View {
+        Grid(alignment: .topLeading, horizontalSpacing: Space.m, verticalSpacing: Space.s) {
+            GridRow {
+                ForEach(model.spec.fields, id: \.name) { Text($0.name.capitalized) }
+                Text("Quote")
+                Color.clear.gridCellUnsizedAxes([.horizontal, .vertical])
+            }
+            .textStyle(.caption).foregroundStyle(.supporting)
+            Divider()
+            ForEach(model.items) { item in
+                GridRow {
+                    ForEach(model.spec.fields, id: \.name) { Text(item[$0.name]) }
+                    Text("“\(item.quote)”").textStyle(.callout).foregroundStyle(.supporting).textSelection(.enabled)
+                    MarkButtons(state: item.state) { model.mark(item, as: $0) }
+                }
+                .opacity(item.state == .rejected ? 0.5 : 1)
+            }
+        }
     }
 }
 

@@ -27,6 +27,9 @@ final class HelperModel {
     private(set) var problem: String?
     /// macOS blocks Workbench notifications; the nudge row offers System Settings.
     private(set) var notificationsBlocked = false
+    /// A new brief being tried on past days, and how it compares with the current one.
+    private(set) var trial: (brief: String, days: [WorkDay], result: Trial)?
+    private(set) var trialPhase = ReadPhase.idle
     var nudge = NudgeSchedule() {
         didSet { attempt("save the nudge") { try store.saveState(Self.json(nudge), forKey: nudgeKey) } }
     }
@@ -128,6 +131,7 @@ final class HelperModel {
             items = try store.queries.items(of: spec.task, day: day, scope: scope)
             trust = try store.queries.quality().first { $0.task == spec.task }?.heldOutAudit.status
             if case .screen(let screen) = source { sessions = try screen.sessions(on: day) }
+            trial = try loadTrial()
         }
     }
 
@@ -186,6 +190,69 @@ final class HelperModel {
         case .screen(let screen): try screen.evidence(on: day)
         case .whatsapp(let chat): try await chat.evidence(on: day)
         }
+    }
+
+    // MARK: Trial
+
+    private struct SavedTrial: Codable {
+        var brief: String
+        var days: [String]
+    }
+
+    private var trialKey: String { "\(spec.task).trial" }
+    /// Most past days a trial reads: each is one model call.
+    static let trialDays = 5
+
+    /// Runs `brief` on up to five recent training days that have items, beside the current version. Nothing of the
+    /// live machine changes; the trial's items wait in Review where they differ.
+    func startTrial(brief: String) async {
+        guard let brief = brief.cleaned, isReady, trialPhase != .reading else { return }
+        trialPhase = .reading
+        var challenger = spec
+        challenger.task = Trial.task(of: spec.task)
+        challenger.brief = brief
+        let scope = scope
+        do {
+            let since = WorkDay(containing: store.clock()).adding(days: -14)
+            let days = Array(
+                Set(try store.queries.items(of: spec.task, since: since).map(\.day)).filter { EvalSplit($0) == .dev }
+                    .sorted(by: >).prefix(Self.trialDays))
+            let reader = HelperReader(spec: challenger, model: makeModel(try ModelChoice.saved(in: store)))
+            for day in days {
+                _ = try await grant(scope)
+                let result = try await reader.read(day: day, scope: scope, evidence: try await gather(day))
+                try store.saveReading(result, of: challenger, day: day, scope: scope, grant: try await grant(scope))
+            }
+            try store.saveState(
+                Self.json(SavedTrial(brief: brief, days: days.map(\.description))), forKey: trialKey)
+            trialPhase = .idle
+            reload()
+            itemsChanged()
+        } catch {
+            trialPhase = .idle
+            problem = "Could not try the new brief: \(error.localizedDescription)"
+        }
+    }
+
+    /// Removes the trial's items and its record; the current version stays as it is.
+    func endTrial() {
+        attempt("end the trial") { try store.delete(.machine(Trial.task(of: spec.task))) }
+        attempt("end the trial") { try store.saveState("", forKey: trialKey) }
+        reload()
+        itemsChanged()
+    }
+
+    private func loadTrial() throws -> (brief: String, days: [WorkDay], result: Trial)? {
+        guard let text = try store.queries.state(forKey: trialKey), !text.isEmpty else { return nil }
+        let saved = try JSONDecoder().decode(SavedTrial.self, from: Data(text.utf8))
+        let days = saved.days.compactMap { WorkDay($0) }
+        var current: [Item] = []
+        var challenger: [Item] = []
+        for day in days {
+            current += try store.queries.items(of: spec.task, day: day, scope: scope)
+            challenger += try store.queries.items(of: Trial.task(of: spec.task), day: day, scope: scope)
+        }
+        return (saved.brief, days, Trial(current: current, challenger: challenger, citation: spec.citation))
     }
 
     // MARK: Nudge
@@ -293,7 +360,17 @@ final class Crew {
 
     /// The shown name of the machine that runs a task; the task itself for one no machine runs.
     func name(ofTask task: String) -> String {
-        machines.first { $0.spec.task == task }?.name ?? task
+        guard let name = machines.first(where: { $0.spec.task == Trial.machineTask(of: task) })?.name else {
+            return task
+        }
+        return Trial.isTrial(task) ? "\(name) · new brief" : name
+    }
+
+    /// Makes the tried brief the machine's own, and ends the trial.
+    func switchToTrial(_ helper: HelperModel) {
+        guard let brief = helper.trial?.brief else { return }
+        edit(helper, brief: brief)
+        helper.endTrial()
     }
 
     func reload() {
@@ -331,6 +408,11 @@ final class Crew {
 
     func edit(_ helper: HelperModel, brief: String) {
         attempt("change \(helper.name)'s brief") { try store.edit(helper.machine, brief: brief) }
+        reload()
+    }
+
+    func show(_ helper: HelperModel, as view: String) {
+        attempt("change \(helper.name)'s view") { try store.show(helper.machine, as: view) }
         reload()
     }
 

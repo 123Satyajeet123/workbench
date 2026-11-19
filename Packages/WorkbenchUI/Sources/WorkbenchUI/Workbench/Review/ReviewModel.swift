@@ -28,7 +28,11 @@ final class ReviewModel {
     var canUndo: Bool { !undoStack.isEmpty }
     var current: Item? { items.indices.contains(selected) ? items[selected] : nil }
 
-    func helper(for item: Item) -> HelperModel? { crew.machines.first { $0.spec.task == item.task } }
+    func helper(for item: Item) -> HelperModel? {
+        crew.machines.first { $0.spec.task == Trial.machineTask(of: item.task) }
+    }
+
+    func name(of item: Item) -> String { crew.name(ofTask: item.task) }
 
     func refresh() {
         do {

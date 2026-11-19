@@ -5,8 +5,8 @@ import Testing
 
 @Suite struct MochiTests {
     private let templates = [
-        Mochi.Template(id: "team.ledger", does: "reads one WhatsApp group"),
-        Mochi.Template(id: "day.timeline", does: "turns screen sessions into blocks"),
+        Mochi.Template(id: "team.ledger", does: "reads one WhatsApp group", views: ["board", "table"]),
+        Mochi.Template(id: "day.timeline", does: "turns screen sessions into blocks", views: ["table", "timeline"]),
     ]
 
     /// One timeline block on each of `count` days, with ids, as the store hands them out.
@@ -45,7 +45,7 @@ import Testing
         let days = try await blocks(days: 4, in: store)
         let ids = days.compactMap(\.id)
         func raw(_ name: String, _ template: String, _ evidence: [Int64]) -> String {
-            #"{"name":"\#(name)","template":"\#(template)","brief":"List each deck.","why":"Daily","evidence":\#(evidence)}"#
+            #"{"name":"\#(name)","template":"\#(template)","brief":"List each deck.","why":"Daily","view":"table","evidence":\#(evidence)}"#
         }
         let raws = [
             raw("Deck triage", "day.timeline", Array(ids.prefix(3))),
@@ -75,7 +75,7 @@ import Testing
         _ = try await mochi.propose(blocks: days, roster: roster, templates: templates, earlier: earlier)
         let input = try #require(model.inputs.withLock { $0.first })
         #expect(input.contains("- Pip (team.ledger):"))
-        #expect(input.contains("- day.timeline: turns screen sessions into blocks"))
+        #expect(input.contains("- day.timeline: turns screen sessions into blocks Views: table, timeline."))
         #expect(input.contains("- Deck triage (day.timeline): rejected"))
         #expect(input.contains("[\(try #require(days.first?.id))] "))
         #expect(
@@ -88,7 +88,7 @@ import Testing
         let days = try await blocks(days: 3, in: store)
         let ids = days.compactMap(\.id).map(String.init).joined(separator: ",")
         let (mochi, _) = mochi(
-            #"{"proposals":[{"name":"Deck triage","template":"day.timeline","brief":"List each deck.","why":"Daily","evidence":[\#(ids)]}]}"#,
+            #"{"proposals":[{"name":"Deck triage","template":"day.timeline","brief":"List each deck.","why":"Daily","view":"table","evidence":[\#(ids)]}]}"#,
             store: store)
         let result = try await mochi.propose(blocks: days, roster: [], templates: templates, earlier: [])
         #expect(throws: StoreError.self) { try store.saveProposals(result, grant: grant(.files)) }
@@ -100,5 +100,35 @@ import Testing
         try store.decide(try #require(saved.id), .accepted)
         #expect(try store.queries.proposals().first?.decision == .accepted)
         #expect(try store.queries.runs().first { $0.task == Mochi.task }?.kept == 1)
+    }
+
+    @Test func aProposalKeepsOnlyAViewItsTemplateCanFill() async throws {
+        let store = try makeStore()
+        let days = try await blocks(days: 3, in: store)
+        let ids = days.compactMap(\.id).map(String.init).joined(separator: ",")
+        let raws = ["table", "timeline", "board", "chart"].map {
+            #"{"name":"Machine \#($0)","template":"day.timeline","brief":"List.","why":"w","view":"\#($0)","evidence":[\#(ids)]}"#
+        }
+        let (mochi, _) = mochi("{\"proposals\":[" + raws.joined(separator: ",") + "]}", store: store)
+        let result = try await mochi.propose(blocks: days, roster: [], templates: templates, earlier: [])
+        #expect(result.proposals.map(\.view) == ["table", "timeline"])
+        #expect(result.dropped == 2)
+    }
+}
+
+@Suite struct ViewChoiceTests {
+    @Test func eachTemplateOffersTheViewsItsFieldsCanFill() {
+        #expect(Set(HelperSpec.team.views.keys) == ["table", "board"])
+        #expect(Set(HelperSpec.timeline.views.keys) == ["table", "timeline"])
+        #expect(HelperSpec.team.views["board"] == .board(groupBy: "person", expected: "members"))
+    }
+
+    @Test func aMachineShowsAnotherViewOnlyIfItsSpecCanFillIt() throws {
+        let store = try makeStore()
+        let machine = try store.createMachine(from: .timeline, name: "Deck triage")
+        try store.show(machine, as: "board")
+        #expect(try store.queries.machines().first?.spec.view == .timeline)
+        try store.show(machine, as: "table")
+        #expect(try store.queries.machines().first?.spec.view == .table)
     }
 }

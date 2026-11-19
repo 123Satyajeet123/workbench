@@ -82,7 +82,7 @@ private struct ReviewRow: View {
     }
 
     private var origin: String {
-        let name = review.helper(for: item)?.name ?? item.task
+        let name = review.name(of: item)
         return
             "\(name) · \(item.day.start.formatted(.dateTime.weekday(.wide).day().month())) · \(item.start.formatted(date: .omitted, time: .shortened))"
     }

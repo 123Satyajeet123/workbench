@@ -68,6 +68,18 @@ public struct HelperSpec: Codable, Sendable, Equatable {
         case board(groupBy: String, expected: String)
         /// Items in time order with their span.
         case timeline
+        /// One row per item, one column per field.
+        case table
+    }
+
+    /// The views this spec can fill, by name: a board needs a field that names a member, a timeline needs time spans.
+    public var views: [String: View] {
+        var views: [String: View] = ["table": .table]
+        if citation == .range { views["timeline"] = .timeline }
+        for field in fields {
+            if case .member(let set) = field.kind { views["board"] = .board(groupBy: field.name, expected: set) }
+        }
+        return views
     }
 
     /// Once a work day, at the founder's time, name who in a context set has no item.

@@ -58,7 +58,9 @@ final class MochiModel {
             let mochi = Mochi(model: makeModel(try ModelChoice.saved(in: store)))
             let result = try await mochi.propose(
                 blocks: try blocks(), roster: crew.machines.map(\.machine),
-                templates: MachineTemplate.all.map { Mochi.Template(id: $0.spec.task, does: $0.detail) },
+                templates: MachineTemplate.all.map {
+                    Mochi.Template(id: $0.spec.task, does: $0.detail, views: Array($0.spec.views.keys))
+                },
                 earlier: proposals)
             try store.saveProposals(result, grant: try await store.grant(for: .screen, at: store.clock()))
             phase = .read(kept: result.proposals.count, dropped: result.dropped)
@@ -80,6 +82,7 @@ final class MochiModel {
             return nil
         }
         crew.edit(helper, brief: proposal.brief)
+        crew.show(helper, as: proposal.view)
         decide(proposal, .accepted)
         return id
     }
