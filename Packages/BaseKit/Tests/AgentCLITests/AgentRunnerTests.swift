@@ -21,6 +21,19 @@ import WorkbenchCore
         #expect(launcher.plans.isEmpty)
     }
 
+    @Test func billingByAPIKeyWithNoKeyStopsTheCallAndAKeyIsPassedToTheCLI() async throws {
+        let launcher = reply(#""is_error":false,"structured_output":{"label":"yes"}"#)
+        var runner = runner(launcher)
+        runner.requiresAPIKey = true
+        await #expect(throws: AgentCLIError.noAPIKey) {
+            _ = try await runner.generate(Verdict.self, schema: Verdict.schema, instructions: "", input: "x")
+        }
+        #expect(launcher.plans.isEmpty, "never falls back to the sign-in")
+        runner.apiKey = "sk-ant-chosen"
+        _ = try await runner.generate(Verdict.self, schema: Verdict.schema, instructions: "", input: "x")
+        #expect(launcher.plans.first?.environment["ANTHROPIC_API_KEY"] == "sk-ant-chosen")
+    }
+
     private func reply(_ fields: String) -> FakeLauncher {
         FakeLauncher(output: ProcessOutput(stdout: #"{"type":"system"}"# + "\n" + #"{"type":"result",\#(fields)}"#))
     }

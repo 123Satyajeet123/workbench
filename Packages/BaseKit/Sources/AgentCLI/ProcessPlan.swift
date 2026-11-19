@@ -12,6 +12,10 @@ public struct ProcessPlan: Sendable, Equatable {
     public var inputFiles: [String: String]
     /// A file in the work directory that holds the answer after the run.
     public var answerFile: String?
+    /// The founder's own Anthropic API key, chosen in Workbench, so the call is billed to it: the route Anthropic
+    /// documents for programs (code.claude.com/docs/en/legal-and-compliance). In `-p` mode the CLI always uses a
+    /// key that is present (code.claude.com/docs/en/authentication). Nil: the founder's own Claude sign-in.
+    public var apiKey: String?
 }
 
 extension ProcessPlan {
@@ -33,19 +37,28 @@ extension ProcessPlan {
 
     public static func make(
         call: AgentCall, kind: AgentCLIKind, executable: URL, environment inherited: [String: String],
-        workDirectory: URL
+        workDirectory: URL, apiKey: String? = nil
     ) -> ProcessPlan {
-        ProcessPlan(
+        var environment = environment(kind: kind, executable: executable, inherited: inherited)
+        if let apiKey { environment[apiKeyVariable] = apiKey }
+        return ProcessPlan(
             kind: kind, executable: executable,
             arguments: kind == .claude ? claudeArguments(call) : codexArguments(call, workDirectory: workDirectory),
-            environment: environment(kind: kind, executable: executable, inherited: inherited),
-            stdin: call.promptText, workDirectory: workDirectory,
+            environment: environment, stdin: call.promptText, workDirectory: workDirectory,
             inputFiles: kind == .codex ? [schemaFileName: call.schemaText] : [:],
-            answerFile: kind == .codex ? answerFileName : nil)
+            answerFile: kind == .codex ? answerFileName : nil, apiKey: apiKey)
     }
 
+    static let apiKeyVariable = "ANTHROPIC_API_KEY"
+
+    /// A credential from the founder's shell never reaches the CLI. The one exception is the key the founder chose
+    /// in Workbench, for the Claude CLI, exactly as chosen.
     public func validate() throws {
-        if let name = environment.keys.sorted().first(where: Self.isForbidden) {
+        if let name = environment.keys.sorted().first(where: { name in
+            Self.isForbidden(variable: name)
+                && !(kind == .claude && name == Self.apiKeyVariable && apiKey?.isEmpty == false
+                    && environment[name] == apiKey)
+        }) {
             throw AgentCLIError.unsafePlan("environment holds \(name)")
         }
         switch kind {

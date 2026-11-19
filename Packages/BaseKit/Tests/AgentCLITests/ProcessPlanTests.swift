@@ -29,6 +29,26 @@ import WorkbenchCore
         #expect(throws: AgentCLIError.self) { try plan.validate() }
     }
 
+    /// Anthropic's route for programs is the user's own API key; a key from the shell must still never reach the CLI.
+    @Test func onlyTheKeyTheFounderChoseReachesTheClaudeCLIAndOnlyAsChosen() throws {
+        let chosen = ProcessPlan.make(
+            call: sampleCall, kind: .claude, executable: tool(.claude), environment: noisyEnvironment,
+            workDirectory: URL(filePath: "/tmp/w"), apiKey: "sk-ant-chosen")
+        #expect(chosen.environment["ANTHROPIC_API_KEY"] == "sk-ant-chosen", "not the shell's key")
+        #expect(chosen.environment["OPENAI_API_KEY"] == nil && chosen.environment["ANTHROPIC_AUTH_TOKEN"] == nil)
+        try chosen.validate()
+
+        var swapped = chosen
+        swapped.environment["ANTHROPIC_API_KEY"] = "sk-ant-other"
+        #expect(throws: AgentCLIError.self) { try swapped.validate() }
+        var stray = makePlan()
+        stray.environment["ANTHROPIC_API_KEY"] = "k"
+        #expect(throws: AgentCLIError.self, "a key with none chosen is refused") { try stray.validate() }
+        var codex = makePlan(kind: .codex)
+        codex.apiKey = "sk-ant-chosen"
+        codex.environment["ANTHROPIC_API_KEY"] = "sk-ant-chosen"
+        #expect(throws: AgentCLIError.self, "only the Claude CLI takes it") { try codex.validate() }
+    }
 }
 
 @Suite struct CodexPlanTests {

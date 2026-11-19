@@ -44,6 +44,8 @@ public struct AgentCall: Sendable {
 
 public enum AgentCLIError: Error, Equatable {
     case notInstalled(AgentCLIKind)
+    /// Billing is set to the founder's own API key, and none is saved.
+    case noAPIKey
     case unsafePlan(String)
     case timedOut
 }

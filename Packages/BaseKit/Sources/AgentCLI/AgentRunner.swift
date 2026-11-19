@@ -9,6 +9,10 @@ public struct AgentRunner: StructuredModel {
     public var model: String
     public var effort: String
     public var timeout: Duration
+    /// The founder's own Anthropic API key when billing is set to it; see `ProcessPlan.apiKey`.
+    public var apiKey: String?
+    /// Billing is set to an API key, so a missing key stops the call instead of falling back to the sign-in.
+    public var requiresAPIKey: Bool
     private let launcher: any ProcessLauncher
     private let inheritedEnvironment: [String: String]
 
@@ -17,8 +21,11 @@ public struct AgentRunner: StructuredModel {
     public init(
         kind: AgentCLIKind, model: String, effort: String, timeout: Duration,
         launcher: any ProcessLauncher = SystemProcessLauncher(), executable: URL? = nil,
-        environment: [String: String] = ProcessInfo.processInfo.environment
+        environment: [String: String] = ProcessInfo.processInfo.environment, apiKey: String? = nil,
+        requiresAPIKey: Bool = false
     ) {
+        self.apiKey = apiKey
+        self.requiresAPIKey = requiresAPIKey
         self.kind = kind
         self.executable = executable ?? kind.installed(environment: environment)
         self.model = model
@@ -68,13 +75,14 @@ public struct AgentRunner: StructuredModel {
 
     func launch(_ call: AgentCall) async throws -> ProcessOutput {
         guard let executable else { throw AgentCLIError.notInstalled(kind) }
+        if requiresAPIKey, apiKey?.isEmpty != false { throw AgentCLIError.noAPIKey }
         let files = FileManager.default
         let workDirectory = files.temporaryDirectory.appending(path: "agent-\(UUID().uuidString)")
         try files.createDirectory(at: workDirectory, withIntermediateDirectories: true)
         defer { try? files.removeItem(at: workDirectory) }
         let plan = ProcessPlan.make(
             call: call, kind: kind, executable: executable, environment: inheritedEnvironment,
-            workDirectory: workDirectory)
+            workDirectory: workDirectory, apiKey: kind == .claude ? apiKey : nil)
         try plan.validate()
         return try await launcher.launch(plan, timeout: call.timeout)
     }
