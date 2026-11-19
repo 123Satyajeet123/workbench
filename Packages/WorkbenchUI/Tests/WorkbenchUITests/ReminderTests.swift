@@ -5,8 +5,6 @@ import WorkbenchCore
 
 @testable import WorkbenchUI
 
-private nonisolated struct Nothing: Decodable, Sendable {}
-
 @Suite struct ReminderTests {
     private let monday = Calendar.current.date(
         from: DateComponents(year: 2026, month: 11, day: 16, hour: 8))!

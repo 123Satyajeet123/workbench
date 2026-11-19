@@ -41,7 +41,7 @@ enum SidebarSelection: Hashable, Identifiable, RawRepresentable {
         case .day: "Mochi"
         case .review: "Review"
         case .calls: "Echo"
-        case .catalog: "Team machines"
+        case .catalog: "Team"
         case .runs: "Runs"
         case .machine: "Machine"
         }

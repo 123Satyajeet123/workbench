@@ -34,6 +34,11 @@ public struct WhatsAppChat: Codable, Sendable, Equatable, Identifiable {
 public struct WhatsAppMember: Sendable, Equatable {
     public var jid: String
     public var name: String
+
+    public init(jid: String, name: String) {
+        self.jid = jid
+        self.name = name
+    }
 }
 
 /// Reads one chat, named by its WhatsApp ID: the founder's own chat or one group. The policy must allow that ID; no

@@ -33,7 +33,7 @@ struct Sidebar: View {
             }
             Section("Team") {
                 Label(SidebarSelection.catalog.title, systemImage: "person.3.sequence")
-                    .badge(catalog.teammates.count)
+                    .badge(catalog.teammates.count + catalog.teammatesDays.count)
                     .tag(SidebarSelection.catalog)
             }
             Section("Meter") {

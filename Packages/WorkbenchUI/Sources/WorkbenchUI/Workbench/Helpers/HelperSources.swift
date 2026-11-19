@@ -26,7 +26,7 @@ struct ScreenSource {
 final class WhatsAppSource {
     private(set) var chat: WhatsAppChat?
     private(set) var groups: [WhatsAppChat] = []
-    private(set) var members: [String] = []
+    private(set) var members: [WhatsAppMember] = []
 
     @ObservationIgnored private let store: Store
     @ObservationIgnored private let capture: CaptureService
@@ -66,16 +66,16 @@ final class WhatsAppSource {
 
     func loadMembers() async throws {
         guard let chat else { return }
-        members = try await reader(chat).members().map(\.name)
+        members = try await reader(chat).members()
     }
 
     /// The day's messages, each a numbered line, and the group's members.
     func evidence(on day: WorkDay) async throws -> EvidenceSet {
         guard let chat else { return EvidenceSet(lines: []) }
         let reader = reader(chat)
-        members = try await reader.members().map(\.name)
+        members = try await reader.members()
         let lines = try await reader.entries(from: day.start, to: day.end).compactMap(line)
-        return EvidenceSet(lines: lines, context: ["members": members])
+        return EvidenceSet(lines: lines, context: ["members": members.map(\.name)])
     }
 
     private func reader(_ chat: WhatsAppChat) -> WhatsAppChatReader {

@@ -46,8 +46,8 @@ import Testing
         let (machines, unreadable) = SharedMachine.read(from: folder)
         #expect(machines.map(\.author) == ["Aditya", "Kabir"])
         #expect(unreadable == ["broken.json"])
-        try SharedMachine.remove(author: "Kabir", task: mine.task, from: folder)
-        #expect(SharedMachine.read(from: folder).machines.map(\.author) == ["Aditya"])
-        #expect(SharedMachine.fileName(author: "../evil", task: "a/b") == "evil--ab.json")
+        try SharedMachine.remove(author: "Kabir", parts: [mine.task], from: folder)
+        #expect(SharedMachine.read(from: folder).files.map(\.author) == ["Aditya"])
+        #expect(SharedMachine.fileName(author: "../evil", parts: ["a/b"]) == "evil--ab.json")
     }
 }

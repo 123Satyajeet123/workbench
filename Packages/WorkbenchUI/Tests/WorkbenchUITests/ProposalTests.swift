@@ -5,8 +5,6 @@ import WorkbenchCore
 
 @testable import WorkbenchUI
 
-private nonisolated struct Nothing: Decodable, Sendable {}
-
 @Suite struct ProposalTests {
     /// A store with the built-in machines and one timeline block on each of `count` training days before today.
     private func store(trainingDays count: Int) async throws -> (Store, Crew, [Int64]) {

@@ -90,7 +90,7 @@ final class HelperModel {
     var context: [String: [String]] {
         switch source {
         case .screen: [:]
-        case .whatsapp(let chat): ["members": chat.members]
+        case .whatsapp(let chat): ["members": chat.members.map(\.name)]
         }
     }
 

@@ -18,7 +18,7 @@ enum Schema {
 
     static var stepDigests: [String] { steps.map { Digest.sha256($0.joined(separator: ";\n")) } }
 
-    static let steps = [base, timeline, prompts, items, audit, crew, proposals, proposalView]
+    static let steps = [base, timeline, prompts, items, audit, crew, proposals, proposalView, teamMemory]
 
     private static let base = [
         "CREATE TABLE IF NOT EXISTS state(key TEXT PRIMARY KEY, value TEXT NOT NULL, saved_at TEXT NOT NULL)",
@@ -145,6 +145,21 @@ enum Schema {
 
     /// The team and its people, and machines as records a person owns: renamed, edited, paused or deleted by a new
     /// change row; the latest change is the machine's state.
+    /// Who each teammate is in a source (their WhatsApp id), set by the founder; the latest link wins. And every act
+    /// that leaves the founder's store, such as a shared day or a made reminder, logged once.
+    private static let teamMemory = [
+        """
+        CREATE TABLE member_handle(
+            id INTEGER PRIMARY KEY, member_id INTEGER NOT NULL REFERENCES member(id),
+            kind TEXT NOT NULL CHECK(kind IN ('whatsapp')), handle TEXT NOT NULL CHECK(handle <> ''), at TEXT NOT NULL)
+        """,
+        """
+        CREATE TABLE action(
+            id INTEGER PRIMARY KEY, at TEXT NOT NULL, kind TEXT NOT NULL CHECK(kind <> ''), target TEXT NOT NULL,
+            detail TEXT NOT NULL CHECK(json_valid(detail)))
+        """,
+    ]
+
     private static let crew = [
         "CREATE TABLE team(id INTEGER PRIMARY KEY, name TEXT NOT NULL CHECK(name <> ''), created_at TEXT NOT NULL)",
         """
