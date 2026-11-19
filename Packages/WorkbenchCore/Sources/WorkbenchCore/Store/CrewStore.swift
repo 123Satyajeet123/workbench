@@ -13,11 +13,13 @@ extension Store {
 
     /// A new machine from a template, with its own task so its items, settings and trust are its own. The task is the
     /// template's with a dash, never a dot, so no machine's settings key starts with another machine's task.
+    /// `template` names the template the spec came from; it defaults to the spec's own task, for a template itself.
     @discardableResult
-    public func createMachine(from template: HelperSpec, name: String) throws -> Machine {
-        var spec = template
-        spec.task = "\(template.task)-\(UUID().uuidString.prefix(8).lowercased())"
-        return try database.transaction { try addMachine(spec: spec, template: template.task, name: name) }
+    public func createMachine(from spec: HelperSpec, template: String? = nil, name: String) throws -> Machine {
+        let template = template ?? spec.task
+        var spec = spec
+        spec.task = "\(template)-\(UUID().uuidString.prefix(8).lowercased())"
+        return try database.transaction { try addMachine(spec: spec, template: template, name: name) }
     }
 
     public func rename(_ machine: Machine, to name: String) throws {

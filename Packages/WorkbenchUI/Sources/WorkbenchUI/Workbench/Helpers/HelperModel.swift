@@ -399,10 +399,14 @@ final class Crew {
 
     @discardableResult
     func create(from template: MachineTemplate, name: String) -> Int64? {
+        create(spec: template.spec, template: template.spec.task, name: name.cleaned ?? template.name)
+    }
+
+    /// A machine from a whole spec, such as a teammate's: its fields, view and brief come with it.
+    @discardableResult
+    func create(spec: HelperSpec, template: String, name: String) -> Int64? {
         var id: Int64?
-        attempt("add the machine") {
-            id = try store.createMachine(from: template.spec, name: name.cleaned ?? template.name).id
-        }
+        attempt("add the machine") { id = try store.createMachine(from: spec, template: template, name: name).id }
         reload()
         return id
     }
@@ -474,7 +478,16 @@ struct MachineTemplate: Identifiable, Hashable {
         detail:
             "Reads the text of pages you saw on sites you name, such as your mail or LinkedIn, and lists what needs your follow-up."
     )
-    static let all = [team, timeline, pages]
+    static let dealIntake = MachineTemplate(
+        spec: .dealIntake, name: "Deal intake", role: "Deal intake",
+        detail: "Reads your mail pages and lists each inbound startup, rated hot, warm or cold by your own criteria.")
+    static let founderCheck = MachineTemplate(
+        spec: .founderCheck, name: "Founder check", role: "Founder check",
+        detail: "Reads founders' profile pages you opened and lists their roles, companies, exits and education.")
+    static let companySignals = MachineTemplate(
+        spec: .companySignals, name: "Signals", role: "Company signals",
+        detail: "Reads news and social pages and lists funding, hires, launches and risks of companies you follow.")
+    static let all = [team, timeline, pages, dealIntake, founderCheck, companySignals]
     /// The machines every store starts with; the others are made on request or from Mochi's proposals.
     static let seeded = [team, timeline]
 

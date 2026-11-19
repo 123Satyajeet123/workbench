@@ -42,6 +42,7 @@ import WorkbenchCore
             spec: {
                 var spec = HelperSpec.team
                 spec.brief = "List each startup that wrote to the fund."
+                spec.view = .table
                 return spec
             }(),
             state: .active)
@@ -56,6 +57,7 @@ import WorkbenchCore
         let id = try #require(catalog.adopt(shared))
         let mine = try #require(crew.helper(id: id))
         #expect(mine.name == "Inbound deals" && mine.spec.brief == "List each startup that wrote to the fund.")
+        #expect(mine.spec.view == .table && mine.machine.template == HelperSpec.team.task, "the whole spec comes along")
         #expect(mine.spec.task != theirs.spec.task)
         #expect(try store.queries.quality().first { $0.task == mine.spec.task } == nil, "trust starts at zero")
     }

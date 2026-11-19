@@ -31,7 +31,8 @@ cd ~/Projects/workbench && git pull && scripts/install.sh
   repeat; build, skip or never each one.
 - **Review**: every machine's unmarked items in one queue. Keys: Y right, N wrong, J/K move, U undo.
 - **Crew**: your machines. **+** makes one from a template: Pip (a WhatsApp group), Timeline (your screen), Scout
-  (pages you saw on sites you name). Right-click to rename, edit the brief (try it on past days first), pause, share
+  (pages you saw on sites you name), and a VC pack: Deal intake (rated hot, warm or cold by your criteria), Founder
+  check, Company signals. Right-click to rename, edit the brief (try it on past days first), pause, share
   or delete. Each machine page has a view switch, a share-this-day button and, on each item, *Draft a message* and
   *Add to Reminders*.
 - **Team**: your team's shared days and machines. A day goes only to teammates who can already read its source.

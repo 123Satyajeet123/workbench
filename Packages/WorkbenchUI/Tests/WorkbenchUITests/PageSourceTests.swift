@@ -51,4 +51,32 @@ import WorkbenchCore
         #expect(MachineTemplate.all.contains(.pages))
         #expect(Array(HelperSpec.pages.views.keys) == ["table"])
     }
+
+    @Test func dealIntakeRatesEachPitchByTheInvestorsCriteriaAndKeepsOnlyAllowedRatings() async throws {
+        let now = noon
+        let store = try scratchStore(clock: { now })
+        try store.savePolicy(CapturePolicy(switches: [.screen: true, .screenText: true]))
+        let page = WebPage(
+            browser: "com.brave.Browser", url: "https://mail.google.com/mail/u/0/", title: "Inbox",
+            text: "Acme (fintech) is raising a 2M seed, 40k MRR. Bolt: we build toys, pre-seed.")
+        try store.record(try #require(page.batch(policy: try store.currentPolicy(), at: now)))
+        let id = try #require(try store.queries.activities(since: .distantPast).first?.id)
+        let reply = """
+            {"items":[
+            {"company":"Acme","sector":"fintech","stage":"seed","from":"","rating":"hot","why":"revenue","cite":\(id),"quote":"Acme (fintech) is raising a 2M seed"},
+            {"company":"Bolt","sector":"toys","stage":"pre-seed","from":"","rating":"lukewarm","why":"?","cite":\(id),"quote":"Bolt: we build toys"}]}
+            """
+        let scripted = ScriptedModel(reply)
+        let machine = try store.createMachine(from: .dealIntake, name: "Deal intake")
+        let source = try PageSource(store: store, task: machine.task)
+        try source.choose("mail.google.com")
+        let intake = HelperModel(
+            machine: machine, source: .pages(source), store: store,
+            makeModel: { _ in RecordedModel(scripted, store: store) }, notifier: FakeNotifier())
+        await intake.read()
+        #expect(intake.items.map { $0["company"] } == ["Acme"])
+        #expect(intake.items.first?["rating"] == "hot" && intake.items.first?["why"] == "revenue")
+        #expect(intake.phase == .read(kept: 1, dropped: 1))
+        #expect(MachineTemplate.all.contains(.dealIntake) && !MachineTemplate.seeded.contains(.dealIntake))
+    }
 }

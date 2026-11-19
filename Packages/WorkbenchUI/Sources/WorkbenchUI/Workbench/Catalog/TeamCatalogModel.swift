@@ -149,17 +149,14 @@ final class TeamCatalogModel {
         refresh()
     }
 
-    /// The teammate's machine becomes the founder's own, from the same template with the same brief.
+    /// The teammate's machine becomes the founder's own: the same spec (brief, fields, view), a new task, zero trust.
     @discardableResult
     func adopt(_ machine: SharedMachine) -> Int64? {
-        guard let template = MachineTemplate.all.first(where: { $0.spec.task == machine.template }),
-            let id = crew.create(from: template, name: machine.name), let helper = crew.helper(id: id)
-        else {
+        guard MachineTemplate.all.contains(where: { $0.spec.task == machine.template }) else {
             problem = "\(machine.author)'s \(machine.name) needs a template this version does not have."
             return nil
         }
-        crew.edit(helper, brief: machine.spec.brief)
-        return id
+        return crew.create(spec: machine.spec, template: machine.template, name: machine.name)
     }
 
     func dismissProblem() { problem = nil }

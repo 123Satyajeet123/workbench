@@ -62,4 +62,60 @@ extension HelperSpec {
                 meaning: "What the founder could do next, in a few words; empty when nothing."),
         ],
         citation: .one, view: .table, title: "title", badges: ["who"], tones: [:], itemsNoun: "items", nudge: nil)
+
+    /// VC pack: inbound deals from the investor's mail pages, rated against the investor's own criteria.
+    public static let dealIntake = HelperSpec(
+        task: "vc.deals", source: .pageText,
+        brief: """
+            You triage inbound deals for a venture investor from the mail pages they read. For each startup that \
+            pitches, asks for a meeting or is introduced, give one item. Rate it against the investor's criteria \
+            below and say which criterion decided the rating. Criteria (the investor edits these): hot = fits our \
+            sectors and stage, and shows revenue or strong traction; warm = fits sector or stage, but not both, or \
+            traction is unclear; cold = outside our sectors or stage.
+            """,
+        fields: [
+            Field("company", .text(required: true), meaning: "The startup's name."),
+            Field("sector", .text(required: false), meaning: "What it does, in a few words; empty when not said."),
+            Field(
+                "stage", .choice(["pre-seed", "seed", "series A", "later", "unknown"]),
+                meaning: "The round it raises, as the mail says; unknown when not said."),
+            Field("from", .text(required: false), meaning: "Who wrote or introduced it; empty when not said."),
+            Field("rating", .choice(["hot", "warm", "cold"]), meaning: "The rating under the criteria."),
+            Field("why", .text(required: true), meaning: "The criterion that decided the rating, in a few words."),
+        ],
+        citation: .one, view: .table, title: "company", badges: ["rating", "stage"],
+        tones: ["hot": .good, "warm": .neutral, "cold": .bad], itemsNoun: "deals", nudge: nil)
+
+    /// VC pack: what a founder's profile page says, to check against what the pitch claims.
+    public static let founderCheck = HelperSpec(
+        task: "vc.founders", source: .pageText,
+        brief: """
+            You read the profile pages of founders a venture investor looked at. For each founder, list the facts the \
+            page states that matter for an investment: past roles, companies founded, exits, education. One item per \
+            fact. Use only what the page says; never guess.
+            """,
+        fields: [
+            Field("person", .text(required: true), meaning: "The founder's name."),
+            Field("fact", .text(required: true), meaning: "One fact from the profile, in a few English words."),
+            Field("kind", .choice(["role", "founded", "exit", "education", "other"]), meaning: "What kind of fact."),
+        ],
+        citation: .one, view: .table, title: "fact", badges: ["person", "kind"], tones: [:], itemsNoun: "facts",
+        nudge: nil)
+
+    /// VC pack: news about portfolio and passed companies from the pages the investor reads.
+    public static let companySignals = HelperSpec(
+        task: "vc.signals", source: .pageText,
+        brief: """
+            You watch for news about companies a venture investor follows: their portfolio and deals they passed on. \
+            From the news and social pages they read, list each signal about a named company: a funding round, a key \
+            hire or departure, a launch, a risk, or press. One item per signal.
+            """,
+        fields: [
+            Field("company", .text(required: true), meaning: "The company the signal is about."),
+            Field(
+                "signal", .choice(["funding", "hire", "departure", "launch", "risk", "press"]), meaning: "Its kind."),
+            Field("text", .text(required: true), meaning: "The signal in one short English line."),
+        ],
+        citation: .one, view: .table, title: "text", badges: ["company", "signal"],
+        tones: ["funding": .good, "launch": .good, "risk": .bad, "departure": .bad], itemsNoun: "signals", nudge: nil)
 }
