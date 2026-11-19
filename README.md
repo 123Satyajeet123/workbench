@@ -16,8 +16,15 @@ Based on Sentient OS (AGPL-3.0); see LICENSE.
    scripts/setup.sh      # checks the tools, makes a local signing identity; macOS asks for your password once
    scripts/install.sh    # builds, installs ~/Applications/Workbench.app, opens it
    ```
-4. In Workbench: finish the four setup screens, then turn on **Screen** in Settings › Capture. macOS asks for
-   Accessibility permission; allow it.
+4. In Workbench: finish the setup screens (your name, your team), then turn on **Screen** and **Screen text** in
+   Settings › Capture. macOS asks for Accessibility permission; allow it.
+5. System Settings › Privacy & Security › **Full Disk Access** › **+** › `~/Applications/Workbench.app`, on.
+   Without it, macOS asks "Workbench would like to access data from other apps" whenever a machine reads WhatsApp.
+6. Browser pages (mail, LinkedIn, X), for Scout and the VC machines: run `scripts/install-browser.sh`, then in
+   `brave://extensions` (or `chrome://extensions`) turn on Developer mode, *Load unpacked*, choose `Extension/`.
+   Reload open tabs once.
+7. WhatsApp machines need **WhatsApp Desktop** installed and signed in on this Mac.
+8. The first time you turn on a nudge or hourly reading, allow notifications when macOS asks.
 
 The local signing identity keeps macOS permissions across updates. Without it, macOS asks again after every update.
 
