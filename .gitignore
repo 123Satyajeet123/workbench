@@ -40,3 +40,6 @@ Signing.local.xcconfig
 
 # Present while scripts/promises.sh plants bugs
 .promises-running
+
+# SwiftPM: the app pins its dependencies (Workbench.xcodeproj/.../Package.resolved); the local library packages do not
+Packages/*/Package.resolved
