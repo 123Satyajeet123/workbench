@@ -3,15 +3,17 @@ import WorkbenchCore
 /// The pages of the main window: Mochi (the day), Echo (calls), Runs, and one page per machine. A fixed page's name,
 /// role and face live here, the one place to rename it; a machine's come from its record.
 enum SidebarSelection: Hashable, Identifiable, RawRepresentable {
-    case day, calls, runs
+    case day, review, calls, catalog, runs
     case machine(Int64)
 
-    static let fixed: [Self] = [.day, .calls, .runs]
+    static let fixed: [Self] = [.day, .review, .calls, .catalog, .runs]
 
     init?(rawValue: String) {
         switch rawValue {
         case "day": self = .day
+        case "review": self = .review
         case "calls": self = .calls
+        case "catalog": self = .catalog
         case "runs": self = .runs
         default:
             guard rawValue.hasPrefix("machine:"), let id = Int64(rawValue.dropFirst("machine:".count)) else {
@@ -24,7 +26,9 @@ enum SidebarSelection: Hashable, Identifiable, RawRepresentable {
     var rawValue: String {
         switch self {
         case .day: "day"
+        case .review: "review"
         case .calls: "calls"
+        case .catalog: "catalog"
         case .runs: "runs"
         case .machine(let id): "machine:\(id)"
         }
@@ -35,7 +39,9 @@ enum SidebarSelection: Hashable, Identifiable, RawRepresentable {
     var title: String {
         switch self {
         case .day: "Mochi"
+        case .review: "Review"
         case .calls: "Echo"
+        case .catalog: "Team machines"
         case .runs: "Runs"
         case .machine: "Machine"
         }
@@ -44,7 +50,9 @@ enum SidebarSelection: Hashable, Identifiable, RawRepresentable {
     var role: String {
         switch self {
         case .day: "Your day"
+        case .review: "Everything to check"
         case .calls: "Calls"
+        case .catalog: "Shared by your team"
         case .runs: "Model use and trust"
         case .machine: ""
         }
@@ -55,7 +63,7 @@ enum SidebarSelection: Hashable, Identifiable, RawRepresentable {
         switch self {
         case .day: Mascot.Look(hue: 0.04, wear: .crown)
         case .calls: Mascot.Look(hue: 0.76, wear: .headphones)
-        case .runs, .machine: nil
+        case .review, .catalog, .runs, .machine: nil
         }
     }
 }

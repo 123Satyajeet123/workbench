@@ -65,6 +65,10 @@ extension View {
             .environment(session.team)
             .environment(session.models)
             .environment(session.crew)
+            .environment(session.review)
+            .environment(session.mochi)
+            .environment(session.reminders)
+            .environment(session.catalog)
             .environment(session.runs)
     }
 }

@@ -21,6 +21,8 @@ struct WorkbenchView: View {
                 }
             case .calls: CallsPage()
             case .runs: RunsPage()
+            case .review: ReviewPage()
+            case .catalog: TeamCatalogPage(open: { selection = $0 })
             }
         }
         .frame(

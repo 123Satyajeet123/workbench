@@ -18,7 +18,7 @@ enum Schema {
 
     static var stepDigests: [String] { steps.map { Digest.sha256($0.joined(separator: ";\n")) } }
 
-    static let steps = [base, timeline, prompts, items, audit, crew]
+    static let steps = [base, timeline, prompts, items, audit, crew, proposals]
 
     private static let base = [
         "CREATE TABLE IF NOT EXISTS state(key TEXT PRIMARY KEY, value TEXT NOT NULL, saved_at TEXT NOT NULL)",
@@ -167,6 +167,27 @@ enum Schema {
         CREATE VIEW machine_now AS SELECT machine.id, machine.task, machine.template, change.name, change.spec,
             change.state FROM machine JOIN machine_change change ON change.id =
             (SELECT MAX(id) FROM machine_change WHERE machine_id = machine.id)
+        """,
+    ]
+
+    /// Mochi's proposals and the founder's decisions on them; the latest decision is a proposal's state.
+    private static let proposals = [
+        """
+        CREATE TABLE proposal(
+            id INTEGER PRIMARY KEY, run_id INTEGER NOT NULL REFERENCES run(id), name TEXT NOT NULL CHECK(name <> ''),
+            template TEXT NOT NULL, brief TEXT NOT NULL CHECK(brief <> ''), why TEXT NOT NULL,
+            evidence TEXT NOT NULL CHECK(json_valid(evidence)), created_at TEXT NOT NULL)
+        """,
+        """
+        CREATE TABLE proposal_decision(
+            id INTEGER PRIMARY KEY, proposal_id INTEGER NOT NULL REFERENCES proposal(id) ON DELETE CASCADE,
+            decision TEXT NOT NULL CHECK(decision IN ('waiting','accepted','rejected','later')), at TEXT NOT NULL)
+        """,
+        """
+        CREATE VIEW proposal_now AS SELECT proposal.*, COALESCE(
+            (SELECT decision FROM proposal_decision WHERE proposal_id = proposal.id ORDER BY id DESC LIMIT 1),
+            'waiting') AS decision
+        FROM proposal
         """,
     ]
 }

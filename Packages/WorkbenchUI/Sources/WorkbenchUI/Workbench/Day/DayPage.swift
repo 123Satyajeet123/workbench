@@ -16,6 +16,7 @@ struct DayPage: View {
             look: SidebarSelection.day.look
         ) {
             if let timeline = crew.timeline { TimelineSection(model: timeline) }
+            MochiProposals(open: open)
             TeamCard()
             ForEach(crew.crew, id: \.machine.id) { helper in
                 MachineCard(helper: helper, open: { open(.machine(helper.machine.id)) })

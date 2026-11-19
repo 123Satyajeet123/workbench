@@ -32,10 +32,18 @@ struct TeamEditor: View {
 /// Settings › Team: the same editor with a save button.
 struct TeamSettingsView: View {
     @Environment(TeamModel.self) private var model
+    @Environment(TeamCatalogModel.self) private var catalog
 
     var body: some View {
         VStack(alignment: .leading, spacing: Space.l) {
             TeamEditor()
+            LabeledContent("Team folder") {
+                HStack {
+                    Text(catalog.folder?.path(percentEncoded: false) ?? "None").foregroundStyle(.supporting).lineLimit(
+                        1)
+                    FolderButton()
+                }
+            }
             if let problem = model.problem { ProblemBanner(text: problem) }
             HStack {
                 Spacer()

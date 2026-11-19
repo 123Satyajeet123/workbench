@@ -34,6 +34,7 @@ struct GeneralSettingsView: View {
                     FormNote("\(models.choice.kind.rawValue) is not installed on this Mac. Install it and sign in.")
                 }
             }
+            RemindersSection()
             Section("Startup") {
                 LoginItemToggle()
             }

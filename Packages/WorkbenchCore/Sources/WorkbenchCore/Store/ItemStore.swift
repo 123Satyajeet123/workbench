@@ -56,23 +56,43 @@ extension Store {
 }
 
 extension Queries {
+    private static let itemColumns =
+        "id, task, day, scope, source, cite_first, cite_last, start_at, end_at, fields, quote, state, run_id, asked_with"
+
     /// One helper's items on one day, in time order.
     public func items(of task: String, day: WorkDay, scope: String) throws -> [Item] {
         try database.rows(
+            "SELECT \(Self.itemColumns) FROM item_mark WHERE task = ? AND day = ? AND scope = ? ORDER BY start_at, id",
+            [.text(task), .text(day.description), .text(scope)]
+        ).compactMap(Self.item)
+    }
+
+    /// One machine's items since `day`, oldest first, in every scope.
+    public func items(of task: String, since day: WorkDay) throws -> [Item] {
+        try database.rows(
+            "SELECT \(Self.itemColumns) FROM item_mark WHERE task = ? AND day >= ? ORDER BY day, start_at, id",
+            [.text(task), .text(day.description)]
+        ).compactMap(Self.item)
+    }
+
+    /// Every machine's items still waiting for a mark since `day`: the app's random picks first, then the newest days.
+    public func waitingItems(since day: WorkDay) throws -> [Item] {
+        try database.rows(
             """
-            SELECT id, source, cite_first, cite_last, start_at, end_at, fields, quote, state, run_id, asked_with
-            FROM item_mark
-            WHERE task = ? AND day = ? AND scope = ? ORDER BY start_at, id
-            """, [.text(task), .text(day.description), .text(scope)]
-        ).compactMap { row in
-            guard let source = row[1].string.flatMap(SourceKind.init), let start = row[4].date, let end = row[5].date,
-                let state = row[8].string.flatMap(Mark.init),
-                let fields = try? Coding.value([String: String].self, from: row[6].string ?? "")
-            else { return nil }
-            return Item(
-                id: row[0].integer, task: task, day: day, scope: scope, source: source, citeFirst: row[2].integer ?? 0,
-                citeLast: row[3].integer ?? 0, start: start, end: end, fields: fields, quote: row[7].string ?? "",
-                state: state, run: row[9].integer ?? 0, askedWith: row[10].double)
-        }
+            SELECT \(Self.itemColumns) FROM item_mark WHERE state = 'proposed' AND day >= ?
+            ORDER BY asked_with IS NULL, day DESC, start_at, id
+            """, [.text(day.description)]
+        ).compactMap(Self.item)
+    }
+
+    private static func item(_ row: [SQLValue]) -> Item? {
+        guard let day = row[2].string.flatMap({ WorkDay($0) }), let source = row[4].string.flatMap(SourceKind.init),
+            let start = row[7].date, let end = row[8].date, let state = row[11].string.flatMap(Mark.init),
+            let fields = try? Coding.value([String: String].self, from: row[9].string ?? "")
+        else { return nil }
+        return Item(
+            id: row[0].integer, task: row[1].string ?? "", day: day, scope: row[3].string ?? "", source: source,
+            citeFirst: row[5].integer ?? 0, citeLast: row[6].integer ?? 0, start: start, end: end, fields: fields,
+            quote: row[10].string ?? "", state: state, run: row[12].integer ?? 0, askedWith: row[13].double)
     }
 }

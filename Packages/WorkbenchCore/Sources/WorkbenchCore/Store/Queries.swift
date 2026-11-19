@@ -41,6 +41,6 @@ public struct Queries: Sendable {
 
     public enum Table: String, CaseIterable, Sendable {
         case state, consent, run, activity, recording
-        case prompt, item, mark, team, member, machine
+        case prompt, item, mark, team, member, machine, proposal
     }
 }

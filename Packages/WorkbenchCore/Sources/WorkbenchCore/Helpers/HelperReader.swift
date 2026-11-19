@@ -10,6 +10,12 @@ public struct HelperReader: Sendable {
         public var dropped: Int
         /// Nil when the day had no evidence, so no model ran.
         public var run: RunID?
+
+        public init(items: [Item], dropped: Int, run: RunID?) {
+            self.items = items
+            self.dropped = dropped
+            self.run = run
+        }
     }
 
     struct Reply: Decodable, Sendable {

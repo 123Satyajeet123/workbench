@@ -5,12 +5,17 @@ struct Sidebar: View {
     @Binding var selection: SidebarSelection
     @Environment(IdentityModel.self) private var identity
     @Environment(Crew.self) private var crew
+    @Environment(ReviewModel.self) private var review
+    @Environment(TeamCatalogModel.self) private var catalog
     @State private var editing: MachineEdit?
     @State private var deleting: HelperModel?
 
     var body: some View {
         List(selection: Binding<SidebarSelection?>(get: { selection }, set: { if let new = $0 { selection = new } })) {
             FixedRow(page: .day, faceSize: 34, mood: mochiMood).tag(SidebarSelection.day)
+            Label(SidebarSelection.review.title, systemImage: "checkmark.circle")
+                .badge(review.items.count)
+                .tag(SidebarSelection.review)
             Section {
                 ForEach(crew.crew, id: \.machine.id) { helper in
                     MachineRow(helper: helper)
@@ -25,6 +30,11 @@ struct Sidebar: View {
                     Button("Add a machine", systemImage: "plus") { editing = .new }
                         .labelStyle(.iconOnly).buttonStyle(.borderless)
                 }
+            }
+            Section("Team") {
+                Label(SidebarSelection.catalog.title, systemImage: "person.3.sequence")
+                    .badge(catalog.teammates.count)
+                    .tag(SidebarSelection.catalog)
             }
             Section("Meter") {
                 Label(SidebarSelection.runs.title, systemImage: "gauge.with.dots.needle.33percent")
@@ -55,6 +65,11 @@ struct Sidebar: View {
         Button("Rename…") { editing = .rename(helper) }
         Button("Edit brief…") { editing = .brief(helper) }
         Button(helper.isPaused ? "Resume" : "Pause") { crew.setPaused(helper, !helper.isPaused) }
+        if catalog.isShared(helper) {
+            Button("Stop sharing") { catalog.unshare(helper) }
+        } else {
+            Button("Share with team") { catalog.share(helper) }.disabled(catalog.folder == nil)
+        }
         Divider()
         Button("Delete…", role: .destructive) { deleting = helper }
     }

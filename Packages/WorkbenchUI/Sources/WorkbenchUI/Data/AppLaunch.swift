@@ -15,6 +15,10 @@ struct AppSession {
     let team: TeamModel
     let models: ModelSettings
     let crew: Crew
+    let review: ReviewModel
+    let mochi: MochiModel
+    let reminders: Reminders
+    let catalog: TeamCatalogModel
     let runs: RunsModel
 }
 
@@ -33,12 +37,18 @@ enum AppLaunch {
             let identity = IdentityModel(store: store)
             try store.seedMachines(MachineTemplate.all.map { ($0.spec, $0.name) })
             let onboarding = OnboardingModel(store: store, identity: identity)
+            let crew = Crew(store: store, capture: service, founder: { identity.identity.name })
+            let review = ReviewModel(store: store, crew: crew)
+            let mochi = MochiModel(store: store, crew: crew)
             let session = AppSession(
                 store: store, capture: CaptureSettings(service: service), onboarding: onboarding, identity: identity,
                 team: onboarding.teamModel, models: ModelSettings(store: store),
-                crew: Crew(store: store, capture: service, founder: { identity.identity.name }),
+                crew: crew, review: review, mochi: mochi,
+                reminders: Reminders(store: store, review: review, mochi: mochi),
+                catalog: TeamCatalogModel(store: store, crew: crew, author: { identity.identity.name }),
                 runs: RunsModel(store: store))
             service.start()
+            session.reminders.start()
             return .ready(session)
         } catch {
             return .failed(StartupFailure(cause: error.localizedDescription, storeFolder: storeFolder))

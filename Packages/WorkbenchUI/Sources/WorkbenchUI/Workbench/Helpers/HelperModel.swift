@@ -31,6 +31,8 @@ final class HelperModel {
         didSet { attempt("save the nudge") { try store.saveState(Self.json(nudge), forKey: nudgeKey) } }
     }
 
+    /// Called after a read or a mark changed this machine's items, so the review queue can follow.
+    @ObservationIgnored var itemsChanged: () -> Void = {}
     @ObservationIgnored private let store: Store
     @ObservationIgnored private let makeModel: (ModelChoice) -> RecordedModel
     @ObservationIgnored private let notifier: Notifier
@@ -137,6 +139,7 @@ final class HelperModel {
         guard let id = item.id else { return }
         attempt("save the mark") { try store.mark(item: id, as: item.state == mark ? .proposed : mark) }
         reload()
+        itemsChanged()
     }
 
     func dismissProblem() { problem = nil }
@@ -165,6 +168,7 @@ final class HelperModel {
             if self.day == day { reload() }
             phase = .read(kept: result.items.count, dropped: result.dropped)
             problem = nil
+            itemsChanged()
             return true
         } catch {
             phase = .idle
@@ -257,6 +261,10 @@ final class Crew {
     private(set) var machines: [HelperModel] = []
     private(set) var problem: String?
 
+    /// Called when any machine's items change.
+    @ObservationIgnored var itemsChanged: () -> Void = {} {
+        didSet { for machine in machines { machine.itemsChanged = itemsChanged } }
+    }
     @ObservationIgnored private let store: Store
     @ObservationIgnored private let capture: CaptureService
     @ObservationIgnored private let founder: () -> String
@@ -299,6 +307,7 @@ final class Crew {
                 let model = HelperModel(
                     machine: record, source: try source(for: record), store: store, makeModel: makeModel,
                     notifier: notifier)
+                model.itemsChanged = itemsChanged
                 model.startNudges()
                 return model
             }
