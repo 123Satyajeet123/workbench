@@ -15,7 +15,7 @@ import Testing
     }
 
     private func briefer(_ reply: String) throws -> (Briefer, ScriptedModel) {
-        let scripted = ScriptedModel(reply, offSchema: true)
+        let scripted = ScriptedModel(reply)
         return (Briefer(model: RecordedModel(scripted, store: try makeStore())), scripted)
     }
 
@@ -27,16 +27,14 @@ import Testing
             {"kind":"next","basis":"inferred","text":"Ask Debayan to push the OTA.","cites":[1,2]},
             {"kind":"ask","basis":"seen","text":"Asha asks you to approve the push.","cites":[1]},
             {"kind":"happened","basis":"seen","text":"Made up.","cites":[99]},
-            {"kind":"happened","basis":"seen","text":"Uncited.","cites":[]},
-            {"kind":"happened","basis":"guessed","text":"Wrong basis.","cites":[1]},
-            {"kind":"gossip","basis":"seen","text":"Wrong kind.","cites":[1]}]}
+            {"kind":"happened","basis":"seen","text":"Uncited.","cites":[]}]}
             """#)
         let brief = try #require(
             try await briefer.brief([source(1, "no OTA yet"), source(2, "flashed", .confirmed)], day: day))
         #expect(brief.lines.map(\.kind) == [.ask, .stuck, .next], "asks first")
         #expect(brief.lines.map(\.basis) == [.seen, .seen, .inferred])
         #expect(brief.headline == "Asha is blocked on the OTA push." && !brief.isQuiet)
-        #expect(brief.dropped == 4 && brief.run != nil)
+        #expect(brief.dropped == 2 && brief.run != nil)
         let input = try #require(scripted.inputs.withLock { $0.first })
         #expect(input.contains(#"[1] Pip · person=Asha kind=blocker text=no OTA yet — "no OTA yet" — unmarked"#))
         #expect(input.contains("— right"))

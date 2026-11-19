@@ -45,7 +45,7 @@ public struct AgentRunner: StructuredModel {
         let (answer, answeredBy, usage) = try kind == .claude ? claudeAnswer(output) : codexAnswer(output)
         do {
             let value = try JSONDecoder().decode(T.self, from: Data(answer.utf8))
-            return ModelAnswer(value: value, model: answeredBy, usage: usage)
+            return ModelAnswer(value: value, model: answeredBy, usage: usage, reply: answer)
         } catch {
             throw StructuredModelError.invalidReply("\(error)")
         }

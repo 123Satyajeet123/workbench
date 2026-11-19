@@ -23,7 +23,8 @@ import WorkbenchCore
         let intake = try #require(adityasCrew.helper(id: id))
         let model = RecordedModel(ScriptedModel(#"{"items":[]}"#), store: adityasStore)
         let (_, run) = try await model.generate(
-            Nothing.self, schema: .object([]), task: intake.spec.task, instructions: "v", input: "x")
+            Nothing.self, schema: .object([.init("items", .array(.string))]), task: intake.spec.task, instructions: "v",
+            input: "x")
         let day = WorkDay(containing: adityasStore.clock())
         let item = Item(
             task: intake.spec.task, day: day, scope: "", source: .screenText, citeFirst: 1, citeLast: 1,

@@ -41,10 +41,10 @@ private let dayTwo = EvidenceSet(lines: [
     }
 
     private func readDayTwo(
-        _ store: Store, closes: [String], evidence: EvidenceSet = dayTwo, offSchema: Bool = false
+        _ store: Store, closes: [String], evidence: EvidenceSet = dayTwo
     ) async throws -> (HelperReader.Result, ScriptedModel) {
         let model = ScriptedModel(
-            #"{"items":[],"closes":["# + closes.joined(separator: ",") + "]}", offSchema: offSchema)
+            #"{"items":[],"closes":["# + closes.joined(separator: ",") + "]}")
         let reader = HelperReader(spec: .context, model: RecordedModel(model, store: store))
         let open = try store.queries.openItems(of: HelperSpec.context.task, lifecycle: HelperSpec.context.lifecycle!)
         return (try await reader.read(day: second, scope: "work", evidence: evidence, open: open), model)
@@ -70,7 +70,6 @@ private let dayTwo = EvidenceSet(lines: [
     @Test(arguments: [
         ("unknown handle", close("F9", "kept", cite: 20, quote: "deck sent")),
         ("no handle form", close("1", "kept", cite: 20, quote: "deck sent")),
-        ("outcome not allowed", close("F1", "done", cite: 20, quote: "deck sent")),
         ("quote not in the line", close("F1", "kept", cite: 20, quote: "deck mailed")),
         ("line does not exist", close("F1", "kept", cite: 99, quote: "deck sent")),
         ("line older than the item", close("F1", "kept", cite: 19, quote: "deck sent last month")),
@@ -78,7 +77,7 @@ private let dayTwo = EvidenceSet(lines: [
     func aCloseThatFailsACheckIsDropped(_ check: String, _ given: String) async throws {
         let store = try makeStore()
         try await openDayOne(store)
-        let (result, _) = try await readDayTwo(store, closes: [given], offSchema: check == "outcome not allowed")
+        let (result, _) = try await readDayTwo(store, closes: [given])
         #expect(result.closes.isEmpty, "\(check)")
         #expect(result.dropped == 1, "\(check)")
     }

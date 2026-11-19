@@ -34,7 +34,7 @@ final class ScriptedModel: StructuredModel, Sendable {
         inputs.withLock { $0.append(input) }
         return ModelAnswer(
             value: try JSONDecoder().decode(T.self, from: Data(reply.utf8)), model: "scripted-1",
-            usage: Usage(inputTokens: 300, outputTokens: 40, costUSD: 0.02))
+            usage: Usage(inputTokens: 300, outputTokens: 40, costUSD: 0.02), reply: reply)
     }
 }
 
@@ -122,9 +122,9 @@ final class KeyedModel: StructuredModel, Sendable {
         calls.withLock { $0 += 1 }
         inputs.withLock { $0.append(input) }
         let reply = replies.withLock { $0.first { instructions.contains($0.key) }?.value } ?? #"{"items":[]}"#
+        let cited = Self.cite(reply, in: input)
         return ModelAnswer(
-            value: try JSONDecoder().decode(T.self, from: Data(Self.cite(reply, in: input).utf8)), model: "m",
-            usage: Usage())
+            value: try JSONDecoder().decode(T.self, from: Data(cited.utf8)), model: "m", usage: Usage(), reply: cited)
     }
 
     /// `@Open PR@` in a reply becomes the number of the input line that holds "Open PR", as a model cites a line by

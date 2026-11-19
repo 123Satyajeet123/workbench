@@ -37,9 +37,9 @@ private func block(_ first: Int, _ last: Int, task: String = "Work", quote: Stri
 }
 
 private func read(
-    _ spec: HelperSpec, _ items: [String], evidence: EvidenceSet, store: Store? = nil, offSchema: Bool = false
+    _ spec: HelperSpec, _ items: [String], evidence: EvidenceSet, store: Store? = nil
 ) async throws -> (HelperReader.Result, ScriptedModel) {
-    let model = ScriptedModel(#"{"items":[\#(items.joined(separator: ","))]}"#, offSchema: offSchema)
+    let model = ScriptedModel(#"{"items":[\#(items.joined(separator: ","))]}"#)
     let reader = HelperReader(spec: spec, model: RecordedModel(model, store: try store ?? makeStore()))
     return (try await reader.read(day: day, scope: "team", evidence: evidence), model)
 }
@@ -51,10 +51,10 @@ private func read(
             .team,
             [
                 entry("Asha", cite: 11, quote: "login"), entry("Rahul", cite: 11, quote: "login"),
-                entry("Asha", "maybe", cite: 11, quote: "login"), entry("Asha", cite: 11, quote: "login", text: " "),
-            ], evidence: chat, offSchema: true)
+                entry("Asha", cite: 11, quote: "login", text: " "),
+            ], evidence: chat)
         #expect(result.items.count == 1)
-        #expect(result.dropped == 3)
+        #expect(result.dropped == 2, "a member not in the group, and an empty required text")
     }
 
     @Test func aRangeIsKeptWhenTheQuoteIsInsideItAndOverlapsReversedOrUnknownRangesAreDropped() async throws {

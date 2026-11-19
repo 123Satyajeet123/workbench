@@ -68,7 +68,8 @@ import WorkbenchCore
             clock.set(clock.now.addingTimeInterval(60))
             let recorded = RecordedModel(ScriptedModel(#"{"items":[]}"#), store: store)
             let (_, run) = try await recorded.generate(
-                Nothing.self, schema: .object([]), task: timeline.spec.task, instructions: "v", input: "x")
+                Nothing.self, schema: .object([.init("items", .array(.string))]), task: timeline.spec.task,
+                instructions: "v", input: "x")
             let item = Item(
                 task: timeline.spec.task, day: day, scope: "", source: .screen, citeFirst: 1, citeLast: 1,
                 start: day.start, end: day.start.addingTimeInterval(600), fields: ["task": "t"], quote: "q", run: run)
@@ -137,7 +138,8 @@ import WorkbenchCore
             clock.set(clock.now.addingTimeInterval(3600))
             let recorded = RecordedModel(ScriptedModel(#"{"items":[]}"#), store: store)
             let (_, run) = try await recorded.generate(
-                Nothing.self, schema: .object([]), task: timeline.spec.task, instructions: "v", input: "x")
+                Nothing.self, schema: .object([.init("items", .array(.string))]), task: timeline.spec.task,
+                instructions: "v", input: "x")
             let item = Item(
                 task: timeline.spec.task, day: day, scope: "", source: .screen, citeFirst: 1, citeLast: 1,
                 start: day.start, end: day.start.addingTimeInterval(600), fields: ["task": "t"], quote: "q", run: run)

@@ -45,6 +45,9 @@ public struct RecordedModel: Sendable {
         let run = try store.beginRun(task: task, model: model.name, prompt: prompt, input: input)
         do {
             let answer = try await model.generate(type, schema: schema, instructions: instructions, input: input)
+            guard schema.accepts(json: answer.reply) else {
+                throw StructuredModelError.invalidReply("the reply does not fit the schema")
+            }
             try store.finishRun(run, model: answer.model, usage: answer.usage, error: nil)
             return (answer.value, run)
         } catch {

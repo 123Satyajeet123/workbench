@@ -20,7 +20,8 @@ private final class FakeReminders: ReminderList {
         let today = WorkDay(containing: store.clock())
         let model = RecordedModel(ScriptedModel(#"{"items":[]}"#), store: store)
         let (_, run) = try await model.generate(
-            Nothing.self, schema: .object([]), task: HelperSpec.team.task, instructions: "v1", input: "x")
+            Nothing.self, schema: .object([.init("items", .array(.string))]), task: HelperSpec.team.task,
+            instructions: "v1", input: "x")
         try store.saveReading(
             .init(
                 items: [

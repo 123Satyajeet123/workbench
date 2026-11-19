@@ -49,7 +49,8 @@ import WorkbenchCore
         deals.note(try #require(deals.deal(id)), "Acme founder strong; churn unclear.")
         let model = RecordedModel(ScriptedModel(#"{"items":[]}"#), store: store)
         let (_, run) = try await model.generate(
-            Nothing.self, schema: .object([]), task: HelperSpec.timeline.task, instructions: "v", input: "x")
+            Nothing.self, schema: .object([.init("items", .array(.string))]), task: HelperSpec.timeline.task,
+            instructions: "v", input: "x")
         let day = WorkDay(containing: store.clock())
         let items = ["Acme call prep", "Acme wrong block"].enumerated().map { index, quote in
             Item(

@@ -27,6 +27,32 @@ public indirect enum JSONSchema: Sendable, Equatable {
         .enumeration(type.allCases.map(\.rawValue))
     }
 
+    /// Whether JSON text fits this schema as the CLIs enforce it: every property present, no other, each of the
+    /// right type. Code checks every reply with it, whatever the model promised (OWASP LLM01: validate output).
+    public func accepts(json text: String) -> Bool {
+        guard let value = try? JSONSerialization.jsonObject(with: Data(text.utf8)) else { return false }
+        return accepts(value)
+    }
+
+    func accepts(_ value: Any) -> Bool {
+        let isBool = { (number: NSNumber) in CFGetTypeID(number) == CFBooleanGetTypeID() }
+        switch self {
+        case .object(let properties):
+            guard let object = value as? [String: Any], Set(object.keys) == Set(properties.map(\.name)) else {
+                return false
+            }
+            return properties.allSatisfy { property in object[property.name].map(property.schema.accepts) ?? false }
+        case .array(let element): return (value as? [Any])?.allSatisfy(element.accepts) ?? false
+        case .string: return value is String
+        case .boolean: return (value as? NSNumber).map(isBool) ?? false
+        case .integer:
+            guard let number = value as? NSNumber, !isBool(number) else { return false }
+            return number.doubleValue == number.doubleValue.rounded()
+        case .number: return (value as? NSNumber).map { !isBool($0) } ?? false
+        case .enumeration(let values): return (value as? String).map(values.contains) ?? false
+        }
+    }
+
     /// The schema as JSON text in the strict form the CLI accepts: every property required, no extras.
     public var jsonText: String {
         get throws {
@@ -90,11 +116,14 @@ public struct ModelAnswer<Value: Sendable>: Sendable {
     /// The model that answered, as it named itself.
     public var model: String
     public var usage: Usage
+    /// The reply as the model gave it: JSON text.
+    public var reply: String
 
-    public init(value: Value, model: String, usage: Usage) {
+    public init(value: Value, model: String, usage: Usage, reply: String) {
         self.value = value
         self.model = model
         self.usage = usage
+        self.reply = reply
     }
 }
 

@@ -110,7 +110,8 @@ import WorkbenchCore
         let today = WorkDay(containing: now)
         let model = RecordedModel(ScriptedModel(#"{"items":[]}"#), store: store)
         let (_, run) = try await model.generate(
-            Nothing.self, schema: .object([]), task: HelperSpec.timeline.task, instructions: "v1",
+            Nothing.self, schema: .object([.init("items", .array(.string))]), task: HelperSpec.timeline.task,
+            instructions: "v1",
             input: "x")
         let block = Item(
             task: HelperSpec.timeline.task, day: today, scope: "", source: .screen, citeFirst: 1, citeLast: 1,

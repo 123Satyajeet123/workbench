@@ -230,7 +230,7 @@ public struct HelperReader: Sendable {
     private func close(_ raw: [String: JSONValue], open: [Item], evidence: EvidenceSet) -> Close? {
         guard let handle = raw["handle"]?.string, handle.first == "F", let index = Int(handle.dropFirst()),
             open.indices.contains(index - 1), let id = open[index - 1].id,
-            let outcome = raw["outcome"]?.string, spec.lifecycle?.outcomes.contains(outcome) == true,
+            let outcome = raw["outcome"]?.string,
             let lineID = raw["cite"]?.integer, lineID > (evidence.readUpTo ?? .min),
             let line = evidence.lines.first(where: { $0.id == lineID }), line.start >= open[index - 1].start,
             let quote = raw["quote"]?.string, line.contains(quote: quote)
@@ -241,7 +241,7 @@ public struct HelperReader: Sendable {
     private func fits(_ value: String, _ kind: HelperSpec.Field.Kind, context: [String: [String]]) -> Bool {
         switch kind {
         case .text(let required): !required || value.cleaned != nil
-        case .choice(let values): values.contains(value)
+        case .choice: true
         case .member(let set): context[set]?.contains(value) == true
         case .label: value.cleaned != nil
         }

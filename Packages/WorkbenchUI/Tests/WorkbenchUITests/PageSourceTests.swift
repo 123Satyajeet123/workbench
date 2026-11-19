@@ -64,7 +64,7 @@ import WorkbenchCore
         let reply = """
             {"items":[
             {"company":"Acme","sector":"fintech","stage":"seed","from":"","rating":"hot","why":"revenue","cite":\(id),"quote":"Acme (fintech) is raising a 2M seed"},
-            {"company":"Bolt","sector":"toys","stage":"pre-seed","from":"","rating":"lukewarm","why":"?","cite":\(id),"quote":"Bolt: we build toys"}]}
+            {"company":"Bolt","sector":"toys","stage":"pre-seed","from":"","rating":"cold","why":"?","cite":\(id),"quote":"Bolt: we sell toys"}]}
             """
         let scripted = ScriptedModel(reply)
         let machine = try store.createMachine(from: .dealIntake, name: "Deal intake")
