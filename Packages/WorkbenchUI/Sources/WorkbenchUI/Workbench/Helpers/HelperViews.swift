@@ -363,30 +363,38 @@ private struct GroupChooser: View {
 }
 
 /// One section per value of a field. Every name the helper expects is shown, with a note when it has no item.
+/// The items grouped by person: everyone with items first, then one line naming everyone the day has none from.
 private struct Board: View {
     let model: HelperModel
     let field: String
     let expected: String
 
     var body: some View {
+        if !silent.isEmpty {
+            Label(
+                "No \(model.spec.itemsNoun) from \(silent.joined(separator: ", "))", systemImage: "questionmark.circle"
+            )
+            .foregroundStyle(Tone.attention.color)
+        }
         ForEach(groups, id: \.self) { group in
-            let own = model.items.filter { $0[field] == group }
             VStack(alignment: .leading, spacing: Space.s) {
                 Text(group).textStyle(.headline)
-                if own.isEmpty {
-                    Label("No \(model.spec.itemsNoun)", systemImage: "questionmark.circle")
-                        .foregroundStyle(Tone.attention.color)
-                }
-                ForEach(own) { ItemRow(model: model, item: $0, showsSpan: false) }
+                ForEach(model.items.filter { $0[field] == group }) { ItemRow(model: model, item: $0, showsSpan: false) }
             }
             Divider()
         }
     }
 
-    /// Expected names first, in their order; then any other value an item names.
+    /// People with items: expected names in their order, then any other name an item gives.
     private var groups: [String] {
+        let named = Set(model.items.map { $0[field] })
         let names = model.context[expected] ?? []
-        return names + Set(model.items.map { $0[field] }).subtracting(names).sorted()
+        return names.filter(named.contains) + named.subtracting(names).sorted()
+    }
+
+    private var silent: [String] {
+        let named = Set(model.items.map { $0[field] })
+        return (model.context[expected] ?? []).filter { !named.contains($0) }
     }
 }
 

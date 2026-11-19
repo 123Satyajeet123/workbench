@@ -63,10 +63,20 @@ struct WhatsAppFixture {
         try run(sql)
     }
 
-    private func run(_ sql: String) throws {
+    /// WhatsApp's copy of the founder's address book: (member ID, full name) rows.
+    func contacts(_ rows: [(lid: String, name: String)]) throws {
+        let values = rows.map { "('\($0.lid)', NULL, '\($0.name)')" }.joined(separator: ", ")
+        try run(
+            """
+            CREATE TABLE ZWAADDRESSBOOKCONTACT (Z_PK INTEGER PRIMARY KEY, ZLID TEXT, ZWHATSAPPID TEXT, ZFULLNAME TEXT);
+            INSERT INTO ZWAADDRESSBOOKCONTACT (ZLID, ZWHATSAPPID, ZFULLNAME) VALUES \(values);
+            """, in: "ContactsV2.sqlite")
+    }
+
+    func run(_ sql: String, in file: String = "ChatStorage.sqlite") throws {
         var db: OpaquePointer?
         defer { sqlite3_close(db) }
-        let path = container.appending(path: "ChatStorage.sqlite").path
+        let path = container.appending(path: file).path
         guard sqlite3_open(path, &db) == SQLITE_OK, sqlite3_exec(db, sql, nil, nil, nil) == SQLITE_OK else {
             throw FixtureError()
         }
