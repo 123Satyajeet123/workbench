@@ -1,33 +1,51 @@
 import Foundation
+import GRDB
 
 public enum StoreError: Error, Equatable {
     case grantExpired
     case grantForOtherKind(granted: SourceKind, requested: SourceKind)
     case grantForOtherLabel(granted: String?, requested: String?)
     case fileNotRemoved(String)
+    /// A row that cannot be read as its type: the table, the row's id and the reason.
+    case unreadableRow(table: String, id: Int64?, reason: String)
+    /// A SQLite setting the store needs did not take effect.
+    case settingNotApplied(String)
+    /// The write-ahead log still holds rows after a checkpoint: another connection is reading it.
+    case logNotTruncated
 }
 
-/// The one store: `workbench.sqlite` and the recordings folder beside it. The handle serialises statements and
-/// transactions, so the store is safe to share.
+/// The one store: `workbench.sqlite` and the recordings folder beside it. One writer and many readers share the
+/// file, so the store is safe to share between threads and between processes.
 public final class Store: Sendable {
     public let directory: URL
     public let queries: Queries
-    let database: Database
+    let writer: DatabasePool
     public let clock: @Sendable () -> Date
 
-    public init(directory: URL, clock: @escaping @Sendable () -> Date = { Date() }) throws {
+    public init(
+        directory: URL, clock: @escaping @Sendable () -> Date = { Date() },
+        busyTimeout: TimeInterval = 10
+    ) throws {
         self.directory = directory
         self.clock = clock
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         try Self.restrict(directory, to: 0o700)
         let databaseFile = directory.appending(path: "workbench.sqlite")
-        if !FileManager.default.fileExists(atPath: databaseFile.path) {
-            FileManager.default.createFile(atPath: databaseFile.path, contents: nil)
-        }
+        try Self.createPrivateFile(databaseFile)
         try Self.restrict(databaseFile, to: 0o600)
-        database = try Database(path: databaseFile.path)
-        try Schema.open(database)
-        queries = Queries(database: database, directory: directory)
+        writer = try StoreDatabase.open(at: databaseFile, busyTimeout: busyTimeout)
+        try Schema.open(writer)
+        queries = Queries(reader: writer, directory: directory)
+    }
+
+    /// Creates the file at mode 0600 unless it exists. A file another process already made is never truncated.
+    private static func createPrivateFile(_ url: URL) throws {
+        let descriptor = Darwin.open(url.path, O_WRONLY | O_CREAT | O_EXCL, 0o600)
+        if descriptor >= 0 {
+            Darwin.close(descriptor)
+        } else if errno != EEXIST {
+            throw CocoaError(.fileWriteUnknown)
+        }
     }
 
     static func restrict(_ url: URL, to mode: Int) throws {
@@ -45,14 +63,13 @@ public final class Store: Sendable {
 
     public func record(_ batch: ActivityBatch) throws {
         for kind in Set(batch.activities.map(\.kind.source)) { try check(batch.grant, kind: kind) }
-        try database.transaction {
+        try writer.write { db in
             for activity in batch.activities {
-                try database.run(
-                    "INSERT INTO activity(ts, kind, app, bundle_id, title, document, text) VALUES (?,?,?,?,?,?,?)",
-                    [
-                        SQLValue(activity.at), .text(activity.kind.rawValue), .text(activity.app),
-                        .text(activity.bundleID), .text(activity.title), SQLValue(activity.document),
-                        SQLValue(activity.text),
+                try db.execute(
+                    sql: "INSERT INTO activity(ts, kind, app, bundle_id, title, document, text) VALUES (?,?,?,?,?,?,?)",
+                    arguments: [
+                        activity.at.stored, activity.kind.rawValue, activity.app, activity.bundleID, activity.title,
+                        activity.document, activity.text,
                     ])
             }
         }
@@ -60,15 +77,20 @@ public final class Store: Sendable {
 
     /// A small setting: the last value saved for a key.
     public func saveState(_ value: String, forKey key: String) throws {
-        try database.run(
-            "INSERT INTO state(key, value, saved_at) VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, saved_at = excluded.saved_at",
-            [.text(key), .text(value), SQLValue(clock())])
+        try writer.write { db in
+            try db.execute(
+                sql:
+                    "INSERT INTO state(key, value, saved_at) VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, saved_at = excluded.saved_at",
+                arguments: [key, value, clock().stored])
+        }
     }
 
     /// The policy is the latest consent row. Every change adds one.
     public func savePolicy(_ policy: CapturePolicy) throws {
-        try database.run(
-            "INSERT INTO consent(ts, policy) VALUES (?,?)", [SQLValue(clock()), .text(try Coding.json(policy))])
+        let json = try Coding.json(policy)
+        try writer.write { db in
+            try db.execute(sql: "INSERT INTO consent(ts, policy) VALUES (?,?)", arguments: [clock().stored, json])
+        }
     }
 }
 

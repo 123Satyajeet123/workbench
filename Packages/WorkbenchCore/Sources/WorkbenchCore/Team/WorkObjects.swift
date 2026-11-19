@@ -1,4 +1,5 @@
 import Foundation
+import GRDB
 
 /// One act on a shared work object, such as a deal, by one person. Events are never edited: each person appends to
 /// their own log, every Mac keeps the union by id, and the object is a fold over them (research 26 §8–§9).
@@ -162,16 +163,16 @@ public enum WorkLog {
 extension Store {
     /// Keeps an event once, whoever wrote it. Importing the same log again changes nothing.
     public func append(_ events: [WorkEvent]) throws {
-        try database.transaction {
+        try writer.write { db in
             for event in events {
-                try database.run(
-                    """
-                    INSERT OR IGNORE INTO work_event(event_id, object, author, clock, at, kind, body)
-                    VALUES (?,?,?,?,?,?,?)
-                    """,
-                    [
-                        .text(event.id), .text(event.object), .text(event.author), .int(Int64(event.clock)),
-                        SQLValue(event.at), .text(event.kind.rawValue), .text(try Coding.json(event)),
+                try db.execute(
+                    sql: """
+                        INSERT OR IGNORE INTO work_event(event_id, object, author, clock, at, kind, body)
+                        VALUES (?,?,?,?,?,?,?)
+                        """,
+                    arguments: [
+                        event.id, event.object, event.author, event.clock, event.at.stored, event.kind.rawValue,
+                        try Coding.json(event),
                     ])
             }
         }
@@ -180,13 +181,15 @@ extension Store {
 
 extension Queries {
     public func workEvents() throws -> [WorkEvent] {
-        try database.rows("SELECT body FROM work_event ORDER BY clock, id").compactMap {
-            try? Coding.value(WorkEvent.self, from: $0[0].string ?? "")
+        try reader.read { db in
+            try db.fetch("work_event", "SELECT id, body FROM work_event ORDER BY clock, id") { row in
+                try row.json("body", as: WorkEvent.self)
+            }
         }
     }
 
     /// The clock a new event takes: one more than any event this Mac has seen.
     public func nextClock() throws -> Int {
-        Int(try database.rows("SELECT COALESCE(MAX(clock), 0) FROM work_event").first?[0].integer ?? 0) + 1
+        try reader.read { db in try Int.fetchOne(db, sql: "SELECT COALESCE(MAX(clock), 0) FROM work_event") ?? 0 } + 1
     }
 }

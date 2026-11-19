@@ -1,4 +1,5 @@
 import Foundation
+import GRDB
 
 /// One decision on a machine's brief, as logged: never updated. A trial started, a switch, a rejection, a rollback.
 public struct Decision: Sendable, Equatable {
@@ -140,52 +141,61 @@ public struct Improver: Sendable {
 
 extension Store {
     public func log(_ decision: Decision) throws {
-        try database.run(
-            """
-            INSERT INTO machine_decision(task, at, kind, decided_by, brief, parent_brief, detail)
-            VALUES (?,?,?,?,?,?,?)
-            """,
-            [
-                .text(decision.task), SQLValue(decision.at), .text(decision.kind.rawValue), .text(decision.by.rawValue),
-                .text(decision.brief), .text(decision.parentBrief), .text(try Coding.json(decision.detail)),
-            ])
+        let detail = try Coding.json(decision.detail)
+        try writer.write { db in
+            try db.execute(
+                sql: """
+                    INSERT INTO machine_decision(task, at, kind, decided_by, brief, parent_brief, detail)
+                    VALUES (?,?,?,?,?,?,?)
+                    """,
+                arguments: [
+                    decision.task, decision.at.stored, decision.kind.rawValue, decision.by.rawValue, decision.brief,
+                    decision.parentBrief, detail,
+                ])
+        }
     }
 }
 
 extension Queries {
     /// A machine's decisions, newest first.
     public func decisions(of task: String) throws -> [Decision] {
-        try database.rows(
-            """
-            SELECT at, task, kind, decided_by, brief, parent_brief, detail FROM machine_decision WHERE task = ?
-            ORDER BY id DESC
-            """, [.text(task)]
-        ).compactMap { row in
-            guard let kind = row[2].string.flatMap(Decision.Kind.init), let by = row[3].string.flatMap(Decision.By.init)
-            else { return nil }
-            return Decision(
-                at: row[0].date ?? .distantPast, task: row[1].string ?? "", kind: kind, by: by,
-                brief: row[4].string ?? "", parentBrief: row[5].string ?? "",
-                detail: (try? Coding.value([String: String].self, from: row[6].string ?? "{}")) ?? [:])
+        try reader.read { db in
+            try db.fetch(
+                "machine_decision",
+                """
+                SELECT id, at, task, kind, decided_by, brief, parent_brief, detail FROM machine_decision WHERE task = ?
+                ORDER BY id DESC
+                """, [task]
+            ) { row in
+                Decision(
+                    at: try row.date("at"), task: try row.value("task"), kind: try row.enumeration("kind"),
+                    by: try row.enumeration("decided_by"), brief: try row.value("brief"),
+                    parentBrief: try row.value("parent_brief"), detail: try row.json("detail"))
+            }
         }
     }
 
     /// Each item's latest mark id: the order the marks were given.
     public func markOrder(of items: [Int64]) throws -> [Int64: Int64] {
         guard !items.isEmpty else { return [:] }
-        let rows = try database.rows(
-            "SELECT item_id, MAX(id) FROM mark WHERE item_id IN (\(items.map(String.init).joined(separator: ","))) GROUP BY item_id"
-        )
-        return Dictionary(
-            rows.compactMap { row in row[0].integer.flatMap { item in row[1].integer.map { (item, $0) } } },
-            uniquingKeysWith: { a, _ in a })
+        let orders = try reader.read { db in
+            try db.fetch(
+                "mark",
+                "SELECT item_id, MAX(id) FROM mark WHERE item_id IN (\(items.map(String.init).joined(separator: ","))) GROUP BY item_id"
+            ) { row in (item: try row.value(0) as Int64, mark: try row.value(1) as Int64) }
+        }
+        return Dictionary(orders.map { ($0.item, $0.mark) }, uniquingKeysWith: { a, _ in a })
     }
 
     /// Days on which the founder marked at least one of the task's items, newest first.
     public func markedDays(of task: String) throws -> [WorkDay] {
-        try database.rows(
-            "SELECT DISTINCT day FROM item_mark WHERE task = ? AND state <> 'proposed' ORDER BY day DESC", [.text(task)]
-        ).compactMap { row in row[0].string.flatMap { WorkDay($0) } }
+        try reader.read { db in
+            try db.fetch(
+                "item_mark",
+                "SELECT DISTINCT day FROM item_mark WHERE task = ? AND state <> 'proposed' ORDER BY day DESC",
+                [task]
+            ) { try $0.workDay(0) }
+        }
     }
 
     /// The latest answer to each random audit pick among items the task produced in runs started after `since`, in
@@ -193,13 +203,16 @@ extension Queries {
     /// true where the item was wrong, with the item's day. Items an earlier brief produced never count against a
     /// later one.
     public func auditAnswers(of task: String, since: Date) throws -> [(day: WorkDay, wrong: Bool)] {
-        try database.rows(
-            """
-            SELECT answered.day, answered.state FROM item_mark answered JOIN run ON run.id = answered.run_id
-            WHERE answered.task = ? AND answered.asked_with IS NOT NULL AND answered.state <> 'proposed'
-                AND run.started_at > ?
-            ORDER BY (SELECT MAX(id) FROM mark WHERE mark.item_id = answered.id)
-            """, [.text(task), SQLValue(since)]
-        ).compactMap { row in row[0].string.flatMap { WorkDay($0) }.map { ($0, row[1].string == "rejected") } }
+        try reader.read { db in
+            try db.fetch(
+                "item_mark",
+                """
+                SELECT answered.day, answered.state FROM item_mark answered JOIN run ON run.id = answered.run_id
+                WHERE answered.task = ? AND answered.asked_with IS NOT NULL AND answered.state <> 'proposed'
+                    AND run.started_at > ?
+                ORDER BY (SELECT MAX(id) FROM mark WHERE mark.item_id = answered.id)
+                """, [task, since.stored]
+            ) { row in (day: try row.workDay(0), wrong: try row.enumeration(1) as Mark == .rejected) }
+        }
     }
 }

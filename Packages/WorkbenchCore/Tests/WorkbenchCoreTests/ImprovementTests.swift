@@ -1,4 +1,5 @@
 import Foundation
+import GRDB
 import Testing
 
 @testable import WorkbenchCore
@@ -81,9 +82,12 @@ import Testing
         #expect(decisions.map(\.kind) == [.promote, .trial])
         #expect(decisions.last == trial)
         #expect(throws: (any Error).self) {
-            try store.database.run(
-                "INSERT INTO machine_decision(task, at, kind, decided_by, brief, parent_brief, detail) VALUES ('t', 'x', 'undo', 'person', '', '', '{}')"
-            )
+            try store.writer.write { db in
+                try db.execute(
+                    sql:
+                        "INSERT INTO machine_decision(task, at, kind, decided_by, brief, parent_brief, detail) VALUES ('t', 'x', 'undo', 'person', '', '', '{}')"
+                )
+            }
         }
     }
 }

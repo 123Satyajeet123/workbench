@@ -1,11 +1,25 @@
 import Foundation
+import GRDB
+import Synchronization
 import Testing
 
 @testable import WorkbenchCore
 
-private func userVersion(in folder: URL) throws -> Int64? {
-    try Database(path: folder.appending(path: "workbench.sqlite").path).rows("PRAGMA user_version").first?.first?
-        .integer
+private func userVersion(in folder: URL) throws -> Int? {
+    try DatabaseQueue(path: folder.appending(path: "workbench.sqlite").path).read { db in
+        try Int.fetchOne(db, sql: "PRAGMA user_version")
+    }
+}
+
+/// A store as the shipped app left it: the first `count` steps run, `user_version` set to `count`, some marks kept.
+private func storeMade(withSteps count: Int, in folder: URL) throws {
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    let queue = try DatabaseQueue(path: folder.appending(path: "workbench.sqlite").path)
+    try queue.write { db in
+        for statement in Schema.steps.prefix(count).joined() { try db.execute(sql: statement) }
+        try db.execute(sql: "PRAGMA user_version = \(count)")
+        try db.execute(sql: "INSERT INTO state(key, value, saved_at) VALUES ('kept', 'yes', '2026-11-19T10:00:00Z')")
+    }
 }
 
 private func mode(_ url: URL) throws -> Int {
@@ -29,8 +43,45 @@ struct SchemaTests {
         let folder = temporaryDirectory()
         let store = try Store(directory: folder)
         try store.saveState("kept", forKey: "probe")
-        #expect(try userVersion(in: folder) == Int64(Schema.steps.count))
+        #expect(try userVersion(in: folder) == Schema.steps.count)
         #expect(try Store(directory: folder).queries.state(forKey: "probe") == "kept")
+    }
+
+    @Test func aStoreAtAnEarlierVersionKeepsItsDataAndRunsOnlyTheMissingSteps() throws {
+        let folder = temporaryDirectory()
+        try storeMade(withSteps: 1, in: folder)
+        let store = try Store(directory: folder)
+        #expect(try store.queries.state(forKey: "kept") == "yes")
+        #expect(try userVersion(in: folder) == Schema.steps.count)
+        #expect(try store.writer.read { try Bool.fetchOne($0, sql: "SELECT COUNT(*) = 0 FROM item_event") } == true)
+    }
+
+    @Test func aStoreAtTheLatestVersionOpensUnchanged() throws {
+        let folder = temporaryDirectory()
+        try storeMade(withSteps: Schema.steps.count, in: folder)
+        #expect(try Store(directory: folder).queries.state(forKey: "kept") == "yes")
+    }
+
+    @Test func aStoreFromANewerAppIsRefusedAndLeftAlone() throws {
+        let folder = temporaryDirectory()
+        try storeMade(withSteps: Schema.steps.count, in: folder)
+        let queue = try DatabaseQueue(path: folder.appending(path: "workbench.sqlite").path)
+        try queue.write { try $0.execute(sql: "PRAGMA user_version = \(Schema.steps.count + 1)") }
+        #expect(throws: SchemaError.newerVersion) { try Store(directory: folder) }
+        #expect(try userVersion(in: folder) == Schema.steps.count + 1)
+    }
+
+    @Test func storesOpeningTogetherRunEachStepOnce() throws {
+        for _ in 0..<25 {
+            let folder = temporaryDirectory()
+            let outcomes = Mutex<[Result<Void, any Error>]>([])
+            DispatchQueue.concurrentPerform(iterations: 4) { _ in
+                let outcome = Result { _ = try Store(directory: folder) }
+                outcomes.withLock { $0.append(outcome) }
+            }
+            for outcome in outcomes.withLock({ $0 }) { try outcome.get() }
+            #expect(try userVersion(in: folder) == Schema.steps.count)
+        }
     }
 
     @Test func theFolderIsOwnerOnlyAndAFolderMadeOpenIsClosedAgain() throws {

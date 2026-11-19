@@ -1,4 +1,5 @@
 import Foundation
+import GRDB
 
 /// One thing the asker may see: an item of their machines, or an item or note on a deal they can read.
 public struct MemoryEntry: Sendable, Equatable, Identifiable {
@@ -75,16 +76,17 @@ public struct Asker: Sendable {
         let words = question.lowercased().split(whereSeparator: { !$0.isLetter && !$0.isNumber }).map(String.init)
             .filter { $0.count > 1 }
         guard !words.isEmpty, !entries.isEmpty else { return [] }
-        let index = try Database(path: ":memory:")
-        try index.run("CREATE VIRTUAL TABLE entry USING fts5(body)")
-        for (position, entry) in entries.enumerated() {
-            try index.run("INSERT INTO entry(rowid, body) VALUES (?, ?)", [.int(Int64(position)), .text(entry.text)])
-        }
         let query = words.map { "\"\($0)\"" }.joined(separator: " OR ")
-        return try index.rows(
-            "SELECT rowid FROM entry WHERE entry MATCH ? ORDER BY bm25(entry) LIMIT ?",
-            [.text(query), .int(Int64(limit))]
-        ).compactMap { $0[0].integer.map { entries[Int($0)] } }
+        let positions = try DatabaseQueue().write { db in
+            try db.execute(sql: "CREATE VIRTUAL TABLE entry USING fts5(body)")
+            for (position, entry) in entries.enumerated() {
+                try db.execute(sql: "INSERT INTO entry(rowid, body) VALUES (?, ?)", arguments: [position, entry.text])
+            }
+            return try Int.fetchAll(
+                db, sql: "SELECT rowid FROM entry WHERE entry MATCH ? ORDER BY bm25(entry) LIMIT ?",
+                arguments: [query, limit])
+        }
+        return positions.map { entries[$0] }
     }
 
     public func ask(_ question: String, entries: [MemoryEntry]) async throws -> (answer: Answer, run: RunID?) {

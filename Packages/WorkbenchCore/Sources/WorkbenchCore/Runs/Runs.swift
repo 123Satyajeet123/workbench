@@ -1,4 +1,5 @@
 import Foundation
+import GRDB
 
 public typealias RunID = Int64
 
@@ -55,67 +56,80 @@ public struct RecordedModel: Sendable {
 
 extension Store {
     func beginRun(task: String, model: String, prompt: String, input: String) throws -> RunID {
-        try database.run(
-            """
-            INSERT INTO run(task, model, prompt, input_bytes, input_sha, started_at, outcome) VALUES (?,?,?,?,?,?,'running')
-            """,
-            [
-                .text(task), .text(model), .text(prompt), SQLValue(input.utf8.count), .text(Digest.sha256(input)),
-                SQLValue(clock()),
-            ])
+        try writer.write { db in
+            try db.execute(
+                sql: """
+                    INSERT INTO run(task, model, prompt, input_bytes, input_sha, started_at, outcome) VALUES (?,?,?,?,?,?,'running')
+                    """,
+                arguments: [task, model, prompt, input.utf8.count, Digest.sha256(input), clock().stored])
+            return db.lastInsertedRowID
+        }
     }
 
     func finishRun(_ id: RunID, model: String, usage: Usage, error: String?) throws {
-        try database.run(
-            """
-            UPDATE run SET model = ?, ended_at = ?, outcome = ?, error = ?, input_tokens = ?, cache_read_tokens = ?,
-                cache_write_tokens = ?, output_tokens = ?, cost_usd = ? WHERE id = ? AND outcome = 'running'
-            """,
-            [
-                .text(model), SQLValue(clock()), .text(error == nil ? "done" : "failed"), SQLValue(error),
-                SQLValue(usage.inputTokens), SQLValue(usage.cacheReadTokens), SQLValue(usage.cacheWriteTokens),
-                SQLValue(usage.outputTokens), .real(usage.costUSD), .int(id),
-            ])
+        try writer.write { db in
+            try db.execute(
+                sql: """
+                    UPDATE run SET model = ?, ended_at = ?, outcome = ?, error = ?, input_tokens = ?, cache_read_tokens = ?,
+                        cache_write_tokens = ?, output_tokens = ?, cost_usd = ? WHERE id = ? AND outcome = 'running'
+                    """,
+                arguments: [
+                    model, clock().stored, error == nil ? "done" : "failed", error, usage.inputTokens,
+                    usage.cacheReadTokens, usage.cacheWriteTokens, usage.outputTokens, usage.costUSD, id,
+                ])
+        }
     }
 
     /// How many entries the task kept from the run's answer, and how many failed its checks.
     public func recordYield(of run: RunID, kept: Int, dropped: Int) throws {
-        try database.run(
-            "UPDATE run SET kept = ?, dropped = ? WHERE id = ?", [SQLValue(kept), SQLValue(dropped), .int(run)])
+        try writer.write { db in try Self.recordYield(db, of: run, kept: kept, dropped: dropped) }
+    }
+
+    static func recordYield(_ db: Database, of run: RunID, kept: Int, dropped: Int) throws {
+        try db.execute(sql: "UPDATE run SET kept = ?, dropped = ? WHERE id = ?", arguments: [kept, dropped, run])
     }
 
     /// A run still open when the app starts was cut off.
     public func closeInterruptedRuns() throws {
-        try database.run(
-            "UPDATE run SET outcome = 'failed', ended_at = ?, error = 'Workbench stopped during the run' WHERE outcome = 'running'",
-            [SQLValue(clock())])
+        try writer.write { db in
+            try db.execute(
+                sql:
+                    "UPDATE run SET outcome = 'failed', ended_at = ?, error = 'Workbench stopped during the run' WHERE outcome = 'running'",
+                arguments: [clock().stored])
+        }
     }
 }
 
 extension Queries {
     public func runs(since start: Date = .distantPast) throws -> [Run] {
-        try database.rows(
-            """
-            SELECT id, task, model, prompt, input_bytes, started_at, ended_at, outcome, error, input_tokens,
-                cache_read_tokens, cache_write_tokens, output_tokens, cost_usd, kept, dropped
-            FROM run WHERE started_at >= ? ORDER BY id DESC
-            """, [SQLValue(start)]
-        ).compactMap { row in
-            guard let outcome = row[7].string.flatMap(Run.Outcome.init) else { return nil }
-            return Run(
-                id: row[0].integer ?? 0, task: row[1].string ?? "", model: row[2].string ?? "",
-                prompt: row[3].string ?? "", inputBytes: Int(row[4].integer ?? 0),
-                startedAt: row[5].date ?? .distantPast, endedAt: row[6].date, outcome: outcome, error: row[8].string,
-                usage: Usage(
-                    inputTokens: Int(row[9].integer ?? 0), cacheReadTokens: Int(row[10].integer ?? 0),
-                    cacheWriteTokens: Int(row[11].integer ?? 0), outputTokens: Int(row[12].integer ?? 0),
-                    costUSD: row[13].double ?? 0),
-                kept: row[14].integer.map(Int.init), dropped: row[15].integer.map(Int.init))
+        try reader.read { db in
+            try db.fetch(
+                "run",
+                """
+                SELECT id, task, model, prompt, input_bytes, started_at, ended_at, outcome, error, input_tokens,
+                    cache_read_tokens, cache_write_tokens, output_tokens, cost_usd, kept, dropped
+                FROM run WHERE started_at >= ? ORDER BY id DESC
+                """, [start.stored], as: Run.init(row:))
         }
     }
 
     public func usage(since start: Date) throws -> Usage {
         try runs(since: start).map(\.usage).reduce(Usage(), +)
+    }
+}
+
+extension Run {
+    init(row: Row) throws {
+        self.init(
+            id: try row.value("id"), task: try row.value("task"), model: try row.value("model"),
+            prompt: try row.value("prompt"), inputBytes: try row.value("input_bytes"),
+            startedAt: try row.date("started_at"), endedAt: try row.optionalDate("ended_at"),
+            outcome: try row.enumeration("outcome"), error: try row.optionalValue("error"),
+            usage: Usage(
+                inputTokens: try row.value("input_tokens"), cacheReadTokens: try row.value("cache_read_tokens"),
+                cacheWriteTokens: try row.value("cache_write_tokens"), outputTokens: try row.value("output_tokens"),
+                costUSD: try row.value("cost_usd")),
+            kept: try row.optionalValue("kept"), dropped: try row.optionalValue("dropped"))
     }
 }
 

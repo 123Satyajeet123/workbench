@@ -1,4 +1,5 @@
 import Foundation
+import GRDB
 
 /// Who may receive what a machine read: the disclosure rule from YC's qm (MIT, `src/memory/disclosure.ts`), ported.
 /// A share goes to the team only when every recipient can already read its source. An unknown audience refuses all.
@@ -75,37 +76,46 @@ extension Store {
     /// The founder says who a teammate is in WhatsApp. The latest link wins.
     public func link(_ person: Team.Person, whatsapp jid: String) throws {
         guard let id = person.id, let jid = jid.cleaned else { return }
-        try database.run(
-            "INSERT INTO member_handle(member_id, kind, handle, at) VALUES (?, 'whatsapp', ?, ?)",
-            [.int(id), .text(jid), SQLValue(clock())])
+        try writer.write { db in
+            try db.execute(
+                sql: "INSERT INTO member_handle(member_id, kind, handle, at) VALUES (?, 'whatsapp', ?, ?)",
+                arguments: [id, jid, clock().stored])
+        }
     }
 
     public func log(_ kind: String, target: String, detail: [String: String] = [:]) throws {
-        try database.run(
-            "INSERT INTO action(at, kind, target, detail) VALUES (?,?,?,?)",
-            [SQLValue(clock()), .text(kind), .text(target), .text(try Coding.json(detail))])
+        let json = try Coding.json(detail)
+        try writer.write { db in
+            try db.execute(
+                sql: "INSERT INTO action(at, kind, target, detail) VALUES (?,?,?,?)",
+                arguments: [clock().stored, kind, target, json])
+        }
     }
 }
 
 extension Queries {
     /// Each teammate's latest WhatsApp id, by member id.
     public func whatsappLinks() throws -> [Int64: String] {
-        let rows = try database.rows(
-            """
-            SELECT member_id, handle FROM member_handle WHERE id IN
-                (SELECT MAX(id) FROM member_handle WHERE kind = 'whatsapp' GROUP BY member_id)
-            """)
-        return Dictionary(
-            rows.compactMap { row in row[0].integer.flatMap { id in row[1].string.map { (id, $0) } } },
-            uniquingKeysWith: { a, _ in a })
+        let links = try reader.read { db in
+            try db.fetch(
+                "member_handle",
+                """
+                SELECT member_id, handle FROM member_handle WHERE id IN
+                    (SELECT MAX(id) FROM member_handle WHERE kind = 'whatsapp' GROUP BY member_id)
+                """
+            ) { row in (member: try row.value(0) as Int64, handle: try row.value(1) as String) }
+        }
+        return Dictionary(links.map { ($0.member, $0.handle) }, uniquingKeysWith: { a, _ in a })
     }
 
     /// Every logged act, oldest first.
     public func actions() throws -> [Action] {
-        try database.rows("SELECT at, kind, target, detail FROM action ORDER BY id").map {
-            Action(
-                at: $0[0].date ?? .distantPast, kind: $0[1].string ?? "", target: $0[2].string ?? "",
-                detail: (try? Coding.value([String: String].self, from: $0[3].string ?? "{}")) ?? [:])
+        try reader.read { db in
+            try db.fetch("action", "SELECT id, at, kind, target, detail FROM action ORDER BY id") { row in
+                Action(
+                    at: try row.date("at"), kind: try row.value("kind"), target: try row.value("target"),
+                    detail: try row.json("detail"))
+            }
         }
     }
 }

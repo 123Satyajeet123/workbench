@@ -1,12 +1,13 @@
 import Foundation
+import GRDB
 
 extension Store {
     /// Adds each built-in machine the store has never held. A machine the founder deleted is not added again.
     public func seedMachines(_ builtIns: [(spec: HelperSpec, name: String)]) throws {
-        try database.transaction {
+        try writer.write { db in
             for (spec, name) in builtIns
-            where try database.rows("SELECT 1 FROM machine WHERE task = ?", [.text(spec.task)]).isEmpty {
-                try addMachine(spec: spec, template: spec.task, name: name)
+            where try Int.fetchOne(db, sql: "SELECT 1 FROM machine WHERE task = ?", arguments: [spec.task]) == nil {
+                try addMachine(db, spec: spec, template: spec.task, name: name)
             }
         }
     }
@@ -19,7 +20,7 @@ extension Store {
         let template = template ?? spec.task
         var spec = spec
         spec.task = "\(template)-\(UUID().uuidString.prefix(8).lowercased())"
-        return try database.transaction { try addMachine(spec: spec, template: template, name: name) }
+        return try writer.write { db in try addMachine(db, spec: spec, template: template, name: name) }
     }
 
     public func rename(_ machine: Machine, to name: String) throws {
@@ -58,76 +59,96 @@ extension Store {
     /// The team and its people. Saving replaces the people list; a removed person keeps a removal date.
     public func saveTeam(_ team: Team) throws {
         guard let name = team.name.cleaned else { return }
-        try database.transaction {
-            let now = SQLValue(clock())
+        try writer.write { db in
+            let now = clock().stored
             let id: Int64
-            if let existing = try database.rows("SELECT id FROM team LIMIT 1").first?[0].integer {
-                try database.run("UPDATE team SET name = ? WHERE id = ?", [.text(name), .int(existing)])
+            if let existing = try Int64.fetchOne(db, sql: "SELECT id FROM team LIMIT 1") {
+                try db.execute(sql: "UPDATE team SET name = ? WHERE id = ?", arguments: [name, existing])
                 id = existing
             } else {
-                id = try database.run("INSERT INTO team(name, created_at) VALUES (?,?)", [.text(name), now])
+                try db.execute(sql: "INSERT INTO team(name, created_at) VALUES (?,?)", arguments: [name, now])
+                id = db.lastInsertedRowID
             }
             let kept = Set(team.people.compactMap(\.id))
-            try database.run(
-                "UPDATE member SET removed_at = ? WHERE team_id = ? AND removed_at IS NULL AND id NOT IN (\(kept.map(String.init).joined(separator: ",")))",
-                [now, .int(id)])
+            try db.execute(
+                sql:
+                    "UPDATE member SET removed_at = ? WHERE team_id = ? AND removed_at IS NULL AND id NOT IN (\(kept.map(String.init).joined(separator: ",")))",
+                arguments: [now, id])
             for person in team.people {
                 guard let name = person.name.cleaned else { continue }
                 if let personID = person.id {
-                    try database.run(
-                        "UPDATE member SET name = ?, role = ?, is_me = ? WHERE id = ?",
-                        [.text(name), .text(person.role), .int(person.isMe ? 1 : 0), .int(personID)])
+                    try db.execute(
+                        sql: "UPDATE member SET name = ?, role = ?, is_me = ? WHERE id = ?",
+                        arguments: [name, person.role, person.isMe ? 1 : 0, personID])
                 } else {
-                    try database.run(
-                        "INSERT INTO member(team_id, name, role, is_me, added_at) VALUES (?,?,?,?,?)",
-                        [.int(id), .text(name), .text(person.role), .int(person.isMe ? 1 : 0), now])
+                    try db.execute(
+                        sql: "INSERT INTO member(team_id, name, role, is_me, added_at) VALUES (?,?,?,?,?)",
+                        arguments: [id, name, person.role, person.isMe ? 1 : 0, now])
                 }
             }
         }
     }
 
     @discardableResult
-    private func addMachine(spec: HelperSpec, template: String, name: String) throws -> Machine {
-        let id = try database.run(
-            "INSERT INTO machine(task, template, created_at) VALUES (?,?,?)",
-            [.text(spec.task), .text(template), SQLValue(clock())])
-        let machine = Machine(id: id, name: name, template: template, spec: spec, state: .active)
-        try change(machine, name: name, spec: spec, state: .active)
+    private func addMachine(_ db: Database, spec: HelperSpec, template: String, name: String) throws -> Machine {
+        try db.execute(
+            sql: "INSERT INTO machine(task, template, created_at) VALUES (?,?,?)",
+            arguments: [spec.task, template, clock().stored])
+        let machine = Machine(id: db.lastInsertedRowID, name: name, template: template, spec: spec, state: .active)
+        try change(db, machine, name: name, spec: spec, state: .active)
         return machine
     }
 
     func change(_ machine: Machine, name: String, spec: HelperSpec, state: Machine.State) throws {
-        try database.run(
-            "INSERT INTO machine_change(machine_id, at, name, spec, state) VALUES (?,?,?,?,?)",
-            [.int(machine.id), SQLValue(clock()), .text(name), .text(try Coding.json(spec)), .text(state.rawValue)])
+        try writer.write { db in try change(db, machine, name: name, spec: spec, state: state) }
+    }
+
+    func change(_ db: Database, _ machine: Machine, name: String, spec: HelperSpec, state: Machine.State) throws {
+        try db.execute(
+            sql: "INSERT INTO machine_change(machine_id, at, name, spec, state) VALUES (?,?,?,?,?)",
+            arguments: [machine.id, clock().stored, name, try Coding.json(spec), state.rawValue])
     }
 }
 
 extension Queries {
     /// Every machine not deleted, oldest first.
     public func machines() throws -> [Machine] {
-        try database.rows(
-            "SELECT id, name, template, spec, state FROM machine_now WHERE state <> 'deleted' ORDER BY id"
-        ).compactMap { row in
-            guard let state = row[4].string.flatMap(Machine.State.init),
-                let spec = try? Coding.value(HelperSpec.self, from: row[3].string ?? "")
-            else { return nil }
-            return Machine(
-                id: row[0].integer ?? 0, name: row[1].string ?? "", template: row[2].string ?? "", spec: spec,
-                state: state)
+        try reader.read { db in
+            try db.fetch(
+                "machine_now",
+                "SELECT id, name, template, spec, state FROM machine_now WHERE state <> 'deleted' ORDER BY id",
+                as: Machine.init(row:))
         }
     }
 
     public func team() throws -> Team? {
-        guard let team = try database.rows("SELECT id, name FROM team LIMIT 1").first, let id = team[0].integer else {
-            return nil
+        try reader.read { db in
+            let teams = try db.fetch("team", "SELECT id, name FROM team LIMIT 1") { row in
+                (id: try row.value("id") as Int64, name: try row.value("name") as String)
+            }
+            guard let team = teams.first else { return nil }
+            let people = try db.fetch(
+                "member",
+                "SELECT id, name, role, is_me FROM member WHERE team_id = ? AND removed_at IS NULL ORDER BY is_me DESC, id",
+                [team.id], as: Team.Person.init(row:))
+            return Team(name: team.name, people: people)
         }
-        let people = try database.rows(
-            "SELECT id, name, role, is_me FROM member WHERE team_id = ? AND removed_at IS NULL ORDER BY is_me DESC, id",
-            [.int(id)]
-        ).map {
-            Team.Person(id: $0[0].integer, name: $0[1].string ?? "", role: $0[2].string ?? "", isMe: $0[3].integer == 1)
-        }
-        return Team(name: team[1].string ?? "", people: people)
+    }
+}
+
+extension Machine {
+    /// A row of `machine_now`.
+    init(row: Row) throws {
+        self.init(
+            id: try row.value("id"), name: try row.value("name"), template: try row.value("template"),
+            spec: try row.json("spec"), state: try row.enumeration("state"))
+    }
+}
+
+extension Team.Person {
+    init(row: Row) throws {
+        self.init(
+            id: try row.optionalValue("id"), name: try row.value("name"), role: try row.value("role"),
+            isMe: try row.value("is_me") as Int64 == 1)
     }
 }

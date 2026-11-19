@@ -1,4 +1,5 @@
 import Foundation
+import GRDB
 
 /// One recorded call: two audio files in its own folder under the store.
 public struct Recording: Sendable, Equatable, Identifiable {
@@ -26,39 +27,49 @@ extension Store {
         try Self.restrict(parent, to: 0o700)
         let name = "\(Self.recordingsFolder)/\(UUID().uuidString)"
         try FileManager.default.createDirectory(at: directory.appending(path: name), withIntermediateDirectories: false)
-        let id = try database.run(
-            "INSERT INTO recording(app, bundle_id, folder, started_at, state) VALUES (?,?,?,?,'recording')",
-            [.text(app), .text(bundleID), .text(name), SQLValue(now)])
+        let id = try writer.write { db in
+            try db.execute(
+                sql: "INSERT INTO recording(app, bundle_id, folder, started_at, state) VALUES (?,?,?,?,'recording')",
+                arguments: [app, bundleID, name, now.stored])
+            return db.lastInsertedRowID
+        }
         return Recording(
             id: id, app: app, bundleID: bundleID, folder: directory.appending(path: name), startedAt: now, endedAt: nil,
             state: .recording, error: nil)
     }
 
     public func finishRecording(_ id: Int64, error: String? = nil) throws {
-        try database.run(
-            "UPDATE recording SET state = ?, ended_at = ?, error = ? WHERE id = ? AND state = 'recording'",
-            [.text(error == nil ? "saved" : "failed"), SQLValue(clock()), SQLValue(error), .int(id)])
+        try writer.write { db in
+            try db.execute(
+                sql: "UPDATE recording SET state = ?, ended_at = ?, error = ? WHERE id = ? AND state = 'recording'",
+                arguments: [error == nil ? "saved" : "failed", clock().stored, error, id])
+        }
     }
 
     /// A recording still open when the app starts was cut off: the app stopped during the call.
     public func closeInterruptedRecordings() throws {
-        try database.run(
-            "UPDATE recording SET state = 'failed', ended_at = ?, error = 'Workbench stopped during the call' WHERE state = 'recording'",
-            [SQLValue(clock())])
+        try writer.write { db in
+            try db.execute(
+                sql:
+                    "UPDATE recording SET state = 'failed', ended_at = ?, error = 'Workbench stopped during the call' WHERE state = 'recording'",
+                arguments: [clock().stored])
+        }
     }
 }
 
 extension Queries {
     public func recordings() throws -> [Recording] {
-        try database.rows(
-            "SELECT id, app, bundle_id, folder, started_at, ended_at, state, error FROM recording ORDER BY id DESC"
-        )
-        .compactMap { row in
-            guard let state = row[6].string.flatMap(Recording.State.init) else { return nil }
-            return Recording(
-                id: row[0].integer ?? 0, app: row[1].string ?? "", bundleID: row[2].string ?? "",
-                folder: directory.appending(path: row[3].string ?? ""), startedAt: row[4].date ?? .distantPast,
-                endedAt: row[5].date, state: state, error: row[7].string)
+        try reader.read { db in
+            try db.fetch(
+                "recording",
+                "SELECT id, app, bundle_id, folder, started_at, ended_at, state, error FROM recording ORDER BY id DESC"
+            ) { row in
+                Recording(
+                    id: try row.value("id"), app: try row.value("app"), bundleID: try row.value("bundle_id"),
+                    folder: directory.appending(path: try row.value("folder") as String),
+                    startedAt: try row.date("started_at"), endedAt: try row.optionalDate("ended_at"),
+                    state: try row.enumeration("state"), error: try row.optionalValue("error"))
+            }
         }
     }
 }

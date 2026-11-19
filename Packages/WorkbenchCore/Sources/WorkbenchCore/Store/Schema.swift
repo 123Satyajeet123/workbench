@@ -1,4 +1,5 @@
 import Foundation
+import GRDB
 
 /// The schema of `workbench.sqlite` as an append-only list of steps. `user_version` counts the steps a store has run;
 /// opening a store runs the steps it lacks, in one transaction. A shipped step never changes (`SchemaTests` pins each
@@ -8,13 +9,15 @@ import Foundation
 enum Schema {
     static var version: Int32 { Int32(steps.count) }
 
-    static func open(_ database: Database) throws {
-        let found = Int(try database.rows("PRAGMA user_version").first?.first?.integer ?? 0)
-        guard found <= steps.count else { throw SchemaError.newerVersion }
-        guard found < steps.count else { return }
-        try database.transaction {
-            for statement in steps[found...].joined() { try database.run(statement) }
-            try database.run("PRAGMA user_version = \(version)")
+    /// Reads the version and runs the missing steps in one write transaction, so a second process that opens the same
+    /// file waits, then finds the steps done.
+    static func open(_ writer: some DatabaseWriter) throws {
+        try writer.write { db in
+            let found = try Int.fetchOne(db, sql: "PRAGMA user_version") ?? 0
+            guard found <= steps.count else { throw SchemaError.newerVersion }
+            guard found < steps.count else { return }
+            for statement in steps[found...].joined() { try db.execute(sql: statement) }
+            try db.execute(sql: "PRAGMA user_version = \(version)")
         }
     }
 

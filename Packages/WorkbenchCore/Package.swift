@@ -8,9 +8,13 @@ let package = Package(
         .library(name: "WorkbenchCore", targets: ["WorkbenchCore"]),
         .executable(name: "workbench-pages", targets: ["WorkbenchPages"]),
     ],
+    dependencies: [
+        .package(url: "https://github.com/groue/GRDB.swift", exact: "7.12.0")
+    ],
     targets: [
-        .target(name: "WorkbenchCore", linkerSettings: [.linkedLibrary("sqlite3")]),
+        .target(name: "WorkbenchCore", dependencies: [.product(name: "GRDB", package: "GRDB.swift")]),
         .executableTarget(name: "WorkbenchPages", dependencies: ["WorkbenchCore"]),
-        .testTarget(name: "WorkbenchCoreTests", dependencies: ["WorkbenchCore"]),
+        .testTarget(
+            name: "WorkbenchCoreTests", dependencies: ["WorkbenchCore", .product(name: "GRDB", package: "GRDB.swift")]),
     ]
 )

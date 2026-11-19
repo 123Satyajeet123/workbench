@@ -1,4 +1,5 @@
 import Foundation
+import GRDB
 import Testing
 
 @testable import WorkbenchCore
@@ -53,5 +54,24 @@ struct ForgetTests {
         #expect(try leaks())
         try store.delete(.everything(before: nil))
         #expect(try !leaks())
+    }
+
+    @Test func aDeleteFailsWhileAnotherReaderHoldsTheLogAndSucceedsOnceItLetsGo() throws {
+        let folder = temporaryDirectory()
+        let store = try Store(directory: folder, clock: { t0 }, busyTimeout: 0.05)
+        var engine = CaptureEngine()
+        let secret = "SECRET-\(UUID().uuidString)"
+        let batch = engine.observe(page("a.com", text: secret), idleSeconds: 0, policy: screenOn, at: t0)
+        try store.record(#require(batch))
+
+        var otherReader: DatabaseSnapshot? = try DatabasePool(path: folder.appending(path: "workbench.sqlite").path)
+            .makeSnapshot()
+        _ = try otherReader?.read { try Int.fetchOne($0, sql: "SELECT COUNT(*) FROM activity") }
+        #expect(throws: StoreError.logNotTruncated) { try store.delete(.everything(before: nil)) }
+
+        otherReader = nil
+        try store.delete(.everything(before: nil))
+        let log = try Data(contentsOf: folder.appending(path: "workbench.sqlite-wal"))
+        #expect(log.range(of: Data(secret.utf8)) == nil)
     }
 }

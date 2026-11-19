@@ -1,4 +1,5 @@
 import Foundation
+import GRDB
 
 public enum DeleteSelector: Sendable {
     /// Screen and file activity that matches every field the filter names, and the screen items over its time.
@@ -30,95 +31,110 @@ public struct ActivityFilter: Sendable {
         self.to = to
     }
 
-    fileprivate var clause: (sql: String, parameters: [SQLValue]) {
+    fileprivate var clause: (sql: String, arguments: StatementArguments) {
         var conditions = ["1 = 1"]
-        var parameters: [SQLValue] = []
+        var arguments: [any DatabaseValueConvertible] = []
         if let id {
             conditions.append("id = ?")
-            parameters.append(.int(id))
+            arguments.append(id)
         }
         if let bundleID {
             conditions.append("bundle_id = ?")
-            parameters.append(.text(bundleID))
+            arguments.append(bundleID)
         }
         if let domain {
             conditions.append("(document LIKE ? OR document LIKE ?)")
-            parameters += [.text("%://\(domain)%"), .text("%://%.\(domain)%")]
+            arguments += ["%://\(domain)%", "%://%.\(domain)%"]
         }
         if let from {
             conditions.append("ts >= ?")
-            parameters.append(SQLValue(from))
+            arguments.append(from.stored)
         }
         if let to {
             conditions.append("ts < ?")
-            parameters.append(SQLValue(to))
+            arguments.append(to.stored)
         }
-        return (conditions.joined(separator: " AND "), parameters)
+        return (conditions.joined(separator: " AND "), StatementArguments(arguments))
     }
 }
 
 extension Store {
-    /// The one way captured data leaves the store: rows in one transaction, then their files.
+    /// How often the log is checkpointed when a reader still holds it, before the delete reports failure.
+    static let checkpointAttempts = 3
+
+    /// The one way captured data leaves the store: rows in one transaction, then their files, then the log. The
+    /// delete succeeds only when the write-ahead log no longer holds the deleted text.
     public func delete(_ selector: DeleteSelector) throws {
-        let folders = try database.transaction {
+        let folders = try writer.write { db in
             switch selector {
             case .activities(let filter):
                 let clause = filter.clause
-                try database.run(
-                    """
-                    DELETE FROM item WHERE source = 'screen' AND EXISTS (SELECT 1 FROM activity WHERE \(clause.sql)
-                        AND activity.ts >= item.start_at AND activity.ts < item.end_at)
-                    """, clause.parameters)
-                try database.run("DELETE FROM activity WHERE \(clause.sql)", clause.parameters)
+                try db.execute(
+                    sql: """
+                        DELETE FROM item WHERE source = 'screen' AND EXISTS (SELECT 1 FROM activity WHERE \(clause.sql)
+                            AND activity.ts >= item.start_at AND activity.ts < item.end_at)
+                        """, arguments: clause.arguments)
+                try db.execute(sql: "DELETE FROM activity WHERE \(clause.sql)", arguments: clause.arguments)
                 return [String]()
             case .kind(let kind, let cutoff):
-                return try remove(kind, before: cutoff ?? .distantFuture)
+                return try remove(db, kind, before: cutoff ?? .distantFuture)
             case .machine(let task):
-                try database.run("DELETE FROM item WHERE task = ?", [.text(task)])
-                try database.run("DELETE FROM state WHERE key LIKE ? ESCAPE '\\'", [.text(Self.likePrefix(task))])
-                if let row = try database.rows(
-                    "SELECT id, name, template, spec FROM machine_now WHERE task = ?", [.text(task)]
-                ).first, let id = row[0].integer,
-                    let spec = try? Coding.value(HelperSpec.self, from: row[3].string ?? "")
-                {
-                    try change(
-                        Machine(
-                            id: id, name: row[1].string ?? "", template: row[2].string ?? "", spec: spec, state: .active
-                        ),
-                        name: row[1].string ?? "", spec: spec, state: .deleted)
+                try db.execute(sql: "DELETE FROM item WHERE task = ?", arguments: [task])
+                try db.execute(
+                    sql: "DELETE FROM state WHERE key LIKE ? ESCAPE '\\'", arguments: [Self.likePrefix(task)])
+                let machines = try db.fetch(
+                    "machine_now", "SELECT id, name, template, spec, state FROM machine_now WHERE task = ?", [task],
+                    as: Machine.init(row:))
+                if let machine = machines.first {
+                    try change(db, machine, name: machine.name, spec: machine.spec, state: .deleted)
                 }
                 return [String]()
             case .everything(let cutoff):
-                return try SourceKind.allCases.flatMap { try remove($0, before: cutoff ?? .distantFuture) }
+                return try SourceKind.allCases.flatMap { try remove(db, $0, before: cutoff ?? .distantFuture) }
             }
         }
         for folder in folders { try removeFile(folder) }
-        try database.run("PRAGMA wal_checkpoint(TRUNCATE)")
+        try truncateLog()
     }
 
-    private func remove(_ kind: SourceKind, before cutoff: Date) throws -> [String] {
-        try database.run(
-            "DELETE FROM item WHERE source = ? AND start_at < ?", [.text(kind.rawValue), SQLValue(cutoff)])
+    /// Empties the write-ahead log. A reader that still holds it makes SQLite report busy. The delete waits, tries
+    /// again, then throws, because the deleted text would still be on disk.
+    private func truncateLog() throws {
+        for _ in 0..<Self.checkpointAttempts {
+            do {
+                _ = try writer.writeWithoutTransaction { db in try db.checkpoint(.truncate) }
+                return
+            } catch let error as DatabaseError where error.resultCode == .SQLITE_BUSY {
+                continue
+            }
+        }
+        throw StoreError.logNotTruncated
+    }
+
+    private func remove(_ db: Database, _ kind: SourceKind, before cutoff: Date) throws -> [String] {
+        try db.execute(
+            sql: "DELETE FROM item WHERE source = ? AND start_at < ?", arguments: [kind.rawValue, cutoff.stored])
         switch kind {
         case .screen:
-            try removeActivity(Activity.Kind.allCases.filter { $0 != .file }, before: cutoff)
-        case .screenText: try removeActivity([.text, .page], before: cutoff)
-        case .files: try removeActivity([.file], before: cutoff)
+            try removeActivity(db, Activity.Kind.allCases.filter { $0 != .file }, before: cutoff)
+        case .screenText: try removeActivity(db, [.text, .page], before: cutoff)
+        case .files: try removeActivity(db, [.file], before: cutoff)
         case .whatsapp: break
         case .call:
             let condition = "state != 'recording' AND started_at < ?"
-            let folders = try database.rows("SELECT folder FROM recording WHERE \(condition)", [SQLValue(cutoff)])
-            try database.run("DELETE FROM recording WHERE \(condition)", [SQLValue(cutoff)])
-            return folders.compactMap { $0[0].string }
+            let folders = try String.fetchAll(
+                db, sql: "SELECT folder FROM recording WHERE \(condition)", arguments: [cutoff.stored])
+            try db.execute(sql: "DELETE FROM recording WHERE \(condition)", arguments: [cutoff.stored])
+            return folders
         }
         return []
     }
 
-    private func removeActivity(_ kinds: [Activity.Kind], before cutoff: Date) throws {
+    private func removeActivity(_ db: Database, _ kinds: [Activity.Kind], before cutoff: Date) throws {
         let marks = Array(repeating: "?", count: kinds.count).joined(separator: ",")
-        try database.run(
-            "DELETE FROM activity WHERE kind IN (\(marks)) AND ts < ?",
-            kinds.map { .text($0.rawValue) } + [SQLValue(cutoff)])
+        try db.execute(
+            sql: "DELETE FROM activity WHERE kind IN (\(marks)) AND ts < ?",
+            arguments: StatementArguments(kinds.map(\.rawValue)) + [cutoff.stored])
     }
 
     private static func likePrefix(_ task: String) -> String {
