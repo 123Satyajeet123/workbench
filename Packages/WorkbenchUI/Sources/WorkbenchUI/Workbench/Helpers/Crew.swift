@@ -48,6 +48,12 @@ final class Crew {
     /// The machines in the sidebar's crew: every machine but Mochi's timeline.
     var crew: [HelperModel] { machines.filter { $0 !== timeline } }
 
+    /// The machine a new machine that follows another would follow: the first with a lifecycle.
+    var followable: HelperModel? { machines.first { $0.spec.lifecycle != nil } }
+
+    static let nothingToFollow =
+        "Add a work-context machine first. This machine follows its open commitments, questions and decisions."
+
     func helper(id: Int64) -> HelperModel? { machines.first { $0.machine.id == id } }
 
     /// The shown name of the machine that runs a task; the task itself for one no machine runs.
@@ -107,6 +113,14 @@ final class Crew {
     /// A machine from a whole spec, such as a teammate's: its fields, view and brief come with it.
     @discardableResult
     func create(spec: HelperSpec, template: String, name: String) -> Int64? {
+        var spec = spec
+        if spec.needsFollowed {
+            guard let followed = followable else {
+                problems.show(Self.nothingToFollow)
+                return nil
+            }
+            spec.follows = followed.spec.task
+        }
         var id: Int64?
         problems.attempt("add the machine") {
             id = try store.createMachine(from: spec, template: template, name: name).id

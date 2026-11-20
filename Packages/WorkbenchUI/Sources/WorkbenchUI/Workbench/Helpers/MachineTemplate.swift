@@ -35,7 +35,12 @@ struct MachineTemplate: Identifiable, Hashable {
         detail:
             "Reads the work chats you choose and keeps commitments, decisions, open questions, status and roles, by project."
     )
-    static let all = [team, timeline, pages, workContext, dealIntake, founderCheck, companySignals]
+    static let derailment = MachineTemplate(
+        spec: .derailment, name: "Sentinel", role: "Off-track watch",
+        detail:
+            "Follows the open commitments, questions and decisions of your work-context machine and tells you what is overdue, quiet, blocked or drifting."
+    )
+    static let all = [team, timeline, pages, workContext, derailment, dealIntake, founderCheck, companySignals]
     /// The machines every store starts with; the others are made on request or from Mochi's proposals.
     static let seeded = [team, timeline]
 

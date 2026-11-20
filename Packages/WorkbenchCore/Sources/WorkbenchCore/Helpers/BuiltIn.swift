@@ -157,4 +157,38 @@ extension HelperSpec {
         lifecycle: Lifecycle(
             field: "kind", open: ["commitment", "question", "decision"],
             outcomes: ["kept", "answered", "reversed", "dropped"]))
+
+    /// The derailment watch: what is going off track, from the open facts of the work-context machine it follows
+    /// and the new lines of a chat (research 31). Its `follows` is set when a person makes the machine.
+    public static let derailment = HelperSpec(
+        task: "work.derailment", source: .whatsappChat,
+        brief: """
+            You watch a founder's work for what is going off track. You get the facts still open in the founder's work \
+            record (commitments, questions, decisions), each with a handle, and the new lines of a work chat. Today's \
+            date is the work day you are given. Decide from the facts and the lines what is off track. A finding is \
+            one of:
+            - overdue: a commitment is past its due date, or its time has clearly passed, and no new line shows it done;
+            - quiet: a thread or a person that should be moving has gone silent for longer than is usual for them;
+            - blocked: work waits on something or someone and nothing moves it;
+            - drift: the lines show work moving away from what the founder said matters;
+            - contradicted: a new line says the opposite of an open fact.
+            For each finding, cite the open facts it is about by handle, and the new lines that show it, if any. A \
+            finding on silence has no new line: say in the reason what you could not see, because you see only the \
+            lines you got, not other chats or the screen. When a new line says a commitment is done, it is not \
+            overdue. A fact reported by someone else is weaker than one the person said: give it a lower severity. \
+            Severity: act = the founder must act today; watch = worth a look soon; info = for awareness. Next is the \
+            one concrete step the founder can take. With no next step, give no finding. Reason is why it is off track, \
+            in one or two plain English sentences. When nothing is off track, give no item.
+            """,
+        fields: [
+            Field(
+                "kind", .choice(["overdue", "quiet", "blocked", "drift", "contradicted"]),
+                meaning: "What kind of finding it is."),
+            Field("project", .label(of: "topics"), meaning: "The project or topic it is about, in two to four words."),
+            Field("severity", .choice(["act", "watch", "info"]), meaning: "How urgent it is for the founder."),
+            Field("next", .text(required: true), meaning: "The one step the founder can take, in a few English words."),
+            Field("reason", .text(required: true), meaning: "Why it is off track, in one or two English sentences."),
+        ],
+        citation: .facts, view: .grouped(by: "severity"), title: "next", badges: ["project", "kind"],
+        tones: ["act": .bad, "watch": .attention, "info": .neutral], itemsNoun: "findings", nudge: nil)
 }

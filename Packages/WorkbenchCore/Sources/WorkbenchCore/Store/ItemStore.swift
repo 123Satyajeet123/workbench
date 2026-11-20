@@ -2,9 +2,13 @@ import Foundation
 import GRDB
 
 extension Store {
+    /// How long a finding of facts counts as told: a repeat of the same kind and facts inside this many days is not
+    /// added.
+    static let toldBeforeDays = 14
+
     /// Stores one reading of a day by one helper. A whole reading replaces the items the founder has not marked; a
     /// reading of only new lines (`replacing: false`) keeps them. A marked item stays, and a new item that repeats it
-    /// is not added. Of the new items, the app picks one at random to ask the founder
+    /// is not added; so is a finding of facts that was told before (`toldBeforeDays`). Of the new items, the app picks one at random to ask the founder
     /// about, and keeps the chance it had. The grant is asked after the model ran, so consent withdrawn meanwhile
     /// stops the write.
     public func saveReading(
@@ -21,9 +25,12 @@ extension Store {
                         """,
                     arguments: [spec.task, day.description, scope])
             }
-            let marked = try Queries.items(db, of: spec.task, day: day, scope: scope)
+            let known =
+                spec.citation == .facts
+                ? try Queries.items(db, of: spec.task, since: day.adding(days: -Self.toldBeforeDays))
+                : try Queries.items(db, of: spec.task, day: day, scope: scope)
             var added: [Int64] = []
-            for item in result.items where !marked.contains(where: { item.repeats($0, citation: spec.citation) }) {
+            for item in result.items where !known.contains(where: { item.repeats($0, citation: spec.citation) }) {
                 try db.execute(
                     sql: """
                         INSERT INTO item(task, run_id, day, scope, source, cite_first, cite_last, start_at, end_at, fields,
@@ -118,6 +125,16 @@ extension Queries {
         }
     }
 
+    /// The open items a machine's reader sees: its own, or, when it has no lifecycle, those of the machine it
+    /// follows. None when it follows no machine that exists.
+    public func openItems(readBy spec: HelperSpec) throws -> [Item] {
+        if let lifecycle = spec.lifecycle { return try openItems(of: spec.task, lifecycle: lifecycle) }
+        guard let follows = spec.follows,
+            let lifecycle = try machines().first(where: { $0.task == follows })?.spec.lifecycle
+        else { return [] }
+        return try openItems(of: follows, lifecycle: lifecycle)
+    }
+
     /// A machine's items closed between two times, by the time of the closing line, oldest first.
     public func closedItems(of task: String, from: Date, to: Date) throws -> [Item] {
         try reader.read { db in
@@ -145,12 +162,14 @@ extension Queries {
 
     /// One machine's items since `day`, oldest first, in every scope.
     public func items(of task: String, since day: WorkDay) throws -> [Item] {
-        try reader.read { db in
-            try db.fetch(
-                "item",
-                "SELECT \(Self.itemColumns) FROM \(Self.itemRows) WHERE task = ? AND day >= ? ORDER BY day, start_at, id",
-                [task, day.description], as: Item.init(row:))
-        }
+        try reader.read { db in try Self.items(db, of: task, since: day) }
+    }
+
+    static func items(_ db: Database, of task: String, since day: WorkDay) throws -> [Item] {
+        try db.fetch(
+            "item",
+            "SELECT \(itemColumns) FROM \(itemRows) WHERE task = ? AND day >= ? ORDER BY day, start_at, id",
+            [task, day.description], as: Item.init(row:))
     }
 
     /// Every machine's items still waiting for a mark since `day`: the app's random picks first, then the newest days.

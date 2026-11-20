@@ -50,9 +50,10 @@ public struct HelperSpec: Codable, Sendable, Equatable {
         }
     }
 
-    /// How an item points at its evidence: one line, or a run of consecutive lines.
+    /// How an item points at its evidence: one line, a run of consecutive lines, or open facts of another machine
+    /// (by handle) with the new lines that show it, if any.
     public enum Citation: String, Codable, Sendable {
-        case one, range
+        case one, range, facts
     }
 
     public struct Field: Codable, Sendable, Equatable {
@@ -137,6 +138,9 @@ public struct HelperSpec: Codable, Sendable, Equatable {
         public var message: String
     }
 
+    /// Whether a machine of this spec needs another machine's open items to cite: it must be given `follows`.
+    public var needsFollowed: Bool { citation == .facts }
+
     /// The run task name, stable across versions of the brief.
     public var task: String
     public var source: Source
@@ -154,6 +158,9 @@ public struct HelperSpec: Codable, Sendable, Equatable {
     public var nudge: Nudge?
     /// Nil for a machine whose items are only things that happened.
     public var lifecycle: Lifecycle? = nil
+    /// The task of another machine whose open items this machine reads as handles. Used by a machine with no
+    /// lifecycle of its own.
+    public var follows: String? = nil
     /// How many items the founder marked on other training days the machine sees as examples; nil for none. It is
     /// part of the instructions, so changing it makes a new version that earns trust again (research 20 §9.2).
     public var examples: Int? = nil

@@ -50,6 +50,9 @@ public struct Item: Sendable, Equatable, Identifiable {
         self.askedWith = askedWith
     }
 
+    /// The field that holds the store ids of the facts a finding cites, as a comma-separated list.
+    static let factsField = "facts"
+
     public subscript(field: String) -> String { fields[field] ?? "" }
 
     /// Whether a new reading's item says what a marked one already says, so the mark stands for it.
@@ -57,6 +60,7 @@ public struct Item: Sendable, Equatable, Identifiable {
         switch citation {
         case .range: start < marked.end && marked.start < end
         case .one: citeFirst == marked.citeFirst && fields == marked.fields && quote == marked.quote
+        case .facts: self["kind"] == marked["kind"] && self[Self.factsField] == marked[Self.factsField]
         }
     }
 }

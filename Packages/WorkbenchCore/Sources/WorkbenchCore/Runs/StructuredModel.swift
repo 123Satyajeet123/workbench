@@ -178,6 +178,7 @@ public enum JSONValue: Decodable, Sendable, Equatable {
     }
 
     public var string: String? { if case .string(let value) = self { value } else { nil } }
+    public var array: [JSONValue]? { if case .array(let value) = self { value } else { nil } }
     /// A whole number, as models write ids.
     public var integer: Int64? {
         if case .number(let value) = self, value == value.rounded(), abs(value) < 1e15 { Int64(value) } else { nil }

@@ -39,7 +39,7 @@ final class HelperReading {
                 return true
             }
             let reader = HelperReader(spec: spec, model: context.makeModel(try context.runner(for: .init(spec))))
-            let open = try spec.lifecycle.map { try store.queries.openItems(of: spec.task, lifecycle: $0) } ?? []
+            let open = try store.queries.openItems(readBy: spec)
             let result = try await reader.read(
                 day: day, scope: scope, evidence: evidence, marked: try context.marked(), open: open)
             try store.saveReading(

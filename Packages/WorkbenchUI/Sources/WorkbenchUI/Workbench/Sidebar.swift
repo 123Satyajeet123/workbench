@@ -172,6 +172,7 @@ private struct MachineSheet: View {
                 }
                 .pickerStyle(.radioGroup)
                 Text(template.detail).foregroundStyle(.supporting)
+                if lacksFollowable { Text(Crew.nothingToFollow).foregroundStyle(Tone.bad.color) }
                 TextField("Name", text: $text, prompt: Text(template.name)).textFieldStyle(.roundedBorder)
             case .rename:
                 TextField("Name", text: $text).textFieldStyle(.roundedBorder)
@@ -193,12 +194,19 @@ private struct MachineSheet: View {
                 Spacer()
                 Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
                 Button(action: save) { Text(saveTitle) }.buttonStyle(.borderedProminent).keyboardShortcut(
-                    .defaultAction)
+                    .defaultAction
+                ).disabled(lacksFollowable)
             }
         }
         .padding(Space.l)
         .frame(width: 480)
         .onAppear(perform: fill)
+    }
+
+    /// A new machine that follows another has nothing to follow until a work-context machine exists.
+    private var lacksFollowable: Bool {
+        guard case .new = edit else { return false }
+        return template.spec.needsFollowed && crew.followable == nil
     }
 
     private var title: String {
