@@ -138,6 +138,13 @@ public struct HelperSpec: Codable, Sendable, Equatable {
         public var message: String
     }
 
+    /// The names of the fields whose value is one of a fixed set.
+    public var choiceFields: [String] {
+        fields.compactMap { field in
+            if case .choice = field.kind { field.name } else { nil }
+        }
+    }
+
     /// Whether a machine of this spec needs another machine's open items to cite: it must be given `follows`.
     public var needsFollowed: Bool { citation == .facts }
 

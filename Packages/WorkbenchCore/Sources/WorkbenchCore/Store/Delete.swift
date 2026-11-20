@@ -8,11 +8,11 @@ public enum DeleteSelector: Sendable {
     /// remove text of other windows, and that is the safe direction.
     case activities(ActivityFilter)
     /// What one kind of source produced before the cutoff (all of it when nil): its activity, its recordings, the
-    /// items helpers read from it, and the text of model runs that hold the kind and started before the cutoff. A call
-    /// still being recorded stays.
+    /// items helpers read from it, and the text of model runs that hold the kind, or hold a kind that is unknown, and
+    /// started before the cutoff. A call still being recorded stays.
     case kind(SourceKind, before: Date?)
-    /// One machine: its items and their marks, its saved settings, the text of its runs, and a deleted state. Its run
-    /// rows stay in the meter.
+    /// One machine: its items and their marks, its saved settings, the text of its runs, and a deleted state. Its
+    /// trial's items and run text go too. Its run rows stay in the meter.
     case machine(String)
     /// Every kind, and all run text before the cutoff. The consent history and the run rows (the meter) hold no
     /// captured content, and stay.
@@ -87,8 +87,9 @@ extension Store {
             case .kind(let kind, let cutoff):
                 return try remove(db, kind, before: cutoff ?? .distantFuture)
             case .machine(let task):
-                try db.execute(sql: "DELETE FROM item WHERE task = ?", arguments: [task])
-                try removeRunText(db, task: task)
+                let tasks = [task, Trial.task(of: task)]
+                try db.execute(sql: "DELETE FROM item WHERE task IN (?,?)", arguments: StatementArguments(tasks))
+                try removeRunText(db, tasks: tasks)
                 try db.execute(
                     sql: "DELETE FROM state WHERE key LIKE ? ESCAPE '\\'", arguments: [Self.likePrefix(task)])
                 let machines = try db.fetch(
@@ -141,22 +142,23 @@ extension Store {
         return []
     }
 
-    /// Run text that meets every condition given: holds any of `kinds`, belongs to a run of `task`, and belongs to a
-    /// run started in `from` up to `before`.
+    /// Run text that meets every condition given: holds any of `kinds` or an unknown kind, belongs to a run of one of
+    /// `tasks`, and belongs to a run started in `from` up to `before`.
     private func removeRunText(
-        _ db: Database, holding kinds: [SourceKind]? = nil, task: String? = nil, from: Date? = nil,
+        _ db: Database, holding kinds: [SourceKind]? = nil, tasks: [String]? = nil, from: Date? = nil,
         before: Date? = nil
     ) throws {
         var conditions = ["1 = 1"]
         var arguments: [any DatabaseValueConvertible] = []
         if let kinds {
-            let marks = Array(repeating: "?", count: kinds.count).joined(separator: ",")
+            let names = kinds.map(\.rawValue) + [RunText.unknownKind]
+            let marks = Array(repeating: "?", count: names.count).joined(separator: ",")
             conditions.append("EXISTS (SELECT 1 FROM json_each(run_text.kinds) WHERE value IN (\(marks)))")
-            arguments += kinds.map(\.rawValue)
+            arguments += names
         }
-        if let task {
-            conditions.append("run.task = ?")
-            arguments.append(task)
+        if let tasks {
+            conditions.append("run.task IN (\(Array(repeating: "?", count: tasks.count).joined(separator: ",")))")
+            arguments += tasks
         }
         if let from {
             conditions.append("run.started_at >= ?")

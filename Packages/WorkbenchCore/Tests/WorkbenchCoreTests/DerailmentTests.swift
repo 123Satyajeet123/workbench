@@ -140,6 +140,83 @@ private func reply(_ findings: String...) -> String { #"{"items":["# + findings.
         #expect(try await save(reply(again), on: second.adding(days: 15)) == 4, "told again after 14 days")
     }
 
+    @Test func aFindingRepeatsOneWithTheSameFactsAndTheSameValueInEveryChoiceFieldWhateverTheyAreCalled() async throws {
+        var spec = HelperSpec.derailment
+        spec.fields = spec.fields.map { field in
+            var field = field
+            if field.name == "kind" { field.name = "category" }
+            return field
+        }
+        #expect(spec.choiceFields == ["category", "severity"])
+        func finding(_ category: String, severity: String = "act", facts: String = "7") -> Item {
+            Item(
+                task: spec.task, day: second, scope: "work", source: .whatsapp, citeFirst: 0, citeLast: 0, start: t0,
+                end: t0,
+                fields: ["category": category, "severity": severity, "project": "Deck", "facts": facts],
+                quote: "q", run: 1)
+        }
+        let told = finding("overdue")
+        #expect(finding("overdue").repeats(told, citation: .facts, choices: spec.choiceFields))
+        #expect(!finding("blocked").repeats(told, citation: .facts, choices: spec.choiceFields), "another category")
+        #expect(!finding("overdue", severity: "info").repeats(told, citation: .facts, choices: spec.choiceFields))
+        #expect(!finding("overdue", facts: "7,8").repeats(told, citation: .facts, choices: spec.choiceFields))
+        #expect(
+            finding("overdue", severity: "info").repeats(told, citation: .facts, choices: []),
+            "with no choice fields only the facts count")
+
+        let (store, _) = try await watch()
+        func saved(_ item: Item) throws -> Int {
+            let result = HelperReader.Result(items: [item], dropped: 0, run: nil)
+            try store.saveReading(result, of: spec, day: second, scope: "work", grant: chatGrant, replacing: false)
+            return try store.queries.items(of: spec.task, since: first).count
+        }
+        #expect(try saved(finding("overdue")) == 1)
+        #expect(try saved(finding("overdue")) == 1, "told before: not added again")
+        #expect(try saved(finding("blocked")) == 2)
+    }
+
+    @Test func aFollowedMachinesOpenItemsAreGivenAsOfTheDayRead() async throws {
+        let (store, sentinel) = try await watch()
+        let commitment = try #require(
+            try store.queries.openItems(readBy: sentinel).first { $0["kind"] == "commitment" })
+        try store.close(item: try #require(commitment.id), as: "kept")
+        #expect(try store.queries.openItems(readBy: sentinel, asOf: first).count == 2, "closed after day one started")
+        #expect(try store.queries.openItems(readBy: sentinel, asOf: second).count == 1, "closed before day two")
+        #expect(try store.queries.openItems(readBy: sentinel).count == 1)
+    }
+
+    private let quietDay = EvidenceSet(lines: [])
+
+    @Test func aDayWithNoLinesStillRunsTheMachineThatFollowsWhileFactsAreOpenAndKeepsAFindingOnSilence() async throws {
+        let (store, sentinel) = try await watch()
+        let silent = finding(lines: "[]", quote: "send the deck")
+        let (result, model) = try await read(store, sentinel, reply(silent), day: second, evidence: quietDay)
+        #expect(model.inputs.withLock { $0.count } == 1)
+        let input = try #require(model.inputs.withLock { $0.first })
+        #expect(input.contains("Work day: \(second)") && input.contains("F1 (\(first)) due=Fri 25 Sep"))
+        let item = try #require(result.items.first)
+        #expect(result.items.count == 1 && result.run != nil)
+        #expect(item.start == second.start && item.end == second.start && item.citeFirst == 0)
+        try store.saveReading(result, of: sentinel, day: second, scope: "work", grant: chatGrant, replacing: false)
+        #expect(try store.queries.items(of: sentinel.task, day: second, scope: "work").count == 1)
+    }
+
+    @Test func aDayWithNoLinesRunsNoModelWhenNothingIsOpenOrTheMachineFollowsNothing() async throws {
+        let (store, sentinel) = try await watch()
+        let model = ScriptedModel(reply())
+        let none = try await HelperReader(spec: sentinel, model: RecordedModel(model, store: store))
+            .read(day: second, scope: "work", evidence: quietDay, open: [])
+        #expect(none.run == nil && model.inputs.withLock { $0.count } == 0, "no lines and no open facts")
+
+        let team = ScriptedModel(reply())
+        let open = try store.queries.openItems(readBy: sentinel)
+        let teamResult = try await HelperReader(spec: .team, model: RecordedModel(team, store: store))
+            .read(day: second, scope: "work", evidence: quietDay, open: open)
+        #expect(
+            teamResult.run == nil && team.inputs.withLock { $0.count } == 0,
+            "a machine that follows nothing stays quiet")
+    }
+
     @Test func aMachineWithNoFollowsOrLifecycleIsNotShownOpenItemsAndKeepsItsRules() async throws {
         let store = try makeStore()
         let team = HelperReader(spec: .team, model: RecordedModel(ScriptedModel("{}"), store: store))

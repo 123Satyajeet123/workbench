@@ -25,13 +25,14 @@ private final class Timeline: Sendable {
     }
 
     @discardableResult
-    func run(_ kinds: Set<SourceKind>, task: String = "t", daysAgo: Double = 0, input: String = "in") async throws
-        -> RunID
-    {
+    func run(
+        _ kinds: Set<SourceKind>, unknown: Bool = false, task: String = "t", daysAgo: Double = 0, input: String = "in"
+    ) async throws -> RunID {
         clock.move(to: day(-daysAgo))
         let model = RecordedModel(ScriptedModel(#"{"items":[]}"#), store: store)
         return try await model.generate(
-            HelperReader.Reply.self, schema: schema, task: task, instructions: "v1", input: input, holding: kinds
+            HelperReader.Reply.self, schema: schema, task: task, instructions: "v1", input: input, holding: kinds,
+            holdingUnknown: unknown
         ).run
     }
 
@@ -63,6 +64,16 @@ struct RunTextTests {
         }
         let run = try #require(try store.queries.runs().first)
         #expect(try store.queries.runText(of: run.id) == RunText(input: "asked", reply: nil, kinds: [.screen]))
+    }
+
+    @Test func anUnknownKindIsKeptBesideTheKnownOnesAndReadsBack() async throws {
+        let timeline = try Timeline()
+        let run = try await timeline.run([.screen], unknown: true)
+        let plain = try await timeline.run([.screen])
+        #expect(
+            try timeline.store.queries.runText(of: run)
+                == RunText(input: "in", reply: #"{"items":[]}"#, kinds: [.screen], holdsUnknown: true))
+        #expect(try timeline.store.queries.runText(of: plain)?.holdsUnknown == false)
     }
 
     @Test func aRunWithNoTextReadsAsNil() throws {
@@ -128,6 +139,46 @@ struct RunTextDeleteTests {
         try timeline.store.delete(.machine("team.ledger"))
         #expect(try surviving([mine, other, prefix], in: timeline) == [other, prefix])
         #expect(try timeline.runCount() == 3)
+    }
+
+    @Test func aMachineDeleteAlsoRemovesItsTrialRunTextAndTrialItemsButNotAnotherMachinesTrial() async throws {
+        let timeline = try Timeline()
+        let mine = try await timeline.run([.whatsapp], task: "team.ledger")
+        let myTrial = try await timeline.run([.whatsapp], task: Trial.task(of: "team.ledger"))
+        let otherTrial = try await timeline.run([.whatsapp], task: Trial.task(of: "day.timeline"))
+        let lookalike = try await timeline.run([.whatsapp], task: Trial.task(of: "team.ledger.more"))
+        let store = timeline.store
+        func plant(_ task: String, run: RunID) throws {
+            let item = Item(
+                task: task, day: WorkDay(containing: t0), scope: "", source: .whatsapp, citeFirst: 1, citeLast: 1,
+                start: t0, end: t0, fields: ["text": "x"], quote: "x", run: run)
+            try store.saveReading(
+                .init(items: [item], dropped: 0, run: run), of: .team, day: item.day, scope: "work",
+                grant: grant(.whatsapp, label: "work"), pick: { _ in 0 })
+        }
+        try plant(Trial.task(of: "team.ledger"), run: myTrial)
+        try plant(Trial.task(of: "day.timeline"), run: otherTrial)
+
+        try store.delete(.machine("team.ledger"))
+        #expect(try surviving([mine, myTrial, otherTrial, lookalike], in: timeline) == [otherTrial, lookalike])
+        #expect(try store.queries.items(of: Trial.task(of: "team.ledger"), since: WorkDay(containing: t0)).isEmpty)
+        #expect(try store.queries.items(of: Trial.task(of: "day.timeline"), since: WorkDay(containing: t0)).count == 1)
+    }
+
+    @Test func aSourceDeleteRemovesTextOfAnUnknownKindWhateverTheKindDeletedAndKeepsKnownOtherKinds() async throws {
+        let timeline = try Timeline()
+        let unknownOnly = try await timeline.run([], unknown: true, daysAgo: 10)
+        let unknownWithChat = try await timeline.run([.whatsapp], unknown: true, daysAgo: 10)
+        let unknownNew = try await timeline.run([], unknown: true, daysAgo: 1)
+        let chat = try await timeline.run([.whatsapp], daysAgo: 10)
+        let none = try await timeline.run([], daysAgo: 10)
+        let all = [unknownOnly, unknownWithChat, unknownNew, chat, none]
+
+        try timeline.store.delete(.kind(.screen, before: day(-5)))
+        #expect(try surviving(all, in: timeline) == [unknownNew, chat, none], "old unknown text goes; known stays")
+        try timeline.store.delete(.activities(ActivityFilter(bundleID: "any")))
+        #expect(try surviving(all, in: timeline) == [chat, none], "an activity delete takes it too")
+        #expect(try timeline.runCount() == 5)
     }
 
     @Test func anActivityDeleteRemovesScreenTextAndFileRunsInItsRangeAndKeepsOtherKindsAndTimes() async throws {

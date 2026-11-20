@@ -47,11 +47,14 @@ public struct LinkedItem: Codable, Sendable, Equatable {
     public var fields: [String: String]
     public var quote: String
     public var state: Mark
+    /// The consent kind of the item's source. Nil in an event written before the field existed: unknown.
+    public var source: SourceKind?
     /// Everyone who could already read the item's source when it was linked, by name.
     public var audience: [String]
 
     public init(machine: Machine, item: Item, audience: [String]) {
         self.machine = machine.name
+        source = item.source
         day = item.day.description
         columns = machine.spec.fields.map(\.name)
         fields = item.fields

@@ -39,6 +39,37 @@ import WorkbenchCore
         #expect(deals.deals.isEmpty)
     }
 
+    @Test func aDealsLinkedItemsGiveTheMemoryTheKindOfTheirSourceAndAnOldOneIsUnknown() async throws {
+        let store = try scratchStore()
+        let crew = Crew(
+            store: store, capture: try CaptureService(store: store), founder: { "Aditya" }, notifier: FakeNotifier())
+        let deals = DealsModel(store: store, catalog: TeamCatalogModel(store: store, crew: crew, author: { "Aditya" }))
+        let id = try #require(deals.create(title: "Acme"))
+        func linked(_ source: String) throws -> LinkedItem {
+            try JSONDecoder().decode(
+                LinkedItem.self,
+                from:
+                    Data(
+                        #"{"machine":"Intake","day":"2026-09-21","columns":[],"fields":{},"quote":"Acme \#(source)","state":"proposed","audience":["Aditya"]\#(source == "old" ? "" : #","source":"whatsapp""#)}"#
+                            .utf8)
+            )
+        }
+        let first = try store.queries.nextClock()
+        try store.append(
+            ["chat", "old"].enumerated().map { index, source in
+                WorkEvent(
+                    object: id, author: "Aditya", clock: first + index, at: store.clock(), kind: .link,
+                    item: try? linked(source))
+            })
+        deals.refresh()
+        let memory = MemoryModel(store: store, crew: crew, deals: deals)
+        let entries = try memory.entries().filter { $0.id.hasPrefix("link:") }
+        let chat = try #require(entries.first { $0.quote == "Acme chat" })
+        let old = try #require(entries.first { $0.quote == "Acme old" })
+        #expect(chat.kinds == [.whatsapp] && !chat.kindUnknown)
+        #expect(old.kinds.isEmpty && old.kindUnknown)
+    }
+
     @Test func theMemoryAnswersFromDealNotesWithACitationAndLeavesOutItemsMarkedWrong() async throws {
         let store = try scratchStore()
         try store.seedMachines(MachineTemplate.seeded.map { ($0.spec, $0.name) })

@@ -55,12 +55,14 @@ public struct Item: Sendable, Equatable, Identifiable {
 
     public subscript(field: String) -> String { fields[field] ?? "" }
 
-    /// Whether a new reading's item says what a marked one already says, so the mark stands for it.
-    func repeats(_ marked: Item, citation: HelperSpec.Citation) -> Bool {
+    /// Whether a new reading's item says what a marked one already says, so the mark stands for it. A finding of facts
+    /// repeats one that cites the same facts and has the same value in each of the spec's `choices` fields.
+    func repeats(_ marked: Item, citation: HelperSpec.Citation, choices: [String] = []) -> Bool {
         switch citation {
         case .range: start < marked.end && marked.start < end
         case .one: citeFirst == marked.citeFirst && fields == marked.fields && quote == marked.quote
-        case .facts: self["kind"] == marked["kind"] && self[Self.factsField] == marked[Self.factsField]
+        case .facts:
+            self[Self.factsField] == marked[Self.factsField] && choices.allSatisfy { self[$0] == marked[$0] }
         }
     }
 }

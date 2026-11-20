@@ -48,13 +48,16 @@ public struct HelperReader: Sendable {
     /// `marked` may hold any of the machine's items; only those the leave-one-day-out rule allows become examples.
     /// `open` are the items still open from earlier readings: the machine's own, or those of the machine it follows.
     /// The model sees them by handle (F1, F2, …), never by their store ids, so it cannot name an item that does not
-    /// exist. It may close its own; it may cite those it follows.
+    /// exist. It may close its own; it may cite those it follows. A day with no lines runs no model, except for a
+    /// machine that follows another while the followed machine has open items: it still sees the date and the facts,
+    /// because a commitment can fall due on a day nobody wrote.
     public func read(
         day: WorkDay, scope: String, evidence: EvidenceSet, marked: [Item] = [], open: [Item] = []
     ) async throws -> Result {
-        guard !evidence.lines.isEmpty else { return Result(items: [], dropped: 0, run: nil) }
-        let examples = Exemplars.pick(marked, for: day, count: spec.examples ?? 0)
         let open = spec.lifecycle == nil && spec.follows == nil ? [] : open
+        let followsOpenFacts = spec.follows != nil && !open.isEmpty
+        guard !evidence.lines.isEmpty || followsOpenFacts else { return Result(items: [], dropped: 0, run: nil) }
+        let examples = Exemplars.pick(marked, for: day, count: spec.examples ?? 0)
         let (reply, run) = try await model.generate(
             Reply.self, schema: schema, task: spec.task, instructions: instructions,
             input: Self.examples(examples, spec: spec) + Self.open(open, spec: spec)
@@ -63,7 +66,8 @@ public struct HelperReader: Sendable {
         var kept: [Item] = []
         for raw in reply.items {
             guard let item = item(raw, day: day, scope: scope, evidence: evidence, open: open, run: run),
-                spec.citation == .one || !kept.contains(where: { item.repeats($0, citation: spec.citation) })
+                spec.citation == .one
+                    || !kept.contains(where: { item.repeats($0, citation: spec.citation, choices: spec.choiceFields) })
             else { continue }
             kept.append(item)
         }
@@ -238,7 +242,7 @@ public struct HelperReader: Sendable {
     private func item(
         _ raw: [String: JSONValue], day: WorkDay, scope: String, evidence: EvidenceSet, open: [Item], run: RunID
     ) -> Item? {
-        guard let cited = cited(raw, evidence: evidence, open: open) else { return nil }
+        guard let cited = cited(raw, day: day, evidence: evidence, open: open) else { return nil }
         var fields: [String: String] = [:]
         for field in spec.fields {
             guard let value = raw[field.name]?.string, fits(value, field.kind, context: evidence.context) else {
@@ -252,11 +256,11 @@ public struct HelperReader: Sendable {
             citeLast: cited.last, start: cited.start, end: cited.end, fields: fields, quote: cited.quote, run: run)
     }
 
-    private func cited(_ raw: [String: JSONValue], evidence: EvidenceSet, open: [Item]) -> Cited? {
+    private func cited(_ raw: [String: JSONValue], day: WorkDay, evidence: EvidenceSet, open: [Item]) -> Cited? {
         switch spec.citation {
         case .one: lines(raw["cite"]?.integer, raw["cite"]?.integer, raw: raw, evidence: evidence)
         case .range: lines(raw["first"]?.integer, raw["last"]?.integer, raw: raw, evidence: evidence)
-        case .facts: facts(raw, evidence: evidence, open: open)
+        case .facts: facts(raw, day: day, evidence: evidence, open: open)
         }
     }
 
@@ -271,11 +275,12 @@ public struct HelperReader: Sendable {
     }
 
     /// Every handle must name an open item and every line must exist and be new. The span runs over the cited lines;
-    /// with none, it is 0 to 0 at the time of the latest line.
-    private func facts(_ raw: [String: JSONValue], evidence: EvidenceSet, open: [Item]) -> Cited? {
+    /// with none, it is 0 to 0 at the time of the latest line, or at the start of the day when it has no line.
+    private func facts(_ raw: [String: JSONValue], day: WorkDay, evidence: EvidenceSet, open: [Item]) -> Cited? {
         guard let handles = raw["facts"]?.array, !handles.isEmpty, let given = raw["lines"]?.array,
-            let quote = raw["quote"]?.string, let latest = evidence.lines.map(\.start).max()
+            let quote = raw["quote"]?.string
         else { return nil }
+        let latest = evidence.lines.map(\.start).max() ?? day.start
         let facts = handles.compactMap { $0.string.flatMap { fact($0, open: open) } }
         let ids = given.compactMap(\.integer)
         let cited = ids.compactMap { id in evidence.lines.first { $0.id == id && id > (evidence.readUpTo ?? .min) } }

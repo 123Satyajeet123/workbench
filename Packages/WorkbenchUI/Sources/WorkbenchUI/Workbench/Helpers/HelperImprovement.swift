@@ -62,7 +62,8 @@ final class HelperImprovement {
 
     /// Replays a new version (brief, example policy and model) on stored evidence beside the current one (research
     /// 20 §4): every training day the founder marked, newest first, so old marks carry over to the items both versions
-    /// give; or, with no marks yet, recent training days. Held-out days are never read. Nothing live changes.
+    /// give; or, with no marks yet, recent training days. Held-out days are never read. Each day's reader gets the
+    /// open items as of that day, and the closes it gives are not stored: nothing live changes.
     func startTrial(_ version: HelperModel.Version, by: Decision.By, why: String) async {
         let spec = context.spec
         let store = context.store
@@ -85,9 +86,10 @@ final class HelperImprovement {
             let reader = HelperReader(spec: challenger, model: context.makeModel(try context.runner(for: version)))
             for day in days {
                 _ = try await context.grant()
-                let result = try await reader.read(
+                var result = try await reader.read(
                     day: day, scope: scope, evidence: try await context.source.evidence(on: day),
-                    marked: try context.marked())
+                    marked: try context.marked(), open: try store.queries.openItems(readBy: spec, asOf: day))
+                result.closes = []
                 try store.saveReading(
                     result, of: challenger, day: day, scope: scope, grant: try await context.grant())
             }
@@ -195,7 +197,8 @@ final class HelperImprovement {
         let since = store.clock().addingTimeInterval(-Self.budgetWindow)
         let tried = try store.queries.decisions(of: spec.task).filter { $0.kind == .trial && $0.at >= since }.count
         let result = Trial(
-            current: current, challenger: challenger, citation: spec.citation, markOrder: order,
+            current: current, challenger: challenger, citation: spec.citation, choices: spec.choiceFields,
+            markOrder: order,
             threshold: EProcess.threshold(challengers: tried))
         let version = HelperModel.Version(brief: saved.brief, examples: saved.examples, runner: saved.runner)
         return TrialRun(

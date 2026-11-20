@@ -12,9 +12,16 @@ public struct MemoryEntry: Sendable, Equatable, Identifiable {
     public var quote: String
     /// The consent kinds the entry's text came from.
     public var kinds: Set<SourceKind>
+    /// The text came from a source of unknown kind, as an old shared item did: a run that holds it falls to every
+    /// source delete.
+    public var kindUnknown: Bool
 
-    public init(id: String, source: String, text: String, quote: String, kinds: Set<SourceKind> = []) {
+    public init(
+        id: String, source: String, text: String, quote: String, kinds: Set<SourceKind> = [],
+        kindUnknown: Bool = false
+    ) {
         self.kinds = kinds
+        self.kindUnknown = kindUnknown
         self.id = id
         self.source = source
         self.text = text
@@ -99,7 +106,8 @@ public struct Asker: Sendable {
         let (reply, run) = try await model.generate(
             Reply.self, schema: Self.schema, task: Self.task, instructions: Self.instructions,
             input: "Question: \(question)\n\nEntries:\n\(lines.joined(separator: "\n"))",
-            holding: found.reduce(into: []) { $0.formUnion($1.kinds) })
+            holding: found.reduce(into: []) { $0.formUnion($1.kinds) },
+            holdingUnknown: found.contains { $0.kindUnknown })
         return (try Self.checked(reply, given: found), run)
     }
 

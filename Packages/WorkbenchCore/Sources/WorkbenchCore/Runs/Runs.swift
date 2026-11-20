@@ -32,10 +32,16 @@ public struct RunText: Sendable, Equatable {
     public var reply: String?
     /// The consent kinds the input holds: a delete of one of them removes this text.
     public var kinds: Set<SourceKind>
+    /// The input also holds text whose consent kind is not known: every source delete removes this text.
+    public var holdsUnknown = false
+
+    /// How an unknown kind is written among the stored kinds.
+    static let unknownKind = "unknown"
 }
 
 /// A model whose every call is a run in the store: the row and the input are written before the input leaves the Mac
-/// and finished with what came back. `holding` names the consent kinds the input holds.
+/// and finished with what came back. `holding` names the consent kinds the input holds, and `holdingUnknown` says
+/// that it also holds text of an unknown kind.
 public struct RecordedModel: Sendable {
     public let model: any StructuredModel
     let store: Store
@@ -47,12 +53,13 @@ public struct RecordedModel: Sendable {
 
     public func generate<T: Decodable & Sendable>(
         _ type: T.Type, schema: JSONSchema, task: String, instructions: String, input: String,
-        holding kinds: Set<SourceKind>
+        holding kinds: Set<SourceKind>, holdingUnknown: Bool = false
     ) async throws -> (value: T, run: RunID) {
         let schemaText = try schema.jsonText
         let prompt = Digest.sha256(instructions + "\n" + schemaText)
         try store.keepPrompt(hash: prompt, task: task, instructions: instructions, schema: schemaText)
-        let run = try store.beginRun(task: task, model: model.name, prompt: prompt, input: input, kinds: kinds)
+        let run = try store.beginRun(
+            task: task, model: model.name, prompt: prompt, input: input, kinds: kinds, holdsUnknown: holdingUnknown)
         do {
             let answer = try await model.generate(type, schema: schema, instructions: instructions, input: input)
             guard schema.accepts(json: answer.reply) else {
@@ -69,8 +76,11 @@ public struct RecordedModel: Sendable {
 }
 
 extension Store {
-    func beginRun(task: String, model: String, prompt: String, input: String, kinds: Set<SourceKind>) throws -> RunID {
-        try writer.write { db in
+    func beginRun(
+        task: String, model: String, prompt: String, input: String, kinds: Set<SourceKind>, holdsUnknown: Bool = false
+    ) throws -> RunID {
+        let names = kinds.map(\.rawValue).sorted() + (holdsUnknown ? [RunText.unknownKind] : [])
+        return try writer.write { db in
             try db.execute(
                 sql: """
                     INSERT INTO run(task, model, prompt, input_bytes, input_sha, started_at, outcome) VALUES (?,?,?,?,?,?,'running')
@@ -79,7 +89,7 @@ extension Store {
             let run = db.lastInsertedRowID
             try db.execute(
                 sql: "INSERT INTO run_text(run_id, input, kinds) VALUES (?,?,?)",
-                arguments: [run, input, try Coding.json(kinds.map(\.rawValue).sorted())])
+                arguments: [run, input, try Coding.json(names)])
             return run
         }
     }
@@ -167,10 +177,10 @@ extension RunText {
         self.init(
             input: try row.value("input"), reply: try row.optionalValue("reply"),
             kinds: Set(
-                try names.map { name in
+                try names.filter { $0 != RunText.unknownKind }.map { name in
                     guard let kind = SourceKind(rawValue: name) else { throw StoredValueError("kinds") }
                     return kind
-                }))
+                }), holdsUnknown: names.contains(RunText.unknownKind))
     }
 }
 

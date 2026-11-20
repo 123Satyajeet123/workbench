@@ -14,6 +14,8 @@ enum MachineKey {
     static func lastLine(_ task: String, scope: String, day: WorkDay) -> StateKey<Int64> {
         .text("\(task).read.\(scope).\(day)")
     }
+    /// The last day a machine that follows another read, with or without new lines.
+    static func followedRead(_ task: String) -> StateKey<WorkDay> { .day("\(task).followedRead") }
     static func trial(_ task: String) -> StateKey<SavedTrial> { .json("\(task).trial") }
     static func sites(_ task: String) -> StateKey<[String]> { .json("\(task).sites") }
     static func chats(_ task: String) -> StateKey<[WhatsAppChat]> { .json("\(task).chats") }

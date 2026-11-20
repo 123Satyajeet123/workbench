@@ -97,6 +97,86 @@ import WorkbenchCore
         #expect(s.sentinel.items.map(\.state) == [.rejected], "a rejected finding is not raised again")
     }
 
+    private func watching(_ s: Setup) {
+        s.sentinel.watch = WatchSchedule(isOn: true, everyMinutes: 60, fromHour: 9, untilHour: 22)
+        s.sentinel.show(WorkDay(containing: s.clock.now))
+    }
+
+    @Test func aDayWithNoMessagesIsReadOnceWhileTheFollowedMachineHasOpenFacts() async throws {
+        let s = try await setup()
+        s.clock.set(noon.addingTimeInterval(2 * 86_400))
+        watching(s)
+        await s.sentinel.readIfDue()
+        #expect(s.model.calls.withLock { $0 } == 2, "Atlas once, Sentinel once, though nobody wrote")
+        let input = try #require(s.model.inputs.withLock { $0.last })
+        #expect(input.contains("Work day: \(WorkDay(containing: s.clock.now))") && input.contains("F1 ("))
+        #expect(s.sentinel.items.count == 1 && s.sentinel.items.first?["kind"] == "overdue")
+
+        s.clock.set(s.clock.now.addingTimeInterval(3700))
+        await s.sentinel.readIfDue()
+        #expect(s.model.calls.withLock { $0 } == 2, "the same quiet day is not read twice")
+
+        s.clock.set(noon.addingTimeInterval(3 * 86_400))
+        s.sentinel.show(WorkDay(containing: s.clock.now))
+        await s.sentinel.readIfDue()
+        #expect(s.model.calls.withLock { $0 } == 3, "the next quiet day is read again")
+    }
+
+    @Test func aQuietDayRunsNoModelWhenTheFollowedMachineHasNothingOpen() async throws {
+        let s = try await setup()
+        s.atlas.close(try #require(s.atlas.open.first), as: "kept")
+        s.clock.set(noon.addingTimeInterval(2 * 86_400))
+        watching(s)
+        await s.sentinel.readIfDue()
+        #expect(s.model.calls.withLock { $0 } == 1, "only Atlas's own first reading ran")
+        #expect(s.sentinel.items.isEmpty)
+    }
+
+    @Test func aReadingOfAPastDayIsGivenTheFactsThatWereOpenThenEvenIfClosedSince() async throws {
+        let s = try await setup()
+        s.atlas.close(try #require(s.atlas.open.first), as: "kept")
+        s.sentinel.show(WorkDay(containing: noon))
+        await s.sentinel.read()
+        let past = try #require(s.model.inputs.withLock { $0.last })
+        #expect(past.contains("Still open from earlier days:\nF1 ("), "it was open on that day")
+
+        s.sentinel.show(WorkDay(containing: s.clock.now))
+        await s.sentinel.read()
+        #expect(try #require(s.model.inputs.withLock { $0.last }).contains("Still open") == false, "closed by today")
+    }
+
+    @Test func aTrialOfAMachineThatFollowsIsGivenTheFollowedFactsOpenOnTheDayAndKeepsItsFindings() async throws {
+        let s = try await setup()
+        s.sentinel.show(WorkDay(containing: s.clock.now))
+        await s.sentinel.read()
+        let today = WorkDay(containing: s.clock.now)
+        try #require(EvalSplit(today) == .dev, "the fixture day must be a training day")
+
+        await s.sentinel.startTrial(brief: HelperSpec.derailment.brief + " Be brief.")
+        let input = try #require(s.model.inputs.withLock { $0.last })
+        #expect(input.contains("Still open from earlier days:\nF1 ("))
+        let trial = try #require(s.sentinel.trial)
+        #expect(trial.result.same == 1, "the trial kept the finding the live version made")
+        #expect(trial.result.added.isEmpty && trial.result.dropped.isEmpty)
+    }
+
+    @Test func aTrialOfAMachineWithALifecycleCannotCloseTheLiveMachinesItems() async throws {
+        let s = try await setup()
+        let yesterday = WorkDay(containing: noon)
+        try #require(EvalSplit(yesterday) == .dev, "the fixture day must be a training day")
+        s.clock.set(noon.addingTimeInterval(3600))
+        let live = try #require(s.atlas.open.first)
+        s.model.replies.withLock {
+            $0[Self.atlasKey] =
+                #"{"items":[],"closes":[{"handle":"F1","outcome":"kept","cite":11,"quote":"login API done"}]}"#
+        }
+        s.atlas.show(yesterday)
+        await s.atlas.startTrial(brief: HelperSpec.context.brief + " Be brief.")
+        let input = try #require(s.model.inputs.withLock { $0.last })
+        #expect(input.contains("Still open from earlier days:"), "the trial sees what was open")
+        #expect(try s.store.queries.openItems(readBy: s.atlas.spec).map(\.id) == [live.id], "the live item stays open")
+    }
+
     @Test func aMachineThatFollowsIsCreatedOnlyWhenAMachineWithALifecycleExists() throws {
         let store = try scratchStore()
         try store.seedMachines(MachineTemplate.seeded.map { ($0.spec, $0.name) })

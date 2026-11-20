@@ -52,7 +52,8 @@ final class MemoryModel {
                     MemoryEntry(
                         id: "link:\(linked.event.id)", source: "\(deal.title) · \(linked.item.machine)",
                         text: ([deal.title] + values + [linked.item.quote]).joined(separator: " — "),
-                        quote: linked.item.quote))
+                        quote: linked.item.quote, kinds: linked.item.source.map { [$0] } ?? [],
+                        kindUnknown: linked.item.source == nil))
             }
         }
         return entries

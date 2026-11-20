@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 import Testing
 
 @testable import WorkbenchCore
@@ -114,6 +115,35 @@ private let dayTwo = EvidenceSet(lines: [
         try store.mark(item: try #require(open[0].id), as: .rejected)
         open = try store.queries.openItems(of: HelperSpec.context.task, lifecycle: lifecycle)
         #expect(open.map { $0["kind"] } == ["commitment"])
+    }
+
+    @Test func openItemsAsOfADayHideWhatWasClosedBeforeItAndShowWhatWasClosedAfterIt() async throws {
+        let now = Mutex(t0)
+        let store = try makeStore(clock: { now.withLock { $0 } })
+        try await openDayOne(store)
+        let task = HelperSpec.context.task
+        let lifecycle = HelperSpec.context.lifecycle!
+        let items = try store.queries.items(of: task, day: first, scope: "work")
+        let commitment = try #require(items.first { $0["kind"] == "commitment" }?.id)
+        let question = try #require(items.first { $0["kind"] == "question" }?.id)
+        func open(asOf day: WorkDay?) throws -> [String] {
+            try store.queries.openItems(of: task, lifecycle: lifecycle, asOf: day).map { $0["kind"] }
+        }
+
+        now.withLock { $0 = at(first, 700) }
+        try store.close(item: question, as: "answered")
+        now.withLock { $0 = at(second, 700) }
+        try store.close(item: commitment, as: "kept")
+
+        #expect(try open(asOf: nil) == [])
+        #expect(try open(asOf: second) == ["commitment"], "closed on the day: open as of its start; closed before: not")
+        #expect(try open(asOf: first) == ["commitment", "question"], "both were closed after day one started")
+        #expect(try open(asOf: first.adding(days: -1)) == [], "nothing was opened before that day ended")
+
+        now.withLock { $0 = at(second, 800) }
+        try store.reopen(item: question)
+        #expect(try open(asOf: second) == ["commitment"], "a reopening after the day started does not count")
+        #expect(try open(asOf: second.adding(days: 1)) == ["question"], "a reopening before it does")
     }
 
     @Test func onlyAMachineWithALifecycleIsToldAboutClosesOrSeesOpenItems() async throws {

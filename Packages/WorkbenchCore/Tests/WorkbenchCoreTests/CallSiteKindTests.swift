@@ -73,6 +73,18 @@ struct CallSiteKindTests {
         #expect(try kinds(of: run, in: store) == [.screen])
     }
 
+    @Test func aQuestionHoldsAnUnknownKindOnlyWhenAnEntryItWasGivenHasOne() async throws {
+        let store = try makeStore()
+        let asker = Asker(model: RecordedModel(ScriptedModel(#"{"answer":"","cites":[]}"#), store: store))
+        let old = MemoryEntry(id: "a", source: "s", text: "acme old link", quote: "acme", kindUnknown: true)
+        let known = MemoryEntry(id: "b", source: "s", text: "acme chat", quote: "acme", kinds: [.whatsapp])
+        let withUnknown = try #require(try await asker.ask("acme", entries: [old, known]).run)
+        let withoutUnknown = try #require(try await asker.ask("acme", entries: [known]).run)
+        #expect(try store.queries.runText(of: withUnknown)?.holdsUnknown == true)
+        #expect(try store.queries.runText(of: withoutUnknown)?.holdsUnknown == false)
+        #expect(try kinds(of: withUnknown, in: store) == [.whatsapp])
+    }
+
     @Test func aHelperReadingHoldsItsSourceKind() async throws {
         let store = try makeStore()
         let evidence = EvidenceSet(lines: [

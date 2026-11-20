@@ -66,6 +66,25 @@ import Testing
             "no object without its create event")
     }
 
+    @Test func aLinkedItemCarriesItsSourceKindThroughTheSharedLogAndAnOldEventReadsAsUnknown() throws {
+        let day = WorkDay(containing: t0)
+        let item = Item(
+            task: "vc.deals-1", day: day, scope: "", source: .whatsapp, citeFirst: 1, citeLast: 1, start: t0, end: t0,
+            fields: ["company": "Acme"], quote: "Acme raises", run: 1)
+        let machine = Machine(id: 1, name: "Deal intake", template: "vc.deals", spec: .dealIntake, state: .active)
+        let linked = LinkedItem(machine: machine, item: item, audience: ["Asha"])
+        #expect(linked.source == .whatsapp)
+
+        let folder = temporaryDirectory()
+        try WorkLog.write([event("l1", .link, by: "Asha", clock: 4, item: linked)], author: "Asha", to: folder)
+        let shared = try #require(WorkLog.read(from: folder).events.first)
+        #expect(shared.item?.source == .whatsapp)
+
+        let old =
+            #"{"machine":"M","day":"2026-09-21","columns":[],"fields":{},"quote":"q","state":"proposed","audience":["Asha"]}"#
+        #expect(try Coding.value(LinkedItem.self, from: old).source == nil)
+    }
+
     @Test func theSameEventImportedTwiceIsKeptOnceAndTheClockMovesPastEverythingSeen() throws {
         let store = try makeStore()
         #expect(try store.queries.nextClock() == 1)

@@ -2,7 +2,7 @@ import Foundation
 import GRDB
 
 extension Store {
-    /// How long a finding of facts counts as told: a repeat of the same kind and facts inside this many days is not
+    /// How long a finding of facts counts as told: a repeat of the same choices and facts inside this many days is not
     /// added.
     static let toldBeforeDays = 14
 
@@ -30,7 +30,8 @@ extension Store {
                 ? try Queries.items(db, of: spec.task, since: day.adding(days: -Self.toldBeforeDays))
                 : try Queries.items(db, of: spec.task, day: day, scope: scope)
             var added: [Int64] = []
-            for item in result.items where !known.contains(where: { item.repeats($0, citation: spec.citation) }) {
+            for item in result.items
+            where !known.contains(where: { item.repeats($0, citation: spec.citation, choices: spec.choiceFields) }) {
                 try db.execute(
                     sql: """
                         INSERT INTO item(task, run_id, day, scope, source, cite_first, cite_last, start_at, end_at, fields,
@@ -107,18 +108,31 @@ extension Queries {
     private static let itemRows = "item_mark LEFT JOIN item_status ON item_status.item_id = item_mark.id"
 
     /// The items of a machine still open: of a value its lifecycle keeps open, not rejected, and not closed since.
-    /// The newest `limit`, oldest first.
-    public func openItems(of task: String, lifecycle: HelperSpec.Lifecycle, limit: Int = 300) throws -> [Item] {
+    /// The newest `limit`, oldest first. With `day`, the items as they stood on that day: opened by the day's end and
+    /// not closed, by the time of the closing line, before the day started.
+    public func openItems(
+        of task: String, lifecycle: HelperSpec.Lifecycle, asOf day: WorkDay? = nil, limit: Int = 300
+    ) throws -> [Item] {
         let values = Array(repeating: "?", count: lifecycle.open.count).joined(separator: ",")
+        let status: String
+        var bounds = StatementArguments()
+        if let day {
+            status = """
+                day <= ? AND (SELECT kind FROM item_event WHERE item_id = item_mark.id AND valid_at < ?
+                    ORDER BY id DESC LIMIT 1) IS NOT 'close'
+                """
+            bounds = [day.description, day.start.stored]
+        } else {
+            status = "(status_kind IS NULL OR status_kind = 'reopen')"
+        }
         let arguments =
-            StatementArguments([task, "$.\(lifecycle.field)"]) + StatementArguments(lifecycle.open) + [limit]
+            StatementArguments([task, "$.\(lifecycle.field)"]) + StatementArguments(lifecycle.open) + bounds + [limit]
         return try reader.read { db in
             try db.fetch(
                 "item",
                 """
                 SELECT \(Self.itemColumns) FROM \(Self.itemRows)
-                WHERE task = ? AND state <> 'rejected' AND json_extract(fields, ?) IN (\(values))
-                    AND (status_kind IS NULL OR status_kind = 'reopen')
+                WHERE task = ? AND state <> 'rejected' AND json_extract(fields, ?) IN (\(values)) AND \(status)
                 ORDER BY day DESC, start_at DESC, id DESC LIMIT ?
                 """, arguments, as: Item.init(row:)
             ).reversed()
@@ -126,13 +140,13 @@ extension Queries {
     }
 
     /// The open items a machine's reader sees: its own, or, when it has no lifecycle, those of the machine it
-    /// follows. None when it follows no machine that exists.
-    public func openItems(readBy spec: HelperSpec) throws -> [Item] {
-        if let lifecycle = spec.lifecycle { return try openItems(of: spec.task, lifecycle: lifecycle) }
+    /// follows; as of `day` when given. None when it follows no machine that exists.
+    public func openItems(readBy spec: HelperSpec, asOf day: WorkDay? = nil) throws -> [Item] {
+        if let lifecycle = spec.lifecycle { return try openItems(of: spec.task, lifecycle: lifecycle, asOf: day) }
         guard let follows = spec.follows,
             let lifecycle = try machines().first(where: { $0.task == follows })?.spec.lifecycle
         else { return [] }
-        return try openItems(of: follows, lifecycle: lifecycle)
+        return try openItems(of: follows, lifecycle: lifecycle, asOf: day)
     }
 
     /// A machine's items closed between two times, by the time of the closing line, oldest first.

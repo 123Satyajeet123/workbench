@@ -25,17 +25,18 @@ public struct Trial: Sendable, Equatable {
 
     /// `markOrder` gives each marked item's latest mark id, so the test sees the marks in the order they came.
     public init(
-        current: [Item], challenger: [Item], citation: HelperSpec.Citation, markOrder: [Int64: Int64] = [:],
+        current: [Item], challenger: [Item], citation: HelperSpec.Citation, choices: [String] = [],
+        markOrder: [Int64: Int64] = [:],
         threshold: Double = EProcess.threshold(challengers: 1)
     ) {
         var twins = 0
         added = challenger.filter { new in
-            let twin = current.contains { new.day == $0.day && new.repeats($0, citation: citation) }
+            let twin = current.contains { new.day == $0.day && new.repeats($0, citation: citation, choices: choices) }
             if twin { twins += 1 }
             return !twin
         }
         dropped = current.filter { old in
-            !challenger.contains { old.day == $0.day && $0.repeats(old, citation: citation) }
+            !challenger.contains { old.day == $0.day && $0.repeats(old, citation: citation, choices: choices) }
         }
         same = twins
         self.threshold = threshold

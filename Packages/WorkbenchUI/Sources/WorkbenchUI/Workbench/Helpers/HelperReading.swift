@@ -33,18 +33,24 @@ final class HelperReading {
             let last = try lastLineKey.load(from: store)
             var evidence = full.after(last)
             for (set, names) in try recentLabels() { evidence.context[set] = names }
-            if last != nil, evidence.newLines.isEmpty {
+            let open = try store.queries.openItems(readBy: spec, asOf: day == context.today ? nil : day)
+            // A machine that follows another reads each day once even when nobody wrote, while there are facts to
+            // watch: a commitment can fall due on a quiet day.
+            let followedKey = MachineKey.followedRead(spec.task)
+            let followsOpenFacts = spec.follows != nil && !open.isEmpty
+            let isCaughtUp = followsOpenFacts ? try followedKey.load(from: store) == day : last != nil
+            if evidence.newLines.isEmpty, isCaughtUp {
                 phase = .upToDate
                 context.problems.dismiss()
                 return true
             }
             let reader = HelperReader(spec: spec, model: context.makeModel(try context.runner(for: .init(spec))))
-            let open = try store.queries.openItems(readBy: spec)
             let result = try await reader.read(
                 day: day, scope: scope, evidence: evidence, marked: try context.marked(), open: open)
             try store.saveReading(
                 result, of: spec, day: day, scope: scope, grant: try await context.grant(), replacing: last == nil)
             if let top = full.lines.map(\.id).max() { try lastLineKey.save(top, to: store) }
+            if followsOpenFacts { try followedKey.save(day, to: store) }
             context.reloadIfShown(day)
             phase = .read(kept: result.items.count, dropped: result.dropped)
             context.problems.dismiss()
