@@ -66,6 +66,18 @@ public struct HelperSpec: Codable, Sendable, Equatable {
             /// A short name that should stay the same over days, such as a project: the values this machine used
             /// before are shown under `set` for reuse, and a new one is allowed. Never empty.
             case label(of: String)
+            /// A choice that code sets from the spec's criteria. The model is never asked for it.
+            case computed([String])
+
+            /// The values a choice or computed field may take; nil for the other kinds.
+            public var fixedValues: [String]? {
+                switch self {
+                case .choice(let values), .computed(let values): values
+                default: nil
+                }
+            }
+
+            var isComputed: Bool { if case .computed = self { true } else { false } }
         }
 
         public var name: String
@@ -107,7 +119,7 @@ public struct HelperSpec: Codable, Sendable, Equatable {
         for field in fields {
             switch field.kind {
             case .member(let set): views["board"] = .board(groupBy: field.name, expected: set)
-            case .choice: views["by \(field.name)"] = .grouped(by: field.name)
+            case .choice, .computed: views["by \(field.name)"] = .grouped(by: field.name)
             case .label:
                 views["by \(field.name)"] = .grouped(by: field.name)
                 if lifecycle != nil { views["open by \(field.name)"] = .checklist(by: field.name) }
@@ -177,6 +189,9 @@ public struct HelperSpec: Codable, Sendable, Equatable {
     /// How many items the founder marked on other training days the machine sees as examples; nil for none. It is
     /// part of the instructions, so changing it makes a new version that earns trust again (research 20 §9.2).
     public var examples: Int? = nil
+    /// The investor's thesis: rules the model judges one by one, combined by code into the spec's computed field. Any
+    /// change to it is a new prompt version.
+    public var criteria: Criteria? = nil
     /// The model this machine reads with, as a model choice id such as "claude sonnet"; nil uses the founder's choice.
     /// Trust is counted per model, so a new runner earns trust again (research 20 §7.1).
     public var runner: String? = nil
@@ -195,6 +210,7 @@ extension HelperSpec {
             fields.contains { $0.name == field.name && $0.kind != field.kind }
         }
         changes += changedKinds.map { "changes \($0.name)" }
+        if criteria == nil, builtIn.criteria != nil { changes.append("adds criteria") }
         if lifecycle == nil, builtIn.lifecycle != nil { changes.append("lets facts open and close") }
         if lifecycle != nil, builtIn.lifecycle == nil { changes.append("stops opening and closing facts") }
         if lifecycle != nil, let next = builtIn.lifecycle, lifecycle != next {

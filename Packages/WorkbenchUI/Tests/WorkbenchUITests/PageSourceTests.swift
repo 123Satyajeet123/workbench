@@ -63,8 +63,11 @@ import WorkbenchCore
         let id = try #require(try store.queries.activities(since: .distantPast).first?.id)
         let reply = """
             {"items":[
-            {"company":"Acme","sector":"fintech","stage":"seed","from":"","rating":"hot","why":"revenue","cite":\(id),"quote":"Acme (fintech) is raising a 2M seed"},
-            {"company":"Bolt","sector":"toys","stage":"pre-seed","from":"","rating":"cold","why":"?","cite":\(id),"quote":"Bolt: we sell toys"}]}
+            {"company":"Acme","sector":"fintech","stage":"seed","from":"","cite":\(id),"quote":"Acme (fintech) is raising a 2M seed",
+            "r_stage":"yes","r_stage_quote":"raising a 2M seed","r_stage_reason":"A seed round.",
+            "r_traction":"yes","r_traction_quote":"40k MRR","r_traction_reason":"Revenue is stated."},
+            {"company":"Bolt","sector":"toys","stage":"pre-seed","from":"","cite":\(id),"quote":"Bolt: we sell toys",
+            "r_stage":"yes","r_stage_quote":"pre-seed","r_stage_reason":"","r_traction":"no","r_traction_quote":"","r_traction_reason":""}]}
             """
         let scripted = ScriptedModel(reply)
         let machine = try store.createMachine(from: .dealIntake, name: "Deal intake")
@@ -75,7 +78,8 @@ import WorkbenchCore
             makeModel: { _ in RecordedModel(scripted, store: store) }, notifier: FakeNotifier())
         await intake.read()
         #expect(intake.items.map { $0["company"] } == ["Acme"])
-        #expect(intake.items.first?["rating"] == "hot" && intake.items.first?["why"] == "revenue")
+        #expect(intake.items.first?["rating"] == "hot", "code rates it from the rule readings")
+        #expect(intake.spec.triage(of: try #require(intake.items.first))?.needsReview == false)
         #expect(intake.phase == .read(kept: 1, dropped: 1))
         #expect(MachineTemplate.all.contains(.dealIntake) && !MachineTemplate.seeded.contains(.dealIntake))
     }

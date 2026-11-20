@@ -86,8 +86,9 @@ public struct HelperReader: Sendable {
 
     /// The brief, then the rules every helper of this shape follows.
     public var instructions: String {
-        let fieldRules = spec.fields.map { field in
+        let fieldRules = spec.fields.compactMap { field -> String? in
             switch field.kind {
+            case .computed: nil
             case .text: "- \(field.name): \(field.meaning)"
             case .choice(let values): "- \(field.name): one of \(values.joined(separator: ", ")). \(field.meaning)"
             case .member(let set): "- \(field.name): exactly one name from the \(set) list. \(field.meaning)"
@@ -115,7 +116,7 @@ public struct HelperReader: Sendable {
                 ]
             }
         return """
-            \(spec.brief)
+            \(spec.brief)\(spec.criteria?.instructions ?? "")
 
             You get \(spec.source.lines)
 
@@ -184,16 +185,18 @@ public struct HelperReader: Sendable {
     }
 
     private static func values(of item: Item, spec: HelperSpec) -> String {
-        spec.fields.map { "\($0.name)=\(item[$0.name])" }.joined(separator: " ")
+        spec.fields.filter { !$0.kind.isComputed }.map { "\($0.name)=\(item[$0.name])" }.joined(separator: " ")
     }
 
     public var schema: JSONSchema {
-        let fields = spec.fields.map { field -> JSONSchema.Property in
-            switch field.kind {
-            case .text, .member, .label: .init(field.name, .string)
-            case .choice(let values): .init(field.name, .enumeration(values))
-            }
-        }
+        let fields =
+            spec.fields.compactMap { field -> JSONSchema.Property? in
+                switch field.kind {
+                case .text, .member, .label: .init(field.name, .string)
+                case .choice(let values): .init(field.name, .enumeration(values))
+                case .computed: nil
+                }
+            } + (spec.criteria?.properties ?? [])
         let cite: [JSONSchema.Property] =
             switch spec.citation {
             case .one: [.init("cite", .integer)]
@@ -244,12 +247,13 @@ public struct HelperReader: Sendable {
     ) -> Item? {
         guard let cited = cited(raw, day: day, evidence: evidence, open: open) else { return nil }
         var fields: [String: String] = [:]
-        for field in spec.fields {
+        for field in spec.fields where !field.kind.isComputed {
             guard let value = raw[field.name]?.string, fits(value, field.kind, context: evidence.context) else {
                 return nil
             }
             fields[field.name] = value
         }
+        fields.merge(spec.criteria?.readings(raw, evidence: evidence) ?? [:]) { _, reading in reading }
         if !cited.facts.isEmpty { fields[Item.factsField] = cited.facts.map(String.init).joined(separator: ",") }
         return Item(
             task: spec.task, day: day, scope: scope, source: spec.source.kind, citeFirst: cited.first,
@@ -317,7 +321,7 @@ public struct HelperReader: Sendable {
     private func fits(_ value: String, _ kind: HelperSpec.Field.Kind, context: [String: [String]]) -> Bool {
         switch kind {
         case .text(let required): !required || value.cleaned != nil
-        case .choice: true
+        case .choice, .computed: true
         case .member(let set): context[set]?.contains(value) == true
         case .label: value.cleaned != nil
         }

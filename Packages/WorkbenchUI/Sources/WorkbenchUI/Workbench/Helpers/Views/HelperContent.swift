@@ -33,6 +33,10 @@ struct HelperContent: View {
         if let notice = model.notice { NoticeRow(text: notice) { model.notice = nil } }
         if model.isTrying { TrialCard(model: model) }
         items
+        if model.spec.criteria != nil {
+            CriteriaSection(helper: model)
+            AgreementSection(agreement: model.agreement)
+        }
         MachineSettings(model: model)
     }
 

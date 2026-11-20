@@ -32,6 +32,7 @@ extension Store {
         spec.runner = machine.spec.runner
         spec.examples = machine.spec.examples
         spec.follows = machine.spec.follows ?? builtIn.follows
+        spec.criteria = machine.spec.criteria ?? builtIn.criteria
         if spec.views.values.contains(machine.spec.view) { spec.view = machine.spec.view }
         try change(machine, name: machine.name, spec: spec, state: machine.state)
     }

@@ -20,6 +20,8 @@ enum MachineKey {
     static func sites(_ task: String) -> StateKey<[String]> { .json("\(task).sites") }
     static func chats(_ task: String) -> StateKey<[WhatsAppChat]> { .json("\(task).chats") }
     static func members(_ task: String) -> StateKey<[WhatsAppMember]> { .json("\(task).members") }
+    /// The past deals with the investor's own calls: the held-out set, kept apart from every item.
+    static func agreement(_ task: String) -> StateKey<[PastDeal]> { .json("\(task).agreement") }
     /// The version a drift warning was given for.
     static func drift(_ task: String) -> StateKey<String> { .text("\(task).drift") }
 }

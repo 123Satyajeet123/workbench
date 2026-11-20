@@ -92,7 +92,7 @@ extension HelperSpec {
         fields.compactMap { field in
             switch field.kind {
             case .member, .label: field.name
-            case .text, .choice: nil
+            case .text, .choice, .computed: nil
             }
         }
     }

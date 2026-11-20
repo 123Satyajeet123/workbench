@@ -164,6 +164,12 @@ final class Crew {
         reload()
     }
 
+    /// New criteria are a new prompt version, as a new brief is.
+    func setCriteria(_ helper: HelperModel, _ criteria: Criteria) {
+        problems.attempt("save \(helper.name)'s criteria") { try store.setCriteria(helper.machine, criteria) }
+        reload()
+    }
+
     func show(_ helper: HelperModel, as view: String) {
         problems.attempt("change \(helper.name)'s view") { try store.show(helper.machine, as: view) }
         reload()

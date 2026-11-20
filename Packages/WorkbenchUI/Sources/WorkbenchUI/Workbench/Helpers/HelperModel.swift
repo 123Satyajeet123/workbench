@@ -11,6 +11,7 @@ final class HelperModel {
     let reading: HelperReading
     let improvement: HelperImprovement
     let schedule: HelperSchedule
+    let agreement: HelperAgreement
 
     private(set) var items: [Item] = []
     /// Items still open from every day, for a machine whose items open and close.
@@ -42,6 +43,7 @@ final class HelperModel {
         self.reading = reading
         improvement = HelperImprovement(context: shared)
         schedule = HelperSchedule(context: shared, reading: reading)
+        agreement = HelperAgreement(context: shared)
         shared.reload = { [weak self] in self?.reload() }
         reload()
     }
@@ -95,6 +97,15 @@ final class HelperModel {
 
     func items(on day: WorkDay) -> [Item] { shared.items(on: day) }
 
+    /// The machine's items of the last `days` days, as read: no call is set from the criteria.
+    func items(since days: Int) -> [Item] {
+        var found: [Item] = []
+        attempt("read the deals") {
+            found = try shared.store.queries.items(of: spec.task, since: today.adding(days: -days))
+        }
+        return found
+    }
+
     func missing(on day: WorkDay) -> [String] { shared.missing(on: day) }
 
     /// The record after a rename, an edit or a pause. The source stays, so a chosen chat stays chosen.
@@ -111,7 +122,7 @@ final class HelperModel {
 
     func reload() {
         attempt("read the day") {
-            items = try shared.store.queries.items(of: spec.task, day: day, scope: scope)
+            items = try shared.store.queries.items(of: spec.task, day: day, scope: scope).map(spec.scored)
             if let lifecycle = spec.lifecycle {
                 open = try shared.store.queries.openItems(of: spec.task, lifecycle: lifecycle)
                 closed = try shared.store.queries.closedItems(of: spec.task, from: day.start, to: day.end)

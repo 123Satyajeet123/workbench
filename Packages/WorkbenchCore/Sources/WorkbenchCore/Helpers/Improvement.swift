@@ -120,10 +120,11 @@ public struct Improver: Sendable {
     }
 
     static func input(spec: HelperSpec, marked: [Item]) -> String {
-        let fields = spec.fields.map { "- \($0.name): \($0.meaning)" }
+        let shown = spec.fields.filter { !$0.kind.isComputed }
+        let fields = shown.map { "- \($0.name): \($0.meaning)" }
         let lines = marked.compactMap { item -> String? in
             guard let id = item.id else { return nil }
-            let values = spec.fields.map { "\($0.name)=\(item[$0.name])" }.joined(separator: " ")
+            let values = shown.map { "\($0.name)=\(item[$0.name])" }.joined(separator: " ")
             return "[\(id)] \(item.state == .confirmed ? "right" : "wrong") \(values) — \"\(item.quote)\""
         }
         return """

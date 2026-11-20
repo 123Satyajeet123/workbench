@@ -89,15 +89,14 @@ extension HelperSpec {
         ],
         citation: .one, view: .table, title: "title", badges: ["who"], tones: [:], itemsNoun: "items", nudge: nil)
 
-    /// VC pack: inbound deals from the investor's mail pages, rated against the investor's own criteria.
+    /// VC pack: inbound deals from the investor's mail pages, judged against the investor's own criteria. The model
+    /// judges each rule with a quote; code makes the hot, warm or cold call from the rule results. The starter rules
+    /// only mirror the old placeholder: the investor edits them into their own thesis.
     public static let dealIntake = HelperSpec(
         task: "vc.deals", source: .pageText,
         brief: """
-            You triage inbound deals for a venture investor from the mail pages they read. For each startup that \
-            pitches, asks for a meeting or is introduced, give one item. Rate it against the investor's criteria \
-            below and say which criterion decided the rating. Criteria (the investor edits these): hot = fits our \
-            sectors and stage, and shows revenue or strong traction; warm = fits sector or stage, but not both, or \
-            traction is unclear; cold = outside our sectors or stage.
+            You read inbound deals for a venture investor from the mail pages they read. For each startup that \
+            pitches, asks for a meeting or is introduced, give one item with what the page says about it.
             """,
         fields: [
             Field("company", .text(required: true), meaning: "The startup's name."),
@@ -106,11 +105,20 @@ extension HelperSpec {
                 "stage", .choice(["pre-seed", "seed", "series A", "later", "unknown"]),
                 meaning: "The round it raises, as the mail says; unknown when not said."),
             Field("from", .text(required: false), meaning: "Who wrote or introduced it; empty when not said."),
-            Field("rating", .choice(["hot", "warm", "cold"]), meaning: "The rating under the criteria."),
-            Field("why", .text(required: true), meaning: "The criterion that decided the rating, in a few words."),
+            Field(
+                "rating", .computed(["hot", "warm", "cold"]),
+                meaning: "Hot, warm or cold, from the criteria, by the table."),
         ],
-        citation: .one, view: .table, title: "company", badges: ["rating", "stage"],
-        tones: ["hot": .good, "warm": .neutral, "cold": .bad], itemsNoun: "deals", nudge: nil)
+        citation: .one, view: .grouped(by: "rating"), title: "company", badges: ["rating", "stage"],
+        tones: ["hot": .good, "warm": .neutral, "cold": .bad], itemsNoun: "deals", nudge: nil,
+        criteria: Criteria(rules: [
+            Rule(
+                id: "r_stage", role: .must,
+                test: .text(TextTest(says: "The startup raises a pre-seed, seed or Series A round.", wants: true))),
+            Rule(
+                id: "r_traction", role: .plus,
+                test: .text(TextTest(says: "The startup shows revenue or strong traction.", wants: true))),
+        ]))
 
     /// VC pack: what a founder's profile page says, to check against what the pitch claims.
     public static let founderCheck = HelperSpec(

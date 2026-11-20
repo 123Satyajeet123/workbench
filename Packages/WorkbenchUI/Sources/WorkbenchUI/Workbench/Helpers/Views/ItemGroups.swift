@@ -21,10 +21,7 @@ struct ItemGroups: View {
     }
 
     private var values: [String] {
-        let declared: [String] =
-            model.spec.fields.first { $0.name == field }.map { field in
-                if case .choice(let values) = field.kind { values } else { [] }
-            } ?? []
+        let declared = model.spec.fields.first { $0.name == field }?.kind.fixedValues ?? []
         return declared + Set(model.items.map { $0[field] }).subtracting(declared).sorted()
     }
 }

@@ -26,6 +26,7 @@ struct ItemRow: View {
                 }
                 Text(showsSpan ? "“\(item.quote)”" : "“\(item.quote)” · \(time(item.start))")
                     .textStyle(.callout).foregroundStyle(.supporting).textSelection(.enabled)
+                if let triage = model.spec.triage(of: item) { WhyDisclosure(triage: triage) }
                 if let note = hiddenNote {
                     Label(note, systemImage: "eye.slash").textStyle(.caption).foregroundStyle(.supporting)
                 }
