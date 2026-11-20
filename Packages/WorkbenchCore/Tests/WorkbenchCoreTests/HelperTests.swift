@@ -29,7 +29,7 @@ private let screen = EvidenceSet(lines: [
 ])
 
 private func entry(_ person: String, _ kind: String = "done", cite: Int, quote: String, text: String = "t") -> String {
-    #"{"person":"\#(person)","kind":"\#(kind)","text":"\#(text)","eta":"","cite":\#(cite),"quote":"\#(quote)"}"#
+    #"{"person":"\#(person)","project":"Login","kind":"\#(kind)","text":"\#(text)","eta":"","stance":"said","cite":\#(cite),"quote":"\#(quote)"}"#
 }
 
 private func block(_ first: Int, _ last: Int, task: String = "Work", quote: String) -> String {
@@ -39,7 +39,8 @@ private func block(_ first: Int, _ last: Int, task: String = "Work", quote: Stri
 private func read(
     _ spec: HelperSpec, _ items: [String], evidence: EvidenceSet, store: Store? = nil
 ) async throws -> (HelperReader.Result, ScriptedModel) {
-    let model = ScriptedModel(#"{"items":[\#(items.joined(separator: ","))]}"#)
+    let closes = spec.lifecycle == nil ? "" : #","closes":[]"#
+    let model = ScriptedModel(#"{"items":[\#(items.joined(separator: ","))]\#(closes)}"#)
     let reader = HelperReader(spec: spec, model: RecordedModel(model, store: try store ?? makeStore()))
     return (try await reader.read(day: day, scope: "team", evidence: evidence), model)
 }

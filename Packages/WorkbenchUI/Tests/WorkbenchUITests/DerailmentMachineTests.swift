@@ -8,19 +8,19 @@ import WorkbenchCore
 
 @testable import WorkbenchUI
 
-/// Sentinel, the off-track watch: it follows Atlas's open facts and tells the founder what went wrong.
+/// Sentinel, the off-track watch: it follows Pip's open facts and tells the founder what went wrong.
 @Suite struct DerailmentMachineTests {
     private let noon: Date = {
         Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: Date(timeIntervalSince1970: 1_790_000_000))!
     }()
 
-    private static let atlasKey = "You keep a founder's work context"
+    private static let pipKey = "You keep the facts of a founder's company"
     private static let sentinelKey = "You watch a founder's work for what is going off track"
     private static let overdue =
         #"{"items":[{"kind":"overdue","project":"Login API","severity":"act","next":"Ask Asha for the login API","reason":"Asked for yesterday, no sign it shipped","facts":["F1"],"lines":[],"quote":"login API done"}]}"#
 
     private struct Setup {
-        let atlas: HelperModel
+        let pip: HelperModel
         let sentinel: HelperModel
         let model: KeyedModel
         let notifier: FakeNotifier
@@ -29,14 +29,14 @@ import WorkbenchCore
         let store: Store
     }
 
-    /// Atlas read yesterday and holds one open commitment; Sentinel follows it. The clock is then moved to today.
+    /// Pip read yesterday and holds one open commitment; Sentinel follows it. The clock is then moved to today.
     private func setup() async throws -> Setup {
         let clock = TestClock(noon)
         let store = try scratchStore(clock: { clock.now })
         let container = try whatsApp(at: noon)
         let model = KeyedModel([
-            Self.atlasKey:
-                #"{"items":[{"kind":"commitment","text":"Ship the login API","who":"Asha","topic":"Login API","due":"","stance":"said","cite":11,"quote":"login API done"}],"closes":[]}"#,
+            Self.pipKey:
+                #"{"items":[{"kind":"commitment","text":"Ship the login API","person":"Asha","project":"Login API","eta":"","stance":"said","cite":11,"quote":"login API done"}],"closes":[]}"#,
             Self.sentinelKey: Self.overdue,
         ])
         let notifier = FakeNotifier()
@@ -51,21 +51,21 @@ import WorkbenchCore
                 machine: machine, source: source, store: store, makeModel: { _ in RecordedModel(model, store: store) },
                 notifier: notifier)
         }
-        let atlas = try helper(.context, "Atlas")
-        await atlas.read()
-        var followingAtlas = HelperSpec.derailment
-        followingAtlas.follows = atlas.spec.task
-        let sentinel = try helper(followingAtlas, "Sentinel")
+        let pip = try helper(.team, "Pip")
+        await pip.read()
+        var followingPip = HelperSpec.derailment
+        followingPip.follows = pip.spec.task
+        let sentinel = try helper(followingPip, "Sentinel")
         clock.set(noon.addingTimeInterval(86_400))
         try addMessage(40, "lunch at two", at: clock.now, to: container)
         return Setup(
-            atlas: atlas, sentinel: sentinel, model: model, notifier: notifier, container: container, clock: clock,
+            pip: pip, sentinel: sentinel, model: model, notifier: notifier, container: container, clock: clock,
             store: store)
     }
 
     @Test func aCommitmentFromYesterdayIsFlaggedOverdueOnceAndTheAlertComesOnlyForTheNewFinding() async throws {
         let s = try await setup()
-        #expect(s.atlas.open.map { $0["text"] } == ["Ship the login API"])
+        #expect(s.pip.open.map { $0["text"] } == ["Ship the login API"])
         s.sentinel.watch = WatchSchedule(isOn: true, everyMinutes: 60, fromHour: 9, untilHour: 22)
         s.sentinel.show(WorkDay(containing: s.clock.now))
         await s.sentinel.readIfDue()
@@ -75,14 +75,14 @@ import WorkbenchCore
         #expect(input.contains("kind=commitment"))
         let found = try #require(s.sentinel.items.first)
         #expect(s.sentinel.items.count == 1 && found["kind"] == "overdue" && found["severity"] == "act")
-        let atlasFact = try #require(s.atlas.open.first?.id)
-        #expect(found["facts"] == "\(atlasFact)")
+        let pipFact = try #require(s.pip.open.first?.id)
+        #expect(found["facts"] == "\(pipFact)")
         #expect(s.notifier.posted.map(\.body) == ["Ask Asha for the login API"], "act is the bad tone: one alert")
 
         s.clock.set(s.clock.now.addingTimeInterval(3700))
         try addMessage(41, "still nothing", at: s.clock.now, to: s.container)
         await s.sentinel.readIfDue()
-        #expect(s.model.calls.withLock { $0 } == 3, "Atlas once, Sentinel twice")
+        #expect(s.model.calls.withLock { $0 } == 3, "Pip once, Sentinel twice")
         #expect(s.sentinel.items.count == 1, "the same reply a second time adds nothing")
         #expect(s.notifier.posted.count == 1, "and tells the founder nothing")
     }
@@ -107,7 +107,7 @@ import WorkbenchCore
         s.clock.set(noon.addingTimeInterval(2 * 86_400))
         watching(s)
         await s.sentinel.readIfDue()
-        #expect(s.model.calls.withLock { $0 } == 2, "Atlas once, Sentinel once, though nobody wrote")
+        #expect(s.model.calls.withLock { $0 } == 2, "Pip once, Sentinel once, though nobody wrote")
         let input = try #require(s.model.inputs.withLock { $0.last })
         #expect(input.contains("Work day: \(WorkDay(containing: s.clock.now))") && input.contains("F1 ("))
         #expect(s.sentinel.items.count == 1 && s.sentinel.items.first?["kind"] == "overdue")
@@ -124,17 +124,17 @@ import WorkbenchCore
 
     @Test func aQuietDayRunsNoModelWhenTheFollowedMachineHasNothingOpen() async throws {
         let s = try await setup()
-        s.atlas.close(try #require(s.atlas.open.first), as: "kept")
+        s.pip.close(try #require(s.pip.open.first), as: "kept")
         s.clock.set(noon.addingTimeInterval(2 * 86_400))
         watching(s)
         await s.sentinel.readIfDue()
-        #expect(s.model.calls.withLock { $0 } == 1, "only Atlas's own first reading ran")
+        #expect(s.model.calls.withLock { $0 } == 1, "only Pip's own first reading ran")
         #expect(s.sentinel.items.isEmpty)
     }
 
     @Test func aReadingOfAPastDayIsGivenTheFactsThatWereOpenThenEvenIfClosedSince() async throws {
         let s = try await setup()
-        s.atlas.close(try #require(s.atlas.open.first), as: "kept")
+        s.pip.close(try #require(s.pip.open.first), as: "kept")
         s.sentinel.show(WorkDay(containing: noon))
         await s.sentinel.read()
         let past = try #require(s.model.inputs.withLock { $0.last })
@@ -165,34 +165,45 @@ import WorkbenchCore
         let yesterday = WorkDay(containing: noon)
         try #require(EvalSplit(yesterday) == .dev, "the fixture day must be a training day")
         s.clock.set(noon.addingTimeInterval(3600))
-        let live = try #require(s.atlas.open.first)
+        let live = try #require(s.pip.open.first)
         s.model.replies.withLock {
-            $0[Self.atlasKey] =
+            $0[Self.pipKey] =
                 #"{"items":[],"closes":[{"handle":"F1","outcome":"kept","cite":11,"quote":"login API done"}]}"#
         }
-        s.atlas.show(yesterday)
-        await s.atlas.startTrial(brief: HelperSpec.context.brief + " Be brief.")
+        s.pip.show(yesterday)
+        await s.pip.startTrial(brief: HelperSpec.team.brief + " Be brief.")
         let input = try #require(s.model.inputs.withLock { $0.last })
         #expect(input.contains("Still open from earlier days:"), "the trial sees what was open")
-        #expect(try s.store.queries.openItems(readBy: s.atlas.spec).map(\.id) == [live.id], "the live item stays open")
+        #expect(try s.store.queries.openItems(readBy: s.pip.spec).map(\.id) == [live.id], "the live item stays open")
     }
 
     @Test func aMachineThatFollowsIsCreatedOnlyWhenAMachineWithALifecycleExists() throws {
         let store = try scratchStore()
-        try store.seedMachines(MachineTemplate.seeded.map { ($0.spec, $0.name) })
+        try store.seedMachines([(.timeline, "Timeline")])
         let crew = Crew(
             store: store, capture: try CaptureService(store: store), founder: { "" }, notifier: FakeNotifier())
         #expect(crew.followable == nil)
         #expect(crew.create(from: .derailment, name: "") == nil)
-        #expect(crew.problem == Crew.nothingToFollow && crew.machines.count == 2)
+        #expect(crew.problem == Crew.nothingToFollow && crew.machines.count == 1)
 
-        let atlasID = try #require(crew.create(from: .workContext, name: "Atlas"))
-        let atlas = try #require(crew.helper(id: atlasID))
-        #expect(crew.followable === atlas)
+        let pipID = try #require(crew.create(from: .team, name: "Pip"))
+        let pip = try #require(crew.helper(id: pipID))
+        #expect(crew.followable === pip)
         let sentinelID = try #require(crew.create(from: .derailment, name: ""))
         let sentinel = try #require(crew.helper(id: sentinelID))
-        #expect(sentinel.name == "Sentinel" && sentinel.spec.follows == atlas.spec.task)
+        #expect(sentinel.name == "Sentinel" && sentinel.spec.follows == pip.spec.task)
         #expect(MachineTemplate.of(sentinel.machine)?.role == "Off-track watch")
+    }
+
+    @Test func sentinelFollowsPipFromAStoreThatStartsWithTheSeededMachines() throws {
+        let store = try scratchStore()
+        try store.seedMachines(MachineTemplate.seeded.map { ($0.spec, $0.name) })
+        let crew = Crew(
+            store: store, capture: try CaptureService(store: store), founder: { "" }, notifier: FakeNotifier())
+        let sentinelID = try #require(crew.create(from: .derailment, name: ""))
+        let sentinel = try #require(crew.helper(id: sentinelID))
+        #expect(crew.followable?.spec.task == HelperSpec.team.task)
+        #expect(sentinel.spec.follows == HelperSpec.team.task, "the first machine with a lifecycle is Pip")
     }
 
     @Test func theFindingsPageGroupsBySeverityAndShowsTheNextStep() async throws {

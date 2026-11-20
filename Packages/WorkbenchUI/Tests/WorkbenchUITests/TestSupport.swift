@@ -165,6 +165,16 @@ func addPhoto(_ text: String, to container: URL, at date: Date) throws -> Int64 
 }
 
 /// Adds a text message from Asha (or the founder when `member` is nil) to a fixture container.
+/// Adds an active member to a group of the fixture container; `chat` is the group's session number.
+func addGroupMember(_ id: Int64, chat: Int, jid: String, name: String, to container: URL) throws {
+    let sql = "INSERT INTO ZWAGROUPMEMBER VALUES (\(id), \(chat), '\(jid)', '\(name)', NULL, 1);"
+    var db: OpaquePointer?
+    defer { sqlite3_close(db) }
+    guard sqlite3_open(container.appending(path: "ChatStorage.sqlite").path, &db) == SQLITE_OK,
+        sqlite3_exec(db, sql, nil, nil, nil) == SQLITE_OK
+    else { throw CocoaError(.fileWriteUnknown) }
+}
+
 func addMessage(_ id: Int64, _ text: String, member: Int? = 1, at date: Date, to container: URL) throws {
     let fromMe = member == nil ? 1 : 0
     let sql = """

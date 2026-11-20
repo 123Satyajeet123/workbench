@@ -50,10 +50,13 @@ public struct ChatSelection: Codable, Sendable, Equatable {
 public struct WhatsAppMember: Codable, Sendable, Equatable {
     public var jid: String
     public var name: String
+    /// The IDs of the chosen chats the person is in now; nil for a person stored before this was kept.
+    public var chats: [String]?
 
-    public init(jid: String, name: String) {
+    public init(jid: String, name: String, chats: [String]? = nil) {
         self.jid = jid
         self.name = name
+        self.chats = chats
     }
 }
 
@@ -174,20 +177,24 @@ public struct WhatsAppChatReader: Sendable {
                 .integer(Int64(MessageType.voiceNote)), .integer(Int64(MessageType.document)),
                 .real(start.timeIntervalSinceReferenceDate), .real(end.timeIntervalSinceReferenceDate),
             ])
-        let (names, active) = try memberNames(snapshot)
-        let members = active.compactMap { jid in names[jid].map { WhatsAppMember(jid: jid, name: $0) } }
-            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        let (names, active, chats) = try memberNames(snapshot)
+        let members = active.compactMap { jid in
+            names[jid].map { WhatsAppMember(jid: jid, name: $0, chats: chats[jid, default: []]) }
+        }
+        .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
         return (rows.compactMap { entry($0, names: names) }, members)
     }
 
-    /// The name of everyone in the chats, by ID, and the IDs of those in them now: every member a group ever had, and
-    /// the other person of each direct chat. Names come from the founder's address book as WhatsApp keeps it, then
+    /// The name of everyone in the chats, by ID, the IDs of those in them now, and the chats each of those is in now:
+    /// every member a group ever had, and the other person of each direct chat. Names come from the founder's address book as WhatsApp keeps it, then
     /// the name a person chose, then WhatsApp's contact name; see `MemberNames`.
-    private func memberNames(_ snapshot: SQLiteSnapshot) throws -> (names: [String: String], active: [String]) {
+    private func memberNames(_ snapshot: SQLiteSnapshot) throws -> (
+        names: [String: String], active: [String], chats: [String: [String]]
+    ) {
         let marks = Array(repeating: "?", count: chatJIDs.count).joined(separator: ",")
         let groupRows = try snapshot.rows(
             """
-            SELECT g.ZMEMBERJID, g.ZCONTACTNAME, p.ZPUSHNAME, g.ZISACTIVE
+            SELECT g.ZMEMBERJID, g.ZCONTACTNAME, p.ZPUSHNAME, g.ZISACTIVE, s.ZCONTACTJID
             FROM ZWAGROUPMEMBER g
             JOIN ZWACHATSESSION s ON s.Z_PK = g.ZCHATSESSION
             LEFT JOIN ZWAPROFILEPUSHNAME p ON p.ZJID = g.ZMEMBERJID
@@ -196,7 +203,7 @@ public struct WhatsAppChatReader: Sendable {
             binding: chatJIDs.map { .text($0) } + [.integer(Int64(SessionType.group))])
         let directRows = try snapshot.rows(
             """
-            SELECT s.ZCONTACTJID, s.ZPARTNERNAME, p.ZPUSHNAME, 1 FROM ZWACHATSESSION s
+            SELECT s.ZCONTACTJID, s.ZPARTNERNAME, p.ZPUSHNAME, 1, s.ZCONTACTJID FROM ZWACHATSESSION s
             LEFT JOIN ZWAPROFILEPUSHNAME p ON p.ZJID = s.ZCONTACTJID
             WHERE s.ZCONTACTJID IN (\(marks)) AND s.ZSESSIONTYPE = ?
             """,
@@ -204,8 +211,12 @@ public struct WhatsAppChatReader: Sendable {
         // One person per ID, in whichever chats: in a chat now if in any of them now.
         var byID: [String: (jid: String, contactName: String?, pushName: String?, active: Bool)] = [:]
         var order: [String] = []
+        var chats: [String: [String]] = [:]
         for row in groupRows + directRows {
             guard let jid = row.text(0) else { continue }
+            if row.integer(3) == 1, let chat = row.text(4), !chats[jid, default: []].contains(chat) {
+                chats[jid, default: []].append(chat)
+            }
             if let known = byID[jid] {
                 byID[jid] = (
                     jid, known.contactName ?? row.text(1), known.pushName ?? row.text(2),
@@ -220,7 +231,7 @@ public struct WhatsAppChatReader: Sendable {
         let book = Self.addressBook(container, for: members.map(\.jid))
         let names = MemberNames.resolve(
             members.map { (jid: $0.jid, candidates: [book[$0.jid], $0.pushName, $0.contactName]) })
-        return (names, members.filter(\.active).map(\.jid))
+        return (names, members.filter(\.active).map(\.jid), chats)
     }
 
     /// Names from the founder's address book, by member ID, as WhatsApp keeps them in `ContactsV2.sqlite`. Empty

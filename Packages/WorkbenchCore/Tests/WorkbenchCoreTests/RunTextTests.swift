@@ -89,7 +89,7 @@ struct RunTextTests {
 
     @Test func aStoredRunReplaysToTheSameItems() async throws {
         let reply =
-            #"{"items":[{"person":"Asha","kind":"done","text":"login done","eta":"","cite":11,"quote":"login"}]}"#
+            #"{"items":[{"person":"Asha","project":"Login","kind":"done","text":"login done","eta":"","stance":"said","cite":11,"quote":"login"}],"closes":[]}"#
         let evidence = EvidenceSet(
             lines: [Evidence(id: 11, start: t0, line: "Asha: login API done", quotable: ["login API done"])],
             context: ["members": ["Asha"]])

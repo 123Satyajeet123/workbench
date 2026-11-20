@@ -203,7 +203,7 @@ private struct MachineSheet: View {
         .onAppear(perform: fill)
     }
 
-    /// A new machine that follows another has nothing to follow until a work-context machine exists.
+    /// A new machine that follows another has nothing to follow until a machine with a lifecycle (Pip) exists.
     private var lacksFollowable: Bool {
         guard case .new = edit else { return false }
         return template.spec.needsFollowed && crew.followable == nil

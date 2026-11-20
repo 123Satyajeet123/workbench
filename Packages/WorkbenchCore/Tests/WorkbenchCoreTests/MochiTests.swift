@@ -119,7 +119,10 @@ import Testing
 
 @Suite struct ViewChoiceTests {
     @Test func eachTemplateOffersTheViewsItsFieldsCanFill() {
-        #expect(Set(HelperSpec.team.views.keys) == ["table", "board", "by kind"])
+        #expect(
+            Set(HelperSpec.team.views.keys) == [
+                "table", "board", "by kind", "by project", "by stance", "open by project",
+            ])
         #expect(Set(HelperSpec.timeline.views.keys) == ["table", "timeline"], "no choice field, no grouped view")
         #expect(HelperSpec.team.views["board"] == .board(groupBy: "person", expected: "members"))
         #expect(Set(HelperSpec.dealIntake.views.keys) == ["table", "by stage", "by rating"])

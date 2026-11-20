@@ -52,7 +52,7 @@ final class Crew {
     var followable: HelperModel? { machines.first { $0.spec.lifecycle != nil } }
 
     static let nothingToFollow =
-        "Add a work-context machine first. This machine follows its open commitments, questions and decisions."
+        "Add Pip first. This machine follows its open plans, blockers, commitments, questions and decisions."
 
     func helper(id: Int64) -> HelperModel? { machines.first { $0.machine.id == id } }
 

@@ -111,6 +111,8 @@ import WorkbenchCore
         #expect(
             notice.sender != .member(jid: groupJID, name: MemberNames.fallback(for: groupJID)), "a group is no person")
         #expect(members.map(\.name) == ["Asha", "Bharat", "Dad"], "Dad is in two groups, once, without a suffix")
+        #expect(members.first { $0.name == "Dad" }?.chats == [otherGroupJID], "Dad left the first group")
+        #expect(members.first { $0.name == "Bharat" }?.chats?.contains("b@s.whatsapp.net") == true)
         await #expect(throws: (any Error).self, "every chat must be allowed") {
             _ = try await WhatsAppChatReader(
                 container: fixture.container, chatJIDs: [groupJID, "z@s.whatsapp.net"], policy: policy

@@ -8,12 +8,14 @@ private let second = first.adding(days: 1)
 private func at(_ day: WorkDay, _ minutes: Double) -> Date { day.start.addingTimeInterval(minutes * 60) }
 private let chatGrant = grant(.whatsapp, label: "work")
 
-private let dayOne = EvidenceSet(lines: [
-    Evidence(
-        id: 1, start: at(first, 600), line: "Asha: I will send the deck by Friday",
-        quotable: ["I will send the deck by Friday"]),
-    Evidence(id: 2, start: at(first, 610), line: "Raj: do we hire a designer?", quotable: ["do we hire a designer?"]),
-])
+private let dayOne = EvidenceSet(
+    lines: [
+        Evidence(
+            id: 1, start: at(first, 600), line: "Asha: I will send the deck by Friday",
+            quotable: ["I will send the deck by Friday"]),
+        Evidence(
+            id: 2, start: at(first, 610), line: "Raj: do we hire a designer?", quotable: ["do we hire a designer?"]),
+    ], context: ["members": ["Asha", "Raj"]])
 
 /// Lines 1 to 20 were read before; 21 and 22 are new.
 private let dayTwo = EvidenceSet(
@@ -34,17 +36,17 @@ private func finding(
 private func reply(_ findings: String...) -> String { #"{"items":["# + findings.joined(separator: ",") + "]}" }
 
 @Suite struct DerailmentTests {
-    /// A store with Atlas holding two open facts from day one, and a Sentinel spec that follows it.
+    /// A store with Pip holding two open facts from day one, and a Sentinel spec that follows it.
     private func watch() async throws -> (store: Store, sentinel: HelperSpec) {
         let store = try makeStore()
-        let atlas = try store.createMachine(from: .context, name: "Atlas")
+        let pip = try store.createMachine(from: .team, name: "Pip")
         let factsReply =
-            #"{"items":[{"kind":"commitment","text":"Send the deck","who":"Asha","topic":"Deck","due":"Fri 25 Sep","stance":"said","cite":1,"quote":"send the deck"},{"kind":"question","text":"Hire a designer?","who":"Raj","topic":"Team","due":"","stance":"said","cite":2,"quote":"hire a designer?"}],"closes":[]}"#
-        let reader = HelperReader(spec: atlas.spec, model: RecordedModel(ScriptedModel(factsReply), store: store))
+            #"{"items":[{"kind":"commitment","text":"Send the deck","person":"Asha","project":"Deck","eta":"Fri 25 Sep","stance":"said","cite":1,"quote":"send the deck"},{"kind":"question","text":"Hire a designer?","person":"Raj","project":"Team","eta":"","stance":"said","cite":2,"quote":"hire a designer?"}],"closes":[]}"#
+        let reader = HelperReader(spec: pip.spec, model: RecordedModel(ScriptedModel(factsReply), store: store))
         let result = try await reader.read(day: first, scope: "work", evidence: dayOne)
-        try store.saveReading(result, of: atlas.spec, day: first, scope: "work", grant: chatGrant)
+        try store.saveReading(result, of: pip.spec, day: first, scope: "work", grant: chatGrant)
         var sentinel = HelperSpec.derailment
-        sentinel.follows = atlas.task
+        sentinel.follows = pip.task
         return (store, sentinel)
     }
 
@@ -61,9 +63,9 @@ private func reply(_ findings: String...) -> String { #"{"items":["# + findings.
         let (store, sentinel) = try await watch()
         let (result, model) = try await read(store, sentinel, reply(finding()))
         let input = try #require(model.inputs.withLock { $0.first })
-        #expect(input.contains("Still open from earlier days:\nF1 (\(first)) due=Fri 25 Sep kind=commitment"))
-        #expect(input.contains(#"stance=said text=Send the deck topic=Deck who=Asha — "send the deck""#))
-        #expect(input.contains("F2 (\(first)) due= kind=question"))
+        #expect(input.contains("Still open from earlier days:\nF1 (\(first)) eta=Fri 25 Sep kind=commitment"))
+        #expect(input.contains(#"person=Asha project=Deck stance=said text=Send the deck — "send the deck""#))
+        #expect(input.contains("F2 (\(first)) eta= kind=question"))
         #expect(result.items.count == 1 && result.dropped == 0)
 
         try store.saveReading(result, of: sentinel, day: second, scope: "work", grant: chatGrant, replacing: false)
@@ -193,7 +195,7 @@ private func reply(_ findings: String...) -> String { #"{"items":["# + findings.
         let (result, model) = try await read(store, sentinel, reply(silent), day: second, evidence: quietDay)
         #expect(model.inputs.withLock { $0.count } == 1)
         let input = try #require(model.inputs.withLock { $0.first })
-        #expect(input.contains("Work day: \(second)") && input.contains("F1 (\(first)) due=Fri 25 Sep"))
+        #expect(input.contains("Work day: \(second)") && input.contains("F1 (\(first)) eta=Fri 25 Sep"))
         let item = try #require(result.items.first)
         #expect(result.items.count == 1 && result.run != nil)
         #expect(item.start == second.start && item.end == second.start && item.citeFirst == 0)
@@ -210,7 +212,7 @@ private func reply(_ findings: String...) -> String { #"{"items":["# + findings.
 
         let team = ScriptedModel(reply())
         let open = try store.queries.openItems(readBy: sentinel)
-        let teamResult = try await HelperReader(spec: .team, model: RecordedModel(team, store: store))
+        let teamResult = try await HelperReader(spec: .pages, model: RecordedModel(team, store: store))
             .read(day: second, scope: "work", evidence: quietDay, open: open)
         #expect(
             teamResult.run == nil && team.inputs.withLock { $0.count } == 0,
@@ -219,18 +221,18 @@ private func reply(_ findings: String...) -> String { #"{"items":["# + findings.
 
     @Test func aMachineWithNoFollowsOrLifecycleIsNotShownOpenItemsAndKeepsItsRules() async throws {
         let store = try makeStore()
-        let team = HelperReader(spec: .team, model: RecordedModel(ScriptedModel("{}"), store: store))
+        let team = HelperReader(spec: .pages, model: RecordedModel(ScriptedModel("{}"), store: store))
         #expect(team.instructions.contains("Return no item"))
         #expect(!team.instructions.contains("another machine's record"))
-        #expect(HelperReader.open([], spec: .team) == "")
+        #expect(HelperReader.open([], spec: .pages) == "")
 
         let model = ScriptedModel(#"{"items":[]}"#)
-        let reader = HelperReader(spec: .team, model: RecordedModel(model, store: store))
+        let reader = HelperReader(spec: .pages, model: RecordedModel(model, store: store))
         let (store2, sentinel) = try await watch()
         let open = try store2.queries.openItems(readBy: sentinel)
         _ = try await reader.read(day: second, scope: "work", evidence: dayTwo, open: open)
         #expect(try #require(model.inputs.withLock { $0.first }).contains("Still open") == false)
-        #expect(try store2.queries.openItems(readBy: .team).isEmpty)
+        #expect(try store2.queries.openItems(readBy: .pages).isEmpty)
     }
 
     @Test func aMachineThatFollowsNothingThatExistsSeesNothing() throws {
@@ -262,6 +264,6 @@ private func reply(_ findings: String...) -> String { #"{"items":["# + findings.
         #expect(spec.tones == ["act": .bad, "watch": .attention, "info": .neutral])
         #expect(spec.view == .grouped(by: "severity"))
         #expect(spec.views["by severity"] == .grouped(by: "severity"))
-        #expect(!HelperSpec.context.needsFollowed)
+        #expect(!HelperSpec.team.needsFollowed)
     }
 }

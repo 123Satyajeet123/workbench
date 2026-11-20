@@ -25,15 +25,16 @@ struct ItemBoard: View {
         }
     }
 
-    /// People with items: expected names in their order, then any other name an item gives.
-    private var groups: [String] {
-        let named = Set(model.items.map { $0[field] })
-        let names = model.context[expected] ?? []
-        return names.filter(named.contains) + named.subtracting(names).sorted()
-    }
+    private var groups: [String] { Self.groups(of: model.items, field: field, expected: model.context[expected] ?? []) }
 
     private var silent: [String] {
         let named = Set(model.items.map { $0[field] })
         return (model.context[expected] ?? []).filter { !named.contains($0) }
+    }
+
+    /// People with items: expected names in their order, then any other name an item gives.
+    static func groups(of items: [Item], field: String, expected names: [String]) -> [String] {
+        let named = Set(items.map { $0[field] })
+        return names.filter(named.contains) + named.subtracting(names).sorted()
     }
 }

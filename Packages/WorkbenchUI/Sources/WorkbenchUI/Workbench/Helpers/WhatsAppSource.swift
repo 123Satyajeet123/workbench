@@ -14,6 +14,8 @@ final class WhatsAppSource: MachineSource {
     /// The chats a rule would choose, shown before the founder confirms.
     private(set) var matching: [WhatsAppChat] = []
     private(set) var members: [WhatsAppMember] = []
+    /// The WhatsApp IDs of the teammates the founder set up and linked, as of the last read.
+    private(set) var teamHandles: Set<String> = []
 
     @ObservationIgnored private let store: Store
     @ObservationIgnored private let capture: CaptureService
@@ -34,6 +36,7 @@ final class WhatsAppSource: MachineSource {
         membersKey = MachineKey.members(task)
         chats = try chatsKey.load(from: store) ?? []
         members = try membersKey.load(from: store) ?? []
+        try loadTeamHandles()
     }
 
     /// The one chosen group, for a machine that reads one.
@@ -43,7 +46,17 @@ final class WhatsAppSource: MachineSource {
     /// One chat is the machine's scope; several chats are one scope for the machine.
     var scope: String { chat?.jid ?? "" }
     var isReady: Bool { !chats.isEmpty }
-    var context: [String: [String]] { ["members": members.map(\.name)] }
+    /// The people the founder expects to hear from. One chat: everyone in it. Several chats: the teammates the
+    /// founder set up in Team setup, when any is linked to a WhatsApp ID; else the people in the first chosen group.
+    var expectedPeople: [WhatsAppMember] {
+        guard isSeveral else { return members }
+        let team = members.filter { teamHandles.contains($0.jid) }
+        guard team.isEmpty else { return team }
+        guard let first = chats.first(where: \.isGroup) ?? chats.first else { return [] }
+        return members.filter { $0.chats?.contains(first.jid) == true }
+    }
+
+    var context: [String: [String]] { ["members": expectedPeople.map(\.name)] }
     /// With several chats, each one of them must be allowed.
     var grantLabels: [String?] { isSeveral ? chats.map(\.jid) : [scope.isEmpty ? nil : scope] }
 
@@ -92,6 +105,12 @@ final class WhatsAppSource: MachineSource {
     private func remember(_ current: [WhatsAppMember]) throws {
         members = current
         try membersKey.save(current, to: store)
+        try loadTeamHandles()
+    }
+
+    private func loadTeamHandles() throws {
+        let people = Set((try store.queries.team()?.people ?? []).filter { !$0.isMe }.compactMap(\.id))
+        teamHandles = Set(try store.queries.whatsappLinks().filter { people.contains($0.key) }.values)
     }
 
     /// The day's messages of every chosen chat, each a numbered line, and the people in them, from one read. With

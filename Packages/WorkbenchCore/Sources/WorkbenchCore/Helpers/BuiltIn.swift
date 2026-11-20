@@ -1,30 +1,51 @@
 /// The helpers that ship with Workbench. Each is data over the catalog; none has code of its own.
 extension HelperSpec {
-    /// Pip: the team's plans, done work and blockers from the team's WhatsApp group.
+    /// Pip, the fact machine: what each person plans, did and is stuck on, and what is decided or asked, by project,
+    /// from the chats the founder chose. Open facts stay open until a later line closes them (research 32).
     public static let team = HelperSpec(
         task: "team.ledger", source: .whatsappChat,
         brief: """
-            You keep a team ledger for the founder of a small company. For each team member, find what they plan to \
-            do, what they did, and what blocks them. Use only what a message says. Chatter, greetings, links without \
-            a status, and questions without an answer give no item. One message can give several items. A message can \
-            be about another person: when the founder writes "Rahul, finish the API today", that is a plan of Rahul.
+            You keep the facts of a founder's company from its work chats: one group or several. Give one item for \
+            each fact a message states, with the person it is about and the project it belongs to. Use only what a \
+            message says. Chatter, greetings, thanks, links without a status, and a question that the same lines \
+            answer give no item. One message can give several items. A message can be about another person: when the \
+            founder writes "Rahul, finish the API today", that is a plan of Rahul. Write each fact in plain English \
+            even when the message is in Hindi or Hinglish. A person's plans, done work and blockers make the team \
+            ledger; a project's commitments, decisions, questions and status make its record. One fact has one item.
             """,
         fields: [
-            Field("person", .member(of: "members"), meaning: "The team member the item is about."),
             Field(
-                "kind", .choice(["plan", "done", "blocker"]),
+                "person", .member(of: "members"),
+                meaning: "The team member the fact is about, or who owes it."),
+            Field(
+                "project", .label(of: "topics"),
+                meaning: "The project or topic, in two to four words. Use \"General\" when it belongs to none."),
+            Field(
+                "kind",
+                .choice(["plan", "done", "blocker", "commitment", "decision", "question", "status"]),
                 meaning:
-                    "plan: to do, today or later. done: finished or progressed. blocker: stuck, waiting, needs help."),
+                    "plan: to do, today or later. done: finished or progressed. blocker: stuck, waiting, needs help. commitment: someone promises a result to another person. decision: something agreed or chosen. question: asked and not answered in these lines. status: where a piece of work stands now."
+            ),
             Field("text", .text(required: true), meaning: "One short English line in your words."),
             Field(
                 "eta", .text(required: false),
                 meaning:
-                    "When the person said it would be done, in their words (\"kal tak\", \"by 6pm\"); empty when not said."
+                    "When it is due, in the person's words (\"kal tak\", \"by 6pm\", \"Fri 21 Nov\"); empty when not said, never guessed."
             ),
+            Field(
+                "stance", .choice(["said", "reported"]),
+                meaning: "said: written by the person it is about. reported: written by someone else."),
         ],
-        citation: .one, view: .board(groupBy: "person", expected: "members"), title: "text", badges: ["eta"],
-        tones: ["plan": .neutral, "done": .good, "blocker": .bad], itemsNoun: "entries",
-        nudge: Nudge(field: "person", expected: "members", message: "No update today from"))
+        citation: .one, view: .board(groupBy: "person", expected: "members"), title: "text",
+        badges: ["project", "eta"],
+        tones: [
+            "plan": .neutral, "done": .good, "blocker": .bad, "commitment": .neutral, "decision": .neutral,
+            "question": .attention, "status": .neutral,
+        ],
+        itemsNoun: "entries", nudge: Nudge(field: "person", expected: "members", message: "No update today from"),
+        lifecycle: Lifecycle(
+            field: "kind", open: ["plan", "blocker", "commitment", "question", "decision"],
+            outcomes: ["kept", "answered", "resolved", "reversed", "dropped"]))
 
     /// The day timeline: the founder's screen sessions joined into blocks of work.
     public static let timeline = HelperSpec(
@@ -119,55 +140,16 @@ extension HelperSpec {
         citation: .one, view: .table, title: "text", badges: ["company", "signal"],
         tones: ["funding": .good, "launch": .good, "risk": .bad, "departure": .bad], itemsNoun: "signals", nudge: nil)
 
-    /// The work context: commitments, decisions, open questions, status and roles from the founder's work chats, each
-    /// with its topic, so a project's state builds up across days and chats.
-    public static let context = HelperSpec(
-        task: "work.context", source: .whatsappChat,
-        brief: """
-            You keep a founder's work context from their work chats: groups and direct chats at their company. From \
-            each message that states one, give an item:
-            - commitment: someone says they or another person will do something;
-            - decision: something agreed or chosen;
-            - question: asked and not answered in these lines;
-            - status: where a piece of work stands now;
-            - role: who is responsible for what.
-            Use only what a message says. Chatter, greetings, thanks and bare links give no item. Write the fact in \
-            plain English even when the message is in Hindi or Hinglish.
-            """,
-        fields: [
-            Field(
-                "kind", .choice(["commitment", "decision", "question", "status", "role"]),
-                meaning: "What kind of fact it is."),
-            Field("text", .text(required: true), meaning: "The fact in one short English line."),
-            Field(
-                "who", .text(required: false),
-                meaning: "The person it is about or who owes it, as named in the chat; empty when no one is."),
-            Field("topic", .label(of: "topics"), meaning: "The project or topic, in two to four words."),
-            Field(
-                "due", .text(required: false),
-                meaning:
-                    "When it is due, as an absolute date worked out from the message date (\"Fri 21 Nov\"); empty when not said, never guessed."
-            ),
-            Field(
-                "stance", .choice(["said", "reported"]),
-                meaning: "said: written by the person it is about. reported: written by someone else."),
-        ],
-        citation: .one, view: .checklist(by: "topic"), title: "text", badges: ["kind", "who", "due"], tones: [:],
-        itemsNoun: "facts", nudge: nil,
-        lifecycle: Lifecycle(
-            field: "kind", open: ["commitment", "question", "decision"],
-            outcomes: ["kept", "answered", "reversed", "dropped"]))
-
-    /// The derailment watch: what is going off track, from the open facts of the work-context machine it follows
+    /// The derailment watch: what is going off track, from the open facts of the first machine with a lifecycle (Pip)
     /// and the new lines of a chat (research 31). Its `follows` is set when a person makes the machine.
     public static let derailment = HelperSpec(
         task: "work.derailment", source: .whatsappChat,
         brief: """
             You watch a founder's work for what is going off track. You get the facts still open in the founder's work \
-            record (commitments, questions, decisions), each with a handle, and the new lines of a work chat. Today's \
+            record (plans, blockers, commitments, questions, decisions), each with a handle, and the new lines of a work chat. Today's \
             date is the work day you are given. Decide from the facts and the lines what is off track. A finding is \
             one of:
-            - overdue: a commitment is past its due date, or its time has clearly passed, and no new line shows it done;
+            - overdue: a plan or commitment is past its eta, or its time has clearly passed, and no new line shows it done;
             - quiet: a thread or a person that should be moving has gone silent for longer than is usual for them;
             - blocked: work waits on something or someone and nothing moves it;
             - drift: the lines show work moving away from what the founder said matters;

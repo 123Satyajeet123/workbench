@@ -90,7 +90,7 @@ import WorkbenchCore
     }
 
     private let oneEntry = #"""
-        {"items":[{"person":"Asha","kind":"done","text":"Login API","eta":"","cite":11,"quote":"login API done"}]}
+        {"items":[{"person":"Asha","project":"Login","kind":"done","text":"Login API","eta":"","stance":"said","cite":11,"quote":"login API done"}],"closes":[]}
         """#
 
     @Test func listingGroupsAllowsNoChatAndChoosingOneAllowsOnlyThatOne() throws {
@@ -109,8 +109,8 @@ import WorkbenchCore
     @Test func readingADaySendsOnlyTheTeamGroupAndStoresCheckedEntriesWithTheirRun() async throws {
         let reply = #"""
             {"items":[
-              {"person":"Asha","kind":"done","text":"Login API","eta":"","cite":11,"quote":"login API done"},
-              {"person":"Asha","kind":"done","text":"Invented","eta":"","cite":11,"quote":"payments done"}]}
+              {"person":"Asha","project":"Login","kind":"done","text":"Login API","eta":"","stance":"said","cite":11,"quote":"login API done"},
+              {"person":"Asha","project":"Login","kind":"done","text":"Invented","eta":"","stance":"said","cite":11,"quote":"payments done"}],"closes":[]}
             """#
         let (team, store, _, model, source) = try makeTeam(reply: reply)
         try source.loadGroups()
@@ -142,8 +142,8 @@ import WorkbenchCore
     @Test func aReadingAsksAboutOneOfItsItemsUntilItIsAnswered() async throws {
         let reply = #"""
             {"items":[
-              {"person":"Asha","kind":"done","text":"Login API","eta":"","cite":11,"quote":"login API done"},
-              {"person":"Bharat","kind":"plan","text":"Payments","eta":"","cite":11,"quote":"login API"}]}
+              {"person":"Asha","project":"Login","kind":"done","text":"Login API","eta":"","stance":"said","cite":11,"quote":"login API done"},
+              {"person":"Bharat","project":"Login","kind":"plan","text":"Payments","eta":"","stance":"said","cite":11,"quote":"login API"}],"closes":[]}
             """#
         let (team, store, _, _, source) = try makeTeam(reply: reply)
         try source.loadGroups()
@@ -177,7 +177,7 @@ import WorkbenchCore
         let container = try whatsApp(at: noon)
         let photo = try addPhoto("OTA 4.1.11 installed", to: container, at: noon.addingTimeInterval(120))
         let model = ScriptedModel(
-            #"{"items":[{"person":"Asha","kind":"done","text":"Installed the OTA","eta":"","cite":\#(photo),"quote":"OTA 4.1.11 installed"}]}"#
+            #"{"items":[{"person":"Asha","project":"Login","kind":"done","text":"Installed the OTA","eta":"","stance":"said","cite":\#(photo),"quote":"OTA 4.1.11 installed"}],"closes":[]}"#
         )
         let source = try WhatsAppSource(
             store: store, capture: try CaptureService(store: store), task: HelperSpec.team.task, founder: { "Kabir" },
@@ -223,6 +223,69 @@ import WorkbenchCore
         #expect(capture.policy.authorize(CaptureRequest(kind: .whatsapp, label: teamJID), at: noon).grant != nil)
     }
 
+    /// Pip over the Team group (Asha, Bharat) and the Family group (Dev), read as several chats. Asha wrote today.
+    /// `team` is the Team setup: its people, and `linked` the WhatsApp ID each of them is linked to.
+    private func severalChats(
+        team: [String] = [], linked: [String: String] = [:]
+    ) async throws -> (HelperModel, FakeNotifier, WhatsAppSource) {
+        let clock = TestClock(noon)
+        let store = try scratchStore(clock: { clock.now })
+        let container = try whatsApp(at: noon)
+        try addGroupMember(3, chat: 2, jid: "d@s.whatsapp.net", name: "Dev", to: container)
+        if !team.isEmpty {
+            let people = [Team.Person(name: "Kabir", role: "", isMe: true)] + team.map { .init(name: $0, role: "") }
+            try store.saveTeam(Team(name: "Kabir's team", people: people))
+            for person in try #require(try store.queries.team()).people {
+                try linked[person.name].map { try store.link(person, whatsapp: $0) }
+            }
+        }
+        let source = try WhatsAppSource(
+            store: store, capture: try CaptureService(store: store), task: HelperSpec.team.task, founder: { "Kabir" },
+            container: container)
+        try source.preview(ChatSelection(nameContains: "a", directWithMembers: false))
+        try source.choose(source.matching)
+        let notifier = FakeNotifier()
+        let reply = oneEntry
+        let pip = HelperModel(
+            machine: .test(.team, "Pip"), source: source, store: store,
+            makeModel: { _ in RecordedModel(ScriptedModel(reply), store: store) }, notifier: notifier)
+        await pip.setNudge(on: true)
+        clock.set(at(hour: 21, minute: 45))
+        return (pip, notifier, source)
+    }
+
+    @Test func withSeveralChatsAndNoTeamPipExpectsTheMembersOfTheFirstGroupOnly() async throws {
+        let (pip, notifier, source) = try await severalChats()
+        await pip.nudgeIfDue()
+        #expect(source.members.map(\.name) == ["Asha", "Bharat", "Dev"], "the reader may name anyone in the chats")
+        #expect(source.expectedPeople.map(\.name) == ["Asha", "Bharat"])
+        #expect(notifier.posted.map(\.body) == ["No update today from Bharat."], "Dev is in the second group only")
+    }
+
+    @Test func withSeveralChatsAndATeamLinkedByWhatsAppPipExpectsThatTeam() async throws {
+        let (pip, notifier, source) = try await severalChats(
+            team: ["Asha", "Dev"], linked: ["Asha": "a@s.whatsapp.net", "Dev": "d@s.whatsapp.net"])
+        await pip.nudgeIfDue()
+        #expect(source.expectedPeople.map(\.name) == ["Asha", "Dev"])
+        #expect(notifier.posted.map(\.body) == ["No update today from Dev."], "Bharat is not on the team")
+    }
+
+    @Test func aTeamWithNobodyLinkedLeavesPipTheFirstGroupRule() async throws {
+        let (pip, notifier, source) = try await severalChats(team: ["Asha"])
+        await pip.nudgeIfDue()
+        #expect(source.expectedPeople.map(\.name) == ["Asha", "Bharat"])
+        #expect(notifier.posted.map(\.body) == ["No update today from Bharat."])
+    }
+
+    @Test func withOneChatPipExpectsEveryMemberAsBefore() async throws {
+        let (team, _, _, _, source) = try makeTeam()
+        try source.loadGroups()
+        try source.choose(try #require(source.groups.first { $0.jid == teamJID }))
+        try await source.loadMembers()
+        #expect(source.expectedPeople.map(\.name) == ["Asha", "Bharat"])
+        #expect(team.context["members"] == ["Asha", "Bharat"])
+    }
+
     /// The founder's rule: several chats at once. Each line names its chat, every chat must be allowed, and a day from
     /// chats with different people is not shared (its audience is not known per item yet).
     @Test func aSeveralChatSourceNamesEachLineSChatAndItsDayIsNotShared() async throws {
@@ -249,7 +312,7 @@ import WorkbenchCore
         let store = try scratchStore()
         let capture = try CaptureService(store: store)
         let reply = #"""
-            {"items":[{"person":"Asha","kind":"done","text":"Login API","eta":"","cite":11,"quote":"login API done"}]}
+            {"items":[{"person":"Asha","project":"Login","kind":"done","text":"Login API","eta":"","stance":"said","cite":11,"quote":"login API done"}],"closes":[]}
             """#
         let model = ScriptedModel(reply)
         let source = try WhatsAppSource(
