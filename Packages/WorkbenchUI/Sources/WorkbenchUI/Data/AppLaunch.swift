@@ -1,5 +1,6 @@
 import CaptureService
 import Foundation
+import LocalSources
 import WorkbenchCore
 
 struct StartupFailure: Error, Equatable {
@@ -54,7 +55,8 @@ enum AppLaunch {
             let session = AppSession(
                 store: store, capture: CaptureSettings(service: service), onboarding: onboarding, identity: identity,
                 team: onboarding.teamModel, models: ModelSettings(store: store),
-                crew: crew, review: review, mochi: mochi, today: TodayModel(store: store, crew: crew),
+                crew: crew, review: review, mochi: mochi,
+                today: TodayModel(store: store, crew: crew, calendar: EventKitCalendar(), deals: { deals.deals }),
                 reminders: Reminders(store: store, review: review, mochi: mochi, notifications: notifications),
                 catalog: catalog, actions: ActionsModel(store: store, founder: { identity.identity.name }),
                 deals: deals, memory: MemoryModel(store: store, crew: crew, deals: deals),

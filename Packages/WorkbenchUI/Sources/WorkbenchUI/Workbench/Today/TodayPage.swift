@@ -15,6 +15,7 @@ struct TodayPage: View {
             TodayBody(model: today, brief: mochi.brief)
         }
         .onAppear(perform: today.refresh)
+        .task { await today.refreshMeetings() }
         .task(id: today.today) { await today.summarizeIfMissing() }
     }
 
@@ -40,6 +41,7 @@ struct TodayBody: View {
             }
             if model.isEmpty { Text("Nothing for today yet.").foregroundStyle(.supporting) }
             needsYou
+            meetings
             team
             projects
             if let brief { YesterdayBrief(brief: brief) }
@@ -56,6 +58,12 @@ struct TodayBody: View {
                 }
             }
         }
+    }
+
+    @ViewBuilder private var meetings: some View {
+        if model.meetings.offersMeetings { MeetingsOffer(model: model) }
+        if let refusal = model.meetings.refusal { PermissionNotice(message: refusal, pane: "Privacy_Calendars") }
+        if !model.meetingCards.isEmpty { MeetingsSection(model: model) }
     }
 
     @ViewBuilder private var team: some View {

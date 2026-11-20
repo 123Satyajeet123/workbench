@@ -97,6 +97,15 @@ struct ActivityStoreTests {
         #expect(try store.queries.activities(since: day(-1)).isEmpty)
     }
 
+    @Test func deletingTheCalendarKindRemovesNothingElseAndNeverFails() throws {
+        let store = try makeStore()
+        var files = CaptureEngine()
+        let file = files.observe(.modify, path: sourceFile, policy: filesOn, at: t0)
+        try store.record(#require(file))
+        try store.delete(.kind(.calendar, before: nil))
+        #expect(try store.queries.activities(since: day(-1)).map(\.kind) == [.file])
+    }
+
 }
 
 struct RecordingStoreTests {

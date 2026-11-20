@@ -1,4 +1,3 @@
-import AppKit
 import LocalSources
 import SwiftUI
 import WorkbenchCore
@@ -6,6 +5,7 @@ import WorkbenchCore
 /// The one place a capture source is switched on or off, with what macOS must allow for it.
 struct SourceToggles: View {
     @Environment(CaptureSettings.self) private var capture
+    @Environment(TodayModel.self) private var today: TodayModel?
     @State private var microphoneRefused = false
 
     var body: some View {
@@ -20,11 +20,23 @@ struct SourceToggles: View {
             }
             .toggleStyle(.switch)
             if source.source == .screen, capture.isOn(.screen), capture.status == .needsPermission {
-                refusal("macOS has not given Workbench Accessibility access yet.", pane: "Privacy_Accessibility")
+                PermissionNotice(
+                    message: "macOS has not given Workbench Accessibility access yet.", pane: "Privacy_Accessibility")
             }
             if source.source == .call, microphoneRefused {
-                refusal("macOS refused microphone access.", pane: "Privacy_Microphone")
+                PermissionNotice(message: "macOS refused microphone access.", pane: "Privacy_Microphone")
             }
+            if source.source == .calendar, capture.isOn(.calendar) { calendarDetails }
+        }
+    }
+
+    @ViewBuilder private var calendarDetails: some View {
+        if let refusal = today?.meetings.refusal {
+            PermissionNotice(message: refusal, pane: "Privacy_Calendars")
+        }
+        CalendarChooser(calendars: capture.calendarChoices(among: today?.meetings.calendars ?? [])) {
+            capture.toggle($0, among: today?.meetings.calendars ?? [])
+            Task { await today?.refreshMeetings() }
         }
     }
 
@@ -35,6 +47,7 @@ struct SourceToggles: View {
             capture.set(kind, on: on)
             if on, kind == .screen || kind == .screenText, !ScreenReader.isTrusted { ScreenReader.requestTrust() }
             if kind == .call { askForMicrophone(on) }
+            if kind == .calendar { Task { await today?.refreshMeetings() } }
         }
     }
 
@@ -46,18 +59,5 @@ struct SourceToggles: View {
             microphoneRefused = true
             capture.set(.call, on: false)
         }
-    }
-
-    private func refusal(_ message: String, pane: String) -> some View {
-        HStack {
-            Label(message, systemImage: "exclamationmark.triangle").foregroundStyle(Tone.attention.color)
-            Spacer()
-            Button("Open System Settings") {
-                if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?\(pane)") {
-                    NSWorkspace.shared.open(url)
-                }
-            }
-        }
-        .textStyle(.callout)
     }
 }

@@ -29,6 +29,19 @@ final class CaptureSettings {
 
     func set(_ kind: SourceKind, on: Bool) { change { $0.switches[kind] = on } }
 
+    /// The calendars among `all` that Today reads: every one until the person chooses.
+    func calendarChoices(among all: [CalendarInfo]) -> [CalendarChoice] {
+        let chosen = service.policy.allowList[.calendar]
+        return all.map { CalendarChoice(id: $0.id, title: $0.title, isRead: chosen?.contains($0.id) ?? true) }
+    }
+
+    /// Reads or stops reading one calendar. Choosing every calendar again clears the choice.
+    func toggle(_ calendar: CalendarChoice, among all: [CalendarInfo]) {
+        var read = Set(calendarChoices(among: all).filter(\.isRead).map(\.id))
+        if calendar.isRead { read.remove(calendar.id) } else { read.insert(calendar.id) }
+        change { $0.allowList[.calendar] = read.count == all.count ? nil : read }
+    }
+
     var denyList: [DeniedPlace] { (service.policy.denyList[.screen] ?? []).sorted().map(DeniedPlace.init(label:)) }
 
     var neverCaptured: String {
@@ -179,6 +192,9 @@ struct CaptureSource: Identifiable {
         CaptureSource(
             source: .mail, name: "Mail", symbol: "envelope",
             reason: "Gmail threads you open in the label you named in a deal helper. No other mail."),
+        CaptureSource(
+            source: .calendar, name: "Calendar", symbol: "calendar",
+            reason: "Today's meetings: title, time and who is in them. Never written to the calendar."),
         CaptureSource(
             source: .call, name: "Calls", symbol: "phone",
             reason: "Your microphone and the other side's audio, only when you start a recording."),

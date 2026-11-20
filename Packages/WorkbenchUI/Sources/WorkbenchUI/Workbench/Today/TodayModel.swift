@@ -1,4 +1,5 @@
 import Foundation
+import LocalSources
 import Observation
 import WorkbenchCore
 
@@ -57,6 +58,7 @@ final class TodayModel {
     private(set) var projects: [SummaryRow] = []
     private(set) var people: [FactGroup] = []
     private(set) var projectGroups: [FactGroup] = []
+    private(set) var meetingCards: [MeetingCard] = []
     private(set) var undoable: Undo?
     private(set) var problem: String?
     /// Counts each load, so a view can animate what changed between two loads.
@@ -64,17 +66,27 @@ final class TodayModel {
 
     @ObservationIgnored private let store: Store
     @ObservationIgnored private let crew: Crew
+    @ObservationIgnored private let deals: () -> [WorkObject]
+    @ObservationIgnored let meetings: MeetingsModel
     @ObservationIgnored private var daysAsked: Set<WorkDay> = []
 
-    init(store: Store, crew: Crew) {
+    /// With no `calendar`, Today shows no meetings and never offers them.
+    init(
+        store: Store, crew: Crew, calendar: (any CalendarEvents)? = nil, deals: @escaping () -> [WorkObject] = { [] },
+        defaults: UserDefaults = .standard
+    ) {
         self.store = store
         self.crew = crew
+        self.deals = deals
+        meetings = MeetingsModel(store: store, calendar: calendar, defaults: defaults)
         today = WorkDay(containing: store.clock())
         refresh()
         crew.onItemsChanged { [weak self] in self?.refresh() }
     }
 
-    var isEmpty: Bool { needs.isEmpty && team.isEmpty && unsummarized.isEmpty && projects.isEmpty }
+    var isEmpty: Bool {
+        needs.isEmpty && team.isEmpty && unsummarized.isEmpty && projects.isEmpty && meetingCards.isEmpty
+    }
 
     private var factHelper: HelperModel? { crew.machines.first { $0.machine.template == HelperSpec.team.task } }
     private var factMachine: Machine? { factHelper?.machine }
@@ -92,6 +104,19 @@ final class TodayModel {
         revision += 1
     }
 
+    /// Reads today's meetings when the calendar consent is on, then matches them to what Today knows.
+    func refreshMeetings() async {
+        await meetings.refresh()
+        buildMeetingCards()
+        revision += 1
+    }
+
+    private func buildMeetingCards() {
+        meetingCards = MeetingPrep.cards(
+            for: meetings.meetings, groups: people, rows: team, deals: deals(),
+            actions: (try? store.queries.openDealActions()) ?? [])
+    }
+
     private func load() throws {
         let now = store.clock()
         today = WorkDay(containing: now)
@@ -99,6 +124,7 @@ final class TodayModel {
         guard let machine = factMachine else {
             clear()
             needs = Needs.pick(facts: dealActions, findings: [], today: today, now: now)
+            buildMeetingCards()
             return
         }
         let lifecycle = machine.spec.lifecycleOrNone
@@ -111,6 +137,7 @@ final class TodayModel {
         team = try rows(machine.spec.memberField, of: machine, day: today, listed: listed, groups: people)
         unsummarized = withoutSummary(facts.filter { $0.day == today }, machine, lifecycle, now)
         projects = try rows(machine.spec.labelField, of: machine, day: today, listed: listed, groups: projectGroups)
+        buildMeetingCards()
     }
 
     private func clear() {

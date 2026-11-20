@@ -15,6 +15,8 @@
 	</array>
 	<key>NSAudioCaptureUsageDescription</key>
 	<string>Workbench records the other side of a call you start, so it can write it down for you. Audio stays on this Mac.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Workbench reads today's meetings from your calendar, so Today can show them with what you already know about the people in them. It never changes your calendar.</string>
 	<key>NSRemindersFullAccessUsageDescription</key>
 	<string>Workbench adds an item to Reminders only when you choose Add to Reminders on it.</string>
 	<key>NSMicrophoneUsageDescription</key>
