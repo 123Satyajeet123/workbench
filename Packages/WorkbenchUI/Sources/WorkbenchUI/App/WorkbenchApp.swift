@@ -22,6 +22,7 @@ public struct WorkbenchApp: App {
                 }
                 .zoomed(Zoom(zoom))
                 .environment(session)
+                .onOpenURL { url in session.navigation.requested = SidebarSelection(url: url) }
                 .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
                     Task { await session.crew.notifications.recheck() }
                 }

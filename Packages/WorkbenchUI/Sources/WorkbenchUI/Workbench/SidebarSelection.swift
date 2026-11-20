@@ -1,3 +1,4 @@
+import Foundation
 import WorkbenchCore
 
 /// The pages of the main window: Mochi (the day), Echo (calls), Runs, and one page per machine. A fixed page's name,
@@ -37,6 +38,27 @@ enum SidebarSelection: Hashable, Identifiable, RawRepresentable {
     }
 
     var id: String { rawValue }
+
+    /// The link that opens this page from outside the window: a notification, the island. macOS hands it to the
+    /// app, which shows the window on this page.
+    var url: URL {
+        var components = URLComponents()
+        components.scheme = Self.scheme
+        components.host = "open"
+        components.queryItems = [URLQueryItem(name: "page", value: rawValue)]
+        return components.url!
+    }
+
+    init?(url: URL) {
+        guard url.scheme == Self.scheme, url.host() == "open",
+            let page = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first(where: {
+                $0.name == "page"
+            })?.value
+        else { return nil }
+        self.init(rawValue: page)
+    }
+
+    static let scheme = "workbench"
 
     var title: String {
         switch self {

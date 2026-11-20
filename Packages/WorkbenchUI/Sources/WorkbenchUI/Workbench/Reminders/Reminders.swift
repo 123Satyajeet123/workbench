@@ -96,7 +96,7 @@ final class Reminders {
             // A quiet day is kept on Mochi's page without an alert: alerts that rarely matter teach people to ignore
             // them (research: clinical alert override rates).
             if let brief = await mochi.writeBrief(for: today.adding(days: -1)), !brief.isQuiet {
-                await post("Mochi's brief", brief.headline)
+                await post("Mochi's brief", brief.headline, page: .day)
             }
         }
         if settings.digest, let slot = Self.slot(at: now, hours: settings.digestHours), slot != state(Self.digestKey) {
@@ -104,8 +104,7 @@ final class Reminders {
             review.refresh()
             if !review.items.isEmpty {
                 await post(
-                    "Review",
-                    "\(review.items.count) to review, \(review.questions) picked at random. Open Workbench › Review.")
+                    "Review", "\(review.items.count) to review, \(review.questions) picked at random.", page: .review)
             }
         }
         if settings.weeklyMochi, isMochiDue(at: now) {
@@ -115,7 +114,8 @@ final class Reminders {
             let new = mochi.waiting.filter { $0.id.map { !before.contains($0) } ?? false }
             if !new.isEmpty {
                 await post(
-                    "Mochi", "Mochi suggests \(new.count) machine\(new.count == 1 ? "" : "s") for work you repeat.")
+                    "Mochi", "Mochi suggests \(new.count) machine\(new.count == 1 ? "" : "s") for work you repeat.",
+                    page: .day)
             }
         }
     }
@@ -128,9 +128,9 @@ final class Reminders {
 
     func dismissProblem() { problems.dismiss() }
 
-    private func post(_ title: String, _ body: String) async {
+    private func post(_ title: String, _ body: String, page: SidebarSelection) async {
         do {
-            try await notifications.post(title: title, body: body)
+            try await notifications.post(title: title, body: body, page: page)
         } catch {
             problems.report("show a reminder", error)
         }

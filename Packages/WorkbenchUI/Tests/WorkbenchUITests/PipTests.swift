@@ -46,6 +46,7 @@ import WorkbenchCore
         clock.set(at(hour: 21, minute: 45))
         await team.nudgeIfDue()
         #expect(notifier.posted.map(\.body) == ["No update today from Bharat."])
+        #expect(notifier.posted.map(\.page) == [.machine(team.machine.id)], "a click opens the machine's page")
         #expect(model.inputs.withLock { $0.count } == 1)
         #expect(try store.queries.runs().count == 1)
 

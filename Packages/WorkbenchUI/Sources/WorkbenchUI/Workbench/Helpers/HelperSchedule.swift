@@ -121,7 +121,8 @@ final class HelperSchedule {
 
     private func post(_ body: String, failure: String) async {
         do {
-            try await context.notifications.post(title: context.name, body: body)
+            try await context.notifications.post(
+                title: context.name, body: body, page: .machine(context.machine.id))
         } catch {
             context.problems.report(failure, error)
         }

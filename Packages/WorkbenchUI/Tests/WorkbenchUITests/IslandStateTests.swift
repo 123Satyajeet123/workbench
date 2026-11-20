@@ -31,3 +31,15 @@ import Testing
         #expect(metrics.panelSize.width == metrics.notchWidth + 2 * IslandMetrics.earWidth + 40)
     }
 }
+
+@Suite struct PageLinkTests {
+    @Test func everyPageHasALinkThatOpensItAndAForeignLinkOpensNothing() {
+        for page in SidebarSelection.fixed + [.machine(42)] {
+            #expect(SidebarSelection(url: page.url) == page)
+        }
+        #expect(SidebarSelection.review.url.absoluteString == "workbench://open?page=review")
+        #expect(SidebarSelection(url: URL(string: "https://open?page=review")!) == nil)
+        #expect(SidebarSelection(url: URL(string: "workbench://delete?page=review")!) == nil)
+        #expect(SidebarSelection(url: URL(string: "workbench://open?page=nothing")!) == nil)
+    }
+}

@@ -14,7 +14,8 @@ enum SystemAccess: Equatable {
 protocol Notifier {
     /// Asks macOS once when it has not asked before; otherwise reports what the founder chose.
     func authorize() async -> SystemAccess
-    func post(title: String, body: String) async throws
+    /// `page` is what a click on the notification opens.
+    func post(title: String, body: String, page: SidebarSelection) async throws
 }
 
 struct SystemNotifier: Notifier {
@@ -33,13 +34,21 @@ struct SystemNotifier: Notifier {
         }
     }
 
-    func post(title: String, body: String) async throws {
+    func post(title: String, body: String, page: SidebarSelection) async throws {
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
         content.sound = nil
+        content.userInfo = [Self.pageKey: page.url.absoluteString]
         try await UNUserNotificationCenter.current().add(
             UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
+    }
+
+    static let pageKey = "page"
+
+    /// The page a clicked notification asks for.
+    static func page(of response: UNNotificationResponse) -> URL? {
+        (response.notification.request.content.userInfo[pageKey] as? String).flatMap(URL.init(string:))
     }
 
     /// Workbench's own page in System Settings › Notifications.

@@ -1,6 +1,7 @@
 import AgentCLI
 import AppKit
 import Foundation
+import UserNotifications
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Opened when the app first asks for it, so making a delegate opens no store.
@@ -17,6 +18,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.init(storeFolder: AppLaunch.defaultStoreFolder)
     }
 
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        UNUserNotificationCenter.current().delegate = self
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         if case .ready(let session) = launch { island = IslandPanel(session: session) }
     }
@@ -27,5 +32,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         RunningChildren.terminateAll(grace: .seconds(2))
+    }
+}
+
+/// A click on a Workbench notification opens the page it is about; one shown while Workbench is in front still
+/// appears.
+extension AppDelegate: UNUserNotificationCenterDelegate {
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse
+    ) async {
+        guard let page = SystemNotifier.page(of: response) else { return }
+        await MainActor.run { _ = NSWorkspace.shared.open(page) }
+    }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter, willPresent notification: UNNotification
+    ) async -> UNNotificationPresentationOptions {
+        [.banner, .list]
     }
 }

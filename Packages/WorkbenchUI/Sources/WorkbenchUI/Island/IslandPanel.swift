@@ -57,16 +57,13 @@ private struct IslandContent: View {
     let session: AppSession
     let metrics: IslandMetrics
     let takesClicks: (Bool) -> Void
-    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         IslandView(state: state, metrics: metrics)
             .contentShape(Rectangle())
             .onTapGesture {
                 guard state.takesClicks else { return }
-                session.navigation.requested = .review
-                openWindow(id: WorkbenchApp.mainWindowID)
-                NSApp.activate()
+                NSWorkspace.shared.open(SidebarSelection.review.url)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .onChange(of: state.takesClicks, initial: true) { _, takes in takesClicks(takes) }

@@ -43,15 +43,15 @@ final class Notifications {
         for turnOn in pending { turnOn() }
     }
 
-    func post(title: String, body: String) async throws {
-        try await notifier.post(title: title, body: body)
+    func post(title: String, body: String, page: SidebarSelection) async throws {
+        try await notifier.post(title: title, body: body, page: page)
     }
 
     /// Posts without waiting, for a caller that has no page to show a failure on. A failure goes to the log.
-    func announce(title: String, body: String) {
+    func announce(title: String, body: String, page: SidebarSelection) {
         Task {
             do {
-                try await post(title: title, body: body)
+                try await post(title: title, body: body, page: page)
             } catch {
                 Self.log.error("Could not show \"\(title, privacy: .public)\": \(error.localizedDescription)")
             }

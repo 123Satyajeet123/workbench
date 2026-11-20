@@ -33,7 +33,7 @@ struct VersionAlarm {
                     ]))
         }
         helper.improvement.notice = line
-        notifications.announce(title: helper.name, body: line)
+        notifications.announce(title: helper.name, body: line, page: .machine(helper.machine.id))
     }
 
     /// The same alarm on a version that has no earlier one to return to: a model can change behind its name, or the
@@ -50,7 +50,7 @@ struct VersionAlarm {
         let line =
             "\(helper.name) may have got worse: wrong on \(wrong.filter { $0 }.count) of \(wrong.count) checked items on held-out days. Try a change from your marks."
         helper.improvement.notice = line
-        notifications.announce(title: helper.name, body: line)
+        notifications.announce(title: helper.name, body: line, page: .machine(helper.machine.id))
     }
 
     private func heldOutWrong(_ answers: [(day: WorkDay, wrong: Bool)]) -> [Bool] {
