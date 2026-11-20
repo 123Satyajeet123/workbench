@@ -11,6 +11,32 @@ struct SourceChooser: View {
             GroupChooser(model: model, source: source)
         } else if let source = model.source as? PageSource {
             SiteChooser(model: model, source: source)
+        } else if let source = model.source as? MailSource {
+            LabelChooser(model: model, source: source)
+        }
+    }
+}
+
+/// The Gmail label a mail machine reads. Only threads opened in this label are kept; mail elsewhere stays in Gmail.
+struct LabelChooser: View {
+    let model: HelperModel
+    let source: MailSource
+    @State private var typed = MailSource.defaultLabel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Space.s) {
+            Text(
+                "In Gmail, make a label for deal mail and a filter that puts it there. \(model.name) reads a thread only while you have it open in that label, with the Workbench browser extension on. It reads no other mail."
+            )
+            .foregroundStyle(.supporting)
+            HStack {
+                TextField("Label name, as in Gmail", text: $typed).frame(maxWidth: 260)
+                Button("Read this label") {
+                    model.attempt("save the label") { try source.choose(typed) }
+                    model.reload()
+                }
+                .buttonStyle(.borderedProminent)
+            }
         }
     }
 }
@@ -24,11 +50,11 @@ struct SiteChooser: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Space.s) {
             Text(
-                "Name the sites \(model.name) reads, such as mail.google.com or linkedin.com. It reads only their text, only the day you ask."
+                "Name the sites \(model.name) reads, such as linkedin.com or x.com. It reads only their text, only the day you ask."
             )
             .foregroundStyle(.supporting)
             HStack {
-                TextField("mail.google.com, linkedin.com", text: $typed).frame(maxWidth: 360)
+                TextField("linkedin.com, x.com", text: $typed).frame(maxWidth: 360)
                 Button("Use these sites") {
                     model.attempt("save the sites") { try source.choose(typed) }
                     model.reload()

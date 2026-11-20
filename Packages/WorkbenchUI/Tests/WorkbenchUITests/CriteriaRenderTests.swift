@@ -37,19 +37,19 @@ import WorkbenchCore
         for (index, fields) in readings.enumerated() {
             let (_, run) = try await model.generate(
                 [String: JSONValue].self, schema: .object([]), task: spec.task, instructions: "i", input: "x\(index)",
-                holding: [.screenText])
+                holding: [.mail])
             var named = fields
             named["company"] = ["Acme Payroll", "Bolt Pay", "Bet Fantasy"][index]
             let item = Item(
-                task: helper.spec.task, day: helper.day, scope: "", source: .screenText, citeFirst: Int64(index),
+                task: helper.spec.task, day: helper.day, scope: "", source: .mail, citeFirst: Int64(index),
                 citeLast: Int64(index), start: helper.day.start, end: helper.day.start, fields: named,
                 quote: "q\(index)",
                 run: run)
-            let policy = CapturePolicy(switches: [.screenText: true])
+            let policy = CapturePolicy(switches: [.mail: true], allowList: [.mail: ["Deals"]])
             try store.saveReading(
                 HelperReader.Result(items: [item], dropped: 0, run: nil), of: helper.spec, day: helper.day,
                 scope: "",
-                grant: try #require(policy.authorize(CaptureRequest(kind: .screenText, label: nil), at: .now).grant),
+                grant: try #require(policy.authorize(CaptureRequest(kind: .mail, label: "Deals"), at: .now).grant),
                 replacing: false)
         }
         return (helper, store)

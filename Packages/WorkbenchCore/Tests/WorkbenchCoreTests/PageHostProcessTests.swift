@@ -32,7 +32,7 @@ import Testing
         let store = try Store(directory: folder)
         try store.savePolicy(CapturePolicy(switches: [.screen: true, .screenText: true]))
         let page = WebPage(
-            browser: "com.brave.Browser", url: "https://mail.google.com/", title: "Inbox", text: "Deck from Acme")
+            browser: "com.brave.Browser", url: "https://mail.example.com/", title: "Inbox", text: "Deck from Acme")
         let output = try run(NativeMessage.frame(try JSONEncoder().encode(page)), store: folder)
         let (reply, _) = try #require(try NativeMessage.first(in: output))
         #expect(try JSONDecoder().decode(PageHost.Reply.self, from: reply) == PageHost.Reply(kept: true))
@@ -40,6 +40,31 @@ import Testing
 
         _ = try run(Data([0xFF, 0xFF, 0xFF, 0x7F]) + Data("junk".utf8), store: folder)
         #expect(try store.queries.activities(since: .distantPast).count == 1)
+    }
+
+    @Test func theHostProcessReassemblesADeckSentInChunksOverOneSession() throws {
+        let folder = temporaryDirectory()
+        let store = try Store(directory: folder)
+        try store.savePolicy(CapturePolicy(switches: [.mail: true], allowList: [.mail: ["Deals"]]))
+        let context = MailContext(
+            browser: "com.brave.Browser", url: "https://mail.google.com/mail/u/0/#label/Deals/FMfc",
+            label: "Deals", threadId: "FMfc", messageId: "msg-1")
+        let message = MailMessage(
+            context: context, sender: "Ana", subject: "Acme", text: "Acme raises a seed.", attachments: ["Deck.pdf"])
+        let pieces = chunks(of: makeDeck([.text("Acme Seed Deck")]), name: "Deck.pdf", context: context, size: 700)
+        var input = try NativeMessage.frame(JSONEncoder().encode(message))
+        for piece in pieces { input += try NativeMessage.frame(JSONEncoder().encode(piece)) }
+        var output = try run(input, store: folder)
+        var replies: [PageHost.Reply] = []
+        while let (reply, used) = try NativeMessage.first(in: output) {
+            replies.append(try JSONDecoder().decode(PageHost.Reply.self, from: reply))
+            output = output.dropFirst(used)
+        }
+        #expect(replies.map(\.kept) == [true] + Array(repeating: false, count: pieces.count - 1) + [true])
+        #expect(replies[0].wantDecks == ["Deck.pdf"])
+        #expect(
+            try store.queries.mailParts(from: .distantPast, to: .distantFuture).map(\.text)
+                == ["Acme raises a seed.", "Acme Seed Deck"])
     }
 
     /// The browser keeps stdin open until it has the reply (measured: Brave's host hung for minutes when the host

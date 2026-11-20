@@ -93,10 +93,11 @@ extension HelperSpec {
     /// judges each rule with a quote; code makes the hot, warm or cold call from the rule results. The starter rules
     /// only mirror the old placeholder: the investor edits them into their own thesis.
     public static let dealIntake = HelperSpec(
-        task: "vc.deals", source: .pageText,
+        task: "vc.deals", source: .mail,
         brief: """
-            You read inbound deals for a venture investor from the mail pages they read. For each startup that \
-            pitches, asks for a meeting or is introduced, give one item with what the page says about it.
+            You read inbound deals for a venture investor from the mail threads they opened in their Deals label, and \
+            from the decks attached to them. For each startup that pitches, asks for a meeting or is introduced, give \
+            one item with what the mail or the deck says about it.
             """,
         fields: [
             Field("company", .text(required: true), meaning: "The startup's name."),

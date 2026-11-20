@@ -31,7 +31,7 @@ enum Schema {
 
     static var stepDigests: [String] { steps.map { Digest.sha256($0.joined(separator: ";\n")) } }
 
-    static let steps = [baseline, itemEvents, runText, summaries, itemActions]
+    static let steps = [baseline, itemEvents, runText, summaries, itemActions, mail]
 
     /// Items that open and close (research 32): a later line closes a commitment or answers a question. An event is
     /// never rewritten; the latest one is the item's state. Valid time is when the closing line was said; record time
@@ -108,6 +108,27 @@ enum Schema {
             body TEXT NOT NULL CHECK(json_valid(body) AND json_type(body) = 'object'), saved_at TEXT NOT NULL,
             PRIMARY KEY(day, task, field, scope)) WITHOUT ROWID
         """
+    ]
+
+    /// Gmail threads the person opened inside the label they named (research 41). A part is one message of a thread, or
+    /// one page of a deck attached to a message (`name` is the file, `page` counts from 1; a message has no name and
+    /// page 0). A part is stored once per message id. `mail_open` counts each thread once per day it was opened.
+    private static let mail = [
+        """
+        CREATE TABLE mail_part(
+            id INTEGER PRIMARY KEY, thread_id TEXT NOT NULL CHECK(thread_id <> ''),
+            message_id TEXT NOT NULL CHECK(message_id <> ''), kind TEXT NOT NULL CHECK(kind IN ('message','deck')),
+            name TEXT NOT NULL, page INTEGER NOT NULL CHECK(page >= 0), label TEXT NOT NULL CHECK(label <> ''),
+            sender TEXT NOT NULL, subject TEXT NOT NULL, sent_at TEXT NOT NULL, seen_at TEXT NOT NULL,
+            text TEXT NOT NULL CHECK(text <> ''), UNIQUE(message_id, name, page),
+            CHECK((kind = 'message') = (name = '' AND page = 0)))
+        """,
+        "CREATE INDEX mail_part_seen ON mail_part(seen_at)",
+        """
+        CREATE TABLE mail_open(
+            thread_id TEXT NOT NULL, day TEXT NOT NULL, label TEXT NOT NULL, PRIMARY KEY(thread_id, day)
+        ) WITHOUT ROWID
+        """,
     ]
 
     private static let baseline = [

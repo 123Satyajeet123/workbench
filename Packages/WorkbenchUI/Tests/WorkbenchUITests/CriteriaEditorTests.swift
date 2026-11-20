@@ -96,15 +96,15 @@ enum VCFixture {
         let (_, run) = try await RecordedModel(ScriptedModel("{}"), store: store)
             .generate(
                 [String: JSONValue].self, schema: .object([]), task: intake.spec.task, instructions: "i", input: "x",
-                holding: [.screenText])
+                holding: [.mail])
         let day = intake.day
         let item = Item(
-            task: intake.spec.task, day: day, scope: intake.scope, source: .screenText, citeFirst: 1, citeLast: 1,
+            task: intake.spec.task, day: day, scope: intake.scope, source: .mail, citeFirst: 1, citeLast: 1,
             start: day.start, end: day.start, fields: fields, quote: "q", run: run)
-        let policy = CapturePolicy(switches: [.screenText: true])
+        let policy = CapturePolicy(switches: [.mail: true], allowList: [.mail: ["Deals"]])
         try store.saveReading(
             HelperReader.Result(items: [item], dropped: 0, run: nil), of: intake.spec, day: day, scope: intake.scope,
-            grant: try #require(policy.authorize(CaptureRequest(kind: .screenText, label: nil), at: .now).grant),
+            grant: try #require(policy.authorize(CaptureRequest(kind: .mail, label: "Deals"), at: .now).grant),
             replacing: false)
     }
 

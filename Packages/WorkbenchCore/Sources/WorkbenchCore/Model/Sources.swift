@@ -5,4 +5,6 @@ public enum SourceKind: String, Codable, CaseIterable, Sendable {
     case files
     case whatsapp
     case call
+    /// Gmail threads opened inside one named label, read by the browser extension.
+    case mail
 }

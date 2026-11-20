@@ -27,12 +27,12 @@ import WorkbenchCore
             input: "x", holding: [])
         let day = WorkDay(containing: adityasStore.clock())
         let item = Item(
-            task: intake.spec.task, day: day, scope: "", source: .screenText, citeFirst: 1, citeLast: 1,
+            task: intake.spec.task, day: day, scope: "", source: .mail, citeFirst: 1, citeLast: 1,
             start: day.start, end: day.start, fields: ["company": "Secret Co"], quote: "Secret Co raises", run: run)
         try adityasStore.saveReading(
             .init(items: [item], dropped: 0, run: run), of: intake.spec, day: day, scope: "",
-            grant: CapturePolicy(switches: [.screen: true, .screenText: true])
-                .authorize(CaptureRequest(kind: .screenText), at: adityasStore.clock()).grant!)
+            grant: CapturePolicy(switches: [.mail: true], allowList: [.mail: ["Deals"]])
+                .authorize(CaptureRequest(kind: .mail, label: "Deals"), at: adityasStore.clock()).grant!)
 
         aditya.share(intake, to: .everyone)
         #expect(aditya.isShared(intake, in: .everyone) && !aditya.isShared(intake))

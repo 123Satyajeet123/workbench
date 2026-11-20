@@ -14,7 +14,7 @@ import WorkbenchCore
         let store = try scratchStore(clock: { now })
         try store.savePolicy(CapturePolicy(switches: [.screen: true, .screenText: true]))
         for (url, text) in [
-            ("https://mail.google.com/mail/u/0/", "Acme: raising a 2M seed, deck attached"),
+            ("https://mail.example.com/mail/u/0/", "Acme: raising a 2M seed, deck attached"),
             ("https://x.com/home", "a post about cats"),
         ] {
             let page = WebPage(browser: "com.brave.Browser", url: url, title: "Inbox", text: text)
@@ -35,52 +35,20 @@ import WorkbenchCore
         await scout.read()
         #expect(scripted.inputs.withLock { $0.isEmpty }, "no named site, no read")
 
-        try source.choose("https://www.mail.google.com/, not-a-site")
-        #expect(source.sites == ["mail.google.com"])
+        try source.choose("https://www.mail.example.com/, not-a-site")
+        #expect(source.sites == ["mail.example.com"])
         scout.reload()
         #expect(source.pageReading.pages.count == 1)
         await scout.read()
         let input = try #require(scripted.inputs.withLock { $0.first })
-        #expect(input.contains("mail.google.com — Inbox: Acme: raising a 2M seed"))
+        #expect(input.contains("mail.example.com — Inbox: Acme: raising a 2M seed"))
         #expect(!input.contains("cats"))
         #expect(scout.items.map(\.quote) == ["raising a 2M seed"])
-        #expect(try PageSource(store: store, task: machine.task).sites == ["mail.google.com"], "the sites are kept")
+        #expect(try PageSource(store: store, task: machine.task).sites == ["mail.example.com"], "the sites are kept")
     }
 
     @Test func mochiCanBuildAPageReaderShownAsATable() {
         #expect(MachineTemplate.all.contains(.pages))
         #expect(Array(HelperSpec.pages.views.keys) == ["table"])
-    }
-
-    @Test func dealIntakeRatesEachPitchByTheInvestorsCriteriaAndKeepsOnlyAllowedRatings() async throws {
-        let now = noon
-        let store = try scratchStore(clock: { now })
-        try store.savePolicy(CapturePolicy(switches: [.screen: true, .screenText: true]))
-        let page = WebPage(
-            browser: "com.brave.Browser", url: "https://mail.google.com/mail/u/0/", title: "Inbox",
-            text: "Acme (fintech) is raising a 2M seed, 40k MRR. Bolt: we build toys, pre-seed.")
-        try store.record(try #require(page.batch(policy: try store.currentPolicy(), at: now)))
-        let id = try #require(try store.queries.activities(since: .distantPast).first?.id)
-        let reply = """
-            {"items":[
-            {"company":"Acme","sector":"fintech","stage":"seed","from":"","cite":\(id),"quote":"Acme (fintech) is raising a 2M seed",
-            "r_stage":"yes","r_stage_quote":"raising a 2M seed","r_stage_reason":"A seed round.",
-            "r_traction":"yes","r_traction_quote":"40k MRR","r_traction_reason":"Revenue is stated."},
-            {"company":"Bolt","sector":"toys","stage":"pre-seed","from":"","cite":\(id),"quote":"Bolt: we sell toys",
-            "r_stage":"yes","r_stage_quote":"pre-seed","r_stage_reason":"","r_traction":"no","r_traction_quote":"","r_traction_reason":""}]}
-            """
-        let scripted = ScriptedModel(reply)
-        let machine = try store.createMachine(from: .dealIntake, name: "Deal intake")
-        let source = try PageSource(store: store, task: machine.task)
-        try source.choose("mail.google.com")
-        let intake = HelperModel(
-            machine: machine, source: source, store: store,
-            makeModel: { _ in RecordedModel(scripted, store: store) }, notifier: FakeNotifier())
-        await intake.read()
-        #expect(intake.items.map { $0["company"] } == ["Acme"])
-        #expect(intake.items.first?["rating"] == "hot", "code rates it from the rule readings")
-        #expect(intake.spec.triage(of: try #require(intake.items.first))?.needsReview == false)
-        #expect(intake.phase == .read(kept: 1, dropped: 1))
-        #expect(MachineTemplate.all.contains(.dealIntake) && !MachineTemplate.seeded.contains(.dealIntake))
     }
 }

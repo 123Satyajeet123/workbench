@@ -19,6 +19,7 @@ struct ReadBar: View {
     private var hasNothingToRead: Bool {
         if let screen = model.source as? ScreenSource { return screen.sessions.isEmpty }
         if let pages = model.source as? PageSource { return pages.pageReading.pages.isEmpty }
+        if let mail = model.source as? MailSource { return mail.mailReading.parts.isEmpty }
         return false
     }
 }
@@ -50,6 +51,7 @@ struct ReadNote: View {
     private var note: String {
         if let screen = model.source as? ScreenSource { return screenNote(screen) }
         if let pages = model.source as? PageSource { return pageNote(pages) }
+        if let mail = model.source as? MailSource { return mailNote(mail) }
         return
             "Reading sends this day's messages, and the text in its photos (read on this Mac), to \(models.choice.title). Each call is listed in Settings › Advanced."
     }
@@ -63,6 +65,19 @@ struct ReadNote: View {
         let left =
             reading.leftOut == 0 ? "" : " \(reading.leftOut) later pages are past the size limit and are left out."
         return "\(reading.pages.count) page views. Reading sends their text to \(models.choice.title).\(left)"
+    }
+
+    private func mailNote(_ source: MailSource) -> String {
+        let reading = source.mailReading
+        let label = source.labels.joined(separator: ", ")
+        guard !reading.parts.isEmpty else {
+            return
+                "No mail from \(label) on this day. Threads come from the Workbench browser extension while you open them in \(label) in Gmail."
+        }
+        let left =
+            reading.leftOut == 0 ? "" : " \(reading.leftOut) later parts are past the size limit and are left out."
+        return
+            "\(source.threadsOpened) threads opened in \(label); \(reading.parts.count) messages and deck pages. Reading sends their text to \(models.choice.title).\(left) Threads you never opened cannot be seen."
     }
 
     private func screenNote(_ source: ScreenSource) -> String {

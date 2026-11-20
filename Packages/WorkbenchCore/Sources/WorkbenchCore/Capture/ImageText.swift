@@ -64,6 +64,11 @@ public enum ImageText {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
             let image = CGImageSourceCreateImageAtIndex(source, 0, nil)
         else { return "" }
+        return recognize(image)
+    }
+
+    /// Empty when the image holds no text.
+    public static func recognize(_ image: CGImage) -> String {
         let request = VNRecognizeTextRequest()
         request.recognitionLevel = .accurate
         guard (try? VNImageRequestHandler(cgImage: image).perform([request])) != nil else { return "" }

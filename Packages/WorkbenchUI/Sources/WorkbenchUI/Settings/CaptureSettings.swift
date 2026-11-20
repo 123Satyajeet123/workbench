@@ -157,7 +157,7 @@ enum CaptureMode: CaseIterable, Identifiable {
     }
 }
 
-/// A source the founder switches on in Settings. WhatsApp is switched on by choosing a group in the team helper.
+/// A source the founder switches on in Settings. WhatsApp is switched on by choosing a group in the team helper, and Mail by naming a label in the deal helper.
 struct CaptureSource: Identifiable {
     let source: SourceKind
     let name: String
@@ -176,6 +176,9 @@ struct CaptureSource: Identifiable {
         CaptureSource(
             source: .files, name: "Files", symbol: "doc",
             reason: "Which files change in your folders. Not their contents."),
+        CaptureSource(
+            source: .mail, name: "Mail", symbol: "envelope",
+            reason: "Gmail threads you open in the label you named in a deal helper. No other mail."),
         CaptureSource(
             source: .call, name: "Calls", symbol: "phone",
             reason: "Your microphone and the other side's audio, only when you start a recording."),

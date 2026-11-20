@@ -79,8 +79,8 @@ public struct CapturePolicy: Codable, Sendable, Equatable {
         self.allowList = allowList
     }
 
-    /// Sources that read other people's words read only the labels listed: one chat, never all of them.
-    public static let needsAllowList: Set<SourceKind> = [.whatsapp]
+    /// Sources that read other people's words read only the labels listed: one chat or one mail label, never all of them.
+    public static let needsAllowList: Set<SourceKind> = [.whatsapp, .mail]
 
     public func isEnabled(_ kind: SourceKind) -> Bool { switches[kind] ?? false }
 

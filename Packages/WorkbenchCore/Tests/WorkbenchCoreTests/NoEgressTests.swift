@@ -20,8 +20,9 @@ enum EgressScan {
         networkSymbolPatterns.filter { text.range(of: $0, options: .regularExpression) != nil }
     }
 
-    /// Hosts the shipped sources may name: none. The only egress is the CLI the founder chose.
-    static let allowedHosts: Set<String> = []
+    /// Hosts the shipped sources may name: only Gmail, the one page the extension reads and the one origin its
+    /// attachment fetch may use. The only egress is the CLI the founder chose.
+    static let allowedHosts: Set<String> = ["mail.google.com"]
 
     static func bannedHits(in text: String) -> [String] {
         bannedPatterns.filter { text.range(of: $0, options: [.regularExpression, .caseInsensitive]) != nil }
@@ -73,7 +74,8 @@ struct NoEgressTests {
         #expect(findings.isEmpty, "\(findings.joined(separator: "\n"))")
     }
 
-    /// The extension's only way out is the native host on this Mac: no web request API, no host permission.
+    /// The extension's only way out is the native host on this Mac: no web request API, no host permission. The one
+    /// request it makes is the same-origin fetch of a Gmail attachment, in `mail/deck.js` only.
     @Test func theBrowserExtensionSendsOnlyToTheLocalHost() throws {
         let folder = Self.repo.appending(path: "Extension")
         let manifest = try JSONSerialization.jsonObject(with: Data(contentsOf: folder.appending(path: "manifest.json")))
@@ -81,10 +83,16 @@ struct NoEgressTests {
         #expect(keys["permissions"] as? [String] == ["nativeMessaging"])
         #expect(keys["host_permissions"] == nil && keys["optional_host_permissions"] == nil)
         #expect(keys["incognito"] as? String == "not_allowed")
-        for name in ["content.js", "background.js"] {
-            let code = try String(contentsOf: folder.appending(path: name), encoding: .utf8)
-            let network = #/\b(fetch|XMLHttpRequest|WebSocket|EventSource|sendBeacon|importScripts)\b|\bimport\(/#
+        for (name, code) in try ExtensionFiles.scripts() {
+            let network = #/\b(XMLHttpRequest|WebSocket|EventSource|sendBeacon|importScripts)\b|\bimport\(/#
             #expect(code.firstMatch(of: network) == nil, "\(name) has a network call")
+            let fetch = #/\bfetch\(/#
+            #expect(name == "mail/deck.js" || code.firstMatch(of: fetch) == nil, "\(name) calls fetch")
+        }
+        let deck = try #require(try ExtensionFiles.scripts()["mail/deck.js"])
+        #expect(deck.components(separatedBy: "fetch(").count == 2, "one fetch call")
+        for guardText in ["sameOrigin(address, pageOrigin)", #"credentials: "same-origin""#, #"redirect: "error""#] {
+            #expect(deck.contains(guardText), "the attachment fetch lost \(guardText)")
         }
     }
 

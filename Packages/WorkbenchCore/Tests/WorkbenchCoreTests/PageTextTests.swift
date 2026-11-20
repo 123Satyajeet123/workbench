@@ -10,18 +10,19 @@ import Testing
     }
 
     @Test func aPageIsKeptAsScreenTextWithoutItsQuery() throws {
-        let batch = try #require(page("https://mail.google.com/mail/u/0/?tab=rm#inbox").batch(policy: on, at: t0))
+        let batch = try #require(page("https://mail.example.com/mail/u/0/?tab=rm#inbox").batch(policy: on, at: t0))
         let kept = try #require(batch.activities.first)
         #expect(batch.activities.count == 1 && kept.kind == .page)
-        #expect(kept.document == "https://mail.google.com/mail/u/0/" && kept.app == "Brave Browser")
+        #expect(kept.document == "https://mail.example.com/mail/u/0/" && kept.app == "Brave Browser")
         #expect(kept.text == "Deck from Acme: seed round, 2M")
     }
 
     @Test func noTextIsKeptWhenTheSwitchIsOffTheSiteIsPrivateOrDeniedOrTheWindowIsPrivate() {
         let textOff = CapturePolicy(switches: [.screen: true, .screenText: false])
-        #expect(page("https://mail.google.com/").batch(policy: textOff, at: t0) == nil)
+        #expect(page("https://mail.example.com/").batch(policy: textOff, at: t0) == nil)
         #expect(
-            page("https://mail.google.com/").batch(policy: CapturePolicy(switches: [.screenText: true]), at: t0) == nil)
+            page("https://mail.example.com/").batch(policy: CapturePolicy(switches: [.screenText: true]), at: t0) == nil
+        )
         #expect(page("https://netbanking.hdfcbank.com/login").batch(policy: on, at: t0) == nil)
         var denied = on
         denied.denyList[.screen] = ["linkedin.com"]
@@ -34,10 +35,20 @@ import Testing
         #expect(page("https://x.com/home").batch(policy: paused, at: t0) == nil)
     }
 
+    @Test func gmailIsNeverKeptAsAPageEvenWithScreenTextOn() throws {
+        #expect(page("https://mail.google.com/mail/u/0/#inbox").batch(policy: on, at: t0) == nil)
+        #expect(page("https://mail.google.com/mail/u/0/#label/Deals/FMfc").batch(policy: on, at: t0) == nil)
+        let store = try makeStore()
+        try store.savePolicy(on)
+        let reply = PageHost.answer(try JSONEncoder().encode(page("https://mail.google.com/")), store: store)
+        #expect(reply == PageHost.Reply(kept: false))
+        #expect(try store.queries.activities(since: .distantPast).isEmpty)
+    }
+
     @Test func theHostKeepsAllowedPagesAndAnswersEveryFrame() throws {
         let store = try makeStore()
         try store.savePolicy(on)
-        let pages = [page("https://mail.google.com/"), page("https://www.hdfcbank.com/")]
+        let pages = [page("https://mail.example.com/"), page("https://www.hdfcbank.com/")]
         let input = try pages.map { NativeMessage.frame(try JSONEncoder().encode($0)) }.reduce(Data(), +)
         var output = PageHost.receive(input, store: store)
         var replies: [PageHost.Reply] = []
@@ -68,24 +79,24 @@ import Testing
 
     @Test func aMachineReadsOnlyItsNamedSitesEachTextOnceWithinTheBudget() {
         let day = [
-            text("https://mail.google.com/mail/u/0/", "Deck from Acme", at: 3),
-            text("https://mail.google.com/mail/u/0/", "Deck from Acme", at: 4),
+            text("https://mail.example.com/mail/u/0/", "Deck from Acme", at: 3),
+            text("https://mail.example.com/mail/u/0/", "Deck from Acme", at: 4),
             text("https://www.linkedin.com/in/someone", "Partner at Fund", at: 2),
             text("https://x.com/home", "a post", at: 1),
-            text("https://mail.google.com/mail/u/0/", "Intro to Bolt", at: 5),
-            text("https://mail.google.com/mail/u/0/", "Accessibility text of the same window", at: 6, kind: .text),
+            text("https://mail.example.com/mail/u/0/", "Intro to Bolt", at: 5),
+            text("https://mail.example.com/mail/u/0/", "Accessibility text of the same window", at: 6, kind: .text),
         ]
-        let read = WebPage.reading(day, sites: ["mail.google.com", "linkedin.com"])
+        let read = WebPage.reading(day, sites: ["mail.example.com", "linkedin.com"])
         #expect(read.pages.compactMap(\.text) == ["Partner at Fund", "Deck from Acme", "Intro to Bolt"])
         #expect(read.leftOut == 0)
         #expect(WebPage.reading(day, sites: []).pages.isEmpty, "no named site reads nothing")
-        let tight = WebPage.reading(day, sites: ["mail.google.com"], budget: 20)
+        let tight = WebPage.reading(day, sites: ["mail.example.com"], budget: 20)
         #expect(tight.pages.compactMap(\.text) == ["Deck from Acme"] && tight.leftOut == 1)
     }
 
     @Test func aTypedSiteBecomesAHost() {
         #expect(WebPage.site("https://www.LinkedIn.com/feed/") == "linkedin.com")
-        #expect(WebPage.site(" mail.google.com ") == "mail.google.com")
+        #expect(WebPage.site(" mail.example.com ") == "mail.example.com")
         #expect(WebPage.site("gmail") == nil && WebPage.site("") == nil)
     }
 }

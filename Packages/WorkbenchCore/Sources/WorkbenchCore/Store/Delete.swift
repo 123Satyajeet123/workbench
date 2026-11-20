@@ -136,6 +136,9 @@ extension Store {
         case .screenText: try removeActivity(db, [.text, .page], before: cutoff)
         case .files: try removeActivity(db, [.file], before: cutoff)
         case .whatsapp: break
+        case .mail:
+            try db.execute(sql: "DELETE FROM mail_part WHERE seen_at < ?", arguments: [cutoff.stored])
+            try db.execute(sql: "DELETE FROM mail_open WHERE day < ?", arguments: [String(cutoff.stored.prefix(10))])
         case .call:
             let condition = "state != 'recording' AND started_at < ?"
             let folders = try String.fetchAll(

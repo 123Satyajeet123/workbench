@@ -192,6 +192,7 @@ final class Crew {
         switch machine.spec.source {
         case .screenSessions: ScreenSource(store: store)
         case .pageText: try PageSource(store: store, task: machine.task)
+        case .mail: MailSource(store: store, capture: capture)
         case .whatsappChat:
             try WhatsAppSource(store: store, capture: capture, task: machine.task, founder: founder)
         }

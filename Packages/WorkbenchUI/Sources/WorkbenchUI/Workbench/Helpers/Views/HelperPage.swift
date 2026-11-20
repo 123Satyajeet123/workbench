@@ -25,6 +25,9 @@ extension HelperModel {
             return source.isSeveral ? "\(source.chats.count) chats" : source.chat?.name
         }
         if let source = source as? PageSource, !source.sites.isEmpty { return source.sites.joined(separator: ", ") }
+        if let source = source as? MailSource, source.isReady {
+            return "Gmail · " + source.labels.joined(separator: ", ")
+        }
         return nil
     }
 

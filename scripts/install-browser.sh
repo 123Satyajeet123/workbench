@@ -23,7 +23,7 @@ for browser in "BraveSoftware/Brave-Browser" "Google/Chrome"; do
     cat > "$support/$browser/NativeMessagingHosts/com.hizen.workbench.pages.json" <<JSON
 {
   "name": "com.hizen.workbench.pages",
-  "description": "Workbench: keeps the text you see on a page when your capture policy allows",
+  "description": "Workbench: keeps the text you see on a page, and Gmail threads in your named label, when your capture policy allows",
   "path": "$bin/workbench-pages",
   "type": "stdio",
   "allowed_origins": ["chrome-extension://$id/"]
@@ -32,3 +32,4 @@ JSON
     echo "Registered for $browser (extension id $id)"
 done
 echo "Next: load $root/Extension in your browser's extensions page (Developer mode › Load unpacked)."
+echo "Already loaded? Press reload on its card: version 0.2.0 adds the Gmail reader for mail.google.com."

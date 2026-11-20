@@ -10,12 +10,15 @@ public struct HelperSpec: Codable, Sendable, Equatable {
         case screenSessions = "screen_sessions"
         /// The text of web pages the person saw, only on the sites the machine's owner named.
         case pageText = "page_text"
+        /// Gmail threads the person opened inside the label they named, with the text of attached decks.
+        case mail = "mail_threads"
 
         public var kind: SourceKind {
             switch self {
             case .whatsappChat: .whatsapp
             case .screenSessions: .screen
             case .pageText: .screenText
+            case .mail: .mail
             }
         }
 
@@ -25,6 +28,7 @@ public struct HelperSpec: Codable, Sendable, Equatable {
             case .whatsappChat: "messages"
             case .screenSessions: "windows"
             case .pageText: "pages"
+            case .mail: "messages"
             }
         }
 
@@ -40,6 +44,12 @@ public struct HelperSpec: Codable, Sendable, Equatable {
                 """
                 the windows the founder had in front, in order. Each line is `[number] HH:mm–HH:mm (minutes) app — \
                 window title — address`; the address is a web page or a file and can be missing.
+                """
+            case .mail:
+                """
+                the mail threads the investor opened in their Deals label, in order. Each line is `[number] sender — \
+                subject: the text`. A line of an attached deck also names the file and the page: `sender — subject — \
+                file page 3: the text`. A thread shows one line for each message and each deck page.
                 """
             case .pageText:
                 """
