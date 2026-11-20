@@ -8,7 +8,7 @@ import Testing
         let model = RecordedModel(ScriptedModel(#"{"items":[]}"#), store: store)
         let (_, run) = try await model.generate(
             HelperReader.Reply.self, schema: .object([.init("items", .array(.string))]), task: spec.task,
-            instructions: spec.brief, input: "x")
+            instructions: spec.brief, input: "x", holding: [])
         let items = quotes.enumerated().map { index, quote in
             Item(
                 task: spec.task, day: day, scope: "", source: .screen, citeFirst: Int64(index), citeLast: Int64(index),

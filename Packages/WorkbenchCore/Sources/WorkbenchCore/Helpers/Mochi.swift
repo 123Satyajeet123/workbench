@@ -125,7 +125,8 @@ public struct Mochi: Sendable {
         guard Self.days(in: blocks) >= Self.minimumDays else { return Result(proposals: [], dropped: 0, run: nil) }
         let (reply, run) = try await model.generate(
             Reply.self, schema: Self.schema, task: Self.task, instructions: Self.instructions,
-            input: Self.input(blocks: blocks, roster: roster, templates: templates, earlier: earlier))
+            input: Self.input(blocks: blocks, roster: roster, templates: templates, earlier: earlier),
+            holding: Set(blocks.map(\.source)))
         let byID = Dictionary(blocks.compactMap { item in item.id.map { ($0, item) } }, uniquingKeysWith: { a, _ in a })
         let views = Dictionary(templates.map { ($0.id, Set($0.views)) }, uniquingKeysWith: { a, _ in a })
         var kept: [Proposal] = []

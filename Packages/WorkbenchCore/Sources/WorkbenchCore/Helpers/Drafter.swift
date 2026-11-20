@@ -37,7 +37,8 @@ public struct Drafter: Sendable {
             Quote: "\(item.quote)"
             """
         let (draft, run) = try await model.generate(
-            Draft.self, schema: Self.schema, task: Self.task, instructions: Self.instructions, input: input)
+            Draft.self, schema: Self.schema, task: Self.task, instructions: Self.instructions, input: input,
+            holding: [item.source])
         return (draft, run)
     }
 }

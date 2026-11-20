@@ -109,7 +109,7 @@ public struct Briefer: Sendable {
         guard !sources.isEmpty else { return nil }
         let (reply, run) = try await model.generate(
             Reply.self, schema: Self.schema, task: Self.task, instructions: Self.instructions,
-            input: Self.input(sources, day: day))
+            input: Self.input(sources, day: day), holding: Set(sources.map(\.item.source)))
         let given = Set(sources.compactMap(\.item.id))
         var kept: [MorningBrief.Line] = []
         for raw in reply.lines {

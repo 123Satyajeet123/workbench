@@ -26,7 +26,7 @@ import Testing
         let model = RecordedModel(ScriptedModel(#"{"kind":"c","cite":3,"ok":true,"cites":[]}"#), store: store)
         await #expect(throws: StructuredModelError.invalidReply("the reply does not fit the schema")) {
             _ = try await model.generate(
-                [String: JSONValue].self, schema: schema, task: "t", instructions: "", input: "")
+                [String: JSONValue].self, schema: schema, task: "t", instructions: "", input: "", holding: [])
         }
         #expect(try store.queries.runs().first?.outcome == .failed)
     }

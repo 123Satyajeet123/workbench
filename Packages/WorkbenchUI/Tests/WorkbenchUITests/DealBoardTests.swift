@@ -50,7 +50,7 @@ import WorkbenchCore
         let model = RecordedModel(ScriptedModel(#"{"items":[]}"#), store: store)
         let (_, run) = try await model.generate(
             Nothing.self, schema: .object([.init("items", .array(.string))]), task: HelperSpec.timeline.task,
-            instructions: "v", input: "x")
+            instructions: "v", input: "x", holding: [])
         let day = WorkDay(containing: store.clock())
         let items = ["Acme call prep", "Acme wrong block"].enumerated().map { index, quote in
             Item(

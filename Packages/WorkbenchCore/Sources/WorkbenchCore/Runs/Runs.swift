@@ -25,8 +25,17 @@ public struct Run: Sendable, Equatable, Identifiable {
     public var dropped: Int?
 }
 
-/// A model whose every call is a run in the store: the row is written before the input leaves the Mac and finished
-/// with what came back.
+/// What a run was asked and what it answered, kept so the run can be replayed.
+public struct RunText: Sendable, Equatable {
+    public var input: String
+    /// The reply as the model gave it. Nil while the run is open, and when it failed.
+    public var reply: String?
+    /// The consent kinds the input holds: a delete of one of them removes this text.
+    public var kinds: Set<SourceKind>
+}
+
+/// A model whose every call is a run in the store: the row and the input are written before the input leaves the Mac
+/// and finished with what came back. `holding` names the consent kinds the input holds.
 public struct RecordedModel: Sendable {
     public let model: any StructuredModel
     let store: Store
@@ -37,39 +46,45 @@ public struct RecordedModel: Sendable {
     }
 
     public func generate<T: Decodable & Sendable>(
-        _ type: T.Type, schema: JSONSchema, task: String, instructions: String, input: String
+        _ type: T.Type, schema: JSONSchema, task: String, instructions: String, input: String,
+        holding kinds: Set<SourceKind>
     ) async throws -> (value: T, run: RunID) {
         let schemaText = try schema.jsonText
         let prompt = Digest.sha256(instructions + "\n" + schemaText)
         try store.keepPrompt(hash: prompt, task: task, instructions: instructions, schema: schemaText)
-        let run = try store.beginRun(task: task, model: model.name, prompt: prompt, input: input)
+        let run = try store.beginRun(task: task, model: model.name, prompt: prompt, input: input, kinds: kinds)
         do {
             let answer = try await model.generate(type, schema: schema, instructions: instructions, input: input)
             guard schema.accepts(json: answer.reply) else {
                 throw StructuredModelError.invalidReply("the reply does not fit the schema")
             }
-            try store.finishRun(run, model: answer.model, usage: answer.usage, error: nil)
+            try store.finishRun(run, model: answer.model, usage: answer.usage, reply: answer.reply, error: nil)
             return (answer.value, run)
         } catch {
-            try store.finishRun(run, model: model.name, usage: Usage(), error: error.localizedDescription)
+            try store.finishRun(
+                run, model: model.name, usage: Usage(), reply: nil, error: error.localizedDescription)
             throw error
         }
     }
 }
 
 extension Store {
-    func beginRun(task: String, model: String, prompt: String, input: String) throws -> RunID {
+    func beginRun(task: String, model: String, prompt: String, input: String, kinds: Set<SourceKind>) throws -> RunID {
         try writer.write { db in
             try db.execute(
                 sql: """
                     INSERT INTO run(task, model, prompt, input_bytes, input_sha, started_at, outcome) VALUES (?,?,?,?,?,?,'running')
                     """,
                 arguments: [task, model, prompt, input.utf8.count, Digest.sha256(input), clock().stored])
-            return db.lastInsertedRowID
+            let run = db.lastInsertedRowID
+            try db.execute(
+                sql: "INSERT INTO run_text(run_id, input, kinds) VALUES (?,?,?)",
+                arguments: [run, input, try Coding.json(kinds.map(\.rawValue).sorted())])
+            return run
         }
     }
 
-    func finishRun(_ id: RunID, model: String, usage: Usage, error: String?) throws {
+    func finishRun(_ id: RunID, model: String, usage: Usage, reply: String?, error: String?) throws {
         try writer.write { db in
             try db.execute(
                 sql: """
@@ -80,6 +95,7 @@ extension Store {
                     model, clock().stored, error == nil ? "done" : "failed", error, usage.inputTokens,
                     usage.cacheReadTokens, usage.cacheWriteTokens, usage.outputTokens, usage.costUSD, id,
                 ])
+            try db.execute(sql: "UPDATE run_text SET reply = ? WHERE run_id = ?", arguments: [reply, id])
         }
     }
 
@@ -116,6 +132,15 @@ extension Queries {
         }
     }
 
+    /// What a run was asked and answered, to replay it. Nil once a privacy delete or the retention removed it.
+    public func runText(of run: RunID) throws -> RunText? {
+        try reader.read { db in
+            try db.fetch(
+                "run_text", "SELECT input, reply, kinds FROM run_text WHERE run_id = ?", [run], as: RunText.init(row:)
+            ).first
+        }
+    }
+
     public func usage(since start: Date) throws -> Usage {
         try runs(since: start).map(\.usage).reduce(Usage(), +)
     }
@@ -133,6 +158,19 @@ extension Run {
                 cacheWriteTokens: try row.value("cache_write_tokens"), outputTokens: try row.value("output_tokens"),
                 costUSD: try row.value("cost_usd")),
             kept: try row.optionalValue("kept"), dropped: try row.optionalValue("dropped"))
+    }
+}
+
+extension RunText {
+    init(row: Row) throws {
+        let names: [String] = try row.json("kinds")
+        self.init(
+            input: try row.value("input"), reply: try row.optionalValue("reply"),
+            kinds: Set(
+                try names.map { name in
+                    guard let kind = SourceKind(rawValue: name) else { throw StoredValueError("kinds") }
+                    return kind
+                }))
     }
 }
 

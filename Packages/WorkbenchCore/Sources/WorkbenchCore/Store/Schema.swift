@@ -10,20 +10,28 @@ enum Schema {
     static var version: Int32 { Int32(steps.count) }
 
     /// Reads the version and runs the missing steps in one write transaction, so a second process that opens the same
-    /// file waits, then finds the steps done.
+    /// file waits, then finds the steps done. Foreign keys are off while the steps run, because a step may rebuild a
+    /// table that others reference (a drop with foreign keys on would cascade into them). They are checked before the
+    /// transaction commits and switched on again after it.
     static func open(_ writer: some DatabaseWriter) throws {
-        try writer.write { db in
-            let found = try Int.fetchOne(db, sql: "PRAGMA user_version") ?? 0
-            guard found <= steps.count else { throw SchemaError.newerVersion }
-            guard found < steps.count else { return }
-            for statement in steps[found...].joined() { try db.execute(sql: statement) }
-            try db.execute(sql: "PRAGMA user_version = \(version)")
+        try writer.writeWithoutTransaction { db in
+            try db.execute(sql: "PRAGMA foreign_keys = OFF")
+            defer { try? db.execute(sql: "PRAGMA foreign_keys = ON") }
+            try db.inTransaction(.immediate) {
+                let found = try Int.fetchOne(db, sql: "PRAGMA user_version") ?? 0
+                guard found <= steps.count else { throw SchemaError.newerVersion }
+                guard found < steps.count else { return .commit }
+                for statement in steps[found...].joined() { try db.execute(sql: statement) }
+                try db.checkForeignKeys()
+                try db.execute(sql: "PRAGMA user_version = \(version)")
+                return .commit
+            }
         }
     }
 
     static var stepDigests: [String] { steps.map { Digest.sha256($0.joined(separator: ";\n")) } }
 
-    static let steps = [baseline, itemEvents]
+    static let steps = [baseline, itemEvents, runText]
 
     /// Items that open and close (research 32): a later line closes a commitment or answers a question. An event is
     /// never rewritten; the latest one is the item's state. Valid time is when the closing line was said; record time
@@ -43,6 +51,48 @@ enum Schema {
         CREATE VIEW item_status AS SELECT item_id, kind AS status_kind, outcome AS status_outcome,
             quote AS status_quote, valid_at AS status_at, actor AS status_actor
         FROM item_event WHERE id IN (SELECT MAX(id) FROM item_event GROUP BY item_id)
+        """,
+    ]
+
+    /// Replayable runs: what each run was asked and answered, with the consent kinds its input holds. Also the
+    /// indexes that foreign-key and join columns lacked, and `item` rebuilt with AUTOINCREMENT by the 12-step
+    /// procedure of the SQLite ALTER TABLE document, "Making Other Kinds Of Table Schema Changes".
+    private static let runText = [
+        """
+        CREATE TABLE run_text(
+            run_id INTEGER PRIMARY KEY REFERENCES run(id) ON DELETE CASCADE, input TEXT NOT NULL, reply TEXT,
+            kinds TEXT NOT NULL CHECK(json_valid(kinds) AND json_type(kinds) = 'array'))
+        """,
+        "CREATE INDEX machine_change_machine ON machine_change(machine_id, id)",
+        "CREATE INDEX proposal_decision_proposal ON proposal_decision(proposal_id, id)",
+        "CREATE INDEX member_team ON member(team_id)",
+        "CREATE INDEX member_handle_member ON member_handle(member_id)",
+        "CREATE INDEX proposal_run ON proposal(run_id)",
+        "DROP VIEW item_mark",
+        """
+        CREATE TABLE item_rebuilt(
+            id INTEGER PRIMARY KEY AUTOINCREMENT, task TEXT NOT NULL CHECK(task <> ''),
+            run_id INTEGER NOT NULL REFERENCES run(id), day TEXT NOT NULL, scope TEXT NOT NULL, source TEXT NOT NULL,
+            cite_first INTEGER NOT NULL, cite_last INTEGER NOT NULL, start_at TEXT NOT NULL, end_at TEXT NOT NULL,
+            fields TEXT NOT NULL CHECK(json_valid(fields) AND json_type(fields) = 'object'),
+            quote TEXT NOT NULL CHECK(quote <> ''), created_at TEXT NOT NULL,
+            asked_with REAL CHECK(asked_with IS NULL OR (asked_with > 0 AND asked_with <= 1)),
+            CHECK(end_at >= start_at), CHECK(cite_last >= cite_first))
+        """,
+        """
+        INSERT INTO item_rebuilt(id, task, run_id, day, scope, source, cite_first, cite_last, start_at, end_at, fields,
+            quote, created_at, asked_with)
+        SELECT id, task, run_id, day, scope, source, cite_first, cite_last, start_at, end_at, fields, quote,
+            created_at, asked_with FROM item
+        """,
+        "DROP TABLE item",
+        "ALTER TABLE item_rebuilt RENAME TO item",
+        "CREATE INDEX item_day ON item(task, day, scope)",
+        "CREATE INDEX item_run ON item(run_id)",
+        """
+        CREATE VIEW item_mark AS SELECT item.*, COALESCE(
+            (SELECT state FROM mark WHERE mark.item_id = item.id ORDER BY mark.id DESC LIMIT 1), 'proposed') AS state
+        FROM item
         """,
     ]
 

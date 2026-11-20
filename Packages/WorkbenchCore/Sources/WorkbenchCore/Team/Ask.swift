@@ -10,8 +10,11 @@ public struct MemoryEntry: Sendable, Equatable, Identifiable {
     public var text: String
     /// The exact words a citation must quote from.
     public var quote: String
+    /// The consent kinds the entry's text came from.
+    public var kinds: Set<SourceKind>
 
-    public init(id: String, source: String, text: String, quote: String) {
+    public init(id: String, source: String, text: String, quote: String, kinds: Set<SourceKind> = []) {
+        self.kinds = kinds
         self.id = id
         self.source = source
         self.text = text
@@ -95,7 +98,8 @@ public struct Asker: Sendable {
         let lines = found.map { "[\($0.id)] \($0.source): \($0.text)" }
         let (reply, run) = try await model.generate(
             Reply.self, schema: Self.schema, task: Self.task, instructions: Self.instructions,
-            input: "Question: \(question)\n\nEntries:\n\(lines.joined(separator: "\n"))")
+            input: "Question: \(question)\n\nEntries:\n\(lines.joined(separator: "\n"))",
+            holding: found.reduce(into: []) { $0.formUnion($1.kinds) })
         return (try Self.checked(reply, given: found), run)
     }
 

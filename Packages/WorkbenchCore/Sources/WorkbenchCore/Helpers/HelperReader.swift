@@ -58,7 +58,8 @@ public struct HelperReader: Sendable {
         let (reply, run) = try await model.generate(
             Reply.self, schema: schema, task: spec.task, instructions: instructions,
             input: Self.examples(examples, spec: spec) + Self.open(open, spec: spec)
-                + Self.input(day: day, evidence: evidence))
+                + Self.input(day: day, evidence: evidence),
+            holding: [spec.source.kind])
         var kept: [Item] = []
         for raw in reply.items {
             guard let item = item(raw, day: day, scope: scope, evidence: evidence, open: open, run: run),

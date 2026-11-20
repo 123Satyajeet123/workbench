@@ -11,7 +11,7 @@ import Testing
         let (_, run) = try await model.generate(
             HelperReader.Reply.self, schema: .object([.init("items", .array(.string))]), task: machine.task,
             instructions: machine.spec.brief,
-            input: "x")
+            input: "x", holding: [])
         let day = WorkDay(containing: t0)
         let secret = "Acme raises at a 40 crore valuation"
         let item = Item(

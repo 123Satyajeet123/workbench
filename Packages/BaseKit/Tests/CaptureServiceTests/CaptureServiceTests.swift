@@ -35,6 +35,28 @@ struct CaptureServiceTests {
         #expect(service.problem == nil)
     }
 
+    @Test func runTextOlderThanThirtyDaysIsDeletedWithTheRunKeptAsTheMeter() async throws {
+        let start = Date(timeIntervalSince1970: 1_790_000_000)
+        let now = Mutex(start)
+        let store = try Store(
+            directory: FileManager.default.temporaryDirectory.appending(path: "cs-\(UUID().uuidString)"),
+            clock: { now.withLock { $0 } })
+        let service = try CaptureService(store: store)
+        let model = RecordedModel(EmptyItemsModel(), store: store)
+        var runs: [RunID] = []
+        for days in [0.0, 40.0] {
+            now.withLock { $0 = start.addingTimeInterval(days * 86_400) }
+            runs.append(
+                try await model.generate(
+                    [String: JSONValue].self, schema: .object([]), task: "t", instructions: "", input: "chat text",
+                    holding: [.whatsapp]
+                ).run)
+        }
+        await service.pruneIfDue(at: start.addingTimeInterval(41 * 86_400))
+        #expect(try runs.map { try store.queries.runText(of: $0) != nil } == [false, true])
+        #expect(try store.queries.runs().count == 2)
+    }
+
     @Test func aCallIsRefusedUntilSwitchedOnOrWhilePausedAndAsksFirstInPrivateMode() async throws {
         let (service, store) = try service()
         let brave = AudioApp(bundleID: "com.brave.Browser", name: "Brave", processes: [1])
@@ -56,4 +78,16 @@ struct CaptureServiceTests {
         #expect(try store.queries.recordings().isEmpty)
     }
 
+}
+
+/// Answers every call with an empty object.
+private struct EmptyItemsModel: StructuredModel {
+    let name = "empty"
+
+    func generate<T: Decodable & Sendable>(_ type: T.Type, schema: JSONSchema, instructions: String, input: String)
+        async throws -> ModelAnswer<T>
+    {
+        let value = try JSONDecoder().decode(T.self, from: Data("{}".utf8))
+        return ModelAnswer(value: value, model: name, usage: Usage(), reply: "{}")
+    }
 }

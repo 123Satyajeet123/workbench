@@ -19,7 +19,7 @@ struct BadRowTests {
 
     @Test func anItemWithFieldsOfTheWrongShapeMakesTheQueryThrowAndIsNotSkipped() throws {
         let store = try makeStore()
-        let run = try store.beginRun(task: "day.timeline", model: "m", prompt: "p", input: "x")
+        let run = try store.beginRun(task: "day.timeline", model: "m", prompt: "p", input: "x", kinds: [])
         try plantItem(in: store, run: run, fields: #"{"task":"ok"}"#)
         let day = try #require(WorkDay("2026-09-21"))
         #expect(try store.queries.items(of: "day.timeline", day: day, scope: "").count == 1)
@@ -38,7 +38,7 @@ struct BadRowTests {
 
     @Test func aProposalWhoseEvidenceIsNotAListOfIdsMakesTheQueryThrow() throws {
         let store = try makeStore()
-        let run = try store.beginRun(task: "mochi", model: "m", prompt: "p", input: "x")
+        let run = try store.beginRun(task: "mochi", model: "m", prompt: "p", input: "x", kinds: [])
         try store.writer.write { db in
             try db.execute(
                 sql: """

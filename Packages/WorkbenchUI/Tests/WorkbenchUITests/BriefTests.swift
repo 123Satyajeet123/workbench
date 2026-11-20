@@ -16,7 +16,7 @@ import WorkbenchCore
         let yesterday = WorkDay(containing: morning).adding(days: -1)
         let recorder = RecordedModel(ScriptedModel(#"{}"#), store: store)
         let (_, run) = try await recorder.generate(
-            Nothing.self, schema: .object([]), task: HelperSpec.team.task, instructions: "v1", input: "x")
+            Nothing.self, schema: .object([]), task: HelperSpec.team.task, instructions: "v1", input: "x", holding: [])
         let blocker = Item(
             task: HelperSpec.team.task, day: yesterday, scope: "", source: .whatsapp, citeFirst: 5, citeLast: 5,
             start: yesterday.start.addingTimeInterval(36_000), end: yesterday.start.addingTimeInterval(36_000),
@@ -65,7 +65,7 @@ import WorkbenchCore
         let yesterday = WorkDay(containing: morning).adding(days: -1)
         let recorder = RecordedModel(ScriptedModel(#"{}"#), store: store)
         let (_, run) = try await recorder.generate(
-            Nothing.self, schema: .object([]), task: HelperSpec.team.task, instructions: "v1", input: "x")
+            Nothing.self, schema: .object([]), task: HelperSpec.team.task, instructions: "v1", input: "x", holding: [])
         try store.savePolicy(CapturePolicy(switches: [.whatsapp: true], allowList: [.whatsapp: ["team"]]))
         let done = Item(
             task: HelperSpec.team.task, day: yesterday, scope: "", source: .whatsapp, citeFirst: 5, citeLast: 5,

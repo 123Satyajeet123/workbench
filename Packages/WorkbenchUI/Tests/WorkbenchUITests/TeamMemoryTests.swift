@@ -112,7 +112,7 @@ import WorkbenchCore
         let (_, run) = try await model.generate(
             Nothing.self, schema: .object([.init("items", .array(.string))]), task: HelperSpec.timeline.task,
             instructions: "v1",
-            input: "x")
+            input: "x", holding: [])
         let block = Item(
             task: HelperSpec.timeline.task, day: today, scope: "", source: .screen, citeFirst: 1, citeLast: 1,
             start: now, end: now, fields: ["task": "Mail to an LP"], quote: "Re: term sheet", run: run)

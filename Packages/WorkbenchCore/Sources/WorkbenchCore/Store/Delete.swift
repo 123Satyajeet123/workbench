@@ -2,14 +2,20 @@ import Foundation
 import GRDB
 
 public enum DeleteSelector: Sendable {
-    /// Screen and file activity that matches every field the filter names, and the screen items over its time.
+    /// Screen and file activity that matches every field the filter names, and the screen items over its time. Also
+    /// the text of model runs that hold screen, screen-text or file content and started in the filter's time range
+    /// (all of them when it has none). A run's input does not say which window it came from, so this is coarse: it may
+    /// remove text of other windows, and that is the safe direction.
     case activities(ActivityFilter)
-    /// What one kind of source produced before the cutoff (all of it when nil): its activity, its recordings, and
-    /// the items helpers read from it. A call still being recorded stays.
+    /// What one kind of source produced before the cutoff (all of it when nil): its activity, its recordings, the
+    /// items helpers read from it, and the text of model runs that hold the kind and started before the cutoff. A call
+    /// still being recorded stays.
     case kind(SourceKind, before: Date?)
-    /// One machine: its items and their marks, its saved settings, and a deleted state. Its runs stay in the meter.
+    /// One machine: its items and their marks, its saved settings, the text of its runs, and a deleted state. Its run
+    /// rows stay in the meter.
     case machine(String)
-    /// Every kind. The consent history and the record of model runs hold no captured content, and stay.
+    /// Every kind, and all run text before the cutoff. The consent history and the run rows (the meter) hold no
+    /// captured content, and stay.
     case everything(before: Date?)
 }
 
@@ -75,11 +81,14 @@ extension Store {
                             AND activity.ts >= item.start_at AND activity.ts < item.end_at)
                         """, arguments: clause.arguments)
                 try db.execute(sql: "DELETE FROM activity WHERE \(clause.sql)", arguments: clause.arguments)
+                try removeRunText(
+                    db, holding: [.screen, .screenText, .files], from: filter.from, before: filter.to)
                 return [String]()
             case .kind(let kind, let cutoff):
                 return try remove(db, kind, before: cutoff ?? .distantFuture)
             case .machine(let task):
                 try db.execute(sql: "DELETE FROM item WHERE task = ?", arguments: [task])
+                try removeRunText(db, task: task)
                 try db.execute(
                     sql: "DELETE FROM state WHERE key LIKE ? ESCAPE '\\'", arguments: [Self.likePrefix(task)])
                 let machines = try db.fetch(
@@ -90,6 +99,7 @@ extension Store {
                 }
                 return [String]()
             case .everything(let cutoff):
+                try removeRunText(db, before: cutoff)
                 return try SourceKind.allCases.flatMap { try remove(db, $0, before: cutoff ?? .distantFuture) }
             }
         }
@@ -114,6 +124,7 @@ extension Store {
     private func remove(_ db: Database, _ kind: SourceKind, before cutoff: Date) throws -> [String] {
         try db.execute(
             sql: "DELETE FROM item WHERE source = ? AND start_at < ?", arguments: [kind.rawValue, cutoff.stored])
+        try removeRunText(db, holding: [kind], before: cutoff)
         switch kind {
         case .screen:
             try removeActivity(db, Activity.Kind.allCases.filter { $0 != .file }, before: cutoff)
@@ -128,6 +139,39 @@ extension Store {
             return folders
         }
         return []
+    }
+
+    /// Run text that meets every condition given: holds any of `kinds`, belongs to a run of `task`, and belongs to a
+    /// run started in `from` up to `before`.
+    private func removeRunText(
+        _ db: Database, holding kinds: [SourceKind]? = nil, task: String? = nil, from: Date? = nil,
+        before: Date? = nil
+    ) throws {
+        var conditions = ["1 = 1"]
+        var arguments: [any DatabaseValueConvertible] = []
+        if let kinds {
+            let marks = Array(repeating: "?", count: kinds.count).joined(separator: ",")
+            conditions.append("EXISTS (SELECT 1 FROM json_each(run_text.kinds) WHERE value IN (\(marks)))")
+            arguments += kinds.map(\.rawValue)
+        }
+        if let task {
+            conditions.append("run.task = ?")
+            arguments.append(task)
+        }
+        if let from {
+            conditions.append("run.started_at >= ?")
+            arguments.append(from.stored)
+        }
+        if let before {
+            conditions.append("run.started_at < ?")
+            arguments.append(before.stored)
+        }
+        try db.execute(
+            sql: """
+                DELETE FROM run_text WHERE run_id IN (
+                    SELECT run.id FROM run JOIN run_text ON run_text.run_id = run.id
+                    WHERE \(conditions.joined(separator: " AND ")))
+                """, arguments: StatementArguments(arguments))
     }
 
     private func removeActivity(_ db: Database, _ kinds: [Activity.Kind], before cutoff: Date) throws {

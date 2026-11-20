@@ -35,7 +35,8 @@ final class MemoryModel {
                 entries.append(
                     MemoryEntry(
                         id: "item:\(id)", source: "\(machine.name) · \(item.day)",
-                        text: (values + [item.quote]).joined(separator: " — "), quote: item.quote))
+                        text: (values + [item.quote]).joined(separator: " — "), quote: item.quote,
+                        kinds: [item.source]))
             }
         }
         for deal in deals.deals {

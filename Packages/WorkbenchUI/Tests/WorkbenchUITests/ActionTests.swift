@@ -21,7 +21,7 @@ private final class FakeReminders: ReminderList {
         let model = RecordedModel(ScriptedModel(#"{"items":[]}"#), store: store)
         let (_, run) = try await model.generate(
             Nothing.self, schema: .object([.init("items", .array(.string))]), task: HelperSpec.team.task,
-            instructions: "v1", input: "x")
+            instructions: "v1", input: "x", holding: [])
         try store.saveReading(
             .init(
                 items: [

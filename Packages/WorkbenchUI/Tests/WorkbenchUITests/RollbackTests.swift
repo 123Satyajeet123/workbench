@@ -54,7 +54,7 @@ import WorkbenchCore
         let model = RecordedModel(ScriptedModel(#"{"items":[]}"#), store: s.store)
         let (_, run) = try await model.generate(
             Nothing.self, schema: .object([.init("items", .array(.string))]), task: s.timeline.spec.task,
-            instructions: "v", input: "x")
+            instructions: "v", input: "x", holding: [])
         let item = Item(
             task: s.timeline.spec.task, day: day, scope: "", source: .screen, citeFirst: 1, citeLast: 1,
             start: day.start, end: day.start.addingTimeInterval(600), fields: ["task": "t\(run)"], quote: "q", run: run)

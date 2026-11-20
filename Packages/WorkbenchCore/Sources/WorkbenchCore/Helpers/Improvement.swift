@@ -103,7 +103,7 @@ public struct Improver: Sendable {
         guard training.filter({ $0.state == .rejected }).count >= Self.minimumWrong else { return (nil, nil) }
         let (reply, run) = try await model.generate(
             Reply.self, schema: Self.schema, task: Self.task, instructions: Self.instructions,
-            input: Self.input(spec: spec, marked: training))
+            input: Self.input(spec: spec, marked: training), holding: Set(training.map(\.source)))
         return (Self.checked(reply, brief: spec.brief, given: Set(training.compactMap(\.id))), run)
     }
 
