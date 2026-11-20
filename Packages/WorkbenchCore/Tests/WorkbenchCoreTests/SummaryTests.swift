@@ -152,6 +152,8 @@ private struct Fixture {
         labelled.fields[0].kind = .label(of: "projects")
         #expect(labelled.summaryField == "person", "a label field names the grouping too")
         labelled.fields.removeAll { $0.name == "person" }
+        #expect(labelled.summaryField == "project", "the next label field")
+        labelled.fields.removeAll { $0.name == "project" }
         #expect(labelled.summaryField == nil)
         #expect(HelperSpec.timeline.summaryField == nil)
     }

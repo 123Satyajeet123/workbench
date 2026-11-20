@@ -64,7 +64,7 @@ import WorkbenchCore
     @Test func aReadingOfAMachineWithAPersonFieldBringsTheDaysSummariesUpToDate() async throws {
         let s = try setup(
             reply:
-                #"{"items":[{"person":"Asha","kind":"done","text":"Login API","eta":"","cite":11,"quote":"login API done"}]}"#
+                #"{"items":[{"person":"Asha","project":"Login","kind":"done","text":"Login API","eta":"","stance":"said","cite":11,"quote":"login API done"}],"closes":[]}"#
         )
         await s.pip.read()
         #expect(s.model.summaryCalls.withLock { $0 } == 1)
