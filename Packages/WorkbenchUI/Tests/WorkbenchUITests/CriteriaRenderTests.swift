@@ -10,27 +10,6 @@ import WorkbenchCore
 /// The why card, the criteria editor and the agreement report drawn to PNGs for a person to look at. The folder comes
 /// from `VC_PREVIEW_DIR`, else the temporary folder.
 @Suite struct CriteriaRenderTests {
-    private func folder() -> URL {
-        ProcessInfo.processInfo.environment["VC_PREVIEW_DIR"].map { URL(filePath: $0) }
-            ?? FileManager.default.temporaryDirectory
-    }
-
-    private func write(_ view: some View, named name: String, width: CGFloat = 640) throws {
-        let framed = view.padding(Space.l).frame(width: width, alignment: .topLeading)
-            .background(Color(nsColor: .textBackgroundColor)).environment(\.colorScheme, .light)
-        let host = NSHostingView(rootView: framed)
-        host.frame = CGRect(origin: .zero, size: CGSize(width: width, height: host.fittingSize.height))
-        let window = NSWindow(contentRect: host.frame, styleMask: [], backing: .buffered, defer: false)
-        window.appearance = NSAppearance(named: .aqua)
-        window.contentView = host
-        host.layoutSubtreeIfNeeded()
-        let bitmap = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
-        host.cacheDisplay(in: host.bounds, to: bitmap)
-        let png = try #require(bitmap.representation(using: .png, properties: [:]))
-        try png.write(to: folder().appending(path: "\(name).png"))
-        #expect(png.count > 10_000)
-    }
-
     private func triage(_ fields: [String: String]) -> Triage { VCFixture.thesis.triage(fields) }
 
     @Test func theWhyCardShowsEachRuleItsNumberAndItsWords() throws {
@@ -42,7 +21,7 @@ import WorkbenchCore
             Text("Cold: a deal-breaker matched").textStyle(.caption)
             WhyCard(triage: triage(VCFixture.breaker))
         }
-        try write(cards, named: "why-card")
+        try renderPNG(cards, named: "why-card")
     }
 
     private func intake() async throws -> (HelperModel, Store) {
@@ -83,7 +62,7 @@ import WorkbenchCore
         strict.test = .number(.init(measure: "monthly revenue", unit: "USD", comparison: .atLeast, low: 50_000))
         editor.edit(strict)
         editor.commitForm()
-        try write(CriteriaBody(model: editor, save: {}), named: "criteria-editor", width: 760)
+        try renderPNG(CriteriaBody(model: editor, save: {}), named: "criteria-editor", width: 760)
         editor.add()
         editor.form?.kind = .number
         editor.form?.measure = "round size"
@@ -91,7 +70,7 @@ import WorkbenchCore
         editor.form?.comparison = .between
         editor.form?.low = "500000"
         editor.form?.high = "3000000"
-        try write(CriteriaBody(model: editor, save: {}), named: "criteria-editor-form", width: 760)
+        try renderPNG(CriteriaBody(model: editor, save: {}), named: "criteria-editor-form", width: 760)
     }
 
     @Test func theAgreementReportShowsEveryNumberOnTheHeldOutSet() async throws {
@@ -113,7 +92,7 @@ import WorkbenchCore
         let again = HelperModel(
             machine: helper.machine, source: helper.source, store: store, makeModel: nil,
             notifier: FakeNotifier())
-        try write(AgreementBody(agreement: again.agreement), named: "agreement-report", width: 760)
+        try renderPNG(AgreementBody(agreement: again.agreement), named: "agreement-report", width: 760)
     }
 
 }

@@ -8,6 +8,7 @@ import WorkbenchCore
 @Observable
 final class DealsModel {
     private(set) var deals: [WorkObject] = []
+    private(set) var digests: [String: DealDigest] = [:]
     private(set) var unreadable: [String] = []
     private(set) var problem: String?
 
@@ -23,6 +24,7 @@ final class DealsModel {
     var me: String { catalog.me }
     var stages: [String] { WorkObject.dealStages }
 
+    var columns: [DealBoard.Column] { DealBoard.columns(of: deals, stages: stages) }
     func deals(in stage: String) -> [WorkObject] { deals.filter { $0.stages.contains(stage) } }
     func deal(_ id: String) -> WorkObject? { deals.first { $0.id == id } }
 
@@ -37,7 +39,22 @@ final class DealsModel {
             deals = WorkObject.fold(try store.queries.workEvents(), viewer: me).filter {
                 $0.kind == "deal" && !$0.archived
             }
+            let machines = try store.queries.machines()
+            let actions = try store.queries.dealActions()
+            let reader = DealDigestReader(store: store, me: me)
+            digests = Dictionary(
+                uniqueKeysWithValues: try deals.map {
+                    ($0.id, try reader.digest(of: $0, machines: machines, actions: actions))
+                })
         }
+        settleActions()
+    }
+
+    /// A deal whose action was done moves on: the stage move is an event like any other.
+    private func settleActions() {
+        guard let actions = try? store.queries.dealActions() else { return }
+        let settled = DealAction.settled(deals, actions: actions)
+        add(settled.map { .init(object: $0.id, kind: .stage, text: WorkObject.afterAction, replaces: $0.stageHeads) })
     }
 
     @discardableResult
@@ -51,9 +68,26 @@ final class DealsModel {
         return id
     }
 
-    /// A new stage replaces every standing one, so a move also settles a conflict.
+    /// A new stage replaces every standing one, so a move also settles a conflict. "Action required" has its own
+    /// move, which asks what is needed. Leaving it by hand drops the open action.
     func move(_ deal: WorkObject, to stage: String) {
+        guard stage != WorkObject.actionRequired else { return }
+        attempt("drop the action") { try store.dropActions(of: deal.id) }
         add([.init(object: deal.id, kind: .stage, text: stage, replaces: deal.stageHeads)])
+    }
+
+    /// Moves the deal to "Action required" and opens the one dated fact it waits for, owned by the founder.
+    func requireAction(_ deal: WorkObject, what: String, due: WorkDay) {
+        guard what.cleaned != nil else { return }
+        attempt("save the action") { try store.requireAction(of: deal, what: what, due: due, owner: me) }
+        add([.init(object: deal.id, kind: .stage, text: WorkObject.actionRequired, replaces: deal.stageHeads)])
+    }
+
+    /// Done on the deal's open action, the close Today gives it; the deal then moves on.
+    func finishAction(of deal: WorkObject) {
+        guard let action = digests[deal.id]?.action else { return }
+        attempt("finish the action") { try store.apply(DealAction.lifecycle.closing([action])) }
+        refresh()
     }
 
     func rename(_ deal: WorkObject, to title: String) {
@@ -106,6 +140,7 @@ final class DealsModel {
     }
 
     private func add(_ drafts: [Draft]) {
+        guard !drafts.isEmpty else { return }
         attempt("save the change") {
             let first = try store.queries.nextClock()
             let events = drafts.enumerated().map { index, draft in

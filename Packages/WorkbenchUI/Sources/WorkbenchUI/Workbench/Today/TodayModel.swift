@@ -95,12 +95,17 @@ final class TodayModel {
     private func load() throws {
         let now = store.clock()
         today = WorkDay(containing: now)
-        guard let machine = factMachine else { return clear() }
+        let dealActions = try store.queries.openDealActions()
+        guard let machine = factMachine else {
+            clear()
+            needs = Needs.pick(facts: dealActions, findings: [], today: today, now: now)
+            return
+        }
         let lifecycle = machine.spec.lifecycleOrNone
         let facts = try recentFacts(of: machine, lifecycle: lifecycle, since: today.adding(days: 1 - Self.days))
         let findings = try sentinelTask.map { try store.queries.items(of: $0, on: today) } ?? []
         let listed = facts.filter { $0.isListed(at: now) }
-        needs = Needs.pick(facts: facts, findings: findings, today: today, now: now)
+        needs = Needs.pick(facts: facts + dealActions, findings: findings, today: today, now: now)
         people = group(facts, by: machine.spec.memberField, lifecycle, now)
         projectGroups = group(facts, by: machine.spec.labelField, lifecycle, now)
         team = try rows(machine.spec.memberField, of: machine, day: today, listed: listed, groups: people)
@@ -211,11 +216,14 @@ final class TodayModel {
         }
     }
 
-    /// A fact closes with its lifecycle's outcome; a finding, which has no lifecycle, is handled.
+    /// A fact closes with its lifecycle's outcome, a deal's action as done; a finding, which has no lifecycle, is
+    /// handled.
     private func closing(_ items: [Item]) -> [ItemAction: [Int64]] {
         let task = factMachine?.task
         var plan = factMachine?.spec.lifecycle?.closing(items.filter { $0.task == task }) ?? [:]
-        let findings = items.filter { $0.task != task && $0.closed == nil }.compactMap(\.id)
+        plan.merge(DealAction.lifecycle.closing(items.filter { $0.task == DealAction.task })) { $0 + $1 }
+        let findings = items.filter { $0.task != task && $0.task != DealAction.task && $0.closed == nil }.compactMap(
+            \.id)
         if !findings.isEmpty { plan[.done(outcome: "handled")] = findings }
         return plan
     }

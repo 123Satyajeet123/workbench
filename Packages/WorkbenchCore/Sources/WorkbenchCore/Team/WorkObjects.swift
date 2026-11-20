@@ -51,9 +51,15 @@ public struct LinkedItem: Codable, Sendable, Equatable {
     public var source: SourceKind?
     /// Everyone who could already read the item's source when it was linked, by name.
     public var audience: [String]
+    /// The machine's task and the item's id in its author's store. Nil in an event written before the fields
+    /// existed. The id means something only on the author's Mac.
+    public var task: String?
+    public var itemID: Int64?
 
     public init(machine: Machine, item: Item, audience: [String]) {
         self.machine = machine.name
+        task = machine.task
+        itemID = item.id
         source = item.source
         day = item.day.description
         columns = machine.spec.fields.map(\.name)
@@ -124,10 +130,14 @@ public struct WorkObject: Sendable, Equatable, Identifiable {
 }
 
 extension WorkObject {
-    /// A deal's stages (Hustle Fund's seven, research 27 §1.1). Stages are data: a team may use its own.
+    /// A deal's stages (Hustle Fund's, research 27 §1.1, with the three a VC analyst asked for). Stages are data:
+    /// a team may use its own, and the board still shows a deal in a stage that is not listed.
     public static let dealStages = [
-        "Inbox", "Screen", "Founder meeting", "Diligence", "Decision", "Invested", "Passed",
+        "Inbox", "Screen", "In conversation", "Action required", "Founder meeting", "Diligence", "Decision",
+        "Invested", "Rejected",
     ]
+    public static let actionRequired = "Action required"
+    public static let afterAction = "In conversation"
 }
 
 /// Each person's events on work objects, one file per person in the team folder, one JSON event per line. A person

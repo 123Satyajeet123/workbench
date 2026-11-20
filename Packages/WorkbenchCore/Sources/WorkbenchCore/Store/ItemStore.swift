@@ -102,12 +102,12 @@ extension Store {
 }
 
 extension Queries {
-    private static let itemColumns = """
+    static let itemColumns = """
         id, task, day, scope, source, cite_first, cite_last, start_at, end_at, fields, quote, state, run_id, asked_with,
         status_kind, status_outcome, status_quote, status_at, hiding_kind, hiding_until
         """
     /// Items with their mark, their latest close or reopen, and their latest hide, snooze or unhide.
-    private static let itemRows = """
+    static let itemRows = """
         item_mark LEFT JOIN item_status ON item_status.item_id = item_mark.id
             LEFT JOIN item_hiding ON item_hiding.item_id = item_mark.id
         """
@@ -146,13 +146,13 @@ extension Queries {
     }
 
     /// The open items a machine's reader sees: its own, or, when it has no lifecycle, those of the machine it
-    /// follows; as of `day` when given. None when it follows no machine that exists.
+    /// follows and the actions deals wait for; as of `day` when given. None when it follows no machine that exists.
     public func openItems(readBy spec: HelperSpec, asOf day: WorkDay? = nil) throws -> [Item] {
         if let lifecycle = spec.lifecycle { return try openItems(of: spec.task, lifecycle: lifecycle, asOf: day) }
         guard let follows = spec.follows,
             let lifecycle = try machines().first(where: { $0.task == follows })?.spec.lifecycle
         else { return [] }
-        return try openItems(of: follows, lifecycle: lifecycle, asOf: day)
+        return try openItems(of: follows, lifecycle: lifecycle, asOf: day) + openDealActions(asOf: day)
     }
 
     /// A machine's items closed between two times, by the time of the closing line, oldest first.

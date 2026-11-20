@@ -50,6 +50,7 @@ enum AppLaunch {
             let mochi = MochiModel(store: store, crew: crew)
             let catalog = TeamCatalogModel(store: store, crew: crew, author: { identity.identity.name })
             let deals = DealsModel(store: store, catalog: catalog)
+            crew.onItemsChanged { deals.refresh() }
             let session = AppSession(
                 store: store, capture: CaptureSettings(service: service), onboarding: onboarding, identity: identity,
                 team: onboarding.teamModel, models: ModelSettings(store: store),

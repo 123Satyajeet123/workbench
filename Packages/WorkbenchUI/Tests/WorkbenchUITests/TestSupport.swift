@@ -2,6 +2,7 @@ import AppKit
 import CaptureService
 import Foundation
 import SQLite3
+import SwiftUI
 import Synchronization
 import WorkbenchCore
 
@@ -196,4 +197,30 @@ func addMessage(_ id: Int64, _ text: String, member: Int? = 1, at date: Date, to
     guard sqlite3_open(container.appending(path: "ChatStorage.sqlite").path, &db) == SQLITE_OK,
         sqlite3_exec(db, sql, nil, nil, nil) == SQLITE_OK
     else { throw CocoaError(.fileWriteUnknown) }
+}
+
+/// Draws a view in a window as a person sees it (native controls included) and writes it to a PNG in the folder of
+/// `VC_PREVIEW_DIR`, else the temporary folder.
+func renderPNG(_ view: some View, named name: String, width: CGFloat = 640) throws {
+    let framed = view.padding(Space.l).frame(width: width, alignment: .topLeading)
+        .background(Color(nsColor: .textBackgroundColor)).environment(\.colorScheme, .light)
+    let host = NSHostingView(rootView: framed)
+    host.frame = CGRect(origin: .zero, size: CGSize(width: width, height: host.fittingSize.height))
+    let window = NSWindow(contentRect: host.frame, styleMask: [], backing: .buffered, defer: false)
+    window.appearance = NSAppearance(named: .aqua)
+    window.contentView = host
+    host.layoutSubtreeIfNeeded()
+    guard let bitmap = host.bitmapImageRepForCachingDisplay(in: host.bounds) else {
+        throw CocoaError(.fileWriteUnknown)
+    }
+    host.cacheDisplay(in: host.bounds, to: bitmap)
+    let folder =
+        ProcessInfo.processInfo.environment["VC_PREVIEW_DIR"].map { URL(filePath: $0) }
+        ?? FileManager.default.temporaryDirectory
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    let png = bitmap.representation(using: .png, properties: [:]) ?? Data()
+    guard png.count > 10_000 else {
+        throw CocoaError(.fileWriteUnknown, userInfo: [NSLocalizedDescriptionKey: "\(name) drew blank"])
+    }
+    try png.write(to: folder.appending(path: "\(name).png"))
 }
