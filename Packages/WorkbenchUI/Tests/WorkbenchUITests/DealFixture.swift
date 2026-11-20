@@ -46,10 +46,12 @@ final class DealFixture {
         let item = Item(
             task: intake.spec.task, day: intake.day, scope: "", source: source, citeFirst: 1, citeLast: 1,
             start: intake.day.start, end: intake.day.start, fields: fields, quote: "\(company) is raising", run: run)
-        let policy = CapturePolicy(switches: [.screenText: true])
+        let kind = intake.spec.source.kind
+        let label: String? = kind == .mail ? "Deals" : nil
+        let policy = CapturePolicy(switches: [kind: true], allowList: label.map { [kind: [$0]] } ?? [:])
         try store.saveReading(
             HelperReader.Result(items: [item], dropped: 0, run: nil), of: intake.spec, day: intake.day, scope: "",
-            grant: try #require(policy.authorize(CaptureRequest(kind: .screenText, label: nil), at: .now).grant),
+            grant: try #require(policy.authorize(CaptureRequest(kind: kind, label: label), at: .now).grant),
             replacing: false)
         let saved = try #require(try store.queries.items(of: intake.spec.task, on: intake.day).last)
         if let mark { try store.mark(item: try #require(saved.id), as: mark) }
