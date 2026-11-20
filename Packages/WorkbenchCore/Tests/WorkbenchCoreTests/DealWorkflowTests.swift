@@ -1,4 +1,5 @@
 import Foundation
+import GRDB
 import Synchronization
 import Testing
 
@@ -179,6 +180,74 @@ import Testing
         #expect(plan.keys.map { $0 } == [.done(outcome: "done")])
     }
 
+    // MARK: Typed facts
+
+    @discardableResult
+    private func openAction(_ store: Store) throws -> Int64 {
+        let deal = try deal(in: store, at: "Action required", since: t0)
+        return try #require(try store.requireAction(of: deal, what: "Get the cap table", due: friday, owner: "Asha"))
+    }
+
+    private func typedCount(_ store: Store) throws -> Int {
+        try store.writer.read { try Int.fetchOne($0, sql: "SELECT COUNT(*) FROM item WHERE source = 'typed'") ?? 0 }
+    }
+
+    @Test func aDealActionIsATypedFactWithNoRun() throws {
+        let store = try store(Ticking())
+        let id = try openAction(store)
+        let item = try #require(try store.queries.dealActions().first)
+        #expect(item.id == id && item.source == .typed && item.run == nil)
+        #expect(try store.queries.runs().isEmpty && store.queries.quality().isEmpty)
+    }
+
+    @Test func typedFactsNeverCountAsModelOutputEvenWhenMarked() throws {
+        let store = try store(Ticking())
+        let id = try openAction(store)
+        try store.mark(item: id, as: .confirmed)
+        #expect(try store.queries.quality().isEmpty && store.queries.runs().isEmpty)
+    }
+
+    @Test func aDeleteOfASourceKeepsTypedFactsAndEverythingRemovesThem() throws {
+        let store = try store(Ticking())
+        try openAction(store)
+        try store.delete(.kind(.screenText, before: nil))
+        try store.delete(.activities(ActivityFilter()))
+        for kind in SourceKind.allCases { try store.delete(.kind(kind, before: nil)) }
+        #expect(try typedCount(store) == 1)
+        try store.delete(.everything(before: nil))
+        #expect(try typedCount(store) == 0)
+    }
+
+    @Test func theRetentionKeepsAnOpenTypedFactAndRemovesAClosedOldOne() throws {
+        let store = try store(Ticking())
+        let id = try openAction(store)
+        let cutoff = t0.addingTimeInterval(86_400)
+        try store.delete(.everything(before: cutoff))
+        #expect(try typedCount(store) == 1, "open: kept")
+        try store.apply(.done(outcome: "done"), to: [id])
+        try store.delete(.everything(before: t0.addingTimeInterval(-86_400)))
+        #expect(try typedCount(store) == 1, "closed but newer than the cutoff: kept")
+        try store.delete(.everything(before: cutoff))
+        #expect(try typedCount(store) == 0, "closed and older than the cutoff: removed")
+    }
+
+    @Test func aTypedFactCannotHaveARunAndAnotherKindMustHaveOne() throws {
+        let store = try store(Ticking())
+        try openAction(store)
+        func insert(source: String, run: String) throws {
+            try store.writer.write {
+                try $0.execute(
+                    sql: """
+                        INSERT INTO item(task, run_id, day, scope, source, cite_first, cite_last, start_at, end_at, fields,
+                            quote, created_at) VALUES ('t', \(run), '2026-11-19', '', '\(source)', 0, 0,
+                            '2026-11-19T10:00:00Z', '2026-11-19T10:00:00Z', '{}', 'q', '2026-11-19T10:00:00Z')
+                        """)
+            }
+        }
+        #expect(throws: DatabaseError.self) { try insert(source: "typed", run: "1") }
+        #expect(throws: DatabaseError.self) { try insert(source: "whatsapp", run: "NULL") }
+    }
+
     // MARK: Ribbon and timeline
 
     @Test func theRibbonAndTheTimelineCountTheFixture() throws {
@@ -191,9 +260,9 @@ import Testing
         let events = moves + [event("l", .link, clock: 7, item: link), event("n", .note, clock: 8, "Strong")]
         let deal = try #require(WorkObject.fold(events, viewer: "Asha").first)
         var action = Item(
-            id: 8, task: DealAction.task, day: day, scope: "", source: .screenText, citeFirst: 0, citeLast: 0,
+            id: 8, task: DealAction.task, day: day, scope: "", source: .typed, citeFirst: 0, citeLast: 0,
             start: t0.addingTimeInterval(400), end: t0, fields: ["text": "Get the cap table", "eta": "2026-09-25"],
-            quote: "Get the cap table", run: 2)
+            quote: "Get the cap table", run: nil)
         action.closed = Item.Closed(outcome: "done", quote: nil, at: t0.addingTimeInterval(900))
 
         let story = DealStory.make(

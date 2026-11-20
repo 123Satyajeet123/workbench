@@ -31,7 +31,7 @@ enum Schema {
 
     static var stepDigests: [String] { steps.map { Digest.sha256($0.joined(separator: ";\n")) } }
 
-    static let steps = [baseline, itemEvents, runText, summaries, itemActions, mail]
+    static let steps = [baseline, itemEvents, runText, summaries, itemActions, mail, typedItems]
 
     /// Items that open and close (research 32): a later line closes a commitment or answers a question. An event is
     /// never rewritten; the latest one is the item's state. Valid time is when the closing line was said; record time
@@ -128,6 +128,43 @@ enum Schema {
         CREATE TABLE mail_open(
             thread_id TEXT NOT NULL, day TEXT NOT NULL, label TEXT NOT NULL, PRIMARY KEY(thread_id, day)
         ) WITHOUT ROWID
+        """,
+    ]
+
+    /// Facts the person typed (the kind `typed`) have no model run: `item.run_id` may be null, and is null exactly for
+    /// that kind. `item` is rebuilt by the 12-step procedure, and the old deal actions move: they become `typed`, lose
+    /// their run, and the zero-cost runs that stood for them go.
+    private static let typedItems = [
+        "DROP VIEW item_mark",
+        """
+        CREATE TABLE item_rebuilt(
+            id INTEGER PRIMARY KEY AUTOINCREMENT, task TEXT NOT NULL CHECK(task <> ''),
+            run_id INTEGER REFERENCES run(id), day TEXT NOT NULL, scope TEXT NOT NULL, source TEXT NOT NULL,
+            cite_first INTEGER NOT NULL, cite_last INTEGER NOT NULL, start_at TEXT NOT NULL, end_at TEXT NOT NULL,
+            fields TEXT NOT NULL CHECK(json_valid(fields) AND json_type(fields) = 'object'),
+            quote TEXT NOT NULL CHECK(quote <> ''), created_at TEXT NOT NULL,
+            asked_with REAL CHECK(asked_with IS NULL OR (asked_with > 0 AND asked_with <= 1)),
+            CHECK(end_at >= start_at), CHECK(cite_last >= cite_first),
+            CHECK((source = 'typed') = (run_id IS NULL)))
+        """,
+        """
+        INSERT INTO item_rebuilt(id, task, run_id, day, scope, source, cite_first, cite_last, start_at, end_at, fields,
+            quote, created_at, asked_with)
+        SELECT item.id, item.task, CASE WHEN made_by_you THEN NULL ELSE item.run_id END, item.day, item.scope,
+            CASE WHEN made_by_you THEN 'typed' ELSE item.source END, item.cite_first, item.cite_last, item.start_at,
+            item.end_at, item.fields, item.quote, item.created_at, item.asked_with
+        FROM (SELECT item.*, run.task = 'vc.deal-actions' AND run.model = 'you' AS made_by_you
+            FROM item LEFT JOIN run ON run.id = item.run_id) AS item
+        """,
+        "DROP TABLE item",
+        "ALTER TABLE item_rebuilt RENAME TO item",
+        "DELETE FROM run WHERE task = 'vc.deal-actions' AND model = 'you'",
+        "CREATE INDEX item_day ON item(task, day, scope)",
+        "CREATE INDEX item_run ON item(run_id)",
+        """
+        CREATE VIEW item_mark AS SELECT item.*, COALESCE(
+            (SELECT state FROM mark WHERE mark.item_id = item.id ORDER BY mark.id DESC LIMIT 1), 'proposed') AS state
+        FROM item
         """,
     ]
 

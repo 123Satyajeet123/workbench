@@ -15,7 +15,8 @@ public struct Item: Sendable, Equatable, Identifiable {
     public var fields: [String: String]
     public var quote: String
     public var state: Mark
-    public var run: RunID
+    /// The model run that read it; nil for a fact the person typed.
+    public var run: RunID?
     /// The chance the app picked this item to ask about; nil when it did not pick it. A mark on a picked item is an
     /// audit mark: valid evidence of the helper's error rate, because the founder did not choose it.
     public var askedWith: Double?
@@ -39,7 +40,7 @@ public struct Item: Sendable, Equatable, Identifiable {
     public init(
         id: Int64? = nil, task: String, day: WorkDay, scope: String, source: SourceKind, citeFirst: Int64,
         citeLast: Int64, start: Date, end: Date, fields: [String: String], quote: String, state: Mark = .proposed,
-        run: RunID, askedWith: Double? = nil
+        run: RunID?, askedWith: Double? = nil
     ) {
         self.id = id
         self.task = task

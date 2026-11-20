@@ -147,6 +147,7 @@ extension SourceKind {
         case .whatsapp: "WhatsApp"
         case .screenText: "a page"
         case .screen: "the screen"
+        case .typed: "you"
         default: "another source"
         }
     }

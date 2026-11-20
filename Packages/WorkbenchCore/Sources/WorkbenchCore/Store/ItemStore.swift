@@ -223,7 +223,7 @@ extension Item {
             citeFirst: try row.value("cite_first"),
             citeLast: try row.value("cite_last"), start: try row.date("start_at"), end: try row.date("end_at"),
             fields: try row.json("fields"), quote: try row.value("quote"), state: try row.enumeration("state"),
-            run: try row.value("run_id"), askedWith: try row.optionalValue("asked_with"))
+            run: try row.optionalValue("run_id"), askedWith: try row.optionalValue("asked_with"))
         if try row.optionalValue("status_kind") as String? == "close" {
             closed = Closed(
                 outcome: try row.value("status_outcome"), quote: try row.optionalValue("status_quote"),

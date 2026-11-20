@@ -27,32 +27,25 @@ public enum DealAction {
 }
 
 extension Store {
-    /// Opens the one action a deal waits for, and drops one it already had: the new ask replaces it. A person made
-    /// the fact, so a run of the task "vc.deal-actions" with the model "you" stands for it, with no cost.
+    /// Opens the one action a deal waits for, and drops one it already had: the new ask replaces it. The founder
+    /// typed it, so it is a fact of the kind `typed`, with no run.
     @discardableResult
     public func requireAction(of deal: WorkObject, what: String, due: WorkDay, owner: String) throws -> Int64? {
         guard let what = what.cleaned else { return nil }
         let now = clock()
         return try writer.write { db in
             try dropActions(of: deal.id, db)
-            try db.execute(
-                sql: """
-                    INSERT INTO run(task, model, prompt, input_bytes, input_sha, started_at, ended_at, outcome, kept)
-                    VALUES (?, 'you', '', 0, '', ?, ?, 'done', 1)
-                    """,
-                arguments: [DealAction.task, now.stored, now.stored])
-            let run = db.lastInsertedRowID
             let fields = [
                 "kind": "commitment", "person": owner, "project": deal.title, "text": what, "eta": due.description,
                 "asks": "founder", "stance": "said", DealAction.dealField: deal.id,
             ]
             try db.execute(
                 sql: """
-                    INSERT INTO item(task, run_id, day, scope, source, cite_first, cite_last, start_at, end_at, fields,
-                        quote, created_at) VALUES (?,?,?,?,?,0,0,?,?,?,?,?)
+                    INSERT INTO item(task, day, scope, source, cite_first, cite_last, start_at, end_at, fields, quote,
+                        created_at) VALUES (?,?,?,?,0,0,?,?,?,?,?)
                     """,
                 arguments: [
-                    DealAction.task, run, WorkDay(containing: now).description, "", SourceKind.screenText.rawValue,
+                    DealAction.task, WorkDay(containing: now).description, "", SourceKind.typed.rawValue,
                     now.stored, now.stored, try Coding.json(fields), what, now.stored,
                 ])
             return db.lastInsertedRowID
