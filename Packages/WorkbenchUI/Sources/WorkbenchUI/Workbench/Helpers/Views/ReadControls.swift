@@ -1,23 +1,36 @@
 import SwiftUI
 import WorkbenchCore
 
-/// The read button, the view picker and what the day's source holds, with the switches the source needs.
-struct ReadControls: View {
+/// One small line above a machine's items: the read button, what the last reading did, and the view picker.
+struct ReadBar: View {
+    let model: HelperModel
+
+    var body: some View {
+        HStack(spacing: Space.m) {
+            Button("Read now") { Task { await model.read() } }
+                .disabled(model.phase == .reading || hasNothingToRead || model.isPaused)
+            ReadPhaseLabel(phase: model.phase, items: model.spec.itemsNoun, droppedBecause: "not backed by the source")
+            Spacer()
+            ViewPicker(model: model)
+        }
+    }
+
+    /// A screen or page machine has nothing to read on a day without activity; a chat machine always may try.
+    private var hasNothingToRead: Bool {
+        if let screen = model.source as? ScreenSource { return screen.sessions.isEmpty }
+        if let pages = model.source as? PageSource { return pages.pageReading.pages.isEmpty }
+        return false
+    }
+}
+
+/// What the day's source holds and what reading sends, with the switches the source needs.
+struct ReadNote: View {
     let model: HelperModel
     @Environment(ModelSettings.self) private var models
     @Environment(CaptureSettings.self) private var capture
 
     var body: some View {
         VStack(alignment: .leading, spacing: Space.s) {
-            HStack(spacing: Space.m) {
-                Button("Read this day") { Task { await model.read() } }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(model.phase == .reading || hasNothingToRead || model.isPaused)
-                ReadPhaseLabel(
-                    phase: model.phase, items: model.spec.itemsNoun, droppedBecause: "not backed by the source")
-                Spacer()
-                ViewPicker(model: model)
-            }
             Text(note).textStyle(.callout).foregroundStyle(.supporting)
             if model.source is ScreenSource, !capture.isOn(.screen) {
                 Button("Turn on Screen") { capture.set(.screen, on: true) }
@@ -34,18 +47,11 @@ struct ReadControls: View {
         }
     }
 
-    /// A screen or page machine has nothing to read on a day without activity; a chat machine always may try.
-    private var hasNothingToRead: Bool {
-        if let screen = model.source as? ScreenSource { return screen.sessions.isEmpty }
-        if let pages = model.source as? PageSource { return pages.pageReading.pages.isEmpty }
-        return false
-    }
-
     private var note: String {
         if let screen = model.source as? ScreenSource { return screenNote(screen) }
         if let pages = model.source as? PageSource { return pageNote(pages) }
         return
-            "Reading sends this day's messages, and the text in its photos (read on this Mac), to \(models.choice.title). Each call is on the Runs page."
+            "Reading sends this day's messages, and the text in its photos (read on this Mac), to \(models.choice.title). Each call is listed in Settings › Advanced."
     }
 
     private func pageNote(_ source: PageSource) -> String {

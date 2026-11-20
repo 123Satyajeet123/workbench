@@ -23,6 +23,7 @@ struct Sidebar: View {
             }
             Section {
                 FixedRow(page: .mochi, faceSize: 26, mood: mochiMood).tag(SidebarSelection.mochi)
+                Label(SidebarSelection.crew.title, systemImage: "rectangle.grid.2x2").tag(SidebarSelection.crew)
                 ForEach(crew.crew, id: \.machine.id) { helper in
                     MachineRow(helper: helper)
                         .tag(SidebarSelection.machine(helper.machine.id))
@@ -34,8 +35,6 @@ struct Sidebar: View {
                 Label(SidebarSelection.catalog.title, systemImage: "person.3.sequence")
                     .badge(catalog.teammates.count + catalog.teammatesDays.count)
                     .tag(SidebarSelection.catalog)
-                Label(SidebarSelection.runs.title, systemImage: "gauge.with.dots.needle.33percent")
-                    .tag(SidebarSelection.runs)
             } header: {
                 HStack {
                     Text("Crew")
@@ -61,7 +60,8 @@ struct Sidebar: View {
             }
         } message: { helper in
             Text(
-                "Its \(helper.spec.itemsNoun), your marks on them and its settings are deleted. Its runs stay on Runs.")
+                "Its \(helper.spec.itemsNoun), your marks on them and its settings are deleted. Its runs stay in Settings › Advanced."
+            )
         }
     }
 
@@ -190,8 +190,10 @@ private struct MachineSheet: View {
                 .help(
                     "Reads up to \(HelperImprovement.trialDays) recent days with the new brief beside the current one. Nothing changes until you switch."
                 )
-                Text("A new brief is a new version. Its marks and trust start again; the old version's stay on Runs.")
-                    .foregroundStyle(.supporting)
+                Text(
+                    "A new brief is a new version. Its marks and trust start again; the old version's stay in Settings › Advanced."
+                )
+                .foregroundStyle(.supporting)
             }
             HStack {
                 Spacer()

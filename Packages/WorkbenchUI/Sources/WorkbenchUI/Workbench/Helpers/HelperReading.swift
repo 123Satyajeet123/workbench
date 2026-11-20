@@ -56,7 +56,7 @@ final class HelperReading {
             phase = .read(kept: result.items.count, dropped: result.dropped)
             context.problems.dismiss()
             context.itemsChanged()
-            await refreshSummaries(day, model: model)
+            await refreshSummaries(day, with: Summaries(store: store, model: model))
             return true
         } catch {
             phase = .idle
@@ -65,18 +65,44 @@ final class HelperReading {
         }
     }
 
-    /// Brings the day's summaries up to date after a reading, one set for each field the machine groups by (people,
-    /// projects), then tells the pages that read them. A failure here does not undo the reading.
-    private func refreshSummaries(_ day: WorkDay, model: RecordedModel) async {
-        let summaries = Summaries(store: context.store, model: model)
+    /// Whether the facts of `day` have summaries that are missing or out of date. Asks no model.
+    func hasMissingSummaries(on day: WorkDay) -> Bool {
+        guard let summaries = try? summaries() else { return false }
+        return context.spec.summaryFields.contains {
+            (try? summaries.isMissing(for: day, groupedBy: $0, of: context.spec.task)) ?? false
+        }
+    }
+
+    /// Writes the summaries `day` lacks, as when a page opens on facts no reading summarized. Returns whether every
+    /// set is current.
+    func summarize(_ day: WorkDay) async -> Bool {
+        do {
+            return await refreshSummaries(day, with: try summaries())
+        } catch {
+            context.problems.report("summarize the day", error)
+            return false
+        }
+    }
+
+    private func summaries() throws -> Summaries {
+        Summaries(store: context.store, model: context.makeModel(try context.runner(for: .init(context.spec))))
+    }
+
+    /// Brings the day's summaries up to date, one set for each field the machine groups by (people, projects), then
+    /// tells the pages that read them. A failure here does not undo a reading.
+    @discardableResult
+    private func refreshSummaries(_ day: WorkDay, with summaries: Summaries) async -> Bool {
+        var isCurrent = true
         for field in context.spec.summaryFields {
             do {
                 try await summaries.refresh(for: day, groupedBy: field, of: context.spec.task)
             } catch {
+                isCurrent = false
                 context.problems.report("summarize the day", error)
             }
         }
         context.itemsChanged()
+        return isCurrent
     }
 
     /// For each label field, the values this machine gave in the last 30 days, most used first, so a project keeps

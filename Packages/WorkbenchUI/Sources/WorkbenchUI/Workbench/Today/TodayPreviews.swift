@@ -17,32 +17,12 @@ struct TodayFrame: View {
     }
 }
 
-/// A scratch session, with the sample day when asked. Nothing here touches the founder's store.
-private struct ScratchSession<Content: View>: View {
-    let sample: Bool
-    @ViewBuilder let content: (AppSession) -> Content
-    @State private var launch = AppLaunch.start(
-        storeFolder: FileManager.default.temporaryDirectory.appending(path: "workbench-preview-\(UUID().uuidString)"))
-
-    var body: some View {
-        switch launch {
-        case .ready(let session):
-            content(session)
-                .environment(session)
-                .task { if sample { await populate(session) } }
-        case .failed(let failure):
-            Text(failure.cause)
-        }
-    }
-
-    private func populate(_ session: AppSession) async {
-        try? await TodaySample.populate(store: session.store, crew: session.crew)
-        session.today.refresh()
-    }
-}
-
 #Preview("Today, a sample day") {
     ScratchSession(sample: true) { TodayFrame(model: $0.today) }
+}
+
+#Preview("Today, facts without summaries") {
+    ScratchSession(withSummaries: false) { TodayFrame(model: $0.today) }
 }
 
 #Preview("Today, an empty day") {

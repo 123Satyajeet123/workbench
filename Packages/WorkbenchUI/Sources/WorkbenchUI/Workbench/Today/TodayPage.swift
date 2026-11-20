@@ -15,6 +15,7 @@ struct TodayPage: View {
             TodayBody(model: today, brief: mochi.brief)
         }
         .onAppear(perform: today.refresh)
+        .task(id: today.today) { await today.summarizeIfMissing() }
     }
 
     private var greeting: String {
@@ -34,6 +35,9 @@ struct TodayBody: View {
         VStack(alignment: .leading, spacing: Space.l) {
             if let problem = model.problem { ProblemBanner(text: problem, dismiss: model.dismissProblem) }
             if let undo = model.undoable { UndoBar(undo: undo, model: model) }
+            if model.isSummarizing {
+                Label("Mochi is summarizing…", systemImage: "sparkles").textStyle(.callout).foregroundStyle(.supporting)
+            }
             if model.isEmpty { Text("Nothing for today yet.").foregroundStyle(.supporting) }
             needsYou
             team
@@ -55,9 +59,10 @@ struct TodayBody: View {
     }
 
     @ViewBuilder private var team: some View {
-        if !model.team.isEmpty {
+        if !model.team.isEmpty || !model.unsummarized.isEmpty {
             TodaySection("Team") {
                 ForEach(model.team) { SummaryLineRow(row: $0, model: model, showsOpenCount: false) }
+                ForEach(model.unsummarized) { PersonFacts(group: $0, model: model) }
             }
         }
     }
@@ -139,6 +144,19 @@ struct SummaryLineRow: View {
             }
         }
         .transition(.opacity)
+    }
+}
+
+/// A person's facts of the day, listed plainly while no summary line covers them.
+struct PersonFacts: View {
+    let group: FactGroup
+    let model: TodayModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Space.xs) {
+            Text(group.name.isEmpty ? "No person named" : group.name).fontWeight(.semibold)
+            ForEach(group.open + group.rest) { FactLine(item: $0, model: model).transition(.opacity) }
+        }
     }
 }
 

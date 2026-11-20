@@ -1,13 +1,14 @@
 import Foundation
 import WorkbenchCore
 
-/// The pages of the main window: Today (the home), People, Projects, Echo (calls), Mochi, Runs, and one page per
+/// The pages of the main window: Today (the home), People, Projects, Echo (calls), Mochi, Crew, and one page per
 /// machine. A fixed page's name, role and face live here, the one place to rename it; a machine's come from its record.
+/// `advanced` is not a page of the window: it names Settings › Advanced, so an old `runs` link still opens it.
 enum SidebarSelection: Hashable, Identifiable, RawRepresentable {
-    case day, people, projects, mochi, review, calls, deals, catalog, runs
+    case day, people, projects, mochi, crew, review, calls, deals, catalog, advanced
     case machine(Int64)
 
-    static let fixed: [Self] = [.day, .people, .projects, .mochi, .review, .calls, .deals, .catalog, .runs]
+    static let fixed: [Self] = [.day, .people, .projects, .mochi, .crew, .review, .calls, .deals, .catalog, .advanced]
 
     init?(rawValue: String) {
         switch rawValue {
@@ -15,11 +16,12 @@ enum SidebarSelection: Hashable, Identifiable, RawRepresentable {
         case "people": self = .people
         case "projects": self = .projects
         case "mochi": self = .mochi
+        case "crew": self = .crew
         case "review": self = .review
         case "calls": self = .calls
         case "deals": self = .deals
         case "catalog": self = .catalog
-        case "runs": self = .runs
+        case "advanced", "runs": self = .advanced
         default:
             guard rawValue.hasPrefix("machine:"), let id = Int64(rawValue.dropFirst("machine:".count)) else {
                 return nil
@@ -34,11 +36,12 @@ enum SidebarSelection: Hashable, Identifiable, RawRepresentable {
         case .people: "people"
         case .projects: "projects"
         case .mochi: "mochi"
+        case .crew: "crew"
         case .review: "review"
         case .calls: "calls"
         case .deals: "deals"
         case .catalog: "catalog"
-        case .runs: "runs"
+        case .advanced: "advanced"
         case .machine(let id): "machine:\(id)"
         }
     }
@@ -72,11 +75,12 @@ enum SidebarSelection: Hashable, Identifiable, RawRepresentable {
         case .people: "People"
         case .projects: "Projects"
         case .mochi: "Mochi"
+        case .crew: "Crew"
         case .review: "Review"
         case .calls: "Echo"
         case .deals: "Deals"
         case .catalog: "Team"
-        case .runs: "Runs"
+        case .advanced: "Advanced"
         case .machine: "Machine"
         }
     }
@@ -86,22 +90,23 @@ enum SidebarSelection: Hashable, Identifiable, RawRepresentable {
         case .day: "What needs you"
         case .people: "Facts by person"
         case .projects: "Facts by project"
-        case .mochi: "Brief, timeline and proposals"
+        case .mochi: "Brief and timeline"
+        case .crew: "Your machines"
         case .review: "Everything to check"
         case .calls: "Calls"
         case .deals: "Shared work"
         case .catalog: "Shared by your team"
-        case .runs: "Model use and trust"
+        case .advanced: "Model use and quality numbers"
         case .machine: ""
         }
     }
 
-    /// The face of a fixed helper. Runs is a tool, not a helper, so it has none.
+    /// The face of a fixed helper. The other pages are tools, not helpers, so they have none.
     var look: Mascot.Look? {
         switch self {
         case .day: Mascot.Look(hue: 0.04, wear: .crown)
         case .calls: Mascot.Look(hue: 0.76, wear: .headphones)
-        case .people, .projects, .mochi, .review, .deals, .catalog, .runs, .machine: nil
+        case .people, .projects, .mochi, .crew, .review, .deals, .catalog, .advanced, .machine: nil
         }
     }
 }

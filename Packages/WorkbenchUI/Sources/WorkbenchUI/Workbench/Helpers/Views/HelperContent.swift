@@ -1,11 +1,10 @@
 import SwiftUI
 import WorkbenchCore
 
-/// Everything a helper shows for one day: its setup until it is ready, then the read button, the nudge and the
-/// items in the view its spec names.
+/// Everything a helper shows for one day: its setup until it is ready, then a small read line, the items in the view
+/// its spec names, and its settings folded below. A trial waiting for the founder stays above the items.
 struct HelperContent: View {
     let model: HelperModel
-    @Environment(TeamCatalogModel.self) private var catalog
     @Environment(ActionsModel.self) private var actions
     @Environment(Crew.self) private var crew
 
@@ -29,17 +28,15 @@ struct HelperContent: View {
     }
 
     @ViewBuilder private var readyContent: some View {
-        ReadControls(model: model)
+        ReadBar(model: model)
         if let question = model.question { HelperQuestion(model: model, item: question) }
         if let notice = model.notice { NoticeRow(text: notice) { model.notice = nil } }
-        if model.trial != nil || model.trialPhase == .reading {
-            TrialCard(model: model)
-        } else {
-            ImproveRow(model: model)
-        }
-        if model.spec.nudge != nil { NudgeRow(model: model) }
-        WatchRow(model: model)
-        if catalog.folder != nil { ShareDayRow(model: model) }
+        if model.isTrying { TrialCard(model: model) }
+        items
+        MachineSettings(model: model)
+    }
+
+    @ViewBuilder private var items: some View {
         switch model.spec.view {
         case .board(let field, let expected): ItemBoard(model: model, field: field, expected: expected)
         case .timeline: ForEach(model.items) { ItemRow(model: model, item: $0, showsSpan: true) }

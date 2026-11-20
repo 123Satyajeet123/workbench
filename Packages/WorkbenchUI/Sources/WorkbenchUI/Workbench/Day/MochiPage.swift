@@ -1,7 +1,7 @@
 import SwiftUI
 import WorkbenchCore
 
-/// Mochi's page: the brief, the timeline, proposals and one card per machine, each with a way to open it.
+/// Mochi's page: the brief, the timeline, and short cards for the team, calls, model use and capture.
 struct MochiPage: View {
     let open: (SidebarSelection) -> Void
 
@@ -17,11 +17,7 @@ struct MochiPage: View {
         ) {
             BriefCard()
             if let timeline = crew.timeline { TimelineSection(model: timeline) }
-            MochiProposals(open: open)
             TeamCard()
-            ForEach(crew.crew, id: \.machine.id) { helper in
-                MachineCard(helper: helper, open: { open(.machine(helper.machine.id)) })
-            }
             Card(
                 title: "\(SidebarSelection.calls.title) · \(SidebarSelection.calls.role)",
                 icon: {
@@ -33,7 +29,7 @@ struct MochiPage: View {
             }
             Card(title: "Model use", symbol: "gauge.with.dots.needle.33percent") {
                 Text("\(runs.meter.today.tokensText) tokens · \(runs.meter.today.costText) today")
-                Button("Open Runs") { open(.runs) }
+                Button("Open Advanced") { open(.advanced) }
             }
             Card(title: "Capture", symbol: capture.status.symbol) {
                 Text(
@@ -71,39 +67,6 @@ struct MochiPage: View {
             let failed = finished.filter { $0.state == .failed }.count
             Text("\(finished.count) calls recorded today\(failed == 0 ? "." : ", \(failed) failed.")")
                 .foregroundStyle(failed == 0 ? Color.primary : Tone.bad.color)
-        }
-    }
-}
-
-/// A machine on Mochi's page: its face, what it has for you today, and a way to open it.
-private struct MachineCard: View {
-    let helper: HelperModel
-    let open: () -> Void
-
-    var body: some View {
-        Card(
-            title: "\(helper.name) · \(helper.isPaused ? "Paused" : MachineTemplate.of(helper.machine)?.role ?? "")",
-            icon: { Mascot(look: .of(helper.machine), size: 22, mood: helper.mood) },
-            content: {
-                status
-                Button("Open \(helper.name)", action: open)
-            })
-    }
-
-    @ViewBuilder private var status: some View {
-        let today = helper.items(on: helper.today)
-        if let source = helper.source as? WhatsAppSource, source.chats.isEmpty {
-            Text("No group chosen yet.").foregroundStyle(.supporting)
-        } else {
-            Text("\(today.count) \(helper.spec.itemsNoun) today.")
-            let missing = helper.missing(on: helper.today)
-            if !missing.isEmpty {
-                Text("No update yet from \(missing.formatted(.list(type: .and))).")
-                    .foregroundStyle(Tone.attention.color)
-            }
-            if helper.question != nil {
-                Text("\(helper.name) has a question for you.").foregroundStyle(Tone.attention.color)
-            }
         }
     }
 }

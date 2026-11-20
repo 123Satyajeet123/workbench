@@ -32,7 +32,7 @@ struct MochiProposals: View {
                 + record
         }
         return
-            "Mochi reads your marked timeline of the last \(MochiModel.days) days (never held-out days) with \(models.choice.title) and proposes machines for work that repeats."
+            "Mochi reads your marked timeline of the last \(MochiModel.days) days (never the days set aside for testing) with \(models.choice.title) and proposes machines for work that repeats."
             + record
     }
 }

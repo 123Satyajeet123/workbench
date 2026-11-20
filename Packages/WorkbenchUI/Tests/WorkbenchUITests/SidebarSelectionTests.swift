@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 
 @testable import WorkbenchUI
@@ -13,6 +14,11 @@ import Testing
     @Test func theHomeKeepsItsOldRawValueAndIsCalledToday() {
         #expect(SidebarSelection(rawValue: "day") == .day && SidebarSelection.day.title == "Today")
         #expect(SidebarSelection.fixed.prefix(3).map(\.title) == ["Today", "People", "Projects"])
+    }
+
+    @Test func theOldRunsLinkOpensSettingsAdvancedAndCrewIsAPage() throws {
+        #expect(SidebarSelection(url: try #require(URL(string: "workbench://open?page=runs"))) == .advanced)
+        #expect(SidebarSelection(rawValue: "crew") == .crew && SidebarSelection.crew.title == "Crew")
     }
 
     @Test func aPageThatDoesNotExistIsNotOne() {

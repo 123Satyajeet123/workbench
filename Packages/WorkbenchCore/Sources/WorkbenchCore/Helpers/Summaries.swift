@@ -31,7 +31,7 @@ public struct Summaries: Sendable {
         guard let machine = try store.queries.machines().first(where: { $0.task == task }) else { return [] }
         let groups = try groups(of: machine, on: day, by: field)
         let kept = try store.queries.storedSummaries(day: day, task: task, field: field)
-        let changed = groups.filter { kept[$0.name]?.fingerprint != $0.fingerprint }
+        let changed = Self.changed(groups, kept: kept)
         let written = Dictionary(
             uniqueKeysWithValues: try await summarizer.summarize(changed.map(\.scope), day: day).map { ($0.scope, $0) })
         let current = groups.compactMap { group -> StoredSummary? in
@@ -40,6 +40,17 @@ public struct Summaries: Sendable {
         }
         try store.saveSummaries(current, day: day, task: task, field: field)
         return current.map(\.summary)
+    }
+
+    /// Whether `summaries` would ask the model: some scope of `day` has no kept summary, or its items changed since.
+    public func isMissing(for day: WorkDay, groupedBy field: String, of task: String) throws -> Bool {
+        guard let machine = try store.queries.machines().first(where: { $0.task == task }) else { return false }
+        let kept = try store.queries.storedSummaries(day: day, task: task, field: field)
+        return !Self.changed(try groups(of: machine, on: day, by: field), kept: kept).isEmpty
+    }
+
+    private static func changed(_ groups: [Group], kept: [String: StoredSummary]) -> [Group] {
+        groups.filter { kept[$0.name]?.fingerprint != $0.fingerprint }
     }
 
     /// Brings the day's summaries up to date after a reading, for the next time a page asks.

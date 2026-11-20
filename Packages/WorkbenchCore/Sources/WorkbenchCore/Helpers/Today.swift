@@ -77,6 +77,16 @@ public enum FactGroups {
         return groups.sorted { ($0.open.isEmpty ? 1 : 0, $0.name) < ($1.open.isEmpty ? 1 : 0, $1.name) }
     }
 
+    /// What a page shows for a day whose summaries are missing: the listed facts of the groups that have no summary,
+    /// without one. Facts with no value in `field` come last, in a group with an empty name, so no fact is lost.
+    public static func unsummarized(
+        _ facts: [Item], by field: String, lifecycle: HelperSpec.Lifecycle?, summarized: Set<String>, now: Date
+    ) -> [FactGroup] {
+        let groups = make(facts, by: field, lifecycle: lifecycle, now: now).filter { !summarized.contains($0.name) }
+        let unnamed = facts.filter { $0.isListed(at: now) && $0[field].isEmpty }.sorted(by: newest)
+        return unnamed.isEmpty ? groups : groups + [FactGroup(name: "", open: [], rest: unnamed)]
+    }
+
     private static func newest(_ a: Item, _ b: Item) -> Bool { (a.day, a.start) > (b.day, b.start) }
 
     private static func soonestThenNewest(_ a: Item, _ b: Item) -> Bool {

@@ -48,7 +48,7 @@ struct VersionAlarm {
         guard ((try? key.load(from: store)) ?? nil) != version else { return }
         problems.attempt("remember the warning") { try key.save(version, to: store) }
         let line =
-            "\(helper.name) may have got worse: wrong on \(wrong.filter { $0 }.count) of \(wrong.count) checked items on held-out days. Try a change from your marks."
+            "\(helper.name) may have got worse: wrong on \(wrong.filter { $0 }.count) of \(wrong.count) checked items on the days set aside for testing. Try a change from your marks."
         helper.improvement.notice = line
         notifications.announce(title: helper.name, body: line, page: .machine(helper.machine.id))
     }

@@ -125,6 +125,9 @@ final class HelperModel {
     /// Sends the shown day to the chosen model and stores the items that pass the checks.
     func read() async { await reading.read(day) }
 
+    func hasMissingSummaries(on day: WorkDay) -> Bool { reading.hasMissingSummaries(on: day) }
+    func summarize(_ day: WorkDay) async -> Bool { await reading.summarize(day) }
+
     /// The founder closes an open item by hand, or reopens one a line closed by mistake.
     func close(_ item: Item, as outcome: String) {
         guard let id = item.id else { return }

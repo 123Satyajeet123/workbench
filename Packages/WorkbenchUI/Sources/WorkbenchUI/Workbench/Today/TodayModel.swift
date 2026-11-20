@@ -36,7 +36,8 @@ struct SummaryRow: Identifiable {
 }
 
 /// What Today, People and Projects show: the facts of the last seven days, the day's summaries, and what needs the
-/// founder. It reads the store and never asks a model; an action is a mark or an event, and can be taken back.
+/// founder. It reads the store; the one model call it may start is the day's missing summaries. An action is a mark
+/// or an event, and can be taken back.
 @Observable
 final class TodayModel {
     /// How many days People and Projects reach back.
@@ -50,6 +51,9 @@ final class TodayModel {
     private(set) var today: WorkDay
     private(set) var needs: [Need] = []
     private(set) var team: [SummaryRow] = []
+    /// Today's facts of the people with no summary line, so a day with facts never looks empty.
+    private(set) var unsummarized: [FactGroup] = []
+    private(set) var isSummarizing = false
     private(set) var projects: [SummaryRow] = []
     private(set) var people: [FactGroup] = []
     private(set) var projectGroups: [FactGroup] = []
@@ -60,6 +64,7 @@ final class TodayModel {
 
     @ObservationIgnored private let store: Store
     @ObservationIgnored private let crew: Crew
+    @ObservationIgnored private var daysAsked: Set<WorkDay> = []
 
     init(store: Store, crew: Crew) {
         self.store = store
@@ -69,9 +74,10 @@ final class TodayModel {
         crew.onItemsChanged { [weak self] in self?.refresh() }
     }
 
-    var isEmpty: Bool { needs.isEmpty && team.isEmpty && projects.isEmpty }
+    var isEmpty: Bool { needs.isEmpty && team.isEmpty && unsummarized.isEmpty && projects.isEmpty }
 
-    private var factMachine: Machine? { crew.machines.first { $0.machine.template == HelperSpec.team.task }?.machine }
+    private var factHelper: HelperModel? { crew.machines.first { $0.machine.template == HelperSpec.team.task } }
+    private var factMachine: Machine? { factHelper?.machine }
     private var sentinelTask: String? {
         crew.machines.first { $0.machine.template == HelperSpec.derailment.task }?.spec.task
     }
@@ -97,12 +103,14 @@ final class TodayModel {
         people = group(facts, by: machine.spec.memberField, lifecycle, now)
         projectGroups = group(facts, by: machine.spec.labelField, lifecycle, now)
         team = try rows(machine.spec.memberField, of: machine, day: today, listed: listed, groups: people)
+        unsummarized = withoutSummary(facts.filter { $0.day == today }, machine, lifecycle, now)
         projects = try rows(machine.spec.labelField, of: machine, day: today, listed: listed, groups: projectGroups)
     }
 
     private func clear() {
         needs = []
         team = []
+        unsummarized = []
         projects = []
         people = []
         projectGroups = []
@@ -134,6 +142,28 @@ final class TodayModel {
             let open = groups.first { $0.name == summary.subject }?.open.count ?? 0
             return SummaryRow(summary: summary, line: line, facts: line.cites.compactMap { byID[$0] }, openCount: open)
         }
+    }
+
+    private func withoutSummary(_ facts: [Item], _ machine: Machine, _ lifecycle: HelperSpec.Lifecycle, _ now: Date)
+        -> [FactGroup]
+    {
+        guard let field = machine.spec.memberField else { return [] }
+        return FactGroups.unsummarized(
+            facts, by: field, lifecycle: lifecycle, summarized: Set(team.map(\.subject)), now: now)
+    }
+
+    /// Writes today's summaries when the fact machine has facts for today that lack them. Asks at most once for each
+    /// day, so a failing model is not retried at every visit. A reading writes its own summaries.
+    func summarizeIfMissing() async {
+        guard !isSummarizing, !daysAsked.contains(today), let helper = factHelper, !helper.isPaused,
+            helper.hasMissingSummaries(on: today)
+        else { return }
+        daysAsked.insert(today)
+        isSummarizing = true
+        let isCurrent = await helper.summarize(today)
+        isSummarizing = false
+        refresh()
+        if !isCurrent { problem = "Could not summarize your day. Its facts are listed without a summary." }
     }
 
     func perform(_ choice: FactChoice, on items: [Item], text: String) {

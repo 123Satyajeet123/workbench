@@ -1,14 +1,15 @@
 import SwiftUI
 import WorkbenchCore
 
-/// The loop made visible: what each model call cost, and how often the founder marked its entries right.
-struct RunsPage: View {
+/// The loop made visible: what each model call cost, and how often the founder marked its entries right. The words
+/// of the trust method (prompt versions, held-out days, audits) live here and nowhere else.
+struct AdvancedSettingsView: View {
     @Environment(Crew.self) private var crew
     @Environment(RunsModel.self) private var model
 
     var body: some View {
         Page(
-            title: "Runs",
+            title: "Advanced",
             subtitle: "Every call to a model, what it cost, and how often you marked its entries right.",
             accessory: { Button("Refresh", systemImage: "arrow.clockwise", action: model.refresh) }
         ) {

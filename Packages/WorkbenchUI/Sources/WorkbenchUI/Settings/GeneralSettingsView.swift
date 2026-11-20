@@ -32,7 +32,7 @@ struct GeneralSettingsView: View {
                 Text("Model")
             } footer: {
                 FormNote(
-                    "Runs through the claude or codex command on this Mac, with your own plan. The Runs page shows what each one costs and how often you marked its entries right."
+                    "Runs through the claude or codex command on this Mac, with your own plan. Settings › Advanced shows what each one costs and how often you marked its entries right."
                 )
                 if let tool = models.choice.kind.installed() {
                     FormNote("Uses \(tool.path(percentEncoded: false)).")

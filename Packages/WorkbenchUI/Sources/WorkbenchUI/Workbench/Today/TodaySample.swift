@@ -20,7 +20,7 @@ enum TodaySample {
 
     private nonisolated struct NoItems: Decodable, Sendable {}
 
-    private static let scope = "sample"
+    static let defaultScope = "sample"
 
     /// A fact: person, project, kind, text, due day offset from today, and who it asks.
     private struct Fact {
@@ -57,32 +57,37 @@ enum TodaySample {
     ]
 
     /// Scope numbers follow the order of names: Asha, Meera, Raj and Hiring, Login, Payments. Facts are 1 to 7.
-    private static let peopleReply = #"""
+    nonisolated static let peopleReply = #"""
         {"summaries":[
         {"scope":1,"short":{"text":"Shipped OTA 4.1.11; the login API is due tonight and waits on the signing key.","cites":[1,2,7]},"details":[]},
         {"scope":2,"short":{"text":"The offer letter is a day late; designer calls planned for Friday.","cites":[5,6]},"details":[]},
         {"scope":3,"short":{"text":"Webhook done; asks whether to pay the vendor in USD or INR.","cites":[3,4]},"details":[]}]}
         """#
 
-    private static let projectsReply = #"""
+    nonisolated static let projectsReply = #"""
         {"summaries":[
         {"scope":1,"short":{"text":"Offer letter overdue; designer shortlist calls on Friday.","cites":[5,6]},"details":[]},
         {"scope":2,"short":{"text":"OTA shipped; login API due tonight, blocked on the signing key.","cites":[1,2,7]},"details":[]},
         {"scope":3,"short":{"text":"Webhook done; the vendor currency is undecided.","cites":[3,4]},"details":[]}]}
         """#
 
-    static func populate(store: Store, crew: Crew) async throws {
+    /// Fills the store. Without summaries the day is as a reading that wrote none leaves it.
+    static func populate(
+        store: Store, crew: Crew, withSummaries: Bool = true, scope: String = defaultScope
+    ) async throws {
         let today = WorkDay(containing: store.clock())
         try store.savePolicy(CapturePolicy(switches: [.whatsapp: true], allowList: [.whatsapp: [scope]]))
         guard let pip = crew.machines.first(where: { $0.machine.template == HelperSpec.team.task }) else {
             return
         }
-        try await save(facts: facts, of: pip.machine, today: today, store: store)
-        try await Summaries(store: store, model: RecordedModel(FixedModel(reply: peopleReply), store: store))
-            .refresh(for: today, groupedBy: "person", of: pip.spec.task)
-        try await Summaries(store: store, model: RecordedModel(FixedModel(reply: projectsReply), store: store))
-            .refresh(for: today, groupedBy: "project", of: pip.spec.task)
-        try await saveFinding(crew, today: today, store: store)
+        try await save(facts: facts, of: pip.machine, today: today, scope: scope, store: store)
+        if withSummaries {
+            try await Summaries(store: store, model: RecordedModel(FixedModel(reply: peopleReply), store: store))
+                .refresh(for: today, groupedBy: "person", of: pip.spec.task)
+            try await Summaries(store: store, model: RecordedModel(FixedModel(reply: projectsReply), store: store))
+                .refresh(for: today, groupedBy: "project", of: pip.spec.task)
+        }
+        try await saveFinding(crew, today: today, scope: scope, store: store)
     }
 
     private static func run(_ task: String, in store: Store) async throws -> RunID {
@@ -93,7 +98,9 @@ enum TodaySample {
         return run
     }
 
-    private static func save(facts: [Fact], of machine: Machine, today: WorkDay, store: Store) async throws {
+    private static func save(facts: [Fact], of machine: Machine, today: WorkDay, scope: String, store: Store)
+        async throws
+    {
         let run = try await run(machine.task, in: store)
         let items = facts.enumerated().map { index, fact -> Item in
             let at = today.start.addingTimeInterval(Double(index + 1) * 600)
@@ -111,7 +118,7 @@ enum TodaySample {
             grant: try await store.grant(for: .whatsapp, label: scope, at: store.clock()), replacing: false)
     }
 
-    private static func saveFinding(_ crew: Crew, today: WorkDay, store: Store) async throws {
+    private static func saveFinding(_ crew: Crew, today: WorkDay, scope: String, store: Store) async throws {
         guard let id = crew.create(from: .derailment, name: "Sentinel"), let sentinel = crew.helper(id: id) else {
             return
         }

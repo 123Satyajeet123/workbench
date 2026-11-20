@@ -205,6 +205,20 @@ private struct Fixture {
         #expect(fixture.calls == 4)
     }
 
+    @Test func aDayIsMissingSummariesUntilTheyAreWrittenAndAgainWhenItsItemsChange() async throws {
+        let fixture = try Fixture()
+        let task = fixture.machine.task
+        #expect(
+            try !fixture.summaries.isMissing(for: today, groupedBy: "person", of: task), "no items, nothing missing")
+        try fixture.plantTeam()
+        #expect(try fixture.summaries.isMissing(for: today, groupedBy: "person", of: task))
+        try await fixture.summaries.refresh(for: today, groupedBy: "person", of: task)
+        #expect(try !fixture.summaries.isMissing(for: today, groupedBy: "person", of: task))
+        try fixture.store.mark(item: 1, as: .confirmed)
+        #expect(try fixture.summaries.isMissing(for: today, groupedBy: "person", of: task))
+        #expect(fixture.calls == 1, "asking asks no model")
+    }
+
     @Test func aSummaryIsKeptAcrossARestart() async throws {
         let fixture = try Fixture()
         try fixture.plantTeam()
