@@ -174,6 +174,16 @@ extension Queries {
             [task, day.description, scope], as: Item.init(row:))
     }
 
+    /// One machine's items on one day, in every chat scope, in time order.
+    public func items(of task: String, on day: WorkDay) throws -> [Item] {
+        try reader.read { db in
+            try db.fetch(
+                "item",
+                "SELECT \(Self.itemColumns) FROM \(Self.itemRows) WHERE task = ? AND day = ? ORDER BY start_at, id",
+                [task, day.description], as: Item.init(row:))
+        }
+    }
+
     /// One machine's items since `day`, oldest first, in every scope.
     public func items(of task: String, since day: WorkDay) throws -> [Item] {
         try reader.read { db in try Self.items(db, of: task, since: day) }

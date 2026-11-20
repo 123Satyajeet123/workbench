@@ -25,16 +25,17 @@ import WorkbenchCore
         let clock = TestClock(noon)
         let store = try scratchStore(clock: { clock.now })
         let container = try whatsApp(at: noon)
+        let machine = try store.createMachine(from: .team, name: "Pip")
         let source = try WhatsAppSource(
-            store: store, capture: try CaptureService(store: store), task: HelperSpec.team.task, founder: { "Kabir" },
+            store: store, capture: try CaptureService(store: store), task: machine.task, founder: { "Kabir" },
             container: container)
         try source.loadGroups()
         try source.choose(try #require(source.groups.first))
         let model = KeyedModel(["team ledger": reply])
         let notifier = FakeNotifier()
         let pip = HelperModel(
-            machine: .test(.team, "Pip"), source: source, store: store,
-            makeModel: { _ in RecordedModel(model, store: store) }, notifier: notifier)
+            machine: machine, source: source, store: store, makeModel: { _ in RecordedModel(model, store: store) },
+            notifier: notifier)
         return Setup(pip: pip, model: model, notifier: notifier, container: container, clock: clock, store: store)
     }
 
@@ -58,6 +59,16 @@ import WorkbenchCore
         await s.pip.read()
         #expect(s.pip.phase == .read(kept: 1, dropped: 1), "a line read before cannot be cited again")
         #expect(s.pip.items.map(\.quote) == ["login API done", "payments blocked on keys"])
+    }
+
+    @Test func aReadingOfAMachineWithAPersonFieldBringsTheDaysSummariesUpToDate() async throws {
+        let s = try setup(
+            reply:
+                #"{"items":[{"person":"Asha","kind":"done","text":"Login API","eta":"","cite":11,"quote":"login API done"}]}"#
+        )
+        await s.pip.read()
+        #expect(s.model.summaryCalls.withLock { $0 } == 1)
+        #expect(s.model.calls.withLock { $0 } == 1, "the reading itself is one call")
     }
 
     @Test func readingThroughTheDayAlertsOnlyForNewBlockersAndOnlyInsideItsHours() async throws {

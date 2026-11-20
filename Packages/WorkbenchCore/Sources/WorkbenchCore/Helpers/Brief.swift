@@ -50,18 +50,7 @@ public struct Briefer: Sendable {
         var lines: [Raw]
     }
 
-    /// One item and the machine that found it.
-    public struct Source: Sendable {
-        public var machine: String
-        public var fields: [String]
-        public var item: Item
-
-        public init(machine: String, fields: [String], item: Item) {
-            self.machine = machine
-            self.fields = fields
-            self.item = item
-        }
-    }
+    public typealias Source = CitedSource
 
     public static let task = "mochi.brief"
     public static let maximumLines = 8
@@ -115,7 +104,7 @@ public struct Briefer: Sendable {
         for raw in reply.lines {
             guard kept.count < Self.maximumLines, let kind = MorningBrief.Line.Kind(rawValue: raw.kind),
                 let basis = MorningBrief.Line.Basis(rawValue: raw.basis), let text = raw.text.cleaned,
-                !raw.cites.isEmpty, Set(raw.cites).isSubset(of: given)
+                Cites.hold(raw.cites, within: given)
             else { continue }
             kept.append(MorningBrief.Line(kind: kind, basis: basis, text: text, cites: raw.cites))
         }
@@ -127,17 +116,7 @@ public struct Briefer: Sendable {
     }
 
     static func input(_ sources: [Source], day: WorkDay) -> String {
-        let lines = sources.compactMap { source -> String? in
-            guard let id = source.item.id else { return nil }
-            let values = source.fields.map { "\($0)=\(source.item[$0])" }.filter { !$0.hasSuffix("=") }
-            let mark: String =
-                switch source.item.state {
-                case .confirmed: "right"
-                case .rejected: "wrong"
-                case .proposed: "unmarked"
-                }
-            return "[\(id)] \(source.machine) · \(values.joined(separator: " ")) — \"\(source.item.quote)\" — \(mark)"
-        }
+        let lines = sources.compactMap(\.line)
         return (["Work day: \(day)", ""] + lines).joined(separator: "\n")
     }
 }

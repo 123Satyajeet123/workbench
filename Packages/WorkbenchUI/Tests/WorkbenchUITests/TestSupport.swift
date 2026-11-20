@@ -107,21 +107,31 @@ func whatsApp(at date: Date) throws -> URL {
 nonisolated struct Nothing: Decodable, Sendable {}
 
 /// Answers with the reply whose key its instructions contain, so each brief or task reads differently. Replies can be
-/// set after items exist, for replies that cite their ids.
+/// set after items exist, for replies that cite their ids. A summary call is answered with no summaries and is not
+/// counted in `calls` or `inputs`, so a test of readings counts readings.
 final class KeyedModel: StructuredModel, Sendable {
     let name = "keyed"
     let replies: Mutex<[String: String]>
     let calls = Mutex(0)
     let inputs = Mutex<[String]>([])
+    let summaryCalls = Mutex(0)
 
     init(_ replies: [String: String]) { self.replies = Mutex(replies) }
 
     func generate<T: Decodable & Sendable>(_ type: T.Type, schema: JSONSchema, instructions: String, input: String)
         async throws -> ModelAnswer<T>
     {
-        calls.withLock { $0 += 1 }
-        inputs.withLock { $0.append(input) }
-        let reply = replies.withLock { $0.first { instructions.contains($0.key) }?.value } ?? #"{"items":[]}"#
+        let isSummary = instructions == Summarizer.instructions
+        if isSummary {
+            summaryCalls.withLock { $0 += 1 }
+        } else {
+            calls.withLock { $0 += 1 }
+            inputs.withLock { $0.append(input) }
+        }
+        let reply =
+            isSummary
+            ? #"{"summaries":[]}"#
+            : replies.withLock { $0.first { instructions.contains($0.key) }?.value } ?? #"{"items":[]}"#
         let cited = Self.cite(reply, in: input)
         return ModelAnswer(
             value: try JSONDecoder().decode(T.self, from: Data(cited.utf8)), model: "m", usage: Usage(), reply: cited)

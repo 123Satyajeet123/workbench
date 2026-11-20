@@ -8,11 +8,12 @@ public enum DeleteSelector: Sendable {
     /// remove text of other windows, and that is the safe direction.
     case activities(ActivityFilter)
     /// What one kind of source produced before the cutoff (all of it when nil): its activity, its recordings, the
-    /// items helpers read from it, and the text of model runs that hold the kind, or hold a kind that is unknown, and
-    /// started before the cutoff. A call still being recorded stays.
+    /// items helpers read from it, the summaries built from it, and the text of model runs that hold the kind, or hold
+    /// a kind that is unknown, and started before the cutoff. A call still being recorded stays.
     case kind(SourceKind, before: Date?)
-    /// One machine: its items and their marks, its saved settings, the text of its runs, and a deleted state. Its
-    /// trial's items and run text go too. Its run rows stay in the meter.
+    /// One machine: its items and their marks, its summaries, its saved settings, the text of its runs and of every
+    /// summary run (their input does not say which machine it came from), and a deleted state. Its trial's items and
+    /// run text go too. Its run rows stay in the meter.
     case machine(String)
     /// Every kind, and all run text before the cutoff. The consent history and the run rows (the meter) hold no
     /// captured content, and stay.
@@ -83,13 +84,15 @@ extension Store {
                 try db.execute(sql: "DELETE FROM activity WHERE \(clause.sql)", arguments: clause.arguments)
                 try removeRunText(
                     db, holding: [.screen, .screenText, .files], from: filter.from, before: filter.to)
+                try removeSummaries(db, holding: [.screen, .screenText, .files], before: .distantFuture)
                 return [String]()
             case .kind(let kind, let cutoff):
                 return try remove(db, kind, before: cutoff ?? .distantFuture)
             case .machine(let task):
                 let tasks = [task, Trial.task(of: task)]
                 try db.execute(sql: "DELETE FROM item WHERE task IN (?,?)", arguments: StatementArguments(tasks))
-                try removeRunText(db, tasks: tasks)
+                try removeRunText(db, tasks: tasks + [Summarizer.task])
+                try removeSummaries(db, tasks: tasks)
                 try db.execute(
                     sql: "DELETE FROM state WHERE key LIKE ? ESCAPE '\\'", arguments: [Self.likePrefix(task)])
                 let machines = try db.fetch(
@@ -126,6 +129,7 @@ extension Store {
         try db.execute(
             sql: "DELETE FROM item WHERE source = ? AND start_at < ?", arguments: [kind.rawValue, cutoff.stored])
         try removeRunText(db, holding: [kind], before: cutoff)
+        try removeSummaries(db, holding: [kind], before: cutoff)
         switch kind {
         case .screen:
             try removeActivity(db, Activity.Kind.allCases.filter { $0 != .file }, before: cutoff)

@@ -31,7 +31,7 @@ enum Schema {
 
     static var stepDigests: [String] { steps.map { Digest.sha256($0.joined(separator: ";\n")) } }
 
-    static let steps = [baseline, itemEvents, runText]
+    static let steps = [baseline, itemEvents, runText, summaries]
 
     /// Items that open and close (research 32): a later line closes a commitment or answers a question. An event is
     /// never rewritten; the latest one is the item's state. Valid time is when the closing line was said; record time
@@ -94,6 +94,20 @@ enum Schema {
             (SELECT state FROM mark WHERE mark.item_id = item.id ORDER BY mark.id DESC LIMIT 1), 'proposed') AS state
         FROM item
         """,
+    ]
+
+    /// Cited summaries of a day's items per scope (a person or a project), derived data kept so a page does not ask the
+    /// model again. The fingerprint is a hash of the scope's input; a changed scope no longer matches it. `kinds` are
+    /// the consent kinds the summary was built from, for a privacy delete.
+    private static let summaries = [
+        """
+        CREATE TABLE summary(
+            day TEXT NOT NULL, task TEXT NOT NULL CHECK(task <> ''), field TEXT NOT NULL CHECK(field <> ''),
+            scope TEXT NOT NULL CHECK(scope <> ''), fingerprint TEXT NOT NULL,
+            kinds TEXT NOT NULL CHECK(json_valid(kinds) AND json_type(kinds) = 'array'),
+            body TEXT NOT NULL CHECK(json_valid(body) AND json_type(body) = 'object'), saved_at TEXT NOT NULL,
+            PRIMARY KEY(day, task, field, scope)) WITHOUT ROWID
+        """
     ]
 
     private static let baseline = [

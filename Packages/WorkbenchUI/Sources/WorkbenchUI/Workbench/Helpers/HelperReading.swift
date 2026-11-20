@@ -44,7 +44,8 @@ final class HelperReading {
                 context.problems.dismiss()
                 return true
             }
-            let reader = HelperReader(spec: spec, model: context.makeModel(try context.runner(for: .init(spec))))
+            let model = context.makeModel(try context.runner(for: .init(spec)))
+            let reader = HelperReader(spec: spec, model: model)
             let result = try await reader.read(
                 day: day, scope: scope, evidence: evidence, marked: try context.marked(), open: open)
             try store.saveReading(
@@ -55,11 +56,24 @@ final class HelperReading {
             phase = .read(kept: result.items.count, dropped: result.dropped)
             context.problems.dismiss()
             context.itemsChanged()
+            await refreshSummaries(day, model: model)
             return true
         } catch {
             phase = .idle
             context.problems.report("read the day", error)
             return false
+        }
+    }
+
+    /// Brings the day's summaries up to date after a reading, when the machine has a person or label field to group by.
+    /// A failure here does not undo the reading.
+    private func refreshSummaries(_ day: WorkDay, model: RecordedModel) async {
+        guard let field = context.spec.summaryField else { return }
+        do {
+            try await Summaries(store: context.store, model: model)
+                .refresh(for: day, groupedBy: field, of: context.spec.task)
+        } catch {
+            context.problems.report("summarize the day", error)
         }
     }
 
