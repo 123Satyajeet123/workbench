@@ -21,7 +21,7 @@ final class ReviewModel {
         self.store = store
         self.crew = crew
         refresh()
-        crew.itemsChanged = { [weak self] in self?.refresh() }
+        crew.onItemsChanged { [weak self] in self?.refresh() }
     }
 
     var questions: Int { items.filter { $0.askedWith != nil }.count }

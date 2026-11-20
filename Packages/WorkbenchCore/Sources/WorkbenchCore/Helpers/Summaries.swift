@@ -65,11 +65,24 @@ public struct Summaries: Sendable {
 }
 
 extension HelperSpec {
-    /// The field a day's summaries group by: the field that names a member, else the one that names a label. Nil when
-    /// the machine has neither.
-    public var summaryField: String? {
-        let kinds = fields.map { ($0.name, $0.kind) }
-        return kinds.first { if case .member = $0.1 { true } else { false } }?.0
-            ?? kinds.first { if case .label = $0.1 { true } else { false } }?.0
+    /// The first field that names a member (a person).
+    public var memberField: String? {
+        fields.first { if case .member = $0.kind { true } else { false } }?.name
+    }
+
+    /// The first field that names a label (a project).
+    public var labelField: String? {
+        fields.first { if case .label = $0.kind { true } else { false } }?.name
+    }
+
+    /// The fields a day's summaries group by: every field that names a member or a label (a person, a project), in the
+    /// spec's order. None when the machine has neither.
+    public var summaryFields: [String] {
+        fields.compactMap { field in
+            switch field.kind {
+            case .member, .label: field.name
+            case .text, .choice: nil
+            }
+        }
     }
 }

@@ -65,16 +65,18 @@ final class HelperReading {
         }
     }
 
-    /// Brings the day's summaries up to date after a reading, when the machine has a person or label field to group by.
-    /// A failure here does not undo the reading.
+    /// Brings the day's summaries up to date after a reading, one set for each field the machine groups by (people,
+    /// projects), then tells the pages that read them. A failure here does not undo the reading.
     private func refreshSummaries(_ day: WorkDay, model: RecordedModel) async {
-        guard let field = context.spec.summaryField else { return }
-        do {
-            try await Summaries(store: context.store, model: model)
-                .refresh(for: day, groupedBy: field, of: context.spec.task)
-        } catch {
-            context.problems.report("summarize the day", error)
+        let summaries = Summaries(store: context.store, model: model)
+        for field in context.spec.summaryFields {
+            do {
+                try await summaries.refresh(for: day, groupedBy: field, of: context.spec.task)
+            } catch {
+                context.problems.report("summarize the day", error)
+            }
         }
+        context.itemsChanged()
     }
 
     /// For each label field, the values this machine gave in the last 30 days, most used first, so a project keeps

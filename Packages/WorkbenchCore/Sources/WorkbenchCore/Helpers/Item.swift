@@ -21,6 +21,13 @@ public struct Item: Sendable, Equatable, Identifiable {
     public var askedWith: Double?
     /// How a later line, or the founder, closed it; nil while it is open or for an item that never opens.
     public var closed: Closed?
+    /// Set when the founder hid the item or snoozed it; nil otherwise. See `isHidden(at:)`.
+    public var hiding: Hiding?
+
+    public enum Hiding: Sendable, Equatable {
+        case hidden
+        case snoozed(until: Date)
+    }
 
     public struct Closed: Sendable, Equatable {
         public var outcome: String
@@ -48,6 +55,16 @@ public struct Item: Sendable, Equatable, Identifiable {
         self.state = state
         self.run = run
         self.askedWith = askedWith
+    }
+
+    /// Whether the founder's hide or snooze keeps the item off the Today, People and Projects lists at `now`: a
+    /// snooze ends at its date.
+    public func isHidden(at now: Date) -> Bool {
+        switch hiding {
+        case nil: false
+        case .hidden: true
+        case .snoozed(let until): now < until
+        }
     }
 
     /// The field that holds the store ids of the facts a finding cites, as a comma-separated list.

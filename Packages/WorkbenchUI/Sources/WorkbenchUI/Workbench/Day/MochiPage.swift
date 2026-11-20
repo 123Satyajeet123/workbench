@@ -1,8 +1,8 @@
 import SwiftUI
 import WorkbenchCore
 
-/// The day helper: one look at the day across the crew, each with a way to open the helper.
-struct DayPage: View {
+/// Mochi's page: the brief, the timeline, proposals and one card per machine, each with a way to open it.
+struct MochiPage: View {
     let open: (SidebarSelection) -> Void
 
     @Environment(Crew.self) private var crew

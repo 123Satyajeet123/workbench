@@ -51,6 +51,12 @@ extension Store {
 }
 
 extension Queries {
+    /// The summaries kept for one day, machine and grouping field, in order of name. A page reads these; it never
+    /// asks the model.
+    public func summaries(day: WorkDay, task: String, field: String) throws -> [Summary] {
+        try storedSummaries(day: day, task: task, field: field).values.map(\.summary).sorted { $0.scope < $1.scope }
+    }
+
     /// The summaries kept for one day, machine and grouping field, by scope.
     func storedSummaries(day: WorkDay, task: String, field: String) throws -> [String: StoredSummary] {
         try reader.read { db in

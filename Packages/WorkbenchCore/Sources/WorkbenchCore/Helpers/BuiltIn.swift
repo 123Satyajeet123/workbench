@@ -30,11 +30,16 @@ extension HelperSpec {
             Field(
                 "eta", .text(required: false),
                 meaning:
-                    "When it is due, in the person's words (\"kal tak\", \"by 6pm\", \"Fri 21 Nov\"); empty when not said, never guessed."
+                    "The date it is due, as YYYY-MM-DD, worked out from the work day and the person's words (\"kal tak\" is the next day, \"Fri\" the coming Friday); empty when no time was said, never guessed."
             ),
             Field(
                 "stance", .choice(["said", "reported"]),
                 meaning: "said: written by the person it is about. reported: written by someone else."),
+            Field(
+                "asks", .choice(["founder", "team"]),
+                meaning:
+                    "founder: the fact asks the founder for something or waits on the founder: a decision, an answer, an approval, a reply. team: every other fact."
+            ),
         ],
         citation: .one, view: .board(groupBy: "person", expected: "members"), title: "text",
         badges: ["project", "eta"],

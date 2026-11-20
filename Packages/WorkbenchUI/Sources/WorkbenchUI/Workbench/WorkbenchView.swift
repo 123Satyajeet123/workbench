@@ -13,7 +13,10 @@ struct WorkbenchView: View {
             Sidebar(selection: $selection)
         } detail: {
             switch selection {
-            case .day: DayPage(open: { selection = $0 })
+            case .day: TodayPage()
+            case .people: FactGroupsPage(lens: .people)
+            case .projects: FactGroupsPage(lens: .projects)
+            case .mochi: MochiPage(open: { selection = $0 })
             case .machine(let id):
                 if let helper = crew.helper(id: id) {
                     HelperPage(model: helper)

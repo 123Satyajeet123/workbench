@@ -70,42 +70,47 @@ extension Store {
         try writer.write { db in try addEvent(db, item: id, kind: "reopen", outcome: nil, at: clock(), by: nil) }
     }
 
-    private func addEvent(
-        _ db: Database, item: Int64, kind: String, outcome: String?, at: Date,
-        by model: (run: RunID, line: Int64, quote: String)?
+    func addEvent(
+        _ db: Database, item: Int64, kind: String, outcome: String? = nil, until: Date? = nil, at: Date,
+        by model: (run: RunID, line: Int64, quote: String)? = nil
     ) throws {
         try db.execute(
             sql: """
-                INSERT INTO item_event(item_id, kind, outcome, line_id, quote, valid_at, recorded_at, run_id, actor)
-                VALUES (?,?,?,?,?,?,?,?,?)
+                INSERT INTO item_event(item_id, kind, outcome, line_id, quote, valid_at, recorded_at, run_id, actor,
+                    until) VALUES (?,?,?,?,?,?,?,?,?,?)
                 """,
             arguments: [
                 item, kind, outcome, model?.line, model?.quote, at.stored, clock().stored, model?.run,
-                model == nil ? "person" : "model",
+                model == nil ? "person" : "model", until?.stored,
             ])
     }
 
     /// Marks are history: each one is a new row, and the latest is the item's state. Taking a mark back is a mark. A
     /// mark on an item the app picked is an audit mark, with the chance the item had.
     public func mark(item id: Int64, as mark: Mark) throws {
-        try writer.write { db in
-            try db.execute(
-                sql: """
-                    INSERT INTO mark(item_id, ts, state, origin, asked_with)
-                    SELECT id, ?, ?, CASE WHEN asked_with IS NULL THEN 'voluntary' ELSE 'audit' END, COALESCE(asked_with, 1)
-                    FROM item WHERE id = ?
-                    """, arguments: [clock().stored, mark.rawValue, id])
-        }
+        try writer.write { db in try addMark(db, item: id, mark) }
+    }
+
+    func addMark(_ db: Database, item id: Int64, _ mark: Mark) throws {
+        try db.execute(
+            sql: """
+                INSERT INTO mark(item_id, ts, state, origin, asked_with)
+                SELECT id, ?, ?, CASE WHEN asked_with IS NULL THEN 'voluntary' ELSE 'audit' END, COALESCE(asked_with, 1)
+                FROM item WHERE id = ?
+                """, arguments: [clock().stored, mark.rawValue, id])
     }
 }
 
 extension Queries {
     private static let itemColumns = """
         id, task, day, scope, source, cite_first, cite_last, start_at, end_at, fields, quote, state, run_id, asked_with,
-        status_kind, status_outcome, status_quote, status_at
+        status_kind, status_outcome, status_quote, status_at, hiding_kind, hiding_until
         """
-    /// Items with their mark and their latest close or reopen.
-    private static let itemRows = "item_mark LEFT JOIN item_status ON item_status.item_id = item_mark.id"
+    /// Items with their mark, their latest close or reopen, and their latest hide, snooze or unhide.
+    private static let itemRows = """
+        item_mark LEFT JOIN item_status ON item_status.item_id = item_mark.id
+            LEFT JOIN item_hiding ON item_hiding.item_id = item_mark.id
+        """
 
     /// The items of a machine still open: of a value its lifecycle keeps open, not rejected, and not closed since.
     /// The newest `limit`, oldest first. With `day`, the items as they stood on that day: opened by the day's end and
@@ -118,8 +123,8 @@ extension Queries {
         var bounds = StatementArguments()
         if let day {
             status = """
-                day <= ? AND (SELECT kind FROM item_event WHERE item_id = item_mark.id AND valid_at < ?
-                    ORDER BY id DESC LIMIT 1) IS NOT 'close'
+                day <= ? AND (SELECT kind FROM item_event WHERE item_id = item_mark.id AND kind IN ('close','reopen')
+                    AND valid_at < ? ORDER BY id DESC LIMIT 1) IS NOT 'close'
                 """
             bounds = [day.description, day.start.stored]
         } else {
@@ -222,6 +227,15 @@ extension Item {
             closed = Closed(
                 outcome: try row.value("status_outcome"), quote: try row.optionalValue("status_quote"),
                 at: try row.date("status_at"))
+        }
+        hiding = try Self.hiding(row)
+    }
+
+    private static func hiding(_ row: Row) throws -> Hiding? {
+        switch try row.optionalValue("hiding_kind") as String? {
+        case "hide": .hidden
+        case "snooze": .snoozed(until: try row.date("hiding_until"))
+        default: nil
         }
     }
 }

@@ -10,7 +10,7 @@ private func at(_ day: WorkDay, _ minutes: Double) -> Date { day.start.addingTim
 private let chatGrant = grant(.whatsapp, label: "work")
 
 private func fact(_ kind: String, _ text: String, cite: Int, quote: String) -> String {
-    #"{"kind":"\#(kind)","text":"\#(text)","person":"Asha","project":"Deck","eta":"","stance":"said","cite":\#(cite),"quote":"\#(quote)"}"#
+    #"{"kind":"\#(kind)","text":"\#(text)","person":"Asha","project":"Deck","eta":"","asks":"team","stance":"said","cite":\#(cite),"quote":"\#(quote)"}"#
 }
 
 private func close(_ handle: String, _ outcome: String, cite: Int, quote: String) -> String {

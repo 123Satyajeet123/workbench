@@ -72,6 +72,7 @@ extension View {
             .environment(session.crew.notifications)
             .environment(session.review)
             .environment(session.mochi)
+            .environment(session.today)
             .environment(session.reminders)
             .environment(session.catalog)
             .environment(session.actions)

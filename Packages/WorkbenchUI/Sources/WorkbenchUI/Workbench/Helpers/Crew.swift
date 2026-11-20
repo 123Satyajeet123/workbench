@@ -11,8 +11,7 @@ final class Crew {
     let problems = ProblemSlot()
     var problem: String? { problems.text }
 
-    /// Called when any machine's items change. Each machine also re-checks its rollback alarm then.
-    @ObservationIgnored var itemsChanged: () -> Void = {}
+    @ObservationIgnored private var itemListeners: [() -> Void] = []
     @ObservationIgnored private let store: Store
     @ObservationIgnored private let capture: CaptureService
     @ObservationIgnored private let founder: () -> String
@@ -41,6 +40,9 @@ final class Crew {
         alarm = VersionAlarm(store: store, notifications: notifications, problems: problems)
         reload()
     }
+
+    /// Calls `listener` when any machine's items change. Each machine also re-checks its rollback alarm then.
+    func onItemsChanged(_ listener: @escaping () -> Void) { itemListeners.append(listener) }
 
     /// Mochi's timeline: the built-in timeline machine, while it exists.
     var timeline: HelperModel? { machines.first { $0.spec.task == HelperSpec.timeline.task } }
@@ -96,7 +98,7 @@ final class Crew {
                     machine: record, source: try source(for: record), store: store, makeModel: makeModel,
                     notifications: notifications)
                 model.itemsChanged = { [weak self, weak model] in
-                    self?.itemsChanged()
+                    for listener in self?.itemListeners ?? [] { listener() }
                     if let model { self?.alarm.check(model, revert: { self?.revise($0, to: $1) }) }
                 }
                 model.schedule.start()

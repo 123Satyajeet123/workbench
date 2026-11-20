@@ -7,7 +7,7 @@ import Testing
     @Test func theFactMachineKeepsPipsTaskAndFieldsAndOpensPlansAndBlockers() {
         let spec = HelperSpec.team
         #expect(spec.task == "team.ledger")
-        #expect(spec.fields.map(\.name) == ["person", "project", "kind", "text", "eta", "stance"])
+        #expect(spec.fields.map(\.name) == ["person", "project", "kind", "text", "eta", "stance", "asks"])
         #expect(spec.lifecycle?.field == "kind")
         #expect(spec.lifecycle?.open == ["plan", "blocker", "commitment", "question", "decision"])
         #expect(spec.lifecycle?.outcomes == ["kept", "answered", "resolved", "reversed", "dropped"])
@@ -16,7 +16,10 @@ import Testing
     @Test func theBoardByPersonIsTheDefaultAndProjectsHaveTheirOwnViews() {
         let spec = HelperSpec.team
         #expect(spec.view == .board(groupBy: "person", expected: "members"))
-        #expect(Set(spec.views.keys) == ["table", "board", "by kind", "by project", "by stance", "open by project"])
+        #expect(
+            Set(spec.views.keys) == [
+                "table", "board", "by kind", "by project", "by stance", "by asks", "open by project",
+            ])
         #expect(spec.views["open by project"] == .checklist(by: "project"))
         #expect(spec.views["by project"] == .grouped(by: "project"))
     }

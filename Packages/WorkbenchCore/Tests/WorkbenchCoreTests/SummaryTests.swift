@@ -146,16 +146,14 @@ private struct Fixture {
 }
 
 @Suite struct SummariesTests {
-    @Test func aMachineIsGroupedByItsMemberFieldElseItsLabelFieldElseNotAtAll() {
-        #expect(HelperSpec.team.summaryField == "person")
+    @Test func aMachineIsGroupedByEachOfItsMemberAndLabelFields() {
+        #expect(HelperSpec.team.summaryFields == ["person", "project"])
         var labelled = HelperSpec.team
-        labelled.fields[0].kind = .label(of: "projects")
-        #expect(labelled.summaryField == "person", "a label field names the grouping too")
         labelled.fields.removeAll { $0.name == "person" }
-        #expect(labelled.summaryField == "project", "the next label field")
+        #expect(labelled.summaryFields == ["project"])
         labelled.fields.removeAll { $0.name == "project" }
-        #expect(labelled.summaryField == nil)
-        #expect(HelperSpec.timeline.summaryField == nil)
+        #expect(labelled.summaryFields.isEmpty)
+        #expect(HelperSpec.timeline.summaryFields.isEmpty)
     }
 
     @Test func aDayOfManyPeopleCostsOneCallAndEachSummaryIsKeptByScope() async throws {

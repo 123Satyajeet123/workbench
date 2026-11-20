@@ -6,23 +6,36 @@ struct Sidebar: View {
     @Environment(IdentityModel.self) private var identity
     @Environment(Crew.self) private var crew
     @Environment(ReviewModel.self) private var review
+    @Environment(TodayModel.self) private var today
     @Environment(TeamCatalogModel.self) private var catalog
     @State private var editing: MachineEdit?
     @State private var deleting: HelperModel?
 
     var body: some View {
         List(selection: Binding<SidebarSelection?>(get: { selection }, set: { if let new = $0 { selection = new } })) {
-            FixedRow(page: .day, faceSize: 34, mood: mochiMood).tag(SidebarSelection.day)
-            Label(SidebarSelection.review.title, systemImage: "checkmark.circle")
-                .badge(review.items.count)
-                .tag(SidebarSelection.review)
+            Label(SidebarSelection.day.title, systemImage: "sun.max").badge(today.needs.count)
+                .tag(SidebarSelection.day)
+            Label(SidebarSelection.people.title, systemImage: "person.2").tag(SidebarSelection.people)
+            Label(SidebarSelection.projects.title, systemImage: "square.stack.3d.up").tag(SidebarSelection.projects)
             Section {
+                FixedRow(page: .calls, faceSize: 26, mood: .calm).tag(SidebarSelection.calls)
+                Label(SidebarSelection.deals.title, systemImage: "rectangle.3.group").tag(SidebarSelection.deals)
+            }
+            Section {
+                FixedRow(page: .mochi, faceSize: 26, mood: mochiMood).tag(SidebarSelection.mochi)
                 ForEach(crew.crew, id: \.machine.id) { helper in
                     MachineRow(helper: helper)
                         .tag(SidebarSelection.machine(helper.machine.id))
                         .contextMenu { menu(for: helper) }
                 }
-                FixedRow(page: .calls, faceSize: 26, mood: .calm).tag(SidebarSelection.calls)
+                Label(SidebarSelection.review.title, systemImage: "checkmark.circle")
+                    .badge(review.items.count)
+                    .tag(SidebarSelection.review)
+                Label(SidebarSelection.catalog.title, systemImage: "person.3.sequence")
+                    .badge(catalog.teammates.count + catalog.teammatesDays.count)
+                    .tag(SidebarSelection.catalog)
+                Label(SidebarSelection.runs.title, systemImage: "gauge.with.dots.needle.33percent")
+                    .tag(SidebarSelection.runs)
             } header: {
                 HStack {
                     Text("Crew")
@@ -30,16 +43,6 @@ struct Sidebar: View {
                     Button("Add a machine", systemImage: "plus") { editing = .new }
                         .labelStyle(.iconOnly).buttonStyle(.borderless)
                 }
-            }
-            Section("Team") {
-                Label(SidebarSelection.deals.title, systemImage: "rectangle.3.group").tag(SidebarSelection.deals)
-                Label(SidebarSelection.catalog.title, systemImage: "person.3.sequence")
-                    .badge(catalog.teammates.count + catalog.teammatesDays.count)
-                    .tag(SidebarSelection.catalog)
-            }
-            Section("Meter") {
-                Label(SidebarSelection.runs.title, systemImage: "gauge.with.dots.needle.33percent")
-                    .tag(SidebarSelection.runs)
             }
         }
         .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 300)

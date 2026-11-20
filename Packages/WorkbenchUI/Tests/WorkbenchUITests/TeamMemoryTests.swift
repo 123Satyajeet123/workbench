@@ -11,7 +11,7 @@ import WorkbenchCore
         Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: Date(timeIntervalSince1970: 1_790_000_000))!
     }()
     private let reply = #"""
-        {"items":[{"person":"Asha","project":"Login","kind":"done","text":"Login API","eta":"","stance":"said","cite":11,"quote":"login API done"}],"closes":[]}
+        {"items":[{"person":"Asha","project":"Login","kind":"done","text":"Login API","eta":"","asks":"team","stance":"said","cite":11,"quote":"login API done"}],"closes":[]}
         """#
 
     /// Kabir's Mac: his team, Pip reading the team group's day, and the team folder.
