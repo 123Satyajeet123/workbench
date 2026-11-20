@@ -120,3 +120,18 @@ import WorkbenchCore
         }
     }
 }
+
+@Suite struct MemberNameTests {
+    @Test func aNameWithNoLetterOrDigitNamesNobodyAndFallsBackToTheIDsEnd() {
+        let names = MemberNames.resolve([
+            (jid: "911111111111@s.whatsapp.net", candidates: [".", "Asha"]),
+            (jid: "912222222222@s.whatsapp.net", candidates: ["🙂", "  "]),
+            (jid: "913333333333@s.whatsapp.net", candidates: ["R2"]),
+            (jid: "914444444444@s.whatsapp.net", candidates: ["अमित"]),
+        ])
+        #expect(names["911111111111@s.whatsapp.net"] == "Asha", "the next candidate with a letter")
+        #expect(names["912222222222@s.whatsapp.net"] == "Member ·2222")
+        #expect(names["913333333333@s.whatsapp.net"] == "R2")
+        #expect(names["914444444444@s.whatsapp.net"] == "अमित", "letters of any script count")
+    }
+}

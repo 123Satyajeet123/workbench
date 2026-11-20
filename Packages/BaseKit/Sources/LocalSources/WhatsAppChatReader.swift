@@ -307,11 +307,12 @@ public struct WhatsAppChatReader: Sendable {
 /// contact names, so an empty string counts as no name, and the first-name column, which can hold encoded data, is
 /// never used. Two members with one name get the end of their ID, so a board never merges two people.
 enum MemberNames {
-    /// The first non-empty candidate, in order, for each member.
+    /// The first candidate that holds a letter or a digit, in order, for each member: a name such as "." or "🙂"
+    /// names nobody, so it falls back like an empty one.
     static func resolve(_ members: [(jid: String, candidates: [String?])]) -> [String: String] {
         let named = members.map { member in
             let name = member.candidates.compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
-                .first { !$0.isEmpty }
+                .first { $0.unicodeScalars.contains(where: CharacterSet.alphanumerics.contains) }
             return (jid: member.jid, name: name ?? fallback(for: member.jid))
         }
         let counts = Dictionary(named.map { ($0.name, 1) }, uniquingKeysWith: +)
