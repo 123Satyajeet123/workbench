@@ -7,12 +7,16 @@ struct HelperContent: View {
     let model: HelperModel
     @Environment(TeamCatalogModel.self) private var catalog
     @Environment(ActionsModel.self) private var actions
+    @Environment(Crew.self) private var crew
 
     var body: some View {
         VStack(alignment: .leading, spacing: Space.l) {
             if let problem = model.problem { ProblemBanner(text: problem, dismiss: model.dismissProblem) }
             ActionNotice()
             if model.isPaused { PausedNote(model: model) }
+            if let update = crew.update(for: model) {
+                UpdateBanner(name: model.name, changes: update.changes) { crew.upgrade(model) }
+            }
             if model.isReady {
                 readyContent
             } else {

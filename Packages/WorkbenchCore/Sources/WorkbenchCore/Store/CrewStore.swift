@@ -23,6 +23,19 @@ extension Store {
         return try writer.write { db in try addMachine(db, spec: spec, template: template, name: name) }
     }
 
+    /// Moves a machine to a newer built-in design: the built-in's brief, fields, lifecycle and checks, with the
+    /// machine's own task (so its items, marks and settings stay), model, example policy, what it follows, and its
+    /// view when the new design can still fill it. A new design is a new prompt version, so trust is earned again.
+    public func upgrade(_ machine: Machine, to builtIn: HelperSpec) throws {
+        var spec = builtIn
+        spec.task = machine.spec.task
+        spec.runner = machine.spec.runner
+        spec.examples = machine.spec.examples
+        spec.follows = machine.spec.follows ?? builtIn.follows
+        if spec.views.values.contains(machine.spec.view) { spec.view = machine.spec.view }
+        try change(machine, name: machine.name, spec: spec, state: machine.state)
+    }
+
     public func rename(_ machine: Machine, to name: String) throws {
         guard let name = name.cleaned else { return }
         try change(machine, name: name, spec: machine.spec, state: machine.state)

@@ -131,6 +131,21 @@ final class Crew {
         return id
     }
 
+    /// The built-in this machine came from, when its design has moved on, and what the update changes.
+    func update(for helper: HelperModel) -> (template: MachineTemplate, changes: [String])? {
+        guard let template = MachineTemplate.all.first(where: { $0.spec.task == helper.machine.template }),
+            let changes = helper.spec.update(toward: template.spec)
+        else { return nil }
+        return (template, changes)
+    }
+
+    /// The founder's choice to take the newer built-in design.
+    func upgrade(_ helper: HelperModel) {
+        guard let template = update(for: helper)?.template else { return }
+        problems.attempt("update \(helper.name)") { try store.upgrade(helper.machine, to: template.spec) }
+        reload()
+    }
+
     func rename(_ helper: HelperModel, to name: String) {
         problems.attempt("rename \(helper.name)") { try store.rename(helper.machine, to: name) }
         reload()
