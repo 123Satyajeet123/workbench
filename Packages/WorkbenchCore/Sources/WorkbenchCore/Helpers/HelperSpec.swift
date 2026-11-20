@@ -139,6 +139,12 @@ public struct HelperSpec: Codable, Sendable, Equatable {
     }
 
     /// The names of the fields whose value is one of a fixed set.
+    /// The lifecycle, or for a machine whose items only happened, one in which nothing stays open: its items are
+    /// listed, none is open.
+    public var lifecycleOrNone: Lifecycle {
+        lifecycle ?? Lifecycle(field: choiceFields.first ?? "", open: [], outcomes: [])
+    }
+
     public var choiceFields: [String] {
         fields.compactMap { field in
             if case .choice = field.kind { field.name } else { nil }

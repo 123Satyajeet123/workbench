@@ -118,6 +118,7 @@ extension Queries {
     public func openItems(
         of task: String, lifecycle: HelperSpec.Lifecycle, asOf day: WorkDay? = nil, limit: Int = 300
     ) throws -> [Item] {
+        guard !lifecycle.open.isEmpty else { return [] }
         let values = Array(repeating: "?", count: lifecycle.open.count).joined(separator: ",")
         let status: String
         var bounds = StatementArguments()

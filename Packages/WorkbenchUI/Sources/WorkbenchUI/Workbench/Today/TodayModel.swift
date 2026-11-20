@@ -95,7 +95,8 @@ final class TodayModel {
     private func load() throws {
         let now = store.clock()
         today = WorkDay(containing: now)
-        guard let machine = factMachine, let lifecycle = machine.spec.lifecycle else { return clear() }
+        guard let machine = factMachine else { return clear() }
+        let lifecycle = machine.spec.lifecycleOrNone
         let facts = try recentFacts(of: machine, lifecycle: lifecycle, since: today.adding(days: 1 - Self.days))
         let findings = try sentinelTask.map { try store.queries.items(of: $0, on: today) } ?? []
         let listed = facts.filter { $0.isListed(at: now) }

@@ -109,3 +109,31 @@ private final class SummaryModel: StructuredModel, Sendable {
         #expect(day.summarizer.callCount == calls, "one try for each day")
     }
 }
+
+/// The founder's Pip may still be on its first design, before facts opened and closed. Today lists its facts anyway.
+@Suite struct TodayOldDesignTests {
+    @Test func aFactMachineWithNoLifecycleStillFillsTodayWithItsFacts() async throws {
+        let noon = Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: .now)!
+        let store = try scratchStore(clock: { noon })
+        try store.savePolicy(CapturePolicy(switches: [.whatsapp: true], allowList: [.whatsapp: ["team"]]))
+        var old = HelperSpec.team
+        old.fields = old.fields.filter { ["person", "kind", "text", "eta"].contains($0.name) }
+        old.lifecycle = nil
+        try store.seedMachines([(old, "Pip")])
+        let today = WorkDay(containing: noon)
+        let (_, run) = try await RecordedModel(ScriptedModel(#"{}"#), store: store).generate(
+            Nothing.self, schema: .object([]), task: old.task, instructions: "v1", input: "x", holding: [])
+        let fact = Item(
+            task: old.task, day: today, scope: "", source: .whatsapp, citeFirst: 5, citeLast: 5, start: noon, end: noon,
+            fields: ["person": "Asha", "kind": "plan", "text": "Ship the login API", "eta": ""], quote: "kal tak",
+            run: run)
+        try store.saveReading(
+            .init(items: [fact], dropped: 0, run: run), of: old, day: today, scope: "",
+            grant: try await store.grant(for: .whatsapp, label: "team", at: noon))
+        let crew = Crew(
+            store: store, capture: try CaptureService(store: store), founder: { "Kabir" }, notifier: FakeNotifier())
+        let model = TodayModel(store: store, crew: crew)
+        #expect(!model.isEmpty, "a day with facts never says it has nothing")
+        #expect(model.unsummarized.map(\.name) == ["Asha"])
+    }
+}
