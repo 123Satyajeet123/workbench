@@ -51,12 +51,11 @@ private struct PrimaryButton: View {
 
     var body: some View {
         configuration.label
-            .foregroundStyle(.white)
+            .foregroundStyle(isEnabled ? Color.white : .supporting)
             .padding(.horizontal, Space.m)
             .padding(.vertical, Space.xs * 1.5)
-            .background(.accentFill, in: .rect(cornerRadius: Radius.control))
+            .background(isEnabled ? Color.accentFill : .selectedFill, in: .rect(cornerRadius: Radius.control))
             .brightness(configuration.isPressed ? -0.08 : 0)
             .contentShape(.rect(cornerRadius: Radius.control))
-            .opacity(isEnabled ? 1 : 0.5)
     }
 }
