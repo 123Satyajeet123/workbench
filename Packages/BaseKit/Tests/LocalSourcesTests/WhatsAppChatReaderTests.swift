@@ -11,6 +11,21 @@ import WorkbenchCore
         WhatsAppChatReader(container: fixture.container, chatJID: chat, policy: policy)
     }
 
+    @Test func aStoreTheSystemWillNotOpenAsksForAccessAndAMissingOneAsksForTheApp() throws {
+        let fixture = try WhatsAppFixture()
+        let store = fixture.container.appending(path: "ChatStorage.sqlite").path
+        try FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: store)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: store) }
+        #expect(throws: ReadError.notPermitted) {
+            try WhatsAppChatReader.groups(container: fixture.container, policy: whatsappOn.policy)
+        }
+        #expect(throws: ReadError.storeMissing) {
+            try WhatsAppChatReader.groups(
+                container: fixture.container.appending(path: "absent"), policy: whatsappOn.policy)
+        }
+        #expect(ReadError.notPermitted.localizedDescription.contains("Full Disk Access"))
+    }
+
     @Test func aPathOutsideTheMessageFolderIsNotDownloaded() async throws {
         let fixture = try WhatsAppFixture()
         try Data("secret".utf8).write(to: fixture.container.appending(path: "outside.pdf"))

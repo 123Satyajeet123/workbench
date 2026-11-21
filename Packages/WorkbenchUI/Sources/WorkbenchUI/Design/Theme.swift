@@ -133,14 +133,41 @@ extension Card where Icon == Image {
 struct ProblemBanner: View {
     let text: String
     var dismiss: (() -> Void)?
+    var settingsPane: String?
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: Space.s) {
-            Label(text, systemImage: "exclamationmark.triangle").foregroundStyle(Tone.bad.color)
-                .textSelection(.enabled)
-            Spacer()
-            if let dismiss { Button("Dismiss", action: dismiss).buttonStyle(.ghost) }
+            Image(systemName: "exclamationmark.triangle").foregroundStyle(Tone.bad.color)
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .firstTextBaseline, spacing: Space.m) {
+                    message.fixedSize()
+                    Spacer(minLength: 0)
+                    actions
+                }
+                VStack(alignment: .leading, spacing: Space.s) {
+                    message.fixedSize(horizontal: false, vertical: true)
+                    actions.padding(.leading, settingsPane == nil ? -Space.s : 0)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
+        .padding(Space.m)
+        .background(.calloutFill, in: .rect(cornerRadius: Radius.card))
         .textStyle(.callout)
+    }
+
+    private var message: some View {
+        Text(text).foregroundStyle(Tone.bad.color).textSelection(.enabled)
+    }
+
+    @ViewBuilder private var actions: some View {
+        if settingsPane != nil || dismiss != nil {
+            HStack(spacing: Space.xs) {
+                if let settingsPane {
+                    Button("Open System Settings") { SystemSettings.open(pane: settingsPane) }.buttonStyle(.primary)
+                }
+                if let dismiss { Button("Dismiss", action: dismiss).buttonStyle(.ghost) }
+            }
+        }
     }
 }
