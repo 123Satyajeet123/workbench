@@ -68,6 +68,7 @@ struct SiteChooser: View {
 struct GroupChooser: View {
     let model: HelperModel
     let source: WhatsAppSource
+    @State private var query = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: Space.m) {
@@ -79,8 +80,14 @@ struct GroupChooser: View {
                     Button("Show my WhatsApp groups") { model.attempt("list your WhatsApp groups", source.loadGroups) }
                         .buttonStyle(.primary)
                 } else {
+                    TextField("Search your groups", text: $query, prompt: Text("Search your groups"))
+                        .textFieldStyle(.roundedBorder)
+                    let found = FuzzySearch.filter(source.groups, by: query, name: \.name)
+                    if found.isEmpty {
+                        Text("No group matches “\(query)”.").foregroundStyle(.supporting)
+                    }
                     VStack(alignment: .leading, spacing: 0) {
-                        ForEach(source.groups) { group in
+                        ForEach(found) { group in
                             HStack {
                                 Text(group.name).lineLimit(1)
                                 Spacer()
@@ -91,7 +98,7 @@ struct GroupChooser: View {
                                 .buttonStyle(.ghost).foregroundStyle(.linkText)
                             }
                             .padding(.vertical, Space.xs)
-                            if group.id != source.groups.last?.id { Divider() }
+                            if group.id != found.last?.id { Divider() }
                         }
                     }
                 }
