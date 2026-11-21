@@ -47,6 +47,8 @@ final class Crew {
     /// Mochi's timeline: the built-in timeline machine, while it exists.
     var timeline: HelperModel? { machines.first { $0.spec.task == HelperSpec.timeline.task } }
 
+    var team: HelperModel? { machines.first { $0.machine.template == HelperSpec.team.task } }
+
     /// The machines in the sidebar's crew: every machine but Mochi's timeline.
     var crew: [HelperModel] { machines.filter { $0 !== timeline } }
 

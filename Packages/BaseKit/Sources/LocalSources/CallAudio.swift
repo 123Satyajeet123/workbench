@@ -93,6 +93,10 @@ public final class CallAudioRecorder {
         await AVCaptureDevice.requestAccess(for: .audio)
     }
 
+    public static var microphoneRefused: Bool {
+        [.denied, .restricted].contains(AVCaptureDevice.authorizationStatus(for: .audio))
+    }
+
     public func start() throws {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         if let app {

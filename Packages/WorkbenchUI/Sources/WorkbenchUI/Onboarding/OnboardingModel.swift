@@ -58,7 +58,7 @@ final class OnboardingModel {
         switch screen {
         case .you: identityModel.identity.hasName
         case .team: teamModel.team.name.cleaned != nil
-        case .welcome, .sources, .done: true
+        case .welcome, .connect, .done: true
         }
     }
 

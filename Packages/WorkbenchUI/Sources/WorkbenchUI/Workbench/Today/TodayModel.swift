@@ -88,7 +88,7 @@ final class TodayModel {
         needs.isEmpty && team.isEmpty && unsummarized.isEmpty && projects.isEmpty && meetingCards.isEmpty
     }
 
-    private var factHelper: HelperModel? { crew.machines.first { $0.machine.template == HelperSpec.team.task } }
+    private var factHelper: HelperModel? { crew.team }
     private var factMachine: Machine? { factHelper?.machine }
     private var sentinelTask: String? {
         crew.machines.first { $0.machine.template == HelperSpec.derailment.task }?.spec.task

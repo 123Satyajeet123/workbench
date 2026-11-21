@@ -45,20 +45,30 @@ struct SourceToggles: View {
         Binding {
             capture.isOn(kind)
         } set: { on in
+            if kind == .call { microphoneRefused = false }
             capture.set(kind, on: on)
-            if on, kind == .screen || kind == .screenText, !ScreenReader.isTrusted { ScreenReader.requestTrust() }
-            if kind == .call { askForMicrophone(on) }
-            if kind == .calendar { Task { await today?.refreshMeetings() } }
+            Task {
+                let allowed = await capture.askForAccess(kind, today: today)
+                if kind == .call { microphoneRefused = !allowed }
+            }
         }
     }
+}
 
-    private func askForMicrophone(_ on: Bool) {
-        microphoneRefused = false
-        guard on else { return }
-        Task {
-            guard await !CallAudioRecorder.requestMicrophone() else { return }
-            microphoneRefused = true
-            capture.set(.call, on: false)
+extension CaptureSettings {
+    func askForAccess(_ kind: SourceKind, today: TodayModel?) async -> Bool {
+        if kind == .calendar { await today?.refreshMeetings() }
+        guard isOn(kind) else { return true }
+        switch kind {
+        case .screen, .screenText:
+            if !ScreenReader.isTrusted { ScreenReader.requestTrust() }
+        case .call:
+            guard await CallAudioRecorder.requestMicrophone() else {
+                set(.call, on: false)
+                return false
+            }
+        default: break
         }
+        return true
     }
 }

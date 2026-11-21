@@ -1,11 +1,16 @@
+import AppKit
 import SwiftUI
 
 struct OnboardingView: View {
     static let size = CGSize(width: 640, height: 600)
-    static let stepWidth = size.width - 2 * Space.page
-    static let stepHeight: CGFloat = 440
 
     @Environment(OnboardingModel.self) private var model
+    @Environment(CaptureSettings.self) private var capture
+    @Environment(TodayModel.self) private var today
+    @Environment(Crew.self) private var crew
+    @Environment(ModelSettings.self) private var models
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var access = MacAccess()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -13,20 +18,38 @@ struct OnboardingView: View {
                 Text("Set up Workbench").textStyle(.callout).foregroundStyle(.supporting)
                 OnboardingProgress(index: model.index, count: model.screens.count)
             }
+            .padding([.horizontal, .top], Space.page)
             .padding(.bottom, Space.l)
-            OnboardingStep(screen: model.screen)
-                .id(model.screen)
-                .transition(.opacity)
-                .frame(width: Self.stepWidth, height: Self.stepHeight, alignment: .topLeading)
-            Spacer(minLength: 0)
-            if let problem = model.problem {
-                ProblemBanner(text: problem).padding(.bottom, Space.s)
+            ScrollView {
+                OnboardingStep(
+                    screen: model.screen,
+                    facts: ConnectFacts(access: access, capture: capture, today: today, pip: crew.team)
+                )
+                .padding(.horizontal, Space.page)
+                .padding(.bottom, Space.l)
             }
-            footer
+            .scrollBounceBehavior(.basedOnSize)
+            .id(model.screen)
+            .transition(.asymmetric(insertion: .opacity.combined(with: .offset(y: Space.m)), removal: .opacity))
+            VStack(spacing: Space.s) {
+                if let problem = model.problem { ProblemBanner(text: problem) }
+                footer
+            }
+            .padding([.horizontal, .bottom], Space.page)
+            .padding(.top, Space.m)
         }
-        .padding(Space.page)
         .frame(width: Self.size.width, height: Self.size.height)
-        .animation(.easeInOut(duration: 0.25), value: model.index)
+        .animation(Motion.settle(reduceMotion: reduceMotion), value: model.index)
+        .environment(access)
+        .onAppear(perform: recheck)
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            recheck()
+        }
+    }
+
+    private func recheck() {
+        access.recheck(reader: models.choice.kind)
+        if capture.isOn(.calendar) { Task { await today.refreshMeetings() } }
     }
 
     private var footer: some View {
@@ -49,7 +72,7 @@ struct OnboardingView: View {
         switch model.screen {
         case .welcome: "Get started"
         case .done: "Open Workbench"
-        case .you, .team, .sources: "Continue"
+        case .you, .team, .connect: "Continue"
         }
     }
 }

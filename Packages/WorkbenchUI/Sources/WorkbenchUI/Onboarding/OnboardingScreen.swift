@@ -1,29 +1,35 @@
 enum OnboardingScreen: String, CaseIterable, Identifiable {
-    case welcome, you, team, sources, done
+    case welcome, you, team, connect, done
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
         case .welcome: "Workbench"
-        case .you: "About you"
+        case .you: "What should we call you?"
         case .team: "Your team"
-        case .sources: "What may Workbench read?"
+        case .connect: "Connect Workbench"
         case .done: "You’re set"
         }
     }
 
     var lead: String {
         switch self {
-        case .welcome:
-            "Workbench learns your day from what you allow it to see. Its helpers turn your repeated work into items you check, and each helper earns your trust from your marks."
+        case .welcome: "Your day, your team and your calls, turned into what needs you."
         case .you: "Workbench uses your name to tell your messages from your team's. It stays on this Mac."
         case .team:
-            "Name your team and add the people you work with. Machines link what they find to these people. You can change this later in Settings."
-        case .sources:
-            "Each is off until you turn it on. Turn on Screen so \(SidebarSelection.day.title) can write your timeline. Your team's WhatsApp group is chosen later, in \(MachineTemplate.team.name)."
-        case .done:
-            "Open \(SidebarSelection.day.title) and read your first day. To follow your team, choose its group in \(MachineTemplate.team.name)."
+            "Name your team and add the people you work with. Workbench links what it finds to them. You can change this later in Settings."
+        case .connect:
+            "Turn on what you want Workbench to read. Each stays off until you turn it on, and you can change it later in Settings."
+        case .done: "Open \(SidebarSelection.day.title) to read your first day."
+        }
+    }
+
+    var look: Mascot.Look? {
+        switch self {
+        case .you, .done: .mochi
+        case .team: .pip
+        case .welcome, .connect: nil
         }
     }
 }

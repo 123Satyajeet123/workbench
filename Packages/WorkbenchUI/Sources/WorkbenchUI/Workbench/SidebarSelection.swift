@@ -131,17 +131,21 @@ enum SidebarSelection: Hashable, Identifiable, RawRepresentable {
     /// the day, so it wears Mochi's face.
     var look: Mascot.Look? {
         switch self {
-        case .day, .mochi: Mascot.Look(hue: 0.04, wear: .crown)
-        case .calls: Mascot.Look(hue: 0.76, wear: .headphones)
+        case .day, .mochi: .mochi
+        case .calls: .echo
         case .people, .projects, .crew, .review, .deals, .catalog, .advanced, .machine: nil
         }
     }
 }
 
 extension Mascot.Look {
+    static let mochi = Mascot.Look(hue: 0.04, wear: .crown)
+    static let pip = Mascot.Look(hue: 0.55, wear: .antenna)
+    static let echo = Mascot.Look(hue: 0.76, wear: .headphones)
+
     /// A machine's face: the built-in team machine keeps Pip's blue; every other machine gets a hue of its own.
     static func of(_ machine: Machine) -> Mascot.Look {
-        let hue = machine.task == HelperSpec.team.task ? 0.55 : Double((machine.id &* 47) % 100) / 100
-        return Mascot.Look(hue: hue, wear: .antenna)
+        machine.task == HelperSpec.team.task
+            ? .pip : Mascot.Look(hue: Double((machine.id &* 47) % 100) / 100, wear: .antenna)
     }
 }
