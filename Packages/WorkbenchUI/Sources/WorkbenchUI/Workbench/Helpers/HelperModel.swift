@@ -67,6 +67,7 @@ final class HelperModel {
     }
 
     var problem: String? { shared.problems.text }
+    var problemPane: String? { shared.problems.settingsPane }
     var phase: ReadPhase { reading.phase }
     var trial: TrialRun? { improvement.trial }
     var trialPhase: ReadPhase { improvement.trialPhase }

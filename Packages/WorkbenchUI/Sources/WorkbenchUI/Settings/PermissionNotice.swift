@@ -11,12 +11,16 @@ struct PermissionNotice: View {
         HStack {
             Label(message, systemImage: "exclamationmark.triangle").foregroundStyle(Tone.attention.color)
             Spacer()
-            Button("Open System Settings") {
-                if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?\(pane)") {
-                    NSWorkspace.shared.open(url)
-                }
-            }
+            Button("Open System Settings") { SystemSettings.open(pane: pane) }
         }
         .textStyle(.callout)
+    }
+}
+
+enum SystemSettings {
+    static func open(pane: String) {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?\(pane)") {
+            NSWorkspace.shared.open(url)
+        }
     }
 }

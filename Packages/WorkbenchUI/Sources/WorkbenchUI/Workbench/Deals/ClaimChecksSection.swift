@@ -46,7 +46,7 @@ struct ClaimChecksSection: View {
         }
         .padding(Space.m)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary.opacity(0.5), in: .rect(cornerRadius: Radius.card))
+        .background(.calloutFill, in: .rect(cornerRadius: Radius.card))
         .onAppear { claims.refresh(deal) }
     }
 }
@@ -82,7 +82,9 @@ private struct VerdictView: View {
             Text(check.verdict.title).textStyle(.headline).foregroundStyle(check.verdict.tone.color)
             if !check.quote.isEmpty {
                 Text("“\(check.quote)”").textSelection(.enabled)
-                if let link = URL(string: check.url) { Link(link.host() ?? check.url, destination: link) }
+                if let link = URL(string: check.url) {
+                    Link(link.host() ?? check.url, destination: link).foregroundStyle(.linkText)
+                }
                 markRow("Quote", mark: check.quoteMark) { claims.markQuote(check, as: $0, in: deal) }
             } else {
                 Text(
@@ -103,6 +105,6 @@ private struct VerdictView: View {
             Button("Right") { set(.confirmed) }.disabled(mark == .confirmed)
             Button("Wrong") { set(.rejected) }.disabled(mark == .rejected)
         }
-        .buttonStyle(.borderless)
+        .buttonStyle(.ghost)
     }
 }

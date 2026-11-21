@@ -9,7 +9,7 @@ struct NoticeRow: View {
     var body: some View {
         HStack {
             Label(text, systemImage: "arrow.uturn.backward.circle").foregroundStyle(Tone.attention.color)
-            Button("Dismiss", action: dismiss).buttonStyle(.borderless)
+            Button("Dismiss", action: dismiss).buttonStyle(.ghost)
         }
     }
 }
@@ -44,7 +44,7 @@ struct ActionNotice: View {
         } else if let notice = actions.notice {
             HStack {
                 Label(notice, systemImage: "checkmark.circle").foregroundStyle(Tone.good.color)
-                Button("Dismiss", action: actions.dismiss).buttonStyle(.borderless)
+                Button("Dismiss", action: actions.dismiss).buttonStyle(.ghost)
             }
         }
     }

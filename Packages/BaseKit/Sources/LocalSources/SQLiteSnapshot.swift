@@ -35,6 +35,7 @@ final class SQLiteSnapshot {
     private var handle: OpaquePointer?
 
     init(copying path: String) throws {
+        try Self.checkAccess(path)
         var source: OpaquePointer?
         guard sqlite3_open_v2(path, &source, SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK else {
             sqlite3_close(source)
@@ -63,6 +64,20 @@ final class SQLiteSnapshot {
     }
 
     deinit { sqlite3_close(handle) }
+
+    // SQLite reports a refused file and a missing one as the same failure.
+    private static func checkAccess(_ path: String) throws {
+        let file = open(path, O_RDONLY)
+        guard file < 0 else {
+            close(file)
+            return
+        }
+        switch errno {
+        case EPERM, EACCES: throw ReadError.notPermitted
+        case ENOENT: throw ReadError.storeMissing
+        default: throw ReadError.unreadableStore
+        }
+    }
 
     func requireColumns(_ columns: [String], in table: String) throws {
         let present = Set(

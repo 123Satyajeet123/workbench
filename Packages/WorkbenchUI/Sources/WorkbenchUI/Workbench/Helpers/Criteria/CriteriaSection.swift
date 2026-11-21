@@ -72,8 +72,8 @@ private struct RuleRow: View {
             }
             .menuStyle(.borderlessButton).menuIndicator(.hidden)
             Text(rule.summary).frame(maxWidth: .infinity, alignment: .leading)
-            Button("Edit") { model.edit(rule) }.buttonStyle(.borderless).foregroundStyle(.tint)
-            Button("Remove") { model.remove(rule) }.buttonStyle(.borderless).foregroundStyle(.tint)
+            Button("Edit") { model.edit(rule) }.buttonStyle(.ghost).foregroundStyle(.linkText)
+            Button("Remove") { model.remove(rule) }.buttonStyle(.ghost).foregroundStyle(.linkText)
         }
     }
 }

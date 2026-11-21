@@ -3,6 +3,8 @@ import WorkbenchCore
 
 public enum ReadError: Error, Equatable {
     case denied(DenyReason)
+    case notPermitted
+    case storeMissing
     case unreadableStore
     case unsupportedSchema
 }
@@ -27,6 +29,9 @@ extension ReadError: LocalizedError {
         case .denied(.sourceSwitchedOff): "This source is switched off in Settings."
         case .denied(.labelDenied): "This chat is on your never-read list."
         case .denied(.labelNotAllowed): "This chat is not the one you chose."
+        case .notPermitted:
+            "macOS does not let Workbench read the app's data yet. Turn on Workbench in System Settings › Privacy & Security › Full Disk Access, then quit and reopen Workbench."
+        case .storeMissing: "The app's data is not on this Mac. Install the app and sign in, then try again."
         case .unreadableStore: "The app's local data could not be opened. Is the app installed and signed in?"
         case .unsupportedSchema: "The app's local data has a layout Workbench does not know. Update Workbench."
         }

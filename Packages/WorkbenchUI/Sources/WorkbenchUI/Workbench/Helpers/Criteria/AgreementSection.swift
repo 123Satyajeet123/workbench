@@ -36,7 +36,7 @@ struct AgreementBody: View {
                     Text("\(deal.company) · you said \(deal.call.rawValue) · not read yet")
                         .textStyle(.callout).foregroundStyle(.supporting)
                     Spacer()
-                    Button("Remove") { agreement.remove(deal) }.buttonStyle(.borderless).foregroundStyle(.tint)
+                    Button("Remove") { agreement.remove(deal) }.buttonStyle(.ghost).foregroundStyle(.linkText)
                 }
             }
             addForm
@@ -92,7 +92,7 @@ private struct DealRow: View {
             if row.triage.needsReview { Text("needs review").textStyle(.caption).foregroundStyle(Tone.attention.color) }
             if row.needsReading { Text("rules changed: read again").textStyle(.caption).foregroundStyle(.supporting) }
             Spacer()
-            Button("Remove", action: remove).buttonStyle(.borderless).foregroundStyle(.tint)
+            Button("Remove", action: remove).buttonStyle(.ghost).foregroundStyle(.linkText)
         }
     }
 }

@@ -80,7 +80,7 @@ import WorkbenchCore
         model.teamModel.team.people[1].name = "Aditya"
         model.teamModel.team.people[1].role = "Analyst"
         model.next()
-        #expect(model.screen == .sources)
+        #expect(model.screen == .connect)
         let saved = try #require(try store.queries.team())
         #expect(saved.name == "Brave" && saved.people.map(\.name) == ["Kabir", "Aditya"])
         model.teamModel.remove(at: 0)

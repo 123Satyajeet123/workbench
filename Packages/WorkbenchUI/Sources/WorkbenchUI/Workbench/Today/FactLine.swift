@@ -92,7 +92,7 @@ struct FactLine: View {
             Text(chatProblem).textStyle(.callout).foregroundStyle(Tone.bad.color)
         } else {
             Button("See the chat line", systemImage: "bubble.left.and.text.bubble.right", action: loadChat)
-                .buttonStyle(.borderless).textStyle(.callout)
+                .buttonStyle(.ghost).textStyle(.callout)
         }
     }
 

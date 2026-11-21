@@ -11,7 +11,7 @@ struct DenyListSection: View {
                 LabeledContent(place.name) {
                     Button("Remove \(place.name)", systemImage: "minus.circle") { capture.allow(place) }
                         .labelStyle(.iconOnly)
-                        .buttonStyle(.borderless)
+                        .buttonStyle(.ghost)
                 }
             }
             TextField("Add", text: $typed, prompt: Text("App name or website"))

@@ -18,7 +18,10 @@ struct FactGroupsPage: View {
     @Environment(TodayModel.self) private var model
 
     var body: some View {
-        Page(title: lens.title, subtitle: "The last \(TodayModel.days) days, open first") {
+        Page(
+            intro: lens == .people ? .people : .projects, title: lens.title,
+            subtitle: "The last \(TodayModel.days) days, open first"
+        ) {
             FactGroupsBody(groups: groups, empty: lens.empty, model: model)
         }
         .onAppear(perform: model.refresh)

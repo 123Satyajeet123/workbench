@@ -15,6 +15,16 @@ struct OnboardingTests {
         #expect(model.isFinished)
     }
 
+    @Test func savedProgressOnTheOldSourcesStepOpensConnect() throws {
+        struct Saved: Codable {
+            let index: Int
+            let isFinished: Bool
+        }
+        let store = try scratchStore()
+        try StateKey<Saved>.json("onboarding").save(Saved(index: 3, isFinished: false), to: store)
+        #expect(OnboardingModel(store: store).screen == .connect)
+    }
+
     @Test func everySourceIsOffUntilTheUserTurnsItOn() throws {
         let capture = try captureSettings()
         let window = NSWindow(

@@ -18,13 +18,13 @@ struct TeamEditor: View {
                         Text("You").foregroundStyle(.supporting).frame(width: 60, alignment: .leading)
                     } else {
                         Button("Remove", systemImage: "minus.circle") { model.remove(at: index) }
-                            .labelStyle(.iconOnly).buttonStyle(.borderless).frame(width: 60, alignment: .leading)
+                            .labelStyle(.iconOnly).buttonStyle(.ghost).frame(width: 60, alignment: .leading)
                     }
                 }
                 .textFieldStyle(.roundedBorder)
             }
             Button("Add a person", systemImage: "plus") { model.addPerson() }
-                .buttonStyle(.borderless)
+                .buttonStyle(.ghost)
         }
     }
 }
@@ -48,10 +48,11 @@ struct TeamSettingsView: View {
             HStack {
                 Spacer()
                 Button("Revert", action: model.reload)
-                Button("Save", action: model.save).buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction)
+                Button("Save", action: model.save).buttonStyle(.primary).keyboardShortcut(.defaultAction)
             }
         }
         .padding(Space.l)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onAppear(perform: model.reload)
     }
 }

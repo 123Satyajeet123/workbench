@@ -1,3 +1,4 @@
+import CaptureService
 import Foundation
 import WorkbenchCore
 
@@ -101,20 +102,50 @@ enum SidebarSelection: Hashable, Identifiable, RawRepresentable {
         }
     }
 
-    /// The face of a fixed helper. The other pages are tools, not helpers, so they have none.
+    /// What a sidebar page is for, shown under its title until the person closes it. Nil for what is not a sidebar page.
+    var intro: String? {
+        switch self {
+        case .day:
+            "Your day at a glance: what needs you, today's meetings, your team, your projects and yesterday's brief."
+        case .people:
+            "What each person on your team planned, finished, got stuck on or promised."
+        case .projects:
+            "Where each project stands: decisions, open questions, blockers and promises."
+        case .calls:
+            "Each call stays on this Mac for \(Int(CaptureService.retention / 86_400)) days. A call that could not be saved says why."
+        case .deals:
+            "Your team's deals, one column per stage. Open a deal to see where it came from and what it needs next."
+        case .mochi:
+            "A brief of your day and a timeline of what you worked on. After \(Mochi.minimumDays) work days, Mochi suggests machines for work you repeat."
+        case .crew:
+            "Each machine reads one source for one job, like Pip with your team's chats. Add one with + in the sidebar."
+        case .review:
+            "Everything found that you haven't checked yet. Your marks teach each machine and decide when it can run on its own."
+        case .catalog:
+            "What your teammates shared with you: their days and their machines."
+        case .advanced, .machine: nil
+        }
+    }
+
+    /// The face of a fixed helper. The other pages are tools, not helpers, so they have none. Today is Mochi's brief of
+    /// the day, so it wears Mochi's face.
     var look: Mascot.Look? {
         switch self {
-        case .day: Mascot.Look(hue: 0.04, wear: .crown)
-        case .calls: Mascot.Look(hue: 0.76, wear: .headphones)
-        case .people, .projects, .mochi, .crew, .review, .deals, .catalog, .advanced, .machine: nil
+        case .day, .mochi: .mochi
+        case .calls: .echo
+        case .people, .projects, .crew, .review, .deals, .catalog, .advanced, .machine: nil
         }
     }
 }
 
 extension Mascot.Look {
+    static let mochi = Mascot.Look(hue: 0.04, wear: .crown)
+    static let pip = Mascot.Look(hue: 0.55, wear: .antenna)
+    static let echo = Mascot.Look(hue: 0.76, wear: .headphones)
+
     /// A machine's face: the built-in team machine keeps Pip's blue; every other machine gets a hue of its own.
     static func of(_ machine: Machine) -> Mascot.Look {
-        let hue = machine.task == HelperSpec.team.task ? 0.55 : Double((machine.id &* 47) % 100) / 100
-        return Mascot.Look(hue: hue, wear: .antenna)
+        machine.task == HelperSpec.team.task
+            ? .pip : Mascot.Look(hue: Double((machine.id &* 47) % 100) / 100, wear: .antenna)
     }
 }

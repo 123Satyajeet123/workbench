@@ -23,8 +23,9 @@ struct FactActions: View {
                 Button("Wrong", systemImage: "xmark.circle") { act(.wrong, "Hidden as wrong") }
             }
             .menuIndicator(.hidden)
+            .buttonStyle(.borderless)
         }
-        .labelStyle(.iconOnly).buttonStyle(.borderless).fixedSize()
+        .labelStyle(.iconOnly).buttonStyle(.ghost).fixedSize()
     }
 
     private static let snoozes: [(title: String, days: Int)] = [

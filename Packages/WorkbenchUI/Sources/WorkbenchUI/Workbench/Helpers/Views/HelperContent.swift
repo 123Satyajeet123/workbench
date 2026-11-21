@@ -10,7 +10,9 @@ struct HelperContent: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Space.l) {
-            if let problem = model.problem { ProblemBanner(text: problem, dismiss: model.dismissProblem) }
+            if let problem = model.problem {
+                ProblemBanner(text: problem, dismiss: model.dismissProblem, settingsPane: model.problemPane)
+            }
             ActionNotice()
             if model.isPaused { PausedNote(model: model) }
             if let update = crew.update(for: model) {

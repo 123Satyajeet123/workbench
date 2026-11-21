@@ -32,7 +32,7 @@ struct TrialCard: View {
             }
         }
         .padding(Space.m)
-        .background(.quaternary.opacity(0.5), in: .rect(cornerRadius: Radius.card))
+        .background(.calloutFill, in: .rect(cornerRadius: Radius.card))
     }
 
     /// What the trial changes against the live machine, in one line.

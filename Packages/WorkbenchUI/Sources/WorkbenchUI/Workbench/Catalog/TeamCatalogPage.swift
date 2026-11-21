@@ -8,7 +8,7 @@ struct TeamCatalogPage: View {
     @Environment(TeamCatalogModel.self) private var catalog
 
     var body: some View {
-        Page(title: SidebarSelection.catalog.title, subtitle: subtitle) {
+        Page(intro: .catalog, title: SidebarSelection.catalog.title, subtitle: subtitle) {
             if let problem = catalog.problem { ProblemBanner(text: problem, dismiss: catalog.dismissProblem) }
             if catalog.folder == nil {
                 Text(
@@ -69,7 +69,7 @@ private struct SharedDayCard: View {
         }
         .padding(Space.l)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary.opacity(0.5), in: .rect(cornerRadius: Radius.card))
+        .background(.calloutFill, in: .rect(cornerRadius: Radius.card))
     }
 }
 
@@ -147,7 +147,7 @@ private struct SharedCard: View {
         }
         .padding(Space.l)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary.opacity(0.5), in: .rect(cornerRadius: Radius.card))
+        .background(.calloutFill, in: .rect(cornerRadius: Radius.card))
     }
 
     private var reviewLine: String {

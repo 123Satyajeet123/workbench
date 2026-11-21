@@ -39,7 +39,7 @@ struct LabelChooser: View {
                     model.attempt("save the label") { try source.choose(typed) }
                     model.reload()
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.primary)
             }
         }
     }
@@ -63,7 +63,7 @@ struct SiteChooser: View {
                     model.attempt("save the sites") { try source.choose(typed) }
                     model.reload()
                 }
-                .buttonStyle(.borderedProminent).disabled(typed.isEmpty)
+                .buttonStyle(.primary).disabled(typed.isEmpty)
             }
         }
     }
@@ -72,27 +72,40 @@ struct SiteChooser: View {
 struct GroupChooser: View {
     let model: HelperModel
     let source: WhatsAppSource
+    @State private var query = ""
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Space.s) {
-            Text(
-                "Choose your team's WhatsApp group. \(model.name) reads only that group, and only the day you ask it to read."
-            )
-            .foregroundStyle(.supporting)
-            if source.groups.isEmpty {
-                Button("Show my WhatsApp groups") { model.attempt("list your WhatsApp groups", source.loadGroups) }
-                    .buttonStyle(.borderedProminent)
-            }
-            ForEach(source.groups) { group in
-                HStack {
-                    Text(group.name)
-                    Spacer()
-                    Button("Choose") {
-                        model.attempt("save the group") { try source.choose(group) }
-                        model.reload()
+        VStack(alignment: .leading, spacing: Space.m) {
+            Text("Choose what \(model.name) reads. It reads only those chats, and only the day you ask it to.")
+                .foregroundStyle(.supporting)
+            Card(title: "One group", symbol: "person.3") {
+                Text("Your team's WhatsApp group.").foregroundStyle(.supporting)
+                if source.groups.isEmpty {
+                    Button("Show my WhatsApp groups") { model.attempt("list your WhatsApp groups", source.loadGroups) }
+                        .buttonStyle(.primary)
+                } else {
+                    TextField("Search your groups", text: $query, prompt: Text("Search your groups"))
+                        .textFieldStyle(.roundedBorder)
+                    let found = FuzzySearch.filter(source.groups, by: query, name: \.name)
+                    if found.isEmpty {
+                        Text("No group matches “\(query)”.").foregroundStyle(.supporting)
+                    }
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(found) { group in
+                            HStack {
+                                Text(group.name).lineLimit(1)
+                                Spacer()
+                                Button("Choose") {
+                                    model.attempt("save the group") { try source.choose(group) }
+                                    model.reload()
+                                }
+                                .buttonStyle(.ghost).foregroundStyle(.linkText)
+                            }
+                            .padding(.vertical, Space.xs)
+                            if group.id != found.last?.id { Divider() }
+                        }
                     }
                 }
-                Divider()
             }
             SeveralChatsChooser(model: model, source: source)
         }
@@ -108,18 +121,14 @@ struct SeveralChatsChooser: View {
     @State private var direct = true
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Space.s) {
-            Text("Or read several chats").textStyle(.headline)
-            HStack {
-                TextField("Groups whose name holds", text: $words).frame(maxWidth: 260)
-                Toggle("and direct chats with their members", isOn: $direct)
-                Button("Find chats") {
-                    model.attempt("list the chats") {
-                        try source.preview(ChatSelection(nameContains: words, directWithMembers: direct))
-                    }
-                }
-                .disabled(words.trimmingCharacters(in: .whitespaces).isEmpty)
-            }
+        Card(title: "Several chats", symbol: "text.magnifyingglass") {
+            Text("Groups whose name holds some words. You see every chat before any is read.")
+                .foregroundStyle(.supporting)
+            TextField("Words in the group names, such as Acme", text: $words)
+                .textFieldStyle(.roundedBorder).frame(maxWidth: 420)
+                .onSubmit(find)
+            Toggle("Also read direct chats with the people in those groups", isOn: $direct).toggleStyle(.checkbox)
+            Button("Find chats", action: find).buttonStyle(.primary).disabled(isEmpty)
             if !source.matching.isEmpty {
                 let groups = source.matching.filter(\.isGroup).count
                 Text(
@@ -130,8 +139,17 @@ struct SeveralChatsChooser: View {
                     model.attempt("save the chats") { try source.choose(source.matching) }
                     model.reload()
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.primary)
             }
+        }
+    }
+
+    private var isEmpty: Bool { words.trimmingCharacters(in: .whitespaces).isEmpty }
+
+    private func find() {
+        guard !isEmpty else { return }
+        model.attempt("list the chats") {
+            try source.preview(ChatSelection(nameContains: words, directWithMembers: direct))
         }
     }
 }
