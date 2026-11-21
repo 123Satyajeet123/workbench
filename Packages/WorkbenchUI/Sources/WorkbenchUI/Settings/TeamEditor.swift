@@ -52,6 +52,7 @@ struct TeamSettingsView: View {
             }
         }
         .padding(Space.l)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onAppear(perform: model.reload)
     }
 }

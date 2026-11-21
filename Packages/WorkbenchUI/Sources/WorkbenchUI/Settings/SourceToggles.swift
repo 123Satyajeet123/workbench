@@ -7,6 +7,7 @@ struct SourceToggles: View {
     @Environment(CaptureSettings.self) private var capture
     @Environment(TodayModel.self) private var today: TodayModel?
     @State private var microphoneRefused = false
+    private static let iconWidth: CGFloat = 20
 
     var body: some View {
         ForEach(CaptureSource.all) { source in
@@ -15,7 +16,7 @@ struct SourceToggles: View {
                     Text(source.name)
                     Text(source.reason)
                 } icon: {
-                    Image(systemName: source.symbol)
+                    Image(systemName: source.symbol).frame(width: Self.iconWidth)
                 }
             }
             .toggleStyle(.switch)

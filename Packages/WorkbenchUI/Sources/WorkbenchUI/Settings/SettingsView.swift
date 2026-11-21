@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 enum SettingsTab: Hashable {
@@ -18,5 +19,16 @@ struct SettingsView: View {
             }
         }
         .frame(width: 640, height: 600)
+        .background { CloseOnEscape() }
+    }
+}
+
+struct CloseOnEscape: View {
+    var body: some View {
+        Button("Close") { NSApp.keyWindow?.performClose(nil) }
+            .keyboardShortcut(.cancelAction)
+            .opacity(0)
+            .frame(width: 0, height: 0)
+            .accessibilityHidden(true)
     }
 }
