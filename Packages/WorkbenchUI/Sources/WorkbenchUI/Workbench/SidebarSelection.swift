@@ -1,3 +1,4 @@
+import CaptureService
 import Foundation
 import WorkbenchCore
 
@@ -107,19 +108,19 @@ enum SidebarSelection: Hashable, Identifiable, RawRepresentable {
         case .day:
             "Your day at a glance: what needs you, today's meetings, your team, your projects and yesterday's brief."
         case .people:
-            "What each person on your team planned, finished, got stuck on or promised in the last \(TodayModel.days) days. Open items first."
+            "What each person on your team planned, finished, got stuck on or promised."
         case .projects:
-            "Where each project stands: decisions, open questions, blockers and promises from the last \(TodayModel.days) days. Open items first."
+            "Where each project stands: decisions, open questions, blockers and promises."
         case .calls:
-            "Calls you record on this Mac. Start and stop a recording from the menu bar."
+            "Each call stays on this Mac for \(Int(CaptureService.retention / 86_400)) days. A call that could not be saved says why."
         case .deals:
             "Your team's deals, one column per stage. Open a deal to see where it came from and what it needs next."
         case .mochi:
             "A brief of your day and a timeline of what you worked on. After \(Mochi.minimumDays) work days, Mochi suggests machines for work you repeat."
         case .crew:
-            "Your machines, like Pip: what each one reads, how often it's right and what it costs. Add one with + in the sidebar."
+            "Each machine reads one source for one job, like Pip with your team's chats. Add one with + in the sidebar."
         case .review:
-            "Everything found that you haven't checked yet, in one queue. Y marks right, N wrong, J and K move, U undoes."
+            "Everything found that you haven't checked yet. Your marks teach each machine and decide when it can run on its own."
         case .catalog:
             "What your teammates shared with you: their days and their machines."
         case .advanced, .machine: nil
