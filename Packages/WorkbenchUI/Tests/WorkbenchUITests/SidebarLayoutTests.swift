@@ -14,14 +14,14 @@ struct SidebarLayoutTests {
         }
     }
 
-    @Test func everyPageOfTheWindowButDealsIsInTheSidebarOnceInItsOrder() {
-        #expect(pages == [.day, .people, .projects, .calls, .mochi, .crew, .review, .catalog])
-        let windowPages = SidebarSelection.fixed.filter { $0 != .advanced && $0 != .deals }
+    @Test func everyPageOfTheWindowButDealsAndTeamIsInTheSidebarOnceInItsOrder() {
+        #expect(pages == [.day, .people, .projects, .calls, .mochi, .crew, .review])
+        let windowPages = SidebarSelection.fixed.filter { ![.advanced, .deals, .catalog].contains($0) }
         #expect(Set(pages) == Set(windowPages) && pages.count == windowPages.count)
     }
 
     @Test func aSavedPageWithNoRowIsNotListedSoTheWindowFallsBackToToday() {
-        #expect(!SidebarLayout.lists(.deals) && !SidebarLayout.lists(.advanced))
+        #expect(!SidebarLayout.lists(.deals) && !SidebarLayout.lists(.catalog) && !SidebarLayout.lists(.advanced))
         #expect(SidebarLayout.lists(.day) && SidebarLayout.lists(.calls) && SidebarLayout.lists(.machine(7)))
     }
 

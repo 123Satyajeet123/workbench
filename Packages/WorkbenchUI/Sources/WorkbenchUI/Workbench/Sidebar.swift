@@ -17,7 +17,7 @@ enum SidebarLayout {
         var entries: [Entry]
     }
 
-    /// Deals is not listed: its page, model and readers stay, to be reworked into another place.
+    /// Deals and Team are not listed: their pages, models and readers stay, to be reworked into another place.
     static let sections = [
         Section(entries: [
             .page(.day, symbol: "sun.max"), .page(.people, symbol: "person.2"),
@@ -27,7 +27,7 @@ enum SidebarLayout {
             title: "Crew",
             entries: [
                 .helper(.mochi), .page(.crew, symbol: "rectangle.grid.2x2"), .machines,
-                .page(.review, symbol: "checkmark.circle"), .page(.catalog, symbol: "person.crop.rectangle.stack"),
+                .page(.review, symbol: "checkmark.circle"),
             ]),
     ]
 
@@ -57,7 +57,6 @@ struct Sidebar: View {
     @Environment(Crew.self) private var crew
     @Environment(ReviewModel.self) private var review
     @Environment(TodayModel.self) private var today
-    @Environment(TeamCatalogModel.self) private var catalog
     @State private var editing: MachineEdit?
     @State private var deleting: HelperModel?
 
@@ -183,7 +182,6 @@ struct Sidebar: View {
         switch page {
         case .day: today.needs.count
         case .review: review.items.count
-        case .catalog: catalog.teammates.count + catalog.teammatesDays.count
         default: 0
         }
     }
@@ -192,17 +190,6 @@ struct Sidebar: View {
         Button("Rename…") { editing = .rename(helper) }
         Button("Edit brief…") { editing = .brief(helper) }
         Button(helper.isPaused ? "Resume" : "Pause") { crew.setPaused(helper, !helper.isPaused) }
-        if catalog.isShared(helper) {
-            Button("Stop sharing") { catalog.unshare(helper) }
-        } else {
-            Button("Share with team") { catalog.share(helper) }.disabled(catalog.folder == nil)
-        }
-        if catalog.isShared(helper, in: .everyone) {
-            Button("Unpublish") { catalog.unshare(helper, from: .everyone) }
-        } else {
-            Button("Publish to the public catalog") { catalog.share(helper, to: .everyone) }
-                .disabled(catalog.publicFolder == nil)
-        }
         Divider()
         Button("Delete…", role: .destructive) { deleting = helper }
     }
