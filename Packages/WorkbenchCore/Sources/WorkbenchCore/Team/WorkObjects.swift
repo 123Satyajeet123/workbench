@@ -140,20 +140,16 @@ extension WorkObject {
     public static let afterAction = "In conversation"
 }
 
-/// Each person's events on work objects, one file per person in the team folder, one JSON event per line. A person
-/// rewrites only their own file; every Mac reads all of them.
+/// The plaintext log older versions wrote, one file per person in the team folder, one JSON event per line. Nothing
+/// writes it now: migration reads a person's own file once, sends it as envelopes, and removes it.
 public enum WorkLog {
     public static let subfolder = "events"
 
     public static func fileName(author: String) -> String { TeamFolder.safe(author) + ".jsonl" }
 
-    public static func write(_ events: [WorkEvent], author: String, to team: URL) throws {
-        let folder = team.appending(path: subfolder)
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        let lines = try events.filter { $0.author == author }.sorted { ($0.clock, $0.id) < ($1.clock, $1.id) }
-            .map { try Coding.json($0) }
-        try Data((lines.joined(separator: "\n") + "\n").utf8).write(
-            to: folder.appending(path: fileName(author: author)), options: .atomic)
+    public static func remove(author: String, from team: URL) throws {
+        let file = team.appending(path: subfolder).appending(path: fileName(author: author))
+        if FileManager.default.fileExists(atPath: file.path) { try FileManager.default.removeItem(at: file) }
     }
 
     /// Every event in every person's file, and the files with a line that could not be read.

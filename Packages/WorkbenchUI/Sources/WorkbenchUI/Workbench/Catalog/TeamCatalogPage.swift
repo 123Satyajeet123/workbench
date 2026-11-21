@@ -22,6 +22,7 @@ struct TeamCatalogPage: View {
                 )
                 .foregroundStyle(.supporting)
             }
+            if catalog.folder != nil { TeamKeysSection() }
             if !catalog.teammatesDays.isEmpty {
                 Text("Shared days").textStyle(.title3)
                 ForEach(catalog.teammatesDays) { SharedDayCard(day: $0) }

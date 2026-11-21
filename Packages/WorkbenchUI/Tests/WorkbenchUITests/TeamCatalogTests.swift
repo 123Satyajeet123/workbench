@@ -6,12 +6,14 @@ import WorkbenchCore
 @testable import WorkbenchUI
 
 @Suite struct TeamCatalogTests {
-    private func setup() throws -> (TeamCatalogModel, Crew, Store) {
+    private let secrets = MemorySecrets()
+
+    private func setup(_ name: String = "Kabir") throws -> (TeamCatalogModel, Crew, Store) {
         let store = try scratchStore()
         try store.seedMachines(MachineTemplate.seeded.map { ($0.spec, $0.name) })
         let crew = Crew(
             store: store, capture: try CaptureService(store: store), founder: { "" }, notifier: FakeNotifier())
-        return (TeamCatalogModel(store: store, crew: crew, author: { "Kabir" }), crew, store)
+        return (TeamCatalogModel(store: store, crew: crew, author: { name }, secrets: secrets), crew, store)
     }
 
     @Test func sharingNeedsAFolderThenWritesOnlyTheFoundersFile() throws {
@@ -21,10 +23,12 @@ import WorkbenchCore
         #expect(catalog.problem?.contains("team folder") == true)
         let folder = scratchFolder()
         catalog.choose(folder)
+        catalog.foundTeam()
         catalog.share(pip)
         #expect(catalog.isShared(pip) && catalog.teammates.isEmpty)
-        #expect(try FileManager.default.contentsOfDirectory(atPath: folder.path) == ["Kabir--team.ledger.json"])
-        let reopened = TeamCatalogModel(store: store, crew: crew, author: { "Kabir" })
+        let names = try FileManager.default.contentsOfDirectory(atPath: folder.path)
+        #expect(names == ["sync"], "one folder of envelopes; no plaintext machine file")
+        let reopened = TeamCatalogModel(store: store, crew: crew, author: { "Kabir" }, secrets: secrets)
         #expect(reopened.folder == folder && reopened.isShared(pip))
         catalog.unshare(pip)
         #expect(!catalog.isShared(pip))
@@ -32,8 +36,12 @@ import WorkbenchCore
 
     @Test func aTeammatesMachineShowsWithItsRecordAndAdoptingItStartsAtZeroTrust() throws {
         let (catalog, crew, store) = try setup()
+        let aditya = TeamCatalogModel(
+            store: try scratchStore(), crew: crew, author: { "Aditya" }, secrets: MemorySecrets())
         let folder = scratchFolder()
         catalog.choose(folder)
+        aditya.choose(folder)
+        formTeam(founder: catalog, others: [aditya])
         var record = SharedMachine.Record()
         record.runs = 12
         record.heldOutAnswers = 22
@@ -46,7 +54,7 @@ import WorkbenchCore
                 return spec
             }(),
             state: .active)
-        try SharedMachine(author: "Aditya", machine: theirs, record: record, at: .now).write(to: folder)
+        try aditya.send([.machine(SharedMachine(author: "Aditya", machine: theirs, record: record, at: .now))])
         catalog.refresh()
         let shared = try #require(catalog.teammates.first)
         #expect(shared.author == "Aditya" && shared.record.runs == 12)
@@ -60,5 +68,18 @@ import WorkbenchCore
         #expect(mine.spec.view == .table && mine.machine.template == HelperSpec.team.task, "the whole spec comes along")
         #expect(mine.spec.task != theirs.spec.task)
         #expect(try store.queries.quality().first { $0.task == mine.spec.task } == nil, "trust starts at zero")
+    }
+
+    @Test func aStrangersPlaintextFileInTheTeamFolderIsNeverRead() throws {
+        let (catalog, _, _) = try setup()
+        let folder = scratchFolder()
+        catalog.choose(folder)
+        catalog.foundTeam()
+        try SharedMachine(
+            author: "Mallory", machine: Machine(id: 1, name: "Evil", template: "x", spec: .team, state: .active),
+            record: .init(), at: .now
+        ).write(to: folder)
+        catalog.refresh()
+        #expect(catalog.teammates.isEmpty)
     }
 }

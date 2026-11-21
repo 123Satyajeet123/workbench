@@ -36,7 +36,7 @@ import WorkbenchCore
             makeModel: { _ in RecordedModel(scripted, store: store) }, notifier: FakeNotifier())
         await pip.read()
         let crew = Crew(store: store, capture: capture, founder: { "Kabir" }, notifier: FakeNotifier())
-        let catalog = TeamCatalogModel(store: store, crew: crew, author: { "Kabir" })
+        let catalog = TeamCatalogModel(store: store, crew: crew, author: { "Kabir" }, secrets: MemorySecrets())
         catalog.choose(folder)
         return (catalog, pip, store)
     }
@@ -46,7 +46,7 @@ import WorkbenchCore
         let store = try scratchStore()
         let crew = Crew(
             store: store, capture: try CaptureService(store: store), founder: { person }, notifier: FakeNotifier())
-        let catalog = TeamCatalogModel(store: store, crew: crew, author: { person })
+        let catalog = TeamCatalogModel(store: store, crew: crew, author: { person }, secrets: MemorySecrets())
         catalog.choose(folder)
         return catalog
     }
@@ -59,6 +59,9 @@ import WorkbenchCore
         let folder = scratchFolder()
         let (catalog, pip, store) = try await kabir(teammates: ["Asha"], folder: folder)
         #expect(pip.items.map(\.quote) == ["login API done"])
+        let ashasMac = try mac(of: "Asha", folder: folder)
+        let bharatsMac = try mac(of: "Bharat", folder: folder)
+        formTeam(founder: catalog, others: [ashasMac, bharatsMac])
 
         await catalog.share(day: pip)
         #expect(catalog.refusal?.missing.map(\.name) == ["Asha"])
@@ -74,11 +77,12 @@ import WorkbenchCore
         #expect(catalog.isShared(day: pip))
         #expect(try store.queries.actions().map(\.kind) == ["share_day"])
 
-        let ashasMac = try mac(of: "Asha", folder: folder)
+        ashasMac.refresh()
+        bharatsMac.refresh()
         let day = try #require(ashasMac.teammatesDays.first)
         #expect(day.author == "Kabir" && day.machine == "Pip")
         #expect(day.entries.map(\.quote) == ["login API done"])
-        #expect(try mac(of: "Bharat", folder: folder).teammatesDays.isEmpty, "Bharat is not in Kabir's audience")
+        #expect(bharatsMac.teammatesDays.isEmpty, "Bharat is on the team but not in Kabir's audience")
 
         catalog.unshare(day: pip)
         #expect(ashasMac.teammatesDays.count == 1)
@@ -126,7 +130,7 @@ import WorkbenchCore
         #expect(timeline.items.count == 1)
         let crew = Crew(
             store: store, capture: try CaptureService(store: store), founder: { "Kabir" }, notifier: FakeNotifier())
-        let catalog = TeamCatalogModel(store: store, crew: crew, author: { "Kabir" })
+        let catalog = TeamCatalogModel(store: store, crew: crew, author: { "Kabir" }, secrets: MemorySecrets())
         let folder = scratchFolder()
         catalog.choose(folder)
         await catalog.share(day: timeline)

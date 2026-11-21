@@ -5,7 +5,7 @@ import WorkbenchCore
 
 @testable import WorkbenchUI
 
-/// Two Macs, one team folder: Kabir's and Asha's. Each writes only its own log.
+/// Two Macs, one team folder: Kabir's and Asha's. Each sends only its own envelopes.
 @Suite struct DealSyncTests {
     private let noon: Date = {
         Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: Date(timeIntervalSince1970: 1_790_000_000))!
@@ -18,7 +18,7 @@ import WorkbenchCore
             Team(name: "Fund", people: [.init(name: me, role: "", isMe: true), .init(name: teammate, role: "")]))
         let crew = Crew(
             store: store, capture: try CaptureService(store: store), founder: { me }, notifier: FakeNotifier())
-        let catalog = TeamCatalogModel(store: store, crew: crew, author: { me })
+        let catalog = TeamCatalogModel(store: store, crew: crew, author: { me }, secrets: MemorySecrets())
         catalog.choose(folder)
         return (DealsModel(store: store, catalog: catalog), catalog, store)
     }
@@ -26,7 +26,8 @@ import WorkbenchCore
     @Test func aDealTravelsThroughTheFolderButAPrivateItemNeverLeavesAndConcurrentMovesShowBoth() async throws {
         let folder = scratchFolder()
         let (kabir, kabirCatalog, kabirStore) = try mac("Kabir", teammate: "Asha", folder: folder)
-        let (asha, _, ashaStore) = try mac("Asha", teammate: "Kabir", folder: folder)
+        let (asha, ashaCatalog, ashaStore) = try mac("Asha", teammate: "Kabir", folder: folder)
+        formTeam(founder: kabirCatalog, others: [ashaCatalog])
 
         // Pip on Kabir's Mac reads the team group, where Asha is linked as a member; the timeline reads his screen.
         let capture = try CaptureService(store: kabirStore)
@@ -57,11 +58,7 @@ import WorkbenchCore
         await kabir.link(try #require(pip.items.first), from: pip, to: id)
         await kabir.link(screenItem, from: timeline, to: id)
         #expect(try #require(kabir.deal(id)).items.count == 2, "Kabir sees both of his items")
-        #expect(
-            try FileManager.default.contentsOfDirectory(atPath: folder.appending(path: "events").path) == [
-                "Kabir.jsonl"
-            ])
-        _ = kabirCatalog
+        #expect(!FileManager.default.fileExists(atPath: folder.appending(path: "events").path), "no plaintext log")
 
         asha.refresh()
         let seen = try #require(asha.deal(id))
@@ -82,9 +79,6 @@ import WorkbenchCore
         let count = try ashaStore.queries.workEvents().count
         asha.refresh()
         #expect(try ashaStore.queries.workEvents().count == count, "reading the logs again adds nothing")
-        #expect(
-            Set(try FileManager.default.contentsOfDirectory(atPath: folder.appending(path: "events").path)) == [
-                "Kabir.jsonl", "Asha.jsonl",
-            ])
+        #expect(try FileManager.default.contentsOfDirectory(atPath: folder.path) == ["sync"])
     }
 }

@@ -231,3 +231,27 @@ final class MemorySecrets: SecretStore, Sendable {
     func save(_ value: String, as name: String) throws { values.withLock { $0[name] = value } }
     func remove(_ name: String) throws { values.withLock { $0[name] = nil } }
 }
+
+extension TeamCatalogModel {
+    /// Makes this Mac's person the founder of the chosen team folder, so sharing works.
+    func foundTeam() {
+        trust.becomeFounder(named: me)
+        refresh()
+    }
+}
+
+/// Teammates who share one team folder: the founder is set up, each other Mac trusts the founder's fingerprint, and the
+/// founder confirms each of them, as people would by call.
+func formTeam(founder: TeamCatalogModel, others: [TeamCatalogModel]) {
+    founder.foundTeam()
+    for other in others {
+        other.refresh()
+        if let hello = other.trust.waiting.first(where: { $0.subject == founder.me }) {
+            other.trust.confirm(hello, with: nil)
+        }
+        other.refresh()
+    }
+    founder.refresh()
+    for hello in founder.trust.waiting { founder.trust.confirm(hello, with: founder.sync) }
+    for model in [founder] + others { model.refresh() }
+}

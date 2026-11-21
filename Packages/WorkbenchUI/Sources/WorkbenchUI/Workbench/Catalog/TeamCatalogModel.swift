@@ -3,9 +3,11 @@ import LocalSources
 import Observation
 import WorkbenchCore
 
-/// The team folder the team syncs (iCloud Drive, Syncthing). Each person writes only their own files. A machine file
-/// holds a spec and its record in counts; adopting one makes it the founder's own, starting at zero trust. A day file
-/// holds one machine's items of a day, and goes only to teammates who could already read the items' source.
+/// The team folder the team syncs (iCloud Drive, Syncthing). Everything in it is a signed, encrypted envelope: the
+/// folder holds no plaintext, and a person reads only what was sealed for them. A shared machine holds a spec and its
+/// record in counts; adopting one makes it the founder's own, starting at zero trust. A shared day holds one machine's
+/// items of a day, and goes only to teammates who could already read the items' source. The public folder stays
+/// plain: anyone may read it.
 @Observable
 final class TeamCatalogModel {
     /// A share held back: the teammates who cannot read the source, and the group members they might be.
@@ -31,18 +33,22 @@ final class TeamCatalogModel {
     private(set) var published: [SharedMachine] = []
     private(set) var reviews: [Place: [MachineReview]] = [:]
     private(set) var days: [SharedDay] = []
+    /// Every work event the team folder holds that this person may read.
+    private(set) var workEvents: [WorkEvent] = []
     private(set) var unreadable: [String] = []
     private(set) var refusal: Refusal?
     private(set) var problem: String?
 
-    @ObservationIgnored private let store: Store
+    let trust: TeamTrustModel
+    @ObservationIgnored let store: Store
     @ObservationIgnored private let crew: Crew
     @ObservationIgnored private let author: () -> String
 
-    init(store: Store, crew: Crew, author: @escaping () -> String) {
+    init(store: Store, crew: Crew, author: @escaping () -> String, secrets: SecretStore = KeychainSecrets()) {
         self.store = store
         self.crew = crew
         self.author = author
+        trust = TeamTrustModel(store: store, secrets: secrets)
         folder = ((try? store.queries.state(forKey: Self.folderKey)) ?? nil).map { URL(filePath: $0) }
         publicFolder = ((try? store.queries.state(forKey: Self.publicKey)) ?? nil).map { URL(filePath: $0) }
         refresh()
@@ -63,24 +69,15 @@ final class TeamCatalogModel {
         machines(in: place).contains { $0.author == me && $0.spec.task == helper.spec.task }
     }
 
-    /// People other than its author who approved the version shared now.
-    func approvers(of machine: SharedMachine, in place: Place) -> [String] {
-        machine.approvers(in: reviews[place] ?? [])
-    }
-
-    /// This person's review of the shared version, if any.
-    func myReview(of machine: SharedMachine, in place: Place) -> MachineReview? {
-        (reviews[place] ?? []).first {
-            $0.reviewer == me && $0.author == machine.author && $0.task == machine.spec.task
-                && $0.version == machine.version
-        }
-    }
-
     func review(_ machine: SharedMachine, in place: Place, approve: Bool, note: String) {
-        guard let folder = folder(for: place), machine.author != me else { return }
+        guard machine.author != me else { return }
         attempt("save the review") {
-            try MachineReview(reviewer: me, of: machine, approve: approve, note: note, at: store.clock()).write(
-                to: folder)
+            let review = MachineReview(reviewer: me, of: machine, approve: approve, note: note, at: store.clock())
+            if place == .team {
+                try send([.review(review)])
+            } else if let folder = folder(for: place) {
+                try review.write(to: folder)
+            }
         }
         refresh()
     }
@@ -101,15 +98,7 @@ final class TeamCatalogModel {
 
     func refresh() {
         unreadable = []
-        if let folder {
-            let machines = SharedMachine.read(from: folder)
-            let days = SharedDay.read(from: folder)
-            let reviews = MachineReview.read(from: folder)
-            (shared, self.days, self.reviews[.team]) = (machines.files, days.files, reviews.files)
-            unreadable +=
-                machines.unreadable + days.unreadable.map { "days/\($0)" }
-                + reviews.unreadable.map { "reviews/\($0)" }
-        }
+        if let folder { attempt("read the team folder") { try readTeam(folder) } }
         if let publicFolder {
             let machines = SharedMachine.read(from: publicFolder)
             let reviews = MachineReview.read(from: publicFolder)
@@ -118,6 +107,38 @@ final class TeamCatalogModel {
         }
     }
 
+    /// Reads every letter in the team folder: keeps what passes the checks, and moves this person's old plaintext
+    /// files into envelopes once they are a confirmed member.
+    private func readTeam(_ folder: URL) throws {
+        try trust.announce(folder: folder, me: me)
+        guard let sync = trust.sync(folder: folder, me: me) else {
+            trust.scan(folder: folder)
+            (shared, days, workEvents, reviews[.team]) = ([], [], [], [])
+            return
+        }
+        var received = try sync.receive()
+        if received.roster.member(trust.card.fingerprint) != nil,
+            try PlaintextMigration.run(team: folder, sync: sync) > 0
+        {
+            received = try sync.receive()
+        }
+        trust.absorb(received)
+        (shared, days, workEvents, reviews[.team]) = (
+            received.machines, received.days, received.events, received.reviews
+        )
+    }
+
+    /// Seals things for their audiences and puts them in the team folder. Returns how many were kept on this Mac
+    /// because a reader has no confirmed key.
+    @discardableResult
+    func send(_ things: [SharedThing]) throws -> Int {
+        guard let sync else { throw SyncError.notAMember }
+        return try sync.publish(things).held
+    }
+
+    /// The team sync for the chosen folder, once a founder is known.
+    var sync: TeamSync? { folder.flatMap { trust.sync(folder: $0, me: me) } }
+
     func isShared(day helper: HelperModel) -> Bool {
         days.contains { $0.author == me && $0.task == helper.spec.task && $0.day == helper.day.description }
     }
@@ -125,7 +146,7 @@ final class TeamCatalogModel {
     /// Shares the machine's items of the shown day, when every teammate can already read their source. Otherwise it
     /// holds the share back and names who cannot.
     func share(day helper: HelperModel) async {
-        guard let folder else {
+        guard folder != nil else {
             problem = "Choose a team folder in Settings › Team first."
             return
         }
@@ -139,7 +160,10 @@ final class TeamCatalogModel {
             let day = SharedDay(
                 author: me, machine: helper.machine, day: helper.day, items: helper.items,
                 audience: [me] + recipients.map(\.name), at: store.clock())
-            try day.write(to: folder)
+            guard try send([.day(day)]) == 0 else {
+                problem = "A teammate has no confirmed key yet, so nothing was sent. Confirm their fingerprint first."
+                return
+            }
             try store.log(
                 "share_day", target: helper.spec.task,
                 detail: [
@@ -153,9 +177,9 @@ final class TeamCatalogModel {
     }
 
     func unshare(day helper: HelperModel) {
-        guard let folder else { return }
         attempt("stop sharing \(helper.name)'s day") {
-            try SharedDay.remove(author: me, parts: [helper.spec.task, helper.day.description], from: folder)
+            let day = SharedDay.key(author: me, task: helper.spec.task, day: helper.day.description)
+            try send([.retraction(key: day, by: me)])
             try store.log("unshare_day", target: helper.spec.task, detail: ["day": helper.day.description])
         }
         refresh()
@@ -179,27 +203,6 @@ final class TeamCatalogModel {
         return (found.recipients, found.missing)
     }
 
-    /// Who can already read the machine's source, by the audience rule: a group's linked members; for the founder's
-    /// screen and pages, nobody else.
-    func readers(of helper: HelperModel) async throws -> (
-        recipients: [Team.Person], missing: [Team.Person], group: [WhatsAppMember]
-    ) {
-        let recipients = (try store.queries.team()?.people ?? []).filter { !$0.isMe }
-        var readers: Set<Int64> = []
-        var group: [WhatsAppMember] = []
-        if let source = helper.source as? WhatsAppSource, source.isSeveral {
-            // Items come from chats with different people: who may read all of them is not known per item yet, so
-            // the audience is unknown and the share is refused (fail closed).
-            return (recipients, recipients, [])
-        }
-        if let source = helper.source as? WhatsAppSource {
-            try await source.loadMembers()
-            group = source.members
-            readers = Audience.readers(links: try store.queries.whatsappLinks(), group: Set(group.map(\.jid)))
-        }
-        return (recipients, Audience.missing(recipients: recipients, readers: readers), group)
-    }
-
     /// Writes the machine's spec and its record in counts, never what it read, to the team or the public folder.
     func share(_ helper: HelperModel, to place: Place = .team) {
         guard let folder = folder(for: place) else {
@@ -210,7 +213,8 @@ final class TeamCatalogModel {
         }
         attempt("share \(helper.name)") {
             let record = SharedMachine.Record(task: helper.spec.task, quality: try store.queries.quality())
-            try SharedMachine(author: me, machine: helper.machine, record: record, at: store.clock()).write(to: folder)
+            let machine = SharedMachine(author: me, machine: helper.machine, record: record, at: store.clock())
+            if place == .team { try send([.machine(machine)]) } else { try machine.write(to: folder) }
         }
         refresh()
     }
@@ -218,7 +222,11 @@ final class TeamCatalogModel {
     func unshare(_ helper: HelperModel, from place: Place = .team) {
         guard let folder = folder(for: place) else { return }
         attempt("stop sharing \(helper.name)") {
-            try SharedMachine.remove(author: me, parts: [helper.spec.task], from: folder)
+            if place == .team {
+                try send([.retraction(key: SharedMachine.key(author: me, task: helper.spec.task), by: me)])
+            } else {
+                try SharedMachine.remove(author: me, parts: [helper.spec.task], from: folder)
+            }
         }
         refresh()
     }

@@ -10,7 +10,7 @@ import WorkbenchCore
         let store = try scratchStore()
         let crew = Crew(
             store: store, capture: try CaptureService(store: store), founder: { me }, notifier: FakeNotifier())
-        let catalog = TeamCatalogModel(store: store, crew: crew, author: { me })
+        let catalog = TeamCatalogModel(store: store, crew: crew, author: { me }, secrets: MemorySecrets())
         catalog.choosePublic(publicFolder)
         return (catalog, crew, store)
     }

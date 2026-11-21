@@ -3,13 +3,12 @@ import Observation
 import WorkbenchCore
 
 /// Deals as shared work objects. Every act is an event by the founder, kept in the store and written to the
-/// founder's own log in the team folder; teammates' logs are read back, so each Mac folds the same deals. An item
-/// linked to a deal leaves the Mac only when every teammate can already read its source.
+/// founder's own envelopes in the team folder; teammates' envelopes are read back, so each Mac folds the same deals.
+/// An item linked to a deal leaves the Mac only when every teammate can already read its source.
 @Observable
 final class DealsModel {
     private(set) var deals: [WorkObject] = []
     private(set) var digests: [String: DealDigest] = [:]
-    private(set) var unreadable: [String] = []
     private(set) var problem: String?
 
     @ObservationIgnored private let store: Store
@@ -31,11 +30,8 @@ final class DealsModel {
     /// Reads teammates' logs into the store, then folds every event as the founder sees it.
     func refresh() {
         attempt("read the deals") {
-            if let folder = catalog.folder {
-                let read = WorkLog.read(from: folder)
-                try store.append(read.events)
-                unreadable = read.unreadable
-            }
+            catalog.refresh()
+            try store.append(catalog.workEvents)
             deals = WorkObject.fold(try store.queries.workEvents(), viewer: me).filter {
                 $0.kind == "deal" && !$0.archived
             }
@@ -154,17 +150,17 @@ final class DealsModel {
         refresh()
     }
 
-    /// Rewrites the founder's log in the team folder. A link goes only when every current teammate is in its item's
-    /// audience; otherwise it stays on this Mac.
+    /// Sends the founder's events not sent yet. A link goes only when every current teammate is in its item's
+    /// audience, and only to that audience; otherwise it stays on this Mac.
     private func publish() throws {
-        guard let folder = catalog.folder else { return }
+        guard catalog.sync != nil else { return }
         let teammates = Set((try store.queries.team()?.people ?? []).filter { !$0.isMe }.map(\.name))
         let mine = try store.queries.workEvents().filter { event in
             guard event.author == me else { return false }
             guard let item = event.item else { return true }
             return teammates.isSubset(of: Set(item.audience))
         }
-        try WorkLog.write(mine, author: me, to: folder)
+        try catalog.send(mine.map(SharedThing.event))
     }
 
     private func attempt(_ step: String, _ work: () throws -> Void) {

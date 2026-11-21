@@ -20,7 +20,9 @@ final class DealFixture {
         try store.seedMachines(MachineTemplate.seeded.map { ($0.spec, $0.name) })
         crew = Crew(
             store: store, capture: try CaptureService(store: store), founder: { "Aditya" }, notifier: FakeNotifier())
-        deals = DealsModel(store: store, catalog: TeamCatalogModel(store: store, crew: crew, author: { "Aditya" }))
+        deals = DealsModel(
+            store: store,
+            catalog: TeamCatalogModel(store: store, crew: crew, author: { "Aditya" }, secrets: MemorySecrets()))
         var spec = HelperSpec.dealIntake
         spec.criteria = VCFixture.thesis
         let machine = try store.createMachine(from: spec, template: "vc.deals", name: "Deal intake")

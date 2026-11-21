@@ -212,7 +212,8 @@ import WorkbenchCore
         await s.sentinel.read()
         let crew = Crew(store: s.store, capture: try CaptureService(store: s.store), founder: { "" })
         let deals = DealsModel(
-            store: s.store, catalog: TeamCatalogModel(store: s.store, crew: crew, author: { "Kabir" }))
+            store: s.store,
+            catalog: TeamCatalogModel(store: s.store, crew: crew, author: { "Kabir" }, secrets: MemorySecrets()))
         let view = ItemGroups(model: s.sentinel, field: "severity")
             .environment(ActionsModel(store: s.store, founder: { "" })).environment(deals).environment(crew)
             .padding(24).frame(width: 640).background(Color(nsColor: .windowBackgroundColor))

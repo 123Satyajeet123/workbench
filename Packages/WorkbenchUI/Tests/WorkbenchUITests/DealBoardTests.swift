@@ -10,7 +10,7 @@ import WorkbenchCore
         let store = try scratchStore()
         let crew = Crew(
             store: store, capture: try CaptureService(store: store), founder: { "Aditya" }, notifier: FakeNotifier())
-        let catalog = TeamCatalogModel(store: store, crew: crew, author: { "Aditya" })
+        let catalog = TeamCatalogModel(store: store, crew: crew, author: { "Aditya" }, secrets: MemorySecrets())
         let deals = DealsModel(store: store, catalog: catalog)
         let machine = try store.createMachine(from: .dealIntake, name: "Deal intake")
         let intake = HelperModel(
@@ -43,7 +43,9 @@ import WorkbenchCore
         let store = try scratchStore()
         let crew = Crew(
             store: store, capture: try CaptureService(store: store), founder: { "Aditya" }, notifier: FakeNotifier())
-        let deals = DealsModel(store: store, catalog: TeamCatalogModel(store: store, crew: crew, author: { "Aditya" }))
+        let deals = DealsModel(
+            store: store,
+            catalog: TeamCatalogModel(store: store, crew: crew, author: { "Aditya" }, secrets: MemorySecrets()))
         let id = try #require(deals.create(title: "Acme"))
         func linked(_ source: String) throws -> LinkedItem {
             try JSONDecoder().decode(
@@ -75,7 +77,9 @@ import WorkbenchCore
         try store.seedMachines(MachineTemplate.seeded.map { ($0.spec, $0.name) })
         let crew = Crew(
             store: store, capture: try CaptureService(store: store), founder: { "Aditya" }, notifier: FakeNotifier())
-        let deals = DealsModel(store: store, catalog: TeamCatalogModel(store: store, crew: crew, author: { "Aditya" }))
+        let deals = DealsModel(
+            store: store,
+            catalog: TeamCatalogModel(store: store, crew: crew, author: { "Aditya" }, secrets: MemorySecrets()))
         let id = try #require(deals.create(title: "Acme"))
         deals.note(try #require(deals.deal(id)), "Acme founder strong; churn unclear.")
         let model = RecordedModel(ScriptedModel(#"{"items":[]}"#), store: store)
