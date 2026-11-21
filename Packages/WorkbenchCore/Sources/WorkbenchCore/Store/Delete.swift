@@ -158,7 +158,9 @@ extension Store {
         case .mail:
             try db.execute(sql: "DELETE FROM mail_part WHERE seen_at < ?", arguments: [cutoff.stored])
             try db.execute(sql: "DELETE FROM mail_open WHERE day < ?", arguments: [String(cutoff.stored.prefix(10))])
-        case .calendar, .web: break
+        case .calendar: break
+        case .web:
+            try db.execute(sql: "DELETE FROM news_article WHERE fetched_at < ?", arguments: [cutoff.stored])
         case .call:
             let condition = "state != 'recording' AND started_at < ?"
             let folders = try String.fetchAll(

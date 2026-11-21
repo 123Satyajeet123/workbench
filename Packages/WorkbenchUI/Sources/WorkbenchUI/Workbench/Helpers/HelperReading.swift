@@ -26,6 +26,7 @@ final class HelperReading {
         let scope = context.source.scope
         do {
             _ = try await context.grant()
+            if let news = context.source as? NewsSource { return try await readNews(news, on: day) }
             let full = try await context.source.evidence(on: day)
             // A reading starts where the last one stopped: earlier lines go along as context only, so nothing is
             // read twice and nothing comes back reworded.
@@ -63,6 +64,17 @@ final class HelperReading {
             context.problems.report("read the day", error)
             return false
         }
+    }
+
+    /// The news machine reads articles, not days: one check fetches the feeds and reads each matched article.
+    private func readNews(_ news: NewsSource, on day: WorkDay) async throws -> Bool {
+        let model = context.makeModel(try context.runner(for: .init(context.spec)))
+        let report = try await news.check(with: model, spec: context.spec)
+        context.reloadIfShown(day)
+        phase = .read(kept: report.kept, dropped: report.dropped)
+        context.problems.dismiss()
+        context.itemsChanged()
+        return true
     }
 
     /// Whether the facts of `day` have summaries that are missing or out of date. Asks no model.

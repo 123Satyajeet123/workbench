@@ -29,6 +29,7 @@ struct HelperContent: View {
 
     @ViewBuilder private var readyContent: some View {
         ReadBar(model: model)
+        if let news = model.source as? NewsSource { WatchlistSection(source: news, changed: model.reload) }
         if let question = model.question { HelperQuestion(model: model, item: question) }
         if let notice = model.notice { NoticeRow(text: notice) { model.notice = nil } }
         if model.isTrying { TrialCard(model: model) }

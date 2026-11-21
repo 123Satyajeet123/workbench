@@ -12,6 +12,8 @@ public struct HelperSpec: Codable, Sendable, Equatable {
         case pageText = "page_text"
         /// Gmail threads the person opened inside the label they named, with the text of attached decks.
         case mail = "mail_threads"
+        /// Articles from the news feeds, read one at a time, only for companies the investor follows.
+        case news = "news_articles"
 
         public var kind: SourceKind {
             switch self {
@@ -19,6 +21,7 @@ public struct HelperSpec: Codable, Sendable, Equatable {
             case .screenSessions: .screen
             case .pageText: .screenText
             case .mail: .mail
+            case .news: .web
             }
         }
 
@@ -29,6 +32,7 @@ public struct HelperSpec: Codable, Sendable, Equatable {
             case .screenSessions: "windows"
             case .pageText: "pages"
             case .mail: "messages"
+            case .news: "articles"
             }
         }
 
@@ -50,6 +54,11 @@ public struct HelperSpec: Codable, Sendable, Equatable {
                 the mail threads the investor opened in their Deals label, in order. Each line is `[number] sender — \
                 subject: the text`. A line of an attached deck also names the file and the page: `sender — subject — \
                 file page 3: the text`. A thread shows one line for each message and each deck page.
+                """
+            case .news:
+                """
+                one news article from a feed the investor follows. The line is `[number] feed — title: text`. The \
+                Companies list names the followed companies the article may be about.
                 """
             case .pageText:
                 """

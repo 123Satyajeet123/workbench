@@ -34,14 +34,20 @@ struct FactLine: View {
                 Spacer(minLength: Space.m)
                 FactActions(items: [item], summary: model.title(of: item), model: model)
             }
-            if isOpen { source }
+            if item.task == Revisit.task {
+                revisitNews
+            } else if isOpen {
+                source
+            }
         }
         .padding(.vertical, Space.xs)
     }
 
     /// Person, project and due day, in the words a founder uses.
     private var meta: String {
-        var parts = [item["person"], item["project"]].filter { !$0.isEmpty }
+        var parts = [item["person"], item["project"], item["company"], item["event"], item["feed"]].filter {
+            !$0.isEmpty
+        }
         if let due = item.dueDay {
             parts.append("due \(due.start.formatted(.dateTime.weekday(.abbreviated).day().month()))")
         }
@@ -49,11 +55,25 @@ struct FactLine: View {
         return parts.joined(separator: " · ")
     }
 
+    /// The news about a passed deal's company since the pass, for a revisit.
+    private var related: [Item] { item.id.flatMap { model.passedNews[$0] } ?? [] }
+
+    /// What the company did since the investor passed: shown with the revisit, not behind a click.
+    @ViewBuilder private var revisitNews: some View {
+        VStack(alignment: .leading, spacing: Space.xs) {
+            ForEach(related) { SignalLine(signal: $0) }
+            if related.isEmpty {
+                Text("No news about it since you passed.").textStyle(.callout).foregroundStyle(.supporting)
+            }
+        }
+        .padding(.leading, Space.m)
+    }
+
     @ViewBuilder private var source: some View {
         VStack(alignment: .leading, spacing: Space.s) {
             Text("“\(item.quote)” · \(item.start.formatted(date: .abbreviated, time: .shortened))")
                 .textStyle(.callout).foregroundStyle(.supporting).textSelection(.enabled)
-            if item.citeFirst > 0 { chatLines }
+            if item.citeFirst > 0, item.source != .web { chatLines }
         }
         .padding(.leading, Space.m)
     }

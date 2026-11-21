@@ -59,6 +59,8 @@ final class TodayModel {
     private(set) var people: [FactGroup] = []
     private(set) var projectGroups: [FactGroup] = []
     private(set) var meetingCards: [MeetingCard] = []
+    /// For each revisit on Today, the news about its company since the investor passed.
+    private(set) var passedNews: [Int64: [Item]] = [:]
     private(set) var undoable: Undo?
     private(set) var problem: String?
     /// Counts each load, so a view can animate what changed between two loads.
@@ -121,9 +123,13 @@ final class TodayModel {
         let now = store.clock()
         today = WorkDay(containing: now)
         let dealActions = try store.queries.openDealActions()
+        let revisits = try store.queries.openRevisits()
+        let news = try store.queries.newsSignals(since: today.adding(days: 1 - Store.newsRetentionDays))
+        passedNews = try passedNews(of: revisits, now: now)
         guard let machine = factMachine else {
             clear()
-            needs = Needs.pick(facts: dealActions, findings: [], today: today, now: now)
+            needs = Needs.pick(
+                facts: dealActions, findings: [], today: today, now: now, revisits: revisits, news: news)
             buildMeetingCards()
             return
         }
@@ -131,13 +137,25 @@ final class TodayModel {
         let facts = try recentFacts(of: machine, lifecycle: lifecycle, since: today.adding(days: 1 - Self.days))
         let findings = try sentinelTask.map { try store.queries.items(of: $0, on: today) } ?? []
         let listed = facts.filter { $0.isListed(at: now) }
-        needs = Needs.pick(facts: facts + dealActions, findings: findings, today: today, now: now)
+        needs = Needs.pick(
+            facts: facts + dealActions, findings: findings, today: today, now: now, revisits: revisits, news: news)
         people = group(facts, by: machine.spec.memberField, lifecycle, now)
         projectGroups = group(facts, by: machine.spec.labelField, lifecycle, now)
         team = try rows(machine.spec.memberField, of: machine, day: today, listed: listed, groups: people)
         unsummarized = withoutSummary(facts.filter { $0.day == today }, machine, lifecycle, now)
         projects = try rows(machine.spec.labelField, of: machine, day: today, listed: listed, groups: projectGroups)
         buildMeetingCards()
+    }
+
+    /// The listed news about each revisit's company from the day of the pass on.
+    private func passedNews(of revisits: [Item], now: Date) throws -> [Int64: [Item]] {
+        var found: [Int64: [Item]] = [:]
+        for revisit in revisits {
+            guard let id = revisit.id else { continue }
+            found[id] = try store.queries.newsSignals(of: revisit[Revisit.dealField], since: revisit.day)
+                .filter { $0.isListed(at: now) }
+        }
+        return found
     }
 
     private func clear() {
@@ -226,6 +244,7 @@ final class TodayModel {
 
     /// The line a fact or finding shows: the title field of the machine that found it.
     func title(of item: Item) -> String {
+        if NewsSignals.owns(item.task) { return item[NewsSignals.headlineField] }
         let field = crew.machines.first { $0.spec.task == item.task }?.spec.title
         return field.map { item[$0] } ?? item.quote
     }
@@ -249,8 +268,9 @@ final class TodayModel {
         let task = factMachine?.task
         var plan = factMachine?.spec.lifecycle?.closing(items.filter { $0.task == task }) ?? [:]
         plan.merge(DealAction.lifecycle.closing(items.filter { $0.task == DealAction.task })) { $0 + $1 }
-        let findings = items.filter { $0.task != task && $0.task != DealAction.task && $0.closed == nil }.compactMap(
-            \.id)
+        plan.merge(Revisit.lifecycle.closing(items.filter { $0.task == Revisit.task })) { $0 + $1 }
+        let own = [task, DealAction.task, Revisit.task]
+        let findings = items.filter { !own.contains($0.task) && $0.closed == nil }.compactMap(\.id)
         if !findings.isEmpty { plan[.done(outcome: "handled")] = findings }
         return plan
     }

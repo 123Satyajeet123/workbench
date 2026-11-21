@@ -7,6 +7,7 @@ struct DealsPage: View {
     @State private var open: String?
     @State private var newTitle = ""
     @State private var asking: WorkObject?
+    @State private var passing: WorkObject?
 
     var body: some View {
         Page(title: SidebarSelection.deals.title, subtitle: subtitle) {
@@ -32,16 +33,20 @@ struct DealsPage: View {
         }
         .onAppear(perform: deals.refresh)
         .sheet(item: $asking) { deal in ActionRequiredForm(deal: deal, cancel: { asking = nil }) }
+        .sheet(item: $passing) { deal in PassedDealForm(deal: deal, cancel: { passing = nil }) }
     }
 
     private var subtitle: String {
         "\(deals.deals.count) deals. Your moves and notes go to your team's folder; items only to people who can already read them."
     }
 
-    /// "Action required" asks what is needed first; every other stage is a plain move.
+    /// "Action required" asks what is needed first and "Rejected" asks why and when to look again; every other stage
+    /// is a plain move. A deal already Rejected is not asked again.
     private func move(_ deal: WorkObject, to stage: String) {
         if stage == WorkObject.actionRequired {
             asking = deal
+        } else if stage == WorkObject.rejected, !deal.stages.contains(stage) {
+            passing = deal
         } else {
             deals.move(deal, to: stage)
         }

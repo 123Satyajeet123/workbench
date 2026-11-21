@@ -62,4 +62,16 @@ import WorkbenchCore
             ).grant)
         await #expect(throws: WebBlock.grantExpired) { try await WebTransport(grant: web).send(request, limit: 10) }
     }
+
+    @Test func theFeedFetcherRefusesAnyAddressThatIsNotAFeedBeforeItSends() async throws {
+        let grant = try #require(
+            CapturePolicy(switches: [.web: true]).authorize(CaptureRequest(kind: .web), at: Date()).grant)
+        let fetcher = FeedFetcher(grant: grant)
+        for address in [
+            "https://inc42.com/other/", "http://inc42.com/feed/", "https://news.example/feed", "https://127.0.0.1/feed",
+        ] {
+            let url = try #require(URL(string: address))
+            await #expect(throws: FeedError.notAFeed(url)) { try await fetcher.fetch(url) }
+        }
+    }
 }

@@ -23,7 +23,16 @@ enum EgressScan {
     /// Hosts the shipped sources may name: Gmail, the one page the extension reads and the one origin its attachment
     /// fetch may use; and the two search providers, which only the consent kind `web` may reach (`WebSession`). The
     /// pages a search returns are fetched from hosts the provider names, never from a host written in the source.
-    static let allowedHosts: Set<String> = ["mail.google.com", "api.search.brave.com", "api.exa.ai"]
+    /// The two news feed hosts are named in `NewsFeed.swift` only, and only a `FeedSession` (the consent kind `web`)
+    /// may fetch them.
+    static let allowedHosts: Set<String> = [
+        "mail.google.com", "api.search.brave.com", "api.exa.ai", "inc42.com", "yourstory.com",
+    ]
+
+    /// The one file that names the feed hosts, and the feed hosts.
+    static let feedFile = "NewsFeed.swift"
+    static let feedHosts: Set<String> = ["inc42.com", "yourstory.com"]
+    static let feedGuards = ["grant.kind == .web", "grant.expiresAt > store.clock()", "feeds.contains(feed)"]
 
     /// The one folder whose code may open a connection, and the one file in it that does. Every request passes
     /// `WebTransport.send`, which refuses a grant that is not a live one of the kind `web`.
@@ -134,6 +143,21 @@ struct NoEgressTests {
             }
         }
         #expect(opening == [EgressScan.webTransportFile])
+    }
+
+    @Test func theFeedHostsAreNamedInOneFileAndOnlyAFeedSessionFetchesThem() throws {
+        var namingFeeds: [String] = []
+        var feedSession = ""
+        for file in EgressScan.shippedFiles(repo: Self.repo) where file.pathExtension == "swift" {
+            let text = try String(contentsOf: file, encoding: .utf8)
+            if EgressScan.feedHosts.contains(where: { text.contains($0) }) {
+                namingFeeds.append(file.lastPathComponent)
+            }
+            if file.lastPathComponent == EgressScan.feedFile { feedSession = text }
+        }
+        #expect(namingFeeds == [EgressScan.feedFile])
+        for guardText in EgressScan.feedGuards { #expect(feedSession.contains(guardText), "lost \(guardText)") }
+        #expect(feedSession.contains("else { throw WebBlock.consentOff }"), "the session opens only with consent")
     }
 
     @Test func plantedNetworkSymbolIsCaughtAndPlainCodeIsNot() {

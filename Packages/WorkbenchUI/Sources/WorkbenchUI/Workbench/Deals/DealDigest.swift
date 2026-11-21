@@ -17,6 +17,11 @@ struct DealDigest: Equatable {
     var action: Item?
     var story: DealStory
     var machines: [StripMachine]
+    /// The news signals about the deal's company, newest first, that the investor has not hidden. A deal that is
+    /// Invested or Rejected is followed in the news; for another deal this is empty.
+    var signals: [Item] = []
+    /// The revisit the investor set when they passed, while it is open.
+    var revisit: Item?
 }
 
 /// Builds the digest of a deal for one person.
@@ -24,7 +29,9 @@ struct DealDigestReader {
     let store: Store
     let me: String
 
-    func digest(of deal: WorkObject, machines: [Machine], actions: [Item]) throws -> DealDigest {
+    func digest(
+        of deal: WorkObject, machines: [Machine], actions: [Item], signals: [Item] = [], revisits: [Item] = []
+    ) throws -> DealDigest {
         let own = actions.filter { $0[DealAction.dealField] == deal.id }
         var ratings: [String: Rating] = [:]
         var marks: [String: [DealStory.Marked]] = [:]
@@ -48,7 +55,9 @@ struct DealDigestReader {
         }
         return DealDigest(
             triage: first, action: own.first { $0.closed == nil && !$0.isHidden(at: store.clock()) },
-            story: DealStory.make(deal: deal, ratings: ratings, marks: marks, actions: own), machines: touching)
+            story: DealStory.make(deal: deal, ratings: ratings, marks: marks, actions: own), machines: touching,
+            signals: signals.filter { $0.signalCompany == deal.id && $0.isListed(at: store.clock()) },
+            revisit: revisits.first { $0[Revisit.dealField] == deal.id && $0.closed == nil })
     }
 
     /// The marks on a linked item. The item's id means something only on the Mac of the person who linked it.

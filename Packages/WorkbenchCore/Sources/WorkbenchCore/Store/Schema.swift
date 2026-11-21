@@ -31,7 +31,9 @@ enum Schema {
 
     static var stepDigests: [String] { steps.map { Digest.sha256($0.joined(separator: ";\n")) } }
 
-    static let steps = [baseline, itemEvents, runText, summaries, itemActions, mail, typedItems, quoteMarks]
+    static let steps = [
+        baseline, itemEvents, runText, summaries, itemActions, mail, typedItems, quoteMarks, newsArticles,
+    ]
 
     /// Items that open and close (research 32): a later line closes a commitment or answers a question. An event is
     /// never rewritten; the latest one is the item's state. Valid time is when the closing line was said; record time
@@ -177,6 +179,18 @@ enum Schema {
             state TEXT NOT NULL CHECK(state IN ('proposed','confirmed','rejected')))
         """,
         "CREATE INDEX quote_mark_item ON quote_mark(item_id, id)",
+    ]
+
+    /// Articles fetched from the news feeds for the portfolio watch, kept 30 days and removed with the kind `web`. An
+    /// article is stored once per address; `read_at` is set when its signals were read.
+    private static let newsArticles = [
+        """
+        CREATE TABLE news_article(
+            id INTEGER PRIMARY KEY, feed TEXT NOT NULL CHECK(feed <> ''), url TEXT NOT NULL UNIQUE CHECK(url <> ''),
+            title TEXT NOT NULL, published_at TEXT NOT NULL, fetched_at TEXT NOT NULL, text TEXT NOT NULL,
+            read_at TEXT)
+        """,
+        "CREATE INDEX news_article_fetched ON news_article(fetched_at)",
     ]
 
     private static let baseline = [

@@ -32,6 +32,7 @@ struct DealDetail: View {
                 if let open = digest?.action { actionRow(open) }
                 if let triage = digest?.triage { WhyCard(triage: triage) }
                 ClaimChecksSection(deal: deal)
+                signals
                 if let digest {
                     Text("Captured so far").textStyle(.headline)
                     CaptureRibbon(ribbon: digest.story.ribbon)
@@ -76,6 +77,14 @@ struct DealDetail: View {
             } else {
                 Button("Take it") { deals.claim(deal) }
             }
+        }
+    }
+
+    @ViewBuilder private var signals: some View {
+        if let revisit = digest?.revisit { RevisitLine(revisit: revisit) }
+        if let found = digest?.signals, !found.isEmpty {
+            Text("In the news").textStyle(.headline)
+            ForEach(found) { SignalLine(signal: $0) }
         }
     }
 

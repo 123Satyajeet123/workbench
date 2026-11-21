@@ -89,13 +89,16 @@ struct TodayBody: View {
         case .watch: "Watch"
         case .asks: "Asks you"
         case .due(let day): day < model.today ? "Overdue" : "Due today"
+        case .revisit: "Revisit"
+        case .news: "Bad news"
         }
     }
 
     private func tone(_ reason: Need.Reason) -> Tone {
         switch reason {
         case .act: .bad
-        case .watch, .asks, .due: .attention
+        case .watch, .asks, .due, .revisit: .attention
+        case .news: .bad
         }
     }
 }

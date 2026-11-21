@@ -63,11 +63,26 @@ struct DealCard: View {
             }
             Text(deal.holder.map { "Owner: \($0)" } ?? "No owner").textStyle(.caption).foregroundStyle(.supporting)
             if let action = digest?.action { ActionLine(action: action) }
+            if let revisit = digest?.revisit { RevisitLine(revisit: revisit) }
+            if let signal = digest?.signals.first { SignalLine(signal: signal, showsQuote: false) }
             if let ribbon = digest?.story.ribbon { CaptureRibbon(ribbon: ribbon) }
         }
         .padding(Space.s)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.quaternary.opacity(0.5), in: .rect(cornerRadius: Radius.card))
+    }
+}
+
+/// When the investor will look at a passed deal again.
+struct RevisitLine: View {
+    let revisit: Item
+
+    var body: some View {
+        Label(
+            "Revisit \(revisit.dueDay?.start.formatted(date: .abbreviated, time: .omitted) ?? "")",
+            systemImage: "arrow.counterclockwise"
+        )
+        .textStyle(.caption, weight: .medium).foregroundStyle(.supporting)
     }
 }
 

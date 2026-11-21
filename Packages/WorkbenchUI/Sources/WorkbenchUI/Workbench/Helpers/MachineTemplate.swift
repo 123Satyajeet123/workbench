@@ -30,14 +30,20 @@ struct MachineTemplate: Identifiable, Hashable {
         spec: .founderCheck, name: "Founder check", role: "Founder check",
         detail: "Reads founders' profile pages you opened and lists their roles, companies, exits and education.")
     static let companySignals = MachineTemplate(
-        spec: .companySignals, name: "Signals", role: "Company signals",
-        detail: "Reads news and social pages and lists funding, hires, launches and risks of companies you follow.")
+        spec: .companySignals, name: "Page signals", role: "Company signals from pages",
+        detail:
+            "Reads news and social pages you saw and lists funding, hires, launches and risks of companies you follow.")
+    static let newsSignals = MachineTemplate(
+        spec: .newsSignals, name: "Signals", role: "News signals",
+        detail:
+            "Reads the Inc42 and YourStory feeds for your portfolio and the deals you passed on, and lists funding, layoffs, exits and other events, good and bad, with the words they came from."
+    )
     static let derailment = MachineTemplate(
         spec: .derailment, name: "Sentinel", role: "Off-track watch",
         detail:
             "Follows the open commitments, questions and decisions of Pip and tells you what is overdue, quiet, blocked or drifting."
     )
-    static let all = [team, timeline, pages, derailment, dealIntake, founderCheck, companySignals]
+    static let all = [team, timeline, pages, derailment, dealIntake, founderCheck, newsSignals, companySignals]
     /// The machines every store starts with; the others are made on request or from Mochi's proposals.
     static let seeded = [team, timeline]
 

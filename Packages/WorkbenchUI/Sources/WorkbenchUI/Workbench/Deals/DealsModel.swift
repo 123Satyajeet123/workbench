@@ -37,10 +37,16 @@ final class DealsModel {
             }
             let machines = try store.queries.machines()
             let actions = try store.queries.dealActions()
+            let signals = try store.queries.newsSignals()
+            let revisits = try store.queries.openRevisits()
             let reader = DealDigestReader(store: store, me: me)
             digests = Dictionary(
                 uniqueKeysWithValues: try deals.map {
-                    ($0.id, try reader.digest(of: $0, machines: machines, actions: actions))
+                    (
+                        $0.id,
+                        try reader.digest(
+                            of: $0, machines: machines, actions: actions, signals: signals, revisits: revisits)
+                    )
                 })
         }
         settleActions()
@@ -69,7 +75,24 @@ final class DealsModel {
     func move(_ deal: WorkObject, to stage: String) {
         guard stage != WorkObject.actionRequired else { return }
         attempt("drop the action") { try store.dropActions(of: deal.id) }
+        if stage != WorkObject.rejected { attempt("drop the revisit") { try store.dropRevisits(of: deal.id) } }
         add([.init(object: deal.id, kind: .stage, text: stage, replaces: deal.stageHeads)])
+    }
+
+    /// Passes on the deal: it moves to Rejected, the reason becomes a note, and the revisit day, when the investor sets
+    /// one, becomes a dated fact on Today. The deal is followed in the news from then on.
+    func pass(_ deal: WorkObject, reason: String, revisit: WorkDay?) {
+        attempt("drop the action") { try store.dropActions(of: deal.id) }
+        attempt("save the revisit") {
+            if let revisit {
+                try store.setRevisit(of: deal, on: revisit, reason: reason)
+            } else {
+                try store.dropRevisits(of: deal.id)
+            }
+        }
+        var drafts = [Draft(object: deal.id, kind: .stage, text: WorkObject.rejected, replaces: deal.stageHeads)]
+        if let reason = reason.cleaned { drafts.append(Draft(object: deal.id, kind: .note, text: "Passed: \(reason)")) }
+        add(drafts)
     }
 
     /// Moves the deal to "Action required" and opens the one dated fact it waits for, owned by the founder.
