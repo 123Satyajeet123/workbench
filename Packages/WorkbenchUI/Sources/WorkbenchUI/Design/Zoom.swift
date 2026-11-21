@@ -59,9 +59,11 @@ extension View {
         modifier(ScaledText(style: style, weight: weight, digits: digits))
     }
 
-    /// The zoom for a whole window: the default text and the size of controls.
+    /// The zoom for a whole window: the default text and the size of controls. The window's text and tint come from
+    /// the palette here too, so no screen sets them itself.
     func zoomed(_ zoom: Zoom) -> some View {
         textStyle(.body).controlSize(zoom.controlSize).environment(\.uiScale, zoom.scale)
+            .foregroundStyle(.bodyText).tint(.accentFill)
     }
 }
 

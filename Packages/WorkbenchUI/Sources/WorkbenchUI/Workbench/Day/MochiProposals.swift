@@ -12,7 +12,7 @@ struct MochiProposals: View {
             Text("Machines Mochi suggests").textStyle(.title2, weight: .bold)
             HStack(spacing: Space.m) {
                 Button("Find repeated work") { Task { await mochi.discover() } }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.primary)
                     .disabled(!mochi.canDiscover)
                 ReadPhaseLabel(phase: mochi.phase, items: "proposals", droppedBecause: "not backed by your days")
             }
@@ -64,13 +64,13 @@ private struct ProposalCard: View {
             }
             HStack {
                 Button("Build it") { if let id = mochi.accept(proposal) { open(.machine(id)) } }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.primary)
                 Button("Not now") { mochi.decide(proposal, .later) }
                 Button("Never") { mochi.decide(proposal, .rejected) }
             }
         }
         .padding(Space.l)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary.opacity(0.5), in: .rect(cornerRadius: Radius.card))
+        .background(.calloutFill, in: .rect(cornerRadius: Radius.card))
     }
 }

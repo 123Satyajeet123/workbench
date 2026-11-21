@@ -101,12 +101,38 @@ enum SidebarSelection: Hashable, Identifiable, RawRepresentable {
         }
     }
 
-    /// The face of a fixed helper. The other pages are tools, not helpers, so they have none.
+    /// What a sidebar page is for, shown under its title until the person closes it. Nil for what is not a sidebar page.
+    var intro: String? {
+        switch self {
+        case .day:
+            "Your day at a glance: what needs you, today's meetings, your team, your projects and yesterday's brief."
+        case .people:
+            "What each person on your team planned, finished, got stuck on or promised in the last \(TodayModel.days) days. Open items first."
+        case .projects:
+            "Where each project stands: decisions, open questions, blockers and promises from the last \(TodayModel.days) days. Open items first."
+        case .calls:
+            "Calls you record on this Mac. Start and stop a recording from the menu bar."
+        case .deals:
+            "Your team's deals, one column per stage. Open a deal to see where it came from and what it needs next."
+        case .mochi:
+            "A brief of your day and a timeline of what you worked on. After \(Mochi.minimumDays) work days, Mochi suggests machines for work you repeat."
+        case .crew:
+            "Your machines, like Pip: what each one reads, how often it's right and what it costs. Add one with + in the sidebar."
+        case .review:
+            "Everything found that you haven't checked yet, in one queue. Y marks right, N wrong, J and K move, U undoes."
+        case .catalog:
+            "What your teammates shared with you: their days and their machines."
+        case .advanced, .machine: nil
+        }
+    }
+
+    /// The face of a fixed helper. The other pages are tools, not helpers, so they have none. Today is Mochi's brief of
+    /// the day, so it wears Mochi's face.
     var look: Mascot.Look? {
         switch self {
-        case .day: Mascot.Look(hue: 0.04, wear: .crown)
+        case .day, .mochi: Mascot.Look(hue: 0.04, wear: .crown)
         case .calls: Mascot.Look(hue: 0.76, wear: .headphones)
-        case .people, .projects, .mochi, .crew, .review, .deals, .catalog, .advanced, .machine: nil
+        case .people, .projects, .crew, .review, .deals, .catalog, .advanced, .machine: nil
         }
     }
 }

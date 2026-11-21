@@ -25,7 +25,7 @@ struct AskBox: View {
                     }
                 }
                 .padding(Space.m)
-                .background(.quaternary.opacity(0.4), in: .rect(cornerRadius: Radius.card))
+                .background(.calloutFill, in: .rect(cornerRadius: Radius.card))
             }
         }
     }

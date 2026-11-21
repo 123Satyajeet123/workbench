@@ -7,7 +7,7 @@ struct ReviewPage: View {
     @FocusState private var focused: Bool
 
     var body: some View {
-        Page(title: SidebarSelection.review.title, subtitle: subtitle) {
+        Page(intro: .review, title: SidebarSelection.review.title, subtitle: subtitle) {
             if let problem = review.problem { ProblemBanner(text: problem) }
             if review.items.isEmpty {
                 Text("Nothing waits for you. When a machine reads a day, what it finds appears here.")
@@ -18,7 +18,7 @@ struct ReviewPage: View {
                     .contentShape(.rect)
                     .onTapGesture { review.select(index) }
             }
-            if review.canUndo { Button("Undo last mark (U)", action: review.undo).buttonStyle(.borderless) }
+            if review.canUndo { Button("Undo last mark (U)", action: review.undo).buttonStyle(.ghost) }
         }
         .focusable()
         .focused($focused)
@@ -73,7 +73,7 @@ private struct ReviewRow: View {
             }
         }
         .padding(Space.s)
-        .background(isSelected ? Color.accentColor.opacity(0.15) : .clear, in: .rect(cornerRadius: Radius.card))
+        .background(isSelected ? Color.selectedFill : .clear, in: .rect(cornerRadius: Radius.card))
     }
 
     private var title: String {

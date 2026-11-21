@@ -69,6 +69,6 @@ struct MarkButtons: View {
             .foregroundStyle(state == .rejected ? Tone.bad.color : .supporting)
         }
         .labelStyle(.iconOnly)
-        .buttonStyle(.borderless)
+        .buttonStyle(.ghost)
     }
 }

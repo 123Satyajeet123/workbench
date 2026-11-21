@@ -14,5 +14,6 @@ struct StartupErrorView: View {
         .multilineTextAlignment(.center)
         .padding(Space.page)
         .frame(minWidth: 480, minHeight: 280)
+        .background(.pageFill)
     }
 }

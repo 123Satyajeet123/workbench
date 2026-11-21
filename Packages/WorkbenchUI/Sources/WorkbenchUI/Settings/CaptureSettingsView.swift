@@ -21,7 +21,7 @@ struct CaptureSettingsView: View {
                 ForEach(capture.log) { entry in
                     LabeledContent {
                         Button("Delete", systemImage: "trash") { capture.delete(entry) }
-                            .labelStyle(.iconOnly).buttonStyle(.borderless)
+                            .labelStyle(.iconOnly).buttonStyle(.ghost)
                     } label: {
                         Label(entry.summary, systemImage: entry.symbol)
                         Text(entry.time.formatted(date: .omitted, time: .shortened))

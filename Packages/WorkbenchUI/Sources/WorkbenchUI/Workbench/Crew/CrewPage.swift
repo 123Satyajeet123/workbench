@@ -7,8 +7,10 @@ struct CrewPage: View {
     @Environment(RunsModel.self) private var runs
 
     var body: some View {
-        Page(title: SidebarSelection.crew.title, subtitle: "What each machine reads, how right it is and what it costs")
-        {
+        Page(
+            intro: .crew, title: SidebarSelection.crew.title,
+            subtitle: "What each machine reads, how right it is and what it costs"
+        ) {
             CrewBody(open: open)
         }
         .onAppear(perform: runs.refresh)
@@ -70,7 +72,7 @@ private struct MachineCard: View {
                 }
                 HStack {
                     Button(helper.isPaused ? "Resume" : "Pause") { crew.setPaused(helper, !helper.isPaused) }
-                    Button("Open \(helper.name)", action: open).buttonStyle(.borderedProminent)
+                    Button("Open \(helper.name)", action: open).buttonStyle(.primary)
                 }
             })
     }

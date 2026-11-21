@@ -18,7 +18,7 @@ struct WhyCard: View {
         }
         .padding(Space.m)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary.opacity(0.5), in: .rect(cornerRadius: Radius.card))
+        .background(.calloutFill, in: .rect(cornerRadius: Radius.card))
     }
 
     private var decision: String {

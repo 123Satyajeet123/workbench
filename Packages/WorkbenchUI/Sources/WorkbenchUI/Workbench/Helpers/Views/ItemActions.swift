@@ -48,7 +48,7 @@ struct DraftSheet: View {
             HStack {
                 Spacer()
                 Button("Cancel") { dismiss() }
-                Button("Copy") { actions.copy(draft) }.buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction)
+                Button("Copy") { actions.copy(draft) }.buttonStyle(.primary).keyboardShortcut(.defaultAction)
             }
         }
         .padding(Space.l)

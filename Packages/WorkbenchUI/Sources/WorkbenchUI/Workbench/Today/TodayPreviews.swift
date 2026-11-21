@@ -13,7 +13,7 @@ struct TodayFrame: View {
         }
         .padding(Space.page)
         .frame(width: Page<EmptyView, EmptyView>.columnWidth + 2 * Space.page, alignment: .topLeading)
-        .background(Color(nsColor: .textBackgroundColor))
+        .background(.pageFill)
     }
 }
 

@@ -11,7 +11,8 @@ enum Space {
 }
 
 enum Radius {
-    static let card: CGFloat = 12
+    static let card: CGFloat = 8
+    static let control: CGFloat = 6
 }
 
 /// What a status means, as one colour each.
@@ -29,34 +30,51 @@ enum Tone {
 }
 
 extension ShapeStyle where Self == Color {
-    /// The opacity of primary text used for supporting text. `ContrastTests` holds it above 4.5:1.
+    /// The opacity of the body text used for supporting text. `ContrastTests` holds it above 4.5:1 on every surface.
     static var supportingOpacity: Double { 0.72 }
 
     /// Text beside the main text. `.secondary` measures 3.9:1 on white; this stays above 4.5:1 in both appearances.
-    static var supporting: Color { Color.primary.opacity(supportingOpacity) }
+    static var supporting: Color { Color.bodyText.opacity(supportingOpacity) }
 }
 
-/// A page of the main window: a title, an optional face and line under it, and its content in one readable column.
+/// A page of the main window, laid out as Notion lays out a page: the helper's face above a large title, a quiet line
+/// under it, and the content in one readable column. A sidebar page opens with a short note on what it is for, until
+/// the person closes it; then an ⓘ beside the title shows it again.
 struct Page<Content: View, Accessory: View>: View {
     static var columnWidth: CGFloat { 760 }
 
+    /// The sidebar page this is, for its introduction; nil for a page with none.
+    var intro: SidebarSelection?
     let title: String
     var subtitle: String?
     var look: Mascot.Look?
     @ViewBuilder let accessory: Accessory
     @ViewBuilder let content: Content
+    @AppStorage(DismissedIntros.key) private var dismissed = DismissedIntros()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Space.l) {
-                HStack(alignment: .center, spacing: Space.m) {
+                VStack(alignment: .leading, spacing: Space.m) {
                     if let look { Mascot(look: look, size: 52) }
-                    VStack(alignment: .leading, spacing: Space.xs) {
-                        Text(title).textStyle(.largeTitle, weight: .bold)
-                        if let subtitle { Text(subtitle).foregroundStyle(.supporting) }
+                    HStack(alignment: .center, spacing: Space.m) {
+                        VStack(alignment: .leading, spacing: Space.xs) {
+                            HStack(alignment: .center, spacing: Space.xs) {
+                                Text(title).textStyle(.largeTitle, weight: .bold)
+                                if let intro, intro.intro != nil, dismissed.contains(intro) {
+                                    PageIntroButton { setDismissed(false, intro) }
+                                }
+                            }
+                            if let subtitle { Text(subtitle).foregroundStyle(.supporting) }
+                        }
+                        Spacer()
+                        accessory
                     }
-                    Spacer()
-                    accessory
+                    if let intro, let text = intro.intro, !dismissed.contains(intro) {
+                        PageIntroCallout(text: text) { setDismissed(true, intro) }
+                            .transition(.opacity)
+                    }
                 }
                 content
             }
@@ -64,13 +82,23 @@ struct Page<Content: View, Accessory: View>: View {
             .padding(Space.page)
             .frame(maxWidth: .infinity)
         }
-        .background(Color(nsColor: .textBackgroundColor))
+        .background(.pageFill)
+    }
+
+    private func setDismissed(_ isDismissed: Bool, _ page: SidebarSelection) {
+        withAnimation(Motion.settle(reduceMotion: reduceMotion)) {
+            if isDismissed { dismissed.dismiss(page) } else { dismissed.restore(page) }
+        }
     }
 }
 
 extension Page where Accessory == EmptyView {
-    init(title: String, subtitle: String? = nil, look: Mascot.Look? = nil, @ViewBuilder content: () -> Content) {
-        self.init(title: title, subtitle: subtitle, look: look, accessory: { EmptyView() }, content: content)
+    init(
+        intro: SidebarSelection? = nil, title: String, subtitle: String? = nil, look: Mascot.Look? = nil,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.init(
+            intro: intro, title: title, subtitle: subtitle, look: look, accessory: { EmptyView() }, content: content)
     }
 }
 
@@ -85,13 +113,13 @@ struct Card<Icon: View, Content: View>: View {
             Label {
                 Text(title)
             } icon: {
-                icon
+                icon.foregroundStyle(.iconTint)
             }.textStyle(.headline)
             content
         }
         .padding(Space.l)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary.opacity(0.5), in: .rect(cornerRadius: Radius.card))
+        .background(.calloutFill, in: .rect(cornerRadius: Radius.card))
     }
 }
 
@@ -111,7 +139,7 @@ struct ProblemBanner: View {
             Label(text, systemImage: "exclamationmark.triangle").foregroundStyle(Tone.bad.color)
                 .textSelection(.enabled)
             Spacer()
-            if let dismiss { Button("Dismiss", action: dismiss).buttonStyle(.borderless) }
+            if let dismiss { Button("Dismiss", action: dismiss).buttonStyle(.ghost) }
         }
         .textStyle(.callout)
     }

@@ -74,7 +74,7 @@ struct MeetingsOffer: View {
                 .foregroundStyle(.supporting)
             Spacer(minLength: Space.m)
             Button("Show today's meetings", action: turnOn)
-            Button("Not now", action: model.meetings.declineOffer).buttonStyle(.borderless)
+            Button("Not now", action: model.meetings.declineOffer).buttonStyle(.ghost)
         }
         .textStyle(.callout)
     }

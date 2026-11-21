@@ -60,6 +60,6 @@ struct RefusalCard: View {
             Button("Dismiss", action: catalog.dismissRefusal)
         }
         .padding(Space.m)
-        .background(.quaternary.opacity(0.5), in: .rect(cornerRadius: Radius.card))
+        .background(.calloutFill, in: .rect(cornerRadius: Radius.card))
     }
 }

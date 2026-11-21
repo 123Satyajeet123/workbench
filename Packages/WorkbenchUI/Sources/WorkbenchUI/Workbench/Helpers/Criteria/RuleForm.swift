@@ -28,7 +28,7 @@ struct RuleForm: View {
             }
         }
         .padding(Space.m)
-        .background(.quaternary.opacity(0.5), in: .rect(cornerRadius: Radius.card))
+        .background(.calloutFill, in: .rect(cornerRadius: Radius.card))
     }
 
     private var numberFields: some View {

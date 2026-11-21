@@ -9,6 +9,7 @@ struct CallsPage: View {
 
     var body: some View {
         Page(
+            intro: .calls,
             title: SidebarSelection.calls.title,
             subtitle: "Calls recorded on this Mac. Start and stop a recording from the menu bar.",
             look: SidebarSelection.calls.look
@@ -52,7 +53,7 @@ private struct RecordingRow: View {
             Spacer()
             if recording.state == .saved {
                 Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([recording.folder]) }
-                    .buttonStyle(.borderless)
+                    .buttonStyle(.ghost)
                 Text("Saved").foregroundStyle(Tone.good.color)
             } else {
                 Text(recording.error ?? "Failed").foregroundStyle(Tone.bad.color).textSelection(.enabled)
