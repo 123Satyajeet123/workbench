@@ -1,3 +1,16 @@
+extension Criteria {
+    /// The rules a new deal machine starts with: they only mirror the old placeholder, and the investor edits them
+    /// into their own thesis. A new Outbound machine copies the criteria of the Deal intake machine when one exists.
+    public static let starter = Criteria(rules: [
+        Rule(
+            id: "r_stage", role: .must,
+            test: .text(TextTest(says: "The startup raises a pre-seed, seed or Series A round.", wants: true))),
+        Rule(
+            id: "r_traction", role: .plus,
+            test: .text(TextTest(says: "The startup shows revenue or strong traction.", wants: true))),
+    ])
+}
+
 /// The helpers that ship with Workbench. Each is data over the catalog; none has code of its own.
 extension HelperSpec {
     /// Pip, the fact machine: what each person plans, did and is stuck on, and what is decided or asked, by project,
@@ -112,14 +125,7 @@ extension HelperSpec {
         ],
         citation: .one, view: .grouped(by: "rating"), title: "company", badges: ["rating", "stage"],
         tones: ["hot": .good, "warm": .neutral, "cold": .bad], itemsNoun: "deals", nudge: nil,
-        criteria: Criteria(rules: [
-            Rule(
-                id: "r_stage", role: .must,
-                test: .text(TextTest(says: "The startup raises a pre-seed, seed or Series A round.", wants: true))),
-            Rule(
-                id: "r_traction", role: .plus,
-                test: .text(TextTest(says: "The startup shows revenue or strong traction.", wants: true))),
-        ]))
+        criteria: .starter)
 
     /// VC pack: what a founder's profile page says, to check against what the pitch claims.
     public static let founderCheck = HelperSpec(

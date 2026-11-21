@@ -80,6 +80,12 @@ final class HelperModel {
         get { schedule.nudge }
         set { schedule.nudge = newValue }
     }
+    var weekly: WeeklySearch {
+        get { schedule.weekly }
+        set { schedule.weekly = newValue }
+    }
+    /// This machine searches the web for startups.
+    var isOutbound: Bool { source is OutboundSource }
     var watch: WatchSchedule {
         get { schedule.watch }
         set { schedule.watch = newValue }

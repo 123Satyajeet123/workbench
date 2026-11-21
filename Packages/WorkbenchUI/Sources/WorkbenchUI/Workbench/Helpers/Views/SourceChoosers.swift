@@ -15,6 +15,8 @@ struct SourceChooser: View {
             LabelChooser(model: model, source: source)
         } else if model.source is NewsSource {
             NewsChooser(model: model)
+        } else if model.source is OutboundSource {
+            OutboundChooser(model: model)
         }
     }
 }

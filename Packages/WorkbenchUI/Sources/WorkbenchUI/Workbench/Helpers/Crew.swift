@@ -17,22 +17,26 @@ final class Crew {
     @ObservationIgnored private let founder: () -> String
     @ObservationIgnored private let makeModel: ((ModelChoice) -> RecordedModel)?
     @ObservationIgnored private let alarm: VersionAlarm
+    @ObservationIgnored private let openWebSession: () throws -> WebSession
     let notifications: Notifications
 
     convenience init(
         store: Store, capture: CaptureService, founder: @escaping () -> String,
-        makeModel: ((ModelChoice) -> RecordedModel)? = nil, notifier: Notifier = SystemNotifier()
+        makeModel: ((ModelChoice) -> RecordedModel)? = nil, notifier: Notifier = SystemNotifier(),
+        openWebSession: (() throws -> WebSession)? = nil
     ) {
         self.init(
             store: store, capture: capture, founder: founder, makeModel: makeModel,
-            notifications: Notifications(notifier: notifier))
+            notifications: Notifications(notifier: notifier), openWebSession: openWebSession)
     }
 
     init(
         store: Store, capture: CaptureService, founder: @escaping () -> String,
-        makeModel: ((ModelChoice) -> RecordedModel)?, notifications: Notifications
+        makeModel: ((ModelChoice) -> RecordedModel)?, notifications: Notifications,
+        openWebSession: (() throws -> WebSession)? = nil
     ) {
         self.store = store
+        self.openWebSession = openWebSession ?? { try WebResearchSettings(store: store).openSession() }
         self.capture = capture
         self.founder = founder
         self.makeModel = makeModel
@@ -55,6 +59,12 @@ final class Crew {
 
     static let nothingToFollow =
         "Add Pip first. This machine follows its open plans, blockers, commitments, questions and decisions."
+
+    /// The criteria of the first Deal intake machine. A new Outbound machine starts with a copy of them, and then keeps
+    /// its own: the editor shows whether the two still match.
+    var intakeCriteria: Criteria? {
+        machines.first { $0.machine.template == HelperSpec.dealIntake.task }?.spec.criteria
+    }
 
     func helper(id: Int64) -> HelperModel? { machines.first { $0.machine.id == id } }
 
@@ -123,6 +133,7 @@ final class Crew {
             }
             spec.follows = followed.spec.task
         }
+        if template == HelperSpec.outbound.task, let intake = intakeCriteria { spec.criteria = intake }
         var id: Int64?
         problems.attempt("add the machine") {
             id = try store.createMachine(from: spec, template: template, name: name).id
@@ -194,6 +205,8 @@ final class Crew {
         case .pageText: try PageSource(store: store, task: machine.task)
         case .mail: MailSource(store: store, capture: capture)
         case .news: NewsSource(store: store, capture: capture)
+        case .webSearch:
+            OutboundSource(store: store, capture: capture, task: machine.task, openSession: openWebSession)
         case .whatsappChat:
             try WhatsAppSource(store: store, capture: capture, task: machine.task, founder: founder)
         }

@@ -13,7 +13,7 @@ struct MachineSettings: View {
                 ReadNote(model: model)
                 if !model.isTrying { ImproveRow(model: model) }
                 if model.spec.nudge != nil { NudgeRow(model: model) }
-                WatchRow(model: model)
+                if model.isOutbound { WeeklySearchRow(model: model) } else { WatchRow(model: model) }
                 if catalog.folder != nil { ShareDayRow(model: model) }
             }
             .padding(.top, Space.m)

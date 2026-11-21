@@ -7,12 +7,17 @@ struct ReadBar: View {
 
     var body: some View {
         HStack(spacing: Space.m) {
-            Button(model.source is NewsSource ? "Check the news" : "Read now") { Task { await model.read() } }
+            Button(readTitle) { Task { await model.read() } }
                 .disabled(model.phase == .reading || hasNothingToRead || model.isPaused)
             ReadPhaseLabel(phase: model.phase, items: model.spec.itemsNoun, droppedBecause: "not backed by the source")
             Spacer()
-            ViewPicker(model: model)
+            if !model.isOutbound { ViewPicker(model: model) }
         }
+    }
+
+    private var readTitle: String {
+        if model.source is NewsSource { return "Check the news" }
+        return model.source is OutboundSource ? "Find startups" : "Read now"
     }
 
     /// A screen or page machine has nothing to read on a day without activity; a chat machine always may try.

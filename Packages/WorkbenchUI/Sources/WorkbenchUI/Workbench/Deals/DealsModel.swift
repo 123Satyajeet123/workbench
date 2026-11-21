@@ -147,6 +147,13 @@ final class DealsModel {
         return id
     }
 
+    /// "Add to Deals" for a startup found by search: one deal in Inbox named after it, the candidate linked as its
+    /// evidence, and the candidate marked right.
+    func addCandidate(_ item: Item, of helper: HelperModel, from source: OutboundSource) async {
+        guard let id = await newDeal(from: item, of: helper) else { return }
+        attempt("mark the startup") { try source.accepted(item, asDeal: id) }
+    }
+
     func dismissProblem() { problem = nil }
 
     /// What the founder's events look like before the store gives them an id and a clock.

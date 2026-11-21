@@ -22,6 +22,15 @@ final class HelperSchedule {
         }
     }
 
+    /// Finding startups once a week by itself, for an outbound machine. Off until the investor turns it on.
+    var weekly = WeeklySearch() {
+        didSet {
+            context.problems.attempt("save the weekly search") {
+                try MachineKey.weekly(context.spec.task).save(weekly, to: context.store)
+            }
+        }
+    }
+
     @ObservationIgnored private let context: MachineContext
     @ObservationIgnored private let reading: HelperReading
     @ObservationIgnored private let ticker = Ticker()
@@ -32,6 +41,7 @@ final class HelperSchedule {
         do {
             nudge = try MachineKey.nudge(context.spec.task).load(from: context.store) ?? NudgeSchedule()
             watch = try MachineKey.watch(context.spec.task).load(from: context.store) ?? WatchSchedule()
+            weekly = try MachineKey.weekly(context.spec.task).load(from: context.store) ?? WeeklySearch()
         } catch {
             context.problems.report("read the saved nudge", error)
         }
@@ -42,6 +52,7 @@ final class HelperSchedule {
         ticker.start { [weak self] in
             await self?.readIfDue()
             await self?.nudgeIfDue()
+            await self?.findIfDue()
         }
     }
 
@@ -88,6 +99,20 @@ final class HelperSchedule {
             [group.map { item[$0] } ?? "", item[spec.title]].filter { !$0.isEmpty }.joined(separator: ": ")
         }
         await post(lines.joined(separator: "\n"), failure: "show the alert")
+    }
+
+    /// Finds startups when the weekly search is on and a week has passed. The time is saved first, so a failed run
+    /// waits a week, not a minute. The monthly cap still applies.
+    func findIfDue() async {
+        let now = context.store.clock()
+        let ranKey = MachineKey.weeklyRan(context.spec.task)
+        guard weekly.isOn, context.source is OutboundSource, context.source.isReady, !context.isPaused,
+            reading.phase != .reading
+        else { return }
+        let lastRan = (try? ranKey.load(from: context.store)).flatMap { $0 }
+        guard weekly.isDue(at: now, lastRan: lastRan) else { return }
+        context.problems.attempt("save the search time") { try ranKey.save(now, to: context.store) }
+        await reading.read(context.today)
     }
 
     /// Reads today and names who has no item. The day is marked first, so a failure nudges once, not every minute.

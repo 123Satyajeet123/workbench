@@ -10,6 +10,9 @@ enum MachineKey {
     static func watch(_ task: String) -> StateKey<WatchSchedule> { .json("\(task).watch") }
     /// The last time the reading hours read.
     static func watched(_ task: String) -> StateKey<Date> { .moment("\(task).watched") }
+    /// The weekly search of an outbound machine, and the last time it ran.
+    static func weekly(_ task: String) -> StateKey<WeeklySearch> { .json("\(task).weekly") }
+    static func weeklyRan(_ task: String) -> StateKey<Date> { .moment("\(task).weeklyRan") }
     /// The last line a reading of `day` saw.
     static func lastLine(_ task: String, scope: String, day: WorkDay) -> StateKey<Int64> {
         .text("\(task).read.\(scope).\(day)")

@@ -14,6 +14,8 @@ public struct HelperSpec: Codable, Sendable, Equatable {
         case mail = "mail_threads"
         /// Articles from the news feeds, read one at a time, only for companies the investor follows.
         case news = "news_articles"
+        /// Web pages found by search for the investor's criteria, read one at a time for startups that fit.
+        case webSearch = "web_search"
 
         public var kind: SourceKind {
             switch self {
@@ -21,7 +23,7 @@ public struct HelperSpec: Codable, Sendable, Equatable {
             case .screenSessions: .screen
             case .pageText: .screenText
             case .mail: .mail
-            case .news: .web
+            case .news, .webSearch: .web
             }
         }
 
@@ -33,6 +35,7 @@ public struct HelperSpec: Codable, Sendable, Equatable {
             case .pageText: "pages"
             case .mail: "messages"
             case .news: "articles"
+            case .webSearch: "pages"
             }
         }
 
@@ -59,6 +62,11 @@ public struct HelperSpec: Codable, Sendable, Equatable {
                 """
                 one news article from a feed the investor follows. The line is `[number] feed — title: text`. The \
                 Companies list names the followed companies the article may be about.
+                """
+            case .webSearch:
+                """
+                one web page that a search found. The line is `[number] address — text`. It may name several \
+                startups, or none.
                 """
             case .pageText:
                 """

@@ -26,6 +26,11 @@ struct MachineTemplate: Identifiable, Hashable {
     static let dealIntake = MachineTemplate(
         spec: .dealIntake, name: "Deal intake", role: "Deal intake",
         detail: "Reads your mail pages and lists each inbound startup, rated hot, warm or cold by your own criteria.")
+    static let outbound = MachineTemplate(
+        spec: .outbound, name: "Outbound", role: "Startup search",
+        detail:
+            "Searches the web for startups that fit your criteria, reads each page, and lists the ones worth a look with the words that show why. You add one to Deals or turn it down."
+    )
     static let founderCheck = MachineTemplate(
         spec: .founderCheck, name: "Founder check", role: "Founder check",
         detail: "Reads founders' profile pages you opened and lists their roles, companies, exits and education.")
@@ -43,7 +48,9 @@ struct MachineTemplate: Identifiable, Hashable {
         detail:
             "Follows the open commitments, questions and decisions of Pip and tells you what is overdue, quiet, blocked or drifting."
     )
-    static let all = [team, timeline, pages, derailment, dealIntake, founderCheck, newsSignals, companySignals]
+    static let all = [
+        team, timeline, pages, derailment, dealIntake, outbound, founderCheck, newsSignals, companySignals,
+    ]
     /// The machines every store starts with; the others are made on request or from Mochi's proposals.
     static let seeded = [team, timeline]
 

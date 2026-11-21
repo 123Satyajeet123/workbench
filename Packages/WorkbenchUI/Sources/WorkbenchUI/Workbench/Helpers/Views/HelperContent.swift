@@ -33,10 +33,14 @@ struct HelperContent: View {
         if let question = model.question { HelperQuestion(model: model, item: question) }
         if let notice = model.notice { NoticeRow(text: notice) { model.notice = nil } }
         if model.isTrying { TrialCard(model: model) }
-        items
+        if let outbound = model.source as? OutboundSource {
+            OutboundSection(model: model, source: outbound)
+        } else {
+            items
+        }
         if model.spec.criteria != nil {
             CriteriaSection(helper: model)
-            AgreementSection(agreement: model.agreement)
+            if !model.isOutbound { AgreementSection(agreement: model.agreement) }
         }
         MachineSettings(model: model)
     }

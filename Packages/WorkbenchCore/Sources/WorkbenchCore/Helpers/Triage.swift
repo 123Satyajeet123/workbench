@@ -35,6 +35,12 @@ public struct Triage: Sendable, Equatable {
     public var review: [String]
 
     public var needsReview: Bool { !review.isEmpty }
+
+    /// The plus rules that pass, less the minus rules that fail: what orders deals inside one rating.
+    public var points: Int {
+        results.filter { $0.rule.role == .plus && $0.verdict == .pass }.count
+            - results.filter { $0.rule.role == .minus && $0.verdict == .fail }.count
+    }
 }
 
 extension Criteria {

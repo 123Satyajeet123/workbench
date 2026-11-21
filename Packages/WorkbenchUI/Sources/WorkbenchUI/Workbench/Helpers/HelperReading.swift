@@ -27,6 +27,7 @@ final class HelperReading {
         do {
             _ = try await context.grant()
             if let news = context.source as? NewsSource { return try await readNews(news, on: day) }
+            if let outbound = context.source as? OutboundSource { return try await findStartups(outbound, on: day) }
             let full = try await context.source.evidence(on: day)
             // A reading starts where the last one stopped: earlier lines go along as context only, so nothing is
             // read twice and nothing comes back reworded.
@@ -72,6 +73,18 @@ final class HelperReading {
         let report = try await news.check(with: model, spec: context.spec)
         context.reloadIfShown(day)
         phase = .read(kept: report.kept, dropped: report.dropped)
+        context.problems.dismiss()
+        context.itemsChanged()
+        return true
+    }
+
+    /// The outbound machine finds startups by search, not by the day: one run writes queries, searches, fetches and
+    /// reads the pages.
+    private func findStartups(_ outbound: OutboundSource, on day: WorkDay) async throws -> Bool {
+        let model = context.makeModel(try context.runner(for: .init(context.spec)))
+        let record = try await outbound.find(with: model, spec: context.spec)
+        context.reloadIfShown(day)
+        phase = .read(kept: record.kept, dropped: record.found - record.kept)
         context.problems.dismiss()
         context.itemsChanged()
         return true

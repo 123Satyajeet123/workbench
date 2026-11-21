@@ -30,7 +30,12 @@ struct WhyCard: View {
 /// The why card folded under a deal's row; a deal that needs review says so on the fold.
 struct WhyDisclosure: View {
     let triage: Triage
-    @State private var isOpen = false
+    @State private var isOpen: Bool
+
+    init(triage: Triage, isOpen: Bool = false) {
+        self.triage = triage
+        _isOpen = State(initialValue: isOpen)
+    }
 
     var body: some View {
         DisclosureGroup(isExpanded: $isOpen) {
