@@ -8,7 +8,7 @@ struct TeamCatalogPage: View {
     @Environment(TeamCatalogModel.self) private var catalog
 
     var body: some View {
-        Page(title: SidebarSelection.catalog.title, subtitle: subtitle) {
+        Page(intro: .catalog, title: SidebarSelection.catalog.title, subtitle: subtitle) {
             if let problem = catalog.problem { ProblemBanner(text: problem, dismiss: catalog.dismissProblem) }
             if catalog.folder == nil {
                 Text(

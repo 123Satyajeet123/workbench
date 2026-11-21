@@ -9,6 +9,7 @@ struct CallsPage: View {
 
     var body: some View {
         Page(
+            intro: .calls,
             title: SidebarSelection.calls.title,
             subtitle: "Calls recorded on this Mac. Start and stop a recording from the menu bar.",
             look: SidebarSelection.calls.look

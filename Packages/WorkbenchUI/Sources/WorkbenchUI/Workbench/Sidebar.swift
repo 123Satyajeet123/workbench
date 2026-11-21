@@ -17,12 +17,12 @@ enum SidebarLayout {
         var entries: [Entry]
     }
 
+    /// Deals is not listed: its page, model and readers stay, to be reworked into another place.
     static let sections = [
         Section(entries: [
             .page(.day, symbol: "sun.max"), .page(.people, symbol: "person.2"),
-            .page(.projects, symbol: "square.stack.3d.up"),
+            .page(.projects, symbol: "square.stack.3d.up"), .helper(.calls),
         ]),
-        Section(entries: [.helper(.calls), .page(.deals, symbol: "rectangle.3.group")]),
         Section(
             title: "Crew",
             entries: [
@@ -30,6 +30,17 @@ enum SidebarLayout {
                 .page(.review, symbol: "checkmark.circle"), .page(.catalog, symbol: "person.crop.rectangle.stack"),
             ]),
     ]
+
+    /// Whether the sidebar has a row for a page: a machine's page always does, through the crew's rows.
+    static func lists(_ page: SidebarSelection) -> Bool {
+        if case .machine = page { return true }
+        return sections.flatMap(\.entries).contains { entry in
+            switch entry {
+            case .page(let listed, _), .helper(let listed): listed == page
+            case .machines: false
+            }
+        }
+    }
 }
 
 /// The sidebar, drawn after Notion's: grey symbols, compact rows whose titles all start at one place, small grey

@@ -2,7 +2,8 @@ import Testing
 
 @testable import WorkbenchUI
 
-/// The sidebar redrawn after Notion's keeps every page, in the order it had, with Mochi's face back.
+/// The sidebar redrawn after Notion's keeps every page but Deals, in the order it had, with Mochi's face back. Deals
+/// keeps its page and model, to be reworked elsewhere, but has no row.
 struct SidebarLayoutTests {
     private var pages: [SidebarSelection] {
         SidebarLayout.sections.flatMap(\.entries).compactMap { entry in
@@ -13,10 +14,15 @@ struct SidebarLayoutTests {
         }
     }
 
-    @Test func everyPageOfTheWindowIsInTheSidebarOnceInItsOrder() {
-        #expect(pages == [.day, .people, .projects, .calls, .deals, .mochi, .crew, .review, .catalog])
-        let windowPages = SidebarSelection.fixed.filter { $0 != .advanced }
+    @Test func everyPageOfTheWindowButDealsIsInTheSidebarOnceInItsOrder() {
+        #expect(pages == [.day, .people, .projects, .calls, .mochi, .crew, .review, .catalog])
+        let windowPages = SidebarSelection.fixed.filter { $0 != .advanced && $0 != .deals }
         #expect(Set(pages) == Set(windowPages) && pages.count == windowPages.count)
+    }
+
+    @Test func aSavedPageWithNoRowIsNotListedSoTheWindowFallsBackToToday() {
+        #expect(!SidebarLayout.lists(.deals) && !SidebarLayout.lists(.advanced))
+        #expect(SidebarLayout.lists(.day) && SidebarLayout.lists(.calls) && SidebarLayout.lists(.machine(7)))
     }
 
     @Test func machinesSitInTheCrewSectionBetweenCrewAndReview() throws {

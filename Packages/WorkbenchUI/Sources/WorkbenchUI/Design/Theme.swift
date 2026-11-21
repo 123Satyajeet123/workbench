@@ -38,15 +38,20 @@ extension ShapeStyle where Self == Color {
 }
 
 /// A page of the main window, laid out as Notion lays out a page: the helper's face above a large title, a quiet line
-/// under it, and the content in one readable column.
+/// under it, and the content in one readable column. A sidebar page opens with a short note on what it is for, until
+/// the person closes it; then an ⓘ beside the title shows it again.
 struct Page<Content: View, Accessory: View>: View {
     static var columnWidth: CGFloat { 760 }
 
+    /// The sidebar page this is, for its introduction; nil for a page with none.
+    var intro: SidebarSelection?
     let title: String
     var subtitle: String?
     var look: Mascot.Look?
     @ViewBuilder let accessory: Accessory
     @ViewBuilder let content: Content
+    @AppStorage(DismissedIntros.key) private var dismissed = DismissedIntros()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ScrollView {
@@ -55,11 +60,20 @@ struct Page<Content: View, Accessory: View>: View {
                     if let look { Mascot(look: look, size: 52) }
                     HStack(alignment: .center, spacing: Space.m) {
                         VStack(alignment: .leading, spacing: Space.xs) {
-                            Text(title).textStyle(.largeTitle, weight: .bold)
+                            HStack(alignment: .center, spacing: Space.xs) {
+                                Text(title).textStyle(.largeTitle, weight: .bold)
+                                if let intro, intro.intro != nil, dismissed.contains(intro) {
+                                    PageIntroButton { setDismissed(false, intro) }
+                                }
+                            }
                             if let subtitle { Text(subtitle).foregroundStyle(.supporting) }
                         }
                         Spacer()
                         accessory
+                    }
+                    if let intro, let text = intro.intro, !dismissed.contains(intro) {
+                        PageIntroCallout(text: text) { setDismissed(true, intro) }
+                            .transition(.opacity)
                     }
                 }
                 content
@@ -70,11 +84,21 @@ struct Page<Content: View, Accessory: View>: View {
         }
         .background(.pageFill)
     }
+
+    private func setDismissed(_ isDismissed: Bool, _ page: SidebarSelection) {
+        withAnimation(Motion.settle(reduceMotion: reduceMotion)) {
+            if isDismissed { dismissed.dismiss(page) } else { dismissed.restore(page) }
+        }
+    }
 }
 
 extension Page where Accessory == EmptyView {
-    init(title: String, subtitle: String? = nil, look: Mascot.Look? = nil, @ViewBuilder content: () -> Content) {
-        self.init(title: title, subtitle: subtitle, look: look, accessory: { EmptyView() }, content: content)
+    init(
+        intro: SidebarSelection? = nil, title: String, subtitle: String? = nil, look: Mascot.Look? = nil,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.init(
+            intro: intro, title: title, subtitle: subtitle, look: look, accessory: { EmptyView() }, content: content)
     }
 }
 

@@ -7,7 +7,7 @@ struct ReviewPage: View {
     @FocusState private var focused: Bool
 
     var body: some View {
-        Page(title: SidebarSelection.review.title, subtitle: subtitle) {
+        Page(intro: .review, title: SidebarSelection.review.title, subtitle: subtitle) {
             if let problem = review.problem { ProblemBanner(text: problem) }
             if review.items.isEmpty {
                 Text("Nothing waits for you. When a machine reads a day, what it finds appears here.")

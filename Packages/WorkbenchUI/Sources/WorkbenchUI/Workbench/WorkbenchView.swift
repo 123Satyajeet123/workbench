@@ -42,6 +42,8 @@ struct WorkbenchView: View {
             minWidth: Self.minimumSize.width, idealWidth: Self.idealSize.width, minHeight: Self.minimumSize.height,
             idealHeight: Self.idealSize.height
         )
+        // A page the sidebar no longer lists, such as Deals, may still be the one saved from the last launch.
+        .onAppear { if !SidebarLayout.lists(selection) { selection = .day } }
         .onChange(of: navigation.requested, initial: true) { _, page in
             guard let page else { return }
             show(page)

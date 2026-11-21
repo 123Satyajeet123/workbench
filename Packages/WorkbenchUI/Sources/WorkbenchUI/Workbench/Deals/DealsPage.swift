@@ -9,7 +9,7 @@ struct DealsPage: View {
     @State private var asking: WorkObject?
 
     var body: some View {
-        Page(title: SidebarSelection.deals.title, subtitle: subtitle) {
+        Page(intro: .deals, title: SidebarSelection.deals.title, subtitle: subtitle) {
             if let problem = deals.problem { ProblemBanner(text: problem, dismiss: deals.dismissProblem) }
             AskBox()
             HStack {

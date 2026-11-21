@@ -7,8 +7,10 @@ struct CrewPage: View {
     @Environment(RunsModel.self) private var runs
 
     var body: some View {
-        Page(title: SidebarSelection.crew.title, subtitle: "What each machine reads, how right it is and what it costs")
-        {
+        Page(
+            intro: .crew, title: SidebarSelection.crew.title,
+            subtitle: "What each machine reads, how right it is and what it costs"
+        ) {
             CrewBody(open: open)
         }
         .onAppear(perform: runs.refresh)

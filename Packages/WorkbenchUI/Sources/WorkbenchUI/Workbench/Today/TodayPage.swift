@@ -9,6 +9,7 @@ struct TodayPage: View {
 
     var body: some View {
         Page(
+            intro: .day,
             title: greeting, subtitle: Date.now.formatted(date: .complete, time: .omitted),
             look: SidebarSelection.day.look
         ) {
