@@ -31,7 +31,7 @@ enum Schema {
 
     static var stepDigests: [String] { steps.map { Digest.sha256($0.joined(separator: ";\n")) } }
 
-    static let steps = [baseline, itemEvents, runText, summaries, itemActions, mail, typedItems]
+    static let steps = [baseline, itemEvents, runText, summaries, itemActions, mail, typedItems, quoteMarks]
 
     /// Items that open and close (research 32): a later line closes a commitment or answers a question. An event is
     /// never rewritten; the latest one is the item's state. Valid time is when the closing line was said; record time
@@ -166,6 +166,17 @@ enum Schema {
             (SELECT state FROM mark WHERE mark.item_id = item.id ORDER BY mark.id DESC LIMIT 1), 'proposed') AS state
         FROM item
         """,
+    ]
+
+    /// The founder's second mark on a claim check: is its quote right. The first, is the verdict right, is the item's
+    /// own mark. Like a mark, each one is a new row and the latest stands.
+    private static let quoteMarks = [
+        """
+        CREATE TABLE quote_mark(
+            id INTEGER PRIMARY KEY, item_id INTEGER NOT NULL REFERENCES item(id) ON DELETE CASCADE, ts TEXT NOT NULL,
+            state TEXT NOT NULL CHECK(state IN ('proposed','confirmed','rejected')))
+        """,
+        "CREATE INDEX quote_mark_item ON quote_mark(item_id, id)",
     ]
 
     private static let baseline = [

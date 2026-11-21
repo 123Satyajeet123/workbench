@@ -20,9 +20,16 @@ enum EgressScan {
         networkSymbolPatterns.filter { text.range(of: $0, options: .regularExpression) != nil }
     }
 
-    /// Hosts the shipped sources may name: only Gmail, the one page the extension reads and the one origin its
-    /// attachment fetch may use. The only egress is the CLI the founder chose.
-    static let allowedHosts: Set<String> = ["mail.google.com"]
+    /// Hosts the shipped sources may name: Gmail, the one page the extension reads and the one origin its attachment
+    /// fetch may use; and the two search providers, which only the consent kind `web` may reach (`WebSession`). The
+    /// pages a search returns are fetched from hosts the provider names, never from a host written in the source.
+    static let allowedHosts: Set<String> = ["mail.google.com", "api.search.brave.com", "api.exa.ai"]
+
+    /// The one folder whose code may open a connection, and the one file in it that does. Every request passes
+    /// `WebTransport.send`, which refuses a grant that is not a live one of the kind `web`.
+    static let webFolder = "/Sources/WebResearch/"
+    static let webTransportFile = "WebTransport.swift"
+    static let webGuards = ["grant.kind == .web", "grant.expiresAt > Date()"]
 
     static func bannedHits(in text: String) -> [String] {
         bannedPatterns.filter { text.range(of: $0, options: [.regularExpression, .caseInsensitive]) != nil }
@@ -104,12 +111,29 @@ struct NoEgressTests {
             let walker = try #require(FileManager.default.enumerator(at: sources, includingPropertiesForKeys: nil))
             for case let file as URL in walker where file.pathExtension == "swift" {
                 seen.insert(file.lastPathComponent)
+                guard !file.path.contains(EgressScan.webFolder) else { continue }
                 let text = try String(contentsOf: file, encoding: .utf8)
                 findings += EgressScan.networkSymbolHits(in: text).map { "\(file.lastPathComponent): \($0)" }
             }
         }
         #expect(seen.isSuperset(of: ["Store.swift", "AgentRunner.swift", "HelperContent.swift"]))
         #expect(findings.isEmpty, "\(findings.joined(separator: "\n"))")
+    }
+
+    @Test func onlyTheWebTransportOpensAConnectionAndItChecksTheWebGrant() throws {
+        let folder = Self.repo.appending(path: "Packages/BaseKit/Sources/WebResearch")
+        let files = try FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)
+        var opening: [String] = []
+        for file in files where file.pathExtension == "swift" {
+            let text = try String(contentsOf: file, encoding: .utf8)
+            if text.range(of: #"\bURLSession\b"#, options: .regularExpression) != nil {
+                opening.append(file.lastPathComponent)
+            }
+            if file.lastPathComponent == EgressScan.webTransportFile {
+                for guardText in EgressScan.webGuards { #expect(text.contains(guardText), "lost \(guardText)") }
+            }
+        }
+        #expect(opening == [EgressScan.webTransportFile])
     }
 
     @Test func plantedNetworkSymbolIsCaughtAndPlainCodeIsNot() {

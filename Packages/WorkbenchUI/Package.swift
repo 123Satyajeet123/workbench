@@ -18,6 +18,7 @@ let package = Package(
                 .product(name: "AgentCLI", package: "BaseKit"),
                 .product(name: "CaptureService", package: "BaseKit"),
                 .product(name: "LocalSources", package: "BaseKit"),
+                .product(name: "WebResearch", package: "BaseKit"),
             ],
             swiftSettings: [.defaultIsolation(MainActor.self)]
         ),

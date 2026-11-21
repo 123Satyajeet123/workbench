@@ -32,6 +32,18 @@ final class DealFixture {
         sentinel = try store.createMachine(from: watch, template: HelperSpec.derailment.task, name: "Sentinel")
     }
 
+    /// A claims model over this store with no real model, search or deck: the tests give each one.
+    func makeClaims(
+        model: (any StructuredModel)? = nil, openSession: (() throws -> WebSession)? = nil,
+        deckParts: @escaping (WorkObject) throws -> [MailPart] = { _ in [] }
+    ) -> ClaimsModel {
+        let store = store
+        let scripted = model ?? ScriptedModel("{}")
+        return ClaimsModel(
+            store: store, me: { "Aditya" }, web: WebResearchSettings(store: store, secrets: MemorySecrets()),
+            makeModel: { _ in RecordedModel(scripted, store: store) }, openSession: openSession, deckParts: deckParts)
+    }
+
     /// A deal made from an intake item the criteria rate from `reading`, captured from `source`.
     @discardableResult
     func deal(

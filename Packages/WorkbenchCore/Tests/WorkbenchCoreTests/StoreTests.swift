@@ -37,6 +37,7 @@ struct SchemaTests {
         "b902a94e25dfc277336f1f925e4e9034cc9bccb3b28216c2f7f74e1364632226",
         "890f3e7347304488d364aaf9803b63bc36b62c9636681d63cddffef63c1df564",
         "531aeccfeb9818cc66fff57292cc1b23a2d0533a71c8475b34bea985c4d9ce8e",
+        "749ee5e0550835c1fec697bbbc78c4b46c3a15ddf67a56f10eec8b27be868ead",
     ]
 
     @Test func aShippedStepNeverChanges() {

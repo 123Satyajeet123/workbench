@@ -12,6 +12,9 @@ public enum SourceKind: String, Codable, CaseIterable, Sendable {
     case mail
     /// Today's events in the calendars the person chose, read through EventKit. Nothing is stored.
     case calendar
+    /// Web research about a deal: the search queries Workbench sends to the search provider the founder chose, and the
+    /// pages it fetches back. Off until the founder switches it on. See `WebGate`.
+    case web
 }
 
 extension SourceKind {

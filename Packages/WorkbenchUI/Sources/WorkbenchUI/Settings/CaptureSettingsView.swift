@@ -14,6 +14,7 @@ struct CaptureSettingsView: View {
                     capture.backgroundProblem ?? capture.failure?.localizedDescription
                         ?? "Everything stays on this Mac and is deleted after 30 days. Workbench never makes a sound.")
             }
+            WebResearchSection()
             DenyListSection()
             Section("Kept today") {
                 if capture.log.isEmpty { Text("Nothing yet.").foregroundStyle(.supporting) }

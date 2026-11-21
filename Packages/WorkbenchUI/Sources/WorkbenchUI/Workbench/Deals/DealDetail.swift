@@ -31,6 +31,7 @@ struct DealDetail: View {
                 owner
                 if let open = digest?.action { actionRow(open) }
                 if let triage = digest?.triage { WhyCard(triage: triage) }
+                ClaimChecksSection(deal: deal)
                 if let digest {
                     Text("Captured so far").textStyle(.headline)
                     CaptureRibbon(ribbon: digest.story.ribbon)

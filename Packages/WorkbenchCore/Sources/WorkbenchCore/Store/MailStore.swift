@@ -57,6 +57,21 @@ extension Queries {
         }
     }
 
+    /// Every stored part of the thread a mail item cites, in order: the messages and the deck pages the model read. Empty
+    /// when the item is not a mail item or its part was deleted.
+    public func threadParts(ofItem id: Int64) throws -> [MailPart] {
+        try reader.read { db in
+            try db.fetch(
+                "mail_part",
+                """
+                SELECT id, thread_id, message_id, kind, name, page, label, sender, subject, sent_at, seen_at, text
+                FROM mail_part WHERE thread_id = (
+                    SELECT thread_id FROM mail_part WHERE id = (SELECT cite_first FROM item WHERE id = ? AND source = 'mail'))
+                ORDER BY id
+                """, [id], as: MailPart.init(row:))
+        }
+    }
+
     /// The names of the decks stored for a message.
     public func deckNames(ofMessage messageID: String) throws -> Set<String> {
         try reader.read { db in

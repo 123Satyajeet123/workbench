@@ -224,3 +224,10 @@ func renderPNG(_ view: some View, named name: String, width: CGFloat = 640) thro
     }
     try png.write(to: folder.appending(path: "\(name).png"))
 }
+
+final class MemorySecrets: SecretStore, Sendable {
+    let values = Mutex<[String: String]>([:])
+    func read(_ name: String) -> String? { values.withLock { $0[name] } }
+    func save(_ value: String, as name: String) throws { values.withLock { $0[name] = value } }
+    func remove(_ name: String) throws { values.withLock { $0[name] = nil } }
+}

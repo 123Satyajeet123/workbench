@@ -44,7 +44,7 @@ import WorkbenchCore
     @Test func theDetailShowsTheStripTheRibbonAndTheTimeline() async throws {
         let (fixture, runs, acme) = try await fixture()
         let detail = DealDetail(deal: acme, move: { _, _ in }, close: {}).frame(width: 380)
-            .environment(fixture.deals).environment(runs)
+            .environment(fixture.deals).environment(runs).environment(fixture.makeClaims())
         try renderPNG(detail.fixedSize(horizontal: false, vertical: true), named: "deals-detail-timeline", width: 420)
     }
 }

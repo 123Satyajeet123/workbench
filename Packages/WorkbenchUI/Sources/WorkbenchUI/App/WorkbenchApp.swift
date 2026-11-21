@@ -78,6 +78,8 @@ extension View {
             .environment(session.actions)
             .environment(session.deals)
             .environment(session.memory)
+            .environment(session.web)
+            .environment(session.claims)
             .environment(session.runs)
             .environment(session.navigation)
     }
