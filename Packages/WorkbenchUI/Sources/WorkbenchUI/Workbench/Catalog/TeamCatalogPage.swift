@@ -68,7 +68,7 @@ private struct SharedDayCard: View {
         }
         .padding(Space.l)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary.opacity(0.5), in: .rect(cornerRadius: Radius.card))
+        .background(.calloutFill, in: .rect(cornerRadius: Radius.card))
     }
 }
 
@@ -146,7 +146,7 @@ private struct SharedCard: View {
         }
         .padding(Space.l)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary.opacity(0.5), in: .rect(cornerRadius: Radius.card))
+        .background(.calloutFill, in: .rect(cornerRadius: Radius.card))
     }
 
     private var reviewLine: String {

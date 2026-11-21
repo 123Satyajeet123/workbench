@@ -176,9 +176,9 @@ struct UndoBar: View {
     var body: some View {
         HStack(spacing: Space.m) {
             Label(undo.text, systemImage: "arrow.uturn.backward.circle").lineLimit(1)
-            Button("Undo", action: model.undo).buttonStyle(.borderless)
+            Button("Undo", action: model.undo).buttonStyle(.ghost)
             Spacer()
-            Button("Dismiss", action: model.dismissUndo).buttonStyle(.borderless)
+            Button("Dismiss", action: model.dismissUndo).buttonStyle(.ghost)
         }
         .textStyle(.callout).foregroundStyle(Tone.attention.color)
     }

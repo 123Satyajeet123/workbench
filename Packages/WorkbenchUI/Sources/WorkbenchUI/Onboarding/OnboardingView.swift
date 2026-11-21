@@ -9,8 +9,11 @@ struct OnboardingView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            OnboardingProgress(index: model.index, count: model.screens.count)
-                .padding(.bottom, Space.l)
+            HStack(spacing: Space.m) {
+                Text("Set up Workbench").textStyle(.callout).foregroundStyle(.supporting)
+                OnboardingProgress(index: model.index, count: model.screens.count)
+            }
+            .padding(.bottom, Space.l)
             OnboardingStep(screen: model.screen)
                 .id(model.screen)
                 .transition(.opacity)
@@ -24,19 +27,18 @@ struct OnboardingView: View {
         .padding(Space.page)
         .frame(width: Self.size.width, height: Self.size.height)
         .animation(.easeInOut(duration: 0.25), value: model.index)
-        .navigationTitle("Set up Workbench")
     }
 
     private var footer: some View {
         HStack {
             if !model.isFirst {
                 Button("Back", action: model.back)
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.ghost)
                     .keyboardShortcut(.cancelAction)
             }
             Spacer()
             Button(continueTitle, action: model.next)
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.primary)
                 .keyboardShortcut(.defaultAction)
                 .disabled(!model.canContinue)
         }
@@ -60,7 +62,7 @@ private struct OnboardingProgress: View {
         HStack(spacing: Space.s) {
             ForEach(0..<count, id: \.self) { step in
                 Circle()
-                    .fill(step <= index ? Color.accentColor : Color.primary.opacity(0.2))
+                    .fill(step <= index ? Color.accentFill : Color.bodyText.opacity(0.2))
                     .frame(width: 8, height: 8)
             }
         }

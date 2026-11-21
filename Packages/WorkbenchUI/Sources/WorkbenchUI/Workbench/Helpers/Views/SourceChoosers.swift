@@ -35,7 +35,7 @@ struct LabelChooser: View {
                     model.attempt("save the label") { try source.choose(typed) }
                     model.reload()
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.primary)
             }
         }
     }
@@ -59,7 +59,7 @@ struct SiteChooser: View {
                     model.attempt("save the sites") { try source.choose(typed) }
                     model.reload()
                 }
-                .buttonStyle(.borderedProminent).disabled(typed.isEmpty)
+                .buttonStyle(.primary).disabled(typed.isEmpty)
             }
         }
     }
@@ -77,7 +77,7 @@ struct GroupChooser: View {
             .foregroundStyle(.supporting)
             if source.groups.isEmpty {
                 Button("Show my WhatsApp groups") { model.attempt("list your WhatsApp groups", source.loadGroups) }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.primary)
             }
             ForEach(source.groups) { group in
                 HStack {
@@ -126,7 +126,7 @@ struct SeveralChatsChooser: View {
                     model.attempt("save the chats") { try source.choose(source.matching) }
                     model.reload()
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.primary)
             }
         }
     }

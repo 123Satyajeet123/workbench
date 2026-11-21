@@ -19,7 +19,7 @@ struct DealDetail: View {
                 HStack {
                     Text(deal.title).textStyle(.title3)
                     Spacer()
-                    Button("Close", systemImage: "xmark", action: close).labelStyle(.iconOnly).buttonStyle(.borderless)
+                    Button("Close", systemImage: "xmark", action: close).labelStyle(.iconOnly).buttonStyle(.ghost)
                 }
                 Picker("Stage", selection: Binding(get: { deal.stages.first ?? "" }, set: { move(deal, $0) })) {
                     ForEach(deals.stages, id: \.self) { Text($0).tag($0) }
@@ -52,7 +52,7 @@ struct DealDetail: View {
             }
             .padding(Space.m)
         }
-        .background(.quaternary.opacity(0.3), in: .rect(cornerRadius: Radius.card))
+        .background(.calloutFill, in: .rect(cornerRadius: Radius.card))
     }
 
     private func actionRow(_ action: Item) -> some View {
@@ -133,7 +133,7 @@ struct ActionRequiredForm: View {
             HStack {
                 Spacer()
                 Button("Cancel", action: cancel)
-                Button("Require action", action: save).buttonStyle(.borderedProminent).disabled(what.cleaned == nil)
+                Button("Require action", action: save).buttonStyle(.primary).disabled(what.cleaned == nil)
             }
         }
         .padding(Space.l).frame(width: 420)

@@ -11,7 +11,8 @@ enum Space {
 }
 
 enum Radius {
-    static let card: CGFloat = 12
+    static let card: CGFloat = 8
+    static let control: CGFloat = 6
 }
 
 /// What a status means, as one colour each.
@@ -29,14 +30,15 @@ enum Tone {
 }
 
 extension ShapeStyle where Self == Color {
-    /// The opacity of primary text used for supporting text. `ContrastTests` holds it above 4.5:1.
+    /// The opacity of the body text used for supporting text. `ContrastTests` holds it above 4.5:1 on every surface.
     static var supportingOpacity: Double { 0.72 }
 
     /// Text beside the main text. `.secondary` measures 3.9:1 on white; this stays above 4.5:1 in both appearances.
-    static var supporting: Color { Color.primary.opacity(supportingOpacity) }
+    static var supporting: Color { Color.bodyText.opacity(supportingOpacity) }
 }
 
-/// A page of the main window: a title, an optional face and line under it, and its content in one readable column.
+/// A page of the main window, laid out as Notion lays out a page: the helper's face above a large title, a quiet line
+/// under it, and the content in one readable column.
 struct Page<Content: View, Accessory: View>: View {
     static var columnWidth: CGFloat { 760 }
 
@@ -49,14 +51,16 @@ struct Page<Content: View, Accessory: View>: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Space.l) {
-                HStack(alignment: .center, spacing: Space.m) {
+                VStack(alignment: .leading, spacing: Space.m) {
                     if let look { Mascot(look: look, size: 52) }
-                    VStack(alignment: .leading, spacing: Space.xs) {
-                        Text(title).textStyle(.largeTitle, weight: .bold)
-                        if let subtitle { Text(subtitle).foregroundStyle(.supporting) }
+                    HStack(alignment: .center, spacing: Space.m) {
+                        VStack(alignment: .leading, spacing: Space.xs) {
+                            Text(title).textStyle(.largeTitle, weight: .bold)
+                            if let subtitle { Text(subtitle).foregroundStyle(.supporting) }
+                        }
+                        Spacer()
+                        accessory
                     }
-                    Spacer()
-                    accessory
                 }
                 content
             }
@@ -64,7 +68,7 @@ struct Page<Content: View, Accessory: View>: View {
             .padding(Space.page)
             .frame(maxWidth: .infinity)
         }
-        .background(Color(nsColor: .textBackgroundColor))
+        .background(.pageFill)
     }
 }
 
@@ -85,13 +89,13 @@ struct Card<Icon: View, Content: View>: View {
             Label {
                 Text(title)
             } icon: {
-                icon
+                icon.foregroundStyle(.iconTint)
             }.textStyle(.headline)
             content
         }
         .padding(Space.l)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary.opacity(0.5), in: .rect(cornerRadius: Radius.card))
+        .background(.calloutFill, in: .rect(cornerRadius: Radius.card))
     }
 }
 
@@ -111,7 +115,7 @@ struct ProblemBanner: View {
             Label(text, systemImage: "exclamationmark.triangle").foregroundStyle(Tone.bad.color)
                 .textSelection(.enabled)
             Spacer()
-            if let dismiss { Button("Dismiss", action: dismiss).buttonStyle(.borderless) }
+            if let dismiss { Button("Dismiss", action: dismiss).buttonStyle(.ghost) }
         }
         .textStyle(.callout)
     }

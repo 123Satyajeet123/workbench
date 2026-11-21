@@ -21,6 +21,7 @@ public struct WorkbenchApp: App {
                     }
                 }
                 .zoomed(Zoom(zoom))
+                .background(.pageFill)
                 .environment(session)
                 .onOpenURL { url in session.navigation.requested = SidebarSelection(url: url) }
                 .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
@@ -31,6 +32,7 @@ public struct WorkbenchApp: App {
             }
         }
         .commands { ZoomCommands() }
+        .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentSize)
         .defaultWindowPlacement { _, context in
             let visible = context.defaultDisplay.visibleRect

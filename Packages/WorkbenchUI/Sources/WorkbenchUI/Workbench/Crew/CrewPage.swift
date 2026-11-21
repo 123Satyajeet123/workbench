@@ -70,7 +70,7 @@ private struct MachineCard: View {
                 }
                 HStack {
                     Button(helper.isPaused ? "Resume" : "Pause") { crew.setPaused(helper, !helper.isPaused) }
-                    Button("Open \(helper.name)", action: open).buttonStyle(.borderedProminent)
+                    Button("Open \(helper.name)", action: open).buttonStyle(.primary)
                 }
             })
     }

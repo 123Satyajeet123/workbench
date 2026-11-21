@@ -101,12 +101,13 @@ enum SidebarSelection: Hashable, Identifiable, RawRepresentable {
         }
     }
 
-    /// The face of a fixed helper. The other pages are tools, not helpers, so they have none.
+    /// The face of a fixed helper. The other pages are tools, not helpers, so they have none. Today is Mochi's brief of
+    /// the day, so it wears Mochi's face.
     var look: Mascot.Look? {
         switch self {
-        case .day: Mascot.Look(hue: 0.04, wear: .crown)
+        case .day, .mochi: Mascot.Look(hue: 0.04, wear: .crown)
         case .calls: Mascot.Look(hue: 0.76, wear: .headphones)
-        case .people, .projects, .mochi, .crew, .review, .deals, .catalog, .advanced, .machine: nil
+        case .people, .projects, .crew, .review, .deals, .catalog, .advanced, .machine: nil
         }
     }
 }
