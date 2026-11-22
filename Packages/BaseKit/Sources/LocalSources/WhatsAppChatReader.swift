@@ -70,7 +70,7 @@ public struct WhatsAppChatReader: Sendable {
         static let document = 8
     }
 
-    private enum SessionType {
+    enum SessionType {
         static let person = 0
         static let group = 1
     }
@@ -80,10 +80,10 @@ public struct WhatsAppChatReader: Sendable {
             .appending(path: "Library/Group Containers/group.net.whatsapp.WhatsApp.shared")
     }
 
-    private let container: URL
+    let container: URL
     /// The chats this reader may read; the policy must allow each one.
     public let chatJIDs: [String]
-    private let policy: any CapturePolicyProvider
+    let policy: any CapturePolicyProvider
 
     public init(container: URL = defaultContainer, chatJIDs: [String], policy: any CapturePolicyProvider) {
         self.container = container
@@ -256,7 +256,7 @@ public struct WhatsAppChatReader: Sendable {
         return book
     }
 
-    private static func snapshot(_ container: URL) throws -> SQLiteSnapshot {
+    static func snapshot(_ container: URL) throws -> SQLiteSnapshot {
         let snapshot = try SQLiteSnapshot(copying: container.appending(path: "ChatStorage.sqlite").path)
         try snapshot.requireColumns(
             ["Z_PK", "ZCONTACTJID", "ZSESSIONTYPE", "ZPARTNERNAME", "ZLASTMESSAGEDATE"], in: "ZWACHATSESSION")

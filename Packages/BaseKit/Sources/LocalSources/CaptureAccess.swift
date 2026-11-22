@@ -7,6 +7,10 @@ public enum ReadError: Error, Equatable {
     case storeMissing
     case unreadableStore
     case unsupportedSchema
+    /// The file does not start with the SQLite header: it is encrypted, damaged or not a database.
+    case notADatabase
+    /// A group with no readable member list: who could read its messages is unknown.
+    case audienceUnknown
 }
 
 extension CapturePolicyProvider {
@@ -34,6 +38,8 @@ extension ReadError: LocalizedError {
         case .storeMissing: "The app's data is not on this Mac. Install the app and sign in, then try again."
         case .unreadableStore: "The app's local data could not be opened. Is the app installed and signed in?"
         case .unsupportedSchema: "The app's local data has a layout Workbench does not know. Update Workbench."
+        case .notADatabase: "The app's local data is not in a format Workbench can read. Update Workbench."
+        case .audienceUnknown: "Workbench cannot tell who is in this group, so it did not read it."
         }
     }
 }

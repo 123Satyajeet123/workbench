@@ -42,11 +42,7 @@ public struct HelperSpec: Codable, Sendable, Equatable {
         /// What the model is told about the lines it reads.
         var lines: String {
             switch self {
-            case .whatsappChat:
-                """
-                one work day of a WhatsApp group. Each line is `[number] HH:mm sender: text`. People write in Hindi, \
-                English and Hinglish.
-                """
+            case .whatsappChat: SourceDescriptor.whatsAppChat.grammar
             case .screenSessions:
                 """
                 the windows the founder had in front, in order. Each line is `[number] HH:mm–HH:mm (minutes) app — \

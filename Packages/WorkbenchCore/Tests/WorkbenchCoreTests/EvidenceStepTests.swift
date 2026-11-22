@@ -370,7 +370,7 @@ import Testing
         }
         try queue.write { db in
             let kept = [
-                row(number: 1), row(text: "", tombstone: 1, number: 2),
+                row(number: 1), row(entity: Self.revokedKey, text: "", tombstone: 1, number: 2),
                 row(
                     entity: Self.screenKey, audience: nil, obtainedBy: "ax_value", walkComplete: 1, replyTo: Data([9]),
                     number: 3),
@@ -391,6 +391,7 @@ import Testing
     }
 
     static let whatsAppKey = try! EntityKey.whatsAppDirect(chat: "91@s.whatsapp.net", fromMe: false, stanzaID: "3EB0")
+    static let revokedKey = try! EntityKey.whatsAppDirect(chat: "91@s.whatsapp.net", fromMe: true, stanzaID: "3EB1")
     static let screenKey = try! EntityKey.screen(container: "app place", content: ContentHash(text: "ok"), ordinal: 0)
 
     /// A line whose entity has an audience (WhatsApp direct and group, mail, calendar) needs its audience digest,
@@ -473,7 +474,7 @@ import Testing
             "id = 99", "line_id = zeroblob(32)", "entity_key = x'02'", "quality = 'derived'",
             "source_id = zeroblob(16)", "container = 'other'", "event_time = 7", "first_seen = first_seen - 1",
             "actor = 'someone'", "text = 'changed'", "reply_to = x'05'", "coordinate = 'p1'",
-            "tombstone = 1, text = ''", "label_id = zeroblob(16)", "grant_id = 'other'",
+            "message_ref = 'm1'", "tombstone = 1, text = ''", "label_id = zeroblob(16)", "grant_id = 'other'",
             "audience_digest = zeroblob(32)", "retention_class = 'other'", "obtained_by = 'api'", "walk_complete = 1",
             "reader_version = 'r9'",
         ]
@@ -488,6 +489,54 @@ import Testing
                 }
             }
         }
+    }
+
+    // MARK: A revoke is final
+
+    /// After a tombstone no text line of the same entity key, or of the same container and `message_ref`, is
+    /// written; a line of another message still is.
+    static func aTombstoneIsFinal(_ queue: DatabaseQueue) throws {
+        func insertLine(_ db: Database, _ text: String, stanza: String, member: String, ref: String?, tombstone: Bool)
+            throws -> Int
+        {
+            let key = try EntityKey.whatsAppGroup(chat: "120363@g.us", author: .member(member), stanzaID: stanza)
+            let line =
+                tombstone
+                ? Line.tombstone(entity: key, readerVersion: "wa 1")
+                : Line(entity: key, text: text, readerVersion: "wa 1")
+            try db.execute(
+                sql: """
+                    INSERT INTO evidence(line_id, entity_key, quality, source_id, container, first_seen, last_seen,
+                        text, message_ref, tombstone, label_id, grant_id, audience_digest, retention_class,
+                        obtained_by, reader_version)
+                    VALUES (?, ?, 'stable', zeroblob(16), '120363@g.us', 1, 1, ?, ?, ?, zeroblob(16), 'g', zeroblob(32),
+                        'chat', 'db', 'wa 1')
+                    """, arguments: [Data(line.id.bytes), Data(key.bytes), line.text, ref, tombstone ? 1 : 0])
+            return db.changesCount
+        }
+        let written = try queue.write { db in
+            [
+                try insertLine(db, "plan", stanza: "S1", member: "a@lid", ref: "S1", tombstone: false),
+                try insertLine(db, "", stanza: "S1", member: "a@lid", ref: "S1", tombstone: true),
+                try insertLine(db, "plan v2", stanza: "S1", member: "a@lid", ref: "S1", tombstone: false),
+                try insertLine(db, "plan v3", stanza: "S1", member: "a@s.whatsapp.net", ref: "S1", tombstone: false),
+                try insertLine(db, "other", stanza: "S2", member: "a@lid", ref: "S2", tombstone: false),
+                try insertLine(db, "no ref", stanza: "S9", member: "a@lid", ref: nil, tombstone: false),
+            ]
+        }
+        #expect(
+            written == [1, 1, 0, 0, 1, 1],
+            "text, tombstone; then refused: the same entity key, the same chat and message id under another author form; then another message and a line with no message id are written"
+        )
+        #expect(
+            try queue.read { try Int.fetchOne($0, sql: "SELECT count(*) FROM evidence WHERE text LIKE 'plan%'") } == 1)
+    }
+
+    @Test func aTombstoneIsFinal() throws { try Self.aTombstoneIsFinal(Self.database()) }
+
+    @Test func aTombstoneIsFinalCatchesPlantedBreak() throws {
+        let noGuard = try Self.database { $0.contains("evidence_revoke_is_final") ? nil : $0 }
+        withKnownIssue("planted break: a text line may follow its tombstone") { try Self.aTombstoneIsFinal(noGuard) }
     }
 
     // MARK: Written once

@@ -117,7 +117,7 @@ extension Store {
 
     /// Empties the write-ahead log. A reader that still holds it makes SQLite report busy. The delete waits, tries
     /// again, then throws, because the deleted text would still be on disk.
-    private func truncateLog() throws {
+    func truncateLog() throws {
         for _ in 0..<Self.checkpointAttempts {
             do {
                 _ = try writer.writeWithoutTransaction { db in try db.checkpoint(.truncate) }
@@ -145,6 +145,7 @@ extension Store {
 
     private func remove(_ db: Database, _ kind: SourceKind, before cutoff: Date) throws -> [String] {
         guard kind != .typed else { return [] }
+        _ = try Self.eraseEvidence(.kind(kind, before: cutoff == .distantFuture ? nil : cutoff), in: db)
         try db.execute(
             sql: "DELETE FROM item WHERE source = ? AND start_at < ?", arguments: [kind.rawValue, cutoff.stored])
         try removeRunText(db, holding: [kind], before: cutoff)

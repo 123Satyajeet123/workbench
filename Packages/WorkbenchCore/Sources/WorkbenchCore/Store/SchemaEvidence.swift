@@ -9,7 +9,9 @@ extension Schema {
     /// of a container; `evidence_legacy` maps a citation that names an older row id (a WhatsApp `Z_PK`, an
     /// `activity`, `mail_part` or `news_article` id) to its lines. View and legacy rows are written once and never
     /// change. Search uses FTS5 over `text`; combining marks, ZWJ and ZWNJ stay inside a word. Deleting a line removes
-    /// its search entry, its view rows and its legacy rows.
+    /// its search entry, its view rows and its legacy rows. `message_ref` is the source's own id of the message in
+    /// its container (a WhatsApp stanza id): a tombstone is final, so no text line of the same entity key, or of the
+    /// same container and `message_ref`, is written after it.
     static let evidence = [
         """
         CREATE TABLE evidence(
@@ -24,6 +26,7 @@ extension Schema {
             text TEXT NOT NULL,
             reply_to BLOB CHECK(reply_to IS NULL OR length(reply_to) > 0),
             coordinate TEXT CHECK(coordinate IS NULL OR coordinate <> ''),
+            message_ref TEXT CHECK(message_ref IS NULL OR message_ref <> ''),
             tombstone INTEGER NOT NULL CHECK(tombstone IN (0,1)),
             label_id BLOB NOT NULL CHECK(length(label_id) = 16),
             grant_id TEXT NOT NULL CHECK(grant_id <> ''),
@@ -48,10 +51,20 @@ extension Schema {
         """,
         """
         CREATE TRIGGER evidence_never_changes BEFORE UPDATE OF id, line_id, entity_key, quality, source_id, container,
-            event_time, first_seen, actor, text, reply_to, coordinate, tombstone, label_id, grant_id, audience_digest,
-            retention_class, obtained_by, walk_complete, reader_version ON evidence
+            event_time, first_seen, actor, text, reply_to, coordinate, message_ref, tombstone, label_id, grant_id,
+            audience_digest, retention_class, obtained_by, walk_complete, reader_version ON evidence
         BEGIN SELECT RAISE(ABORT, 'an evidence line never changes'); END
         """,
+        """
+        CREATE TRIGGER evidence_revoke_is_final BEFORE INSERT ON evidence
+        WHEN NEW.tombstone = 0 AND EXISTS (SELECT 1 FROM evidence WHERE tombstone = 1
+            AND (entity_key = NEW.entity_key OR (container = NEW.container AND message_ref = NEW.message_ref)))
+        BEGIN SELECT RAISE(IGNORE); END
+        """,
+        "CREATE INDEX evidence_entity ON evidence(entity_key, last_seen)",
+        "CREATE INDEX evidence_message ON evidence(container, message_ref)",
+        "CREATE INDEX evidence_source ON evidence(source_id, last_seen)",
+        "CREATE INDEX evidence_grant ON evidence(grant_id, last_seen)",
         """
         CREATE TRIGGER evidence_last_seen_moves_forward BEFORE UPDATE OF last_seen ON evidence
         WHEN NEW.last_seen < OLD.last_seen BEGIN SELECT RAISE(ABORT, 'last_seen never moves back'); END

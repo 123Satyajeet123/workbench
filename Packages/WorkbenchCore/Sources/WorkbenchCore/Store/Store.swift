@@ -21,6 +21,7 @@ public final class Store: Sendable {
     public let queries: Queries
     let writer: DatabasePool
     public let clock: @Sendable () -> Date
+    let ingestGate = SerialGate()
 
     public init(
         directory: URL, clock: @escaping @Sendable () -> Date = { Date() },
@@ -77,12 +78,7 @@ public final class Store: Sendable {
 
     /// A small setting: the last value saved for a key.
     public func saveState(_ value: String, forKey key: String) throws {
-        try writer.write { db in
-            try db.execute(
-                sql:
-                    "INSERT INTO state(key, value, saved_at) VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, saved_at = excluded.saved_at",
-                arguments: [key, value, clock().stored])
-        }
+        try writer.write { db in try Self.upsertState(db, key: key, value: value, savedAt: clock()) }
     }
 
     /// The policy is the latest consent row. Every change adds one.

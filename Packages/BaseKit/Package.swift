@@ -11,10 +11,10 @@ let package = Package(
         .library(name: "WebResearch", targets: ["WebResearch"]),
         .executable(name: "transcribe-bakeoff", targets: ["TranscribeBakeoff"]),
     ],
-    dependencies: [.package(path: "../WorkbenchCore")],
+    dependencies: [.package(path: "../WorkbenchCore"), .package(path: "../Kernel")],
     targets: [
         .target(name: "AgentCLI", dependencies: ["WorkbenchCore"]),
-        .target(name: "LocalSources", dependencies: ["WorkbenchCore"]),
+        .target(name: "LocalSources", dependencies: ["WorkbenchCore", .product(name: "Lines", package: "Kernel")]),
         .target(name: "WebResearch", dependencies: ["WorkbenchCore"]),
         .target(name: "CaptureService", dependencies: ["WorkbenchCore", "LocalSources"]),
         .executableTarget(name: "TranscribeBakeoff", dependencies: ["LocalSources", "WorkbenchCore"]),

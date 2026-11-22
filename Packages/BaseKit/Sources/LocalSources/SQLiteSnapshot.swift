@@ -5,6 +5,7 @@ enum SQLiteValue: Equatable {
     case integer(Int64)
     case real(Double)
     case text(String)
+    case blob([UInt8])
     case null
 }
 
@@ -26,16 +27,27 @@ struct SQLiteRow {
     func text(_ column: Int) -> String? {
         if case .text(let value) = values[column] { value } else { nil }
     }
+
+    func blob(_ column: Int) -> [UInt8]? {
+        if case .blob(let value) = values[column] { value } else { nil }
+    }
+
+    func isNull(_ column: Int) -> Bool { values[column] == .null }
 }
 
-/// A private copy of a database that another app holds open. The copy is transactionally consistent
-/// while the owner writes its WAL, and SQLite deletes it on close.
+/// A private copy of a database that another app holds open, kept in memory only. The copy is transactionally
+/// consistent while the owner writes its WAL. It never touches the disk: an empty file name would make SQLite spill
+/// pages of every chat, allowed or not, to a temporary file.
 final class SQLiteSnapshot {
     private static let copyDeadline: TimeInterval = 8
-    private var handle: OpaquePointer?
+    /// The name the copy is opened under. An empty name makes a private temporary database whose pages may go to a
+    /// temporary file; the system library decides by its build, so the name never leaves the choice open.
+    static let copyName = ":memory:"
+    var handle: OpaquePointer?
 
     init(copying path: String) throws {
         try Self.checkAccess(path)
+        try Self.checkHeader(path)
         var source: OpaquePointer?
         guard sqlite3_open_v2(path, &source, SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK else {
             sqlite3_close(source)
@@ -43,7 +55,8 @@ final class SQLiteSnapshot {
         }
         defer { sqlite3_close(source) }
         guard
-            sqlite3_open_v2("", &handle, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX, nil)
+            sqlite3_open_v2(
+                Self.copyName, &handle, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX, nil)
                 == SQLITE_OK,
             let copy = sqlite3_backup_init(handle, "main", source, "main")
         else {
@@ -79,6 +92,18 @@ final class SQLiteSnapshot {
         }
     }
 
+    /// The first 16 bytes of every SQLite file. A file with another start is encrypted, damaged or not a database.
+    static let headerMagic = Array("SQLite format 3\0".utf8)
+
+    /// Fails closed before any read when the file does not start with the SQLite header.
+    private static func checkHeader(_ path: String) throws {
+        let first = FileHandle(forReadingAtPath: path).flatMap { handle in
+            defer { try? handle.close() }
+            return try? handle.read(upToCount: headerMagic.count)
+        }
+        guard let first, Array(first) == headerMagic else { throw ReadError.notADatabase }
+    }
+
     func requireColumns(_ columns: [String], in table: String) throws {
         let present = Set(
             try rows("SELECT name FROM pragma_table_info(?)", binding: [.text(table)]).compactMap { $0.text(0) })
@@ -108,6 +133,7 @@ final class SQLiteSnapshot {
         case .integer(let number): sqlite3_bind_int64(statement, index, number)
         case .real(let number): sqlite3_bind_double(statement, index, number)
         case .text(let text): sqlite3_bind_text(statement, index, text, -1, copyText)
+        case .blob(let bytes): sqlite3_bind_blob(statement, index, bytes, Int32(bytes.count), copyText)
         case .null: sqlite3_bind_null(statement, index)
         }
     }
@@ -117,6 +143,14 @@ final class SQLiteSnapshot {
         case SQLITE_INTEGER: .integer(sqlite3_column_int64(statement, column))
         case SQLITE_FLOAT: .real(sqlite3_column_double(statement, column))
         case SQLITE_NULL: .null
+        case SQLITE_BLOB:
+            .blob(
+                sqlite3_column_blob(statement, column).map {
+                    Array(
+                        UnsafeBufferPointer(
+                            start: $0.assumingMemoryBound(to: UInt8.self),
+                            count: Int(sqlite3_column_bytes(statement, column))))
+                } ?? [])
         default: .text(String(cString: sqlite3_column_text(statement, column)))
         }
     }

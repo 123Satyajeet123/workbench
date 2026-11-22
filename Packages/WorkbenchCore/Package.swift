@@ -15,7 +15,12 @@ let package = Package(
         .package(path: "../Kernel"),
     ],
     targets: [
-        .target(name: "WorkbenchCore", dependencies: [.product(name: "GRDB", package: "GRDB.swift")]),
+        .target(
+            name: "WorkbenchCore",
+            dependencies: [
+                .product(name: "GRDB", package: "GRDB.swift"), .product(name: "Kernel", package: "Kernel"),
+                .product(name: "Lines", package: "Kernel"),
+            ]),
         .executableTarget(name: "WorkbenchPages", dependencies: ["WorkbenchCore"]),
         .executableTarget(name: "ClaimEvalRunner", dependencies: ["WorkbenchCore"]),
         .executableTarget(name: "OutboundEvalRunner", dependencies: ["WorkbenchCore"]),
