@@ -26,7 +26,8 @@ let package = Package(
         .testTarget(
             name: "WorkbenchUITests",
             dependencies: [
-                "WorkbenchUI", .product(name: "AgentCLI", package: "BaseKit"), .product(name: "Kernel", package: "Kernel"),
+                "WorkbenchUI", .product(name: "AgentCLI", package: "BaseKit"),
+                .product(name: "Kernel", package: "Kernel"),
             ],
             swiftSettings: [.defaultIsolation(MainActor.self)]
         ),

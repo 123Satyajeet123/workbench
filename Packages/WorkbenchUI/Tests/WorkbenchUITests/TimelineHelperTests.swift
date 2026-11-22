@@ -146,8 +146,14 @@ private final class StallingModel: StructuredModel, Sendable {
         let timeline = stalling(try morning(), model)
         let reading = Task { await timeline.read() }
         let reachedTheModel = await withTaskGroup(of: Bool.self) { group in
-            group.addTask { await model.waitUntilStarted(); return true }
-            group.addTask { await reading.value; return false }
+            group.addTask {
+                await model.waitUntilStarted()
+                return true
+            }
+            group.addTask {
+                await reading.value
+                return false
+            }
             let first = await group.next() ?? false
             reading.cancel()
             group.cancelAll()

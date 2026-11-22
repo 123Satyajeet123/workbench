@@ -115,7 +115,8 @@ extension WhatsAppChatReader: EvidenceSource {
     /// logs as updates. Only a photo sent within the retention (how far back anything reads) is read, so the first reading of a long chat does not
     /// recognize every photo it ever held.
     private func readingPhoto(_ message: Message, now: Date) -> Message {
-        guard message.type == .image, let time = message.time, Double(UTCInstant(now).milliseconds - time.milliseconds) / 1000 < CapturePolicy.retention,
+        guard message.type == .image, let time = message.time,
+            Double(UTCInstant(now).milliseconds - time.milliseconds) / 1000 < CapturePolicy.retention,
             let file = mediaFile(atRelativePath: message.mediaPath)
         else { return message }
         let seen = ImageText.text(in: file)

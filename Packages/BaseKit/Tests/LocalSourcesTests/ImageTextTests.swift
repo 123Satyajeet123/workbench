@@ -23,7 +23,8 @@ func writeTextImage(_ text: String, to url: URL) throws {
 /// A photo sent to a group is read as the text in it, on this Mac, then its caption.
 @Suite struct ImageTextTests {
     private func photoLines(
-        path: String, caption: String?, at now: Date = WhatsAppEvidenceTests.now, prepare: (WhatsAppFixture) throws -> Void
+        path: String, caption: String?, at now: Date = WhatsAppEvidenceTests.now,
+        prepare: (WhatsAppFixture) throws -> Void
     ) async throws -> [String] {
         let rig = try WhatsAppEvidenceTests.Rig()
         try prepare(rig.fixture)
@@ -38,7 +39,8 @@ func writeTextImage(_ text: String, to url: URL) throws {
             try writeTextImage("OTA done", to: $0.container.appending(path: "Message/Media/shot.jpg"))
         }
         let line = try #require(lines.first)
-        #expect(lines.count == 1 && line.hasPrefix("[photo] ") && line.contains("OTA done") && line.hasSuffix("— build 4"))
+        #expect(
+            lines.count == 1 && line.hasPrefix("[photo] ") && line.contains("OTA done") && line.hasSuffix("— build 4"))
     }
 
     @Test func aPhotoOutsideTheMessageFolderIsNotRead() async throws {

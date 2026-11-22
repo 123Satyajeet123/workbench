@@ -1,9 +1,10 @@
 import Foundation
-import struct Kernel.PersonID
 import LocalSources
 import Synchronization
 import Testing
 import WorkbenchCore
+
+import struct Kernel.PersonID
 
 @testable import CaptureService
 

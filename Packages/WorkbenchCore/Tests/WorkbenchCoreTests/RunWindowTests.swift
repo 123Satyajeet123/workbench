@@ -69,7 +69,8 @@ import Testing
         scene.world.advance(by: 60)
         _ = try scene.world.record([try EvidenceIngestTests.message("login NOT done", stanza: "m0")], row: 101)
         let now = try scene.world.store.queries.currentLines(in: [Self.chat], from: Self.from, to: Self.to)
-        #expect(now.map(\.text).contains("login NOT done") && !now.map(\.text).contains("login done"), "the source changed")
+        #expect(
+            now.map(\.text).contains("login NOT done") && !now.map(\.text).contains("login done"), "the source changed")
         #expect(try scene.proof(of: item).map(\.line.text) == ["login done"], "the proof did not")
     }
 
@@ -140,7 +141,8 @@ import Testing
     @Test func aLineCountsAsReadOnlyWhenALiveReadingThatUsedItWasSaved() throws {
         let scene = try Scene()
         let store = scene.world.store
-        #expect(try store.queries.numbersRead(by: "t", among: scene.numbers).isEmpty, "the model answered, nothing saved")
+        #expect(
+            try store.queries.numbersRead(by: "t", among: scene.numbers).isEmpty, "the model answered, nothing saved")
         try store.recordYield(of: scene.run, kept: 0, dropped: 0)
         #expect(try store.queries.numbersRead(by: "t", among: scene.numbers) == Set(scene.numbers))
         #expect(try store.queries.numbersRead(by: "t", among: [scene.numbers[0]]) == [scene.numbers[0]])

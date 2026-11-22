@@ -21,7 +21,8 @@ import WorkbenchCore
 
     private func watch(_ rig: Rig) -> WhatsAppIngestWatch {
         WhatsAppIngestWatch(
-            store: rig.store, owner: WhatsAppEvidenceTests.owner, container: rig.fixture.container, period: Self.period, latency: 0.1)
+            store: rig.store, owner: WhatsAppEvidenceTests.owner, container: rig.fixture.container, period: Self.period,
+            latency: 0.1)
     }
 
     @Test func theStoreAndItsLogAreTheOnlyFilesThatCount() {
@@ -65,7 +66,8 @@ import WorkbenchCore
         let rig = try Rig()
         let reads = Counter()
         let watch = WhatsAppIngestWatch(
-            store: rig.store, owner: WhatsAppEvidenceTests.owner, container: rig.fixture.container, period: Self.period, latency: 0.1,
+            store: rig.store, owner: WhatsAppEvidenceTests.owner, container: rig.fixture.container, period: Self.period,
+            latency: 0.1,
             onIngest: { _ in reads.add() })
         defer { watch.stop() }
         #expect(try await waitUntil { reads.count == 1 }, "the one read at start")
@@ -78,7 +80,8 @@ import WorkbenchCore
         let rig = try Rig()
         let reads = Counter()
         let watch = WhatsAppIngestWatch(
-            store: rig.store, owner: WhatsAppEvidenceTests.owner, container: rig.fixture.container, period: Self.period, latency: 0.1,
+            store: rig.store, owner: WhatsAppEvidenceTests.owner, container: rig.fixture.container, period: Self.period,
+            latency: 0.1,
             onIngest: { _ in reads.add() })
         #expect(try await waitUntil { reads.count == 1 })
         watch.stop()

@@ -1,8 +1,8 @@
 import CaptureService
 import Foundation
 import Kernel
-import Synchronization
 import LocalSources
+import Synchronization
 import Testing
 import WorkbenchCore
 
@@ -193,7 +193,13 @@ private final class SecretsThatFailOnce: SecretStore, Sendable {
     func failNext() { failing.withLock { $0 = true } }
     func read(_ name: String) -> String? { nil }
     func lookup(_ name: String) throws -> String? {
-        if failing.withLock({ let was = $0; $0 = false; return was }) { throw Refused() }
+        if failing.withLock({
+            let was = $0
+            $0 = false
+            return was
+        }) {
+            throw Refused()
+        }
         return try inner.lookup(name)
     }
     func create(_ value: String, as name: String) throws -> Bool {
@@ -212,7 +218,13 @@ private final class SecretsWithARacingWriter: SecretStore, Sendable {
     init(winner: String) { self.winner = winner }
     func read(_ name: String) -> String? { values.withLock { $0[name] } }
     func lookup(_ name: String) throws -> String? {
-        if !looked.withLock({ let was = $0; $0 = true; return was }) { return nil }
+        if !looked.withLock({
+            let was = $0
+            $0 = true
+            return was
+        }) {
+            return nil
+        }
         return values.withLock { $0[name] }
     }
     func create(_ value: String, as name: String) throws -> Bool {
