@@ -19,6 +19,7 @@ final class WhatsAppSource: MachineSource {
     private(set) var pullProblem: String?
     private(set) var members: [WhatsAppMember] = []
     private(set) var teamHandles: Set<String> = []
+    private(set) var isChanging = false
     /// The name of every person the chats ever had, by WhatsApp ID, as of the last read of the people.
     @ObservationIgnored private var names: [String: String] = [:]
 
@@ -50,12 +51,12 @@ final class WhatsAppSource: MachineSource {
 
     var scope: String { chat?.jid ?? "" }
     var isReady: Bool { !chats.isEmpty }
-    /// The people the founder expects to hear from. One chat: everyone in it. Several chats: the teammates the
-    /// founder set up in Team setup, when any is linked to a WhatsApp ID; else the people in the first chosen group.
+    /// The people the founder expects to hear from: the teammates ticked on Pip's page or set up in Team setup, when
+    /// any is linked to a WhatsApp ID. Otherwise everyone in one chat, or the people in the first of several chats.
     var expectedPeople: [WhatsAppMember] {
-        guard isSeveral else { return members }
-        let team = members.filter { teamHandles.contains($0.jid) }
+        let team = members.filter(isTeammate)
         guard team.isEmpty else { return team }
+        guard isSeveral else { return members }
         guard let first = chats.first(where: \.isGroup) ?? chats.first else { return [] }
         return members.filter { $0.chats?.contains(first.jid) == true }
     }
@@ -106,8 +107,28 @@ final class WhatsAppSource: MachineSource {
         }
         try chatsKey.save(chosen, to: store)
         chats = chosen
+        keep()
+    }
+
+    /// Opens the chooser again over the chats already chosen.
+    func change() { isChanging = true }
+
+    /// Closes the chooser and leaves the chosen chats as they are.
+    func keep() {
+        isChanging = false
         matching = []
         closeDiscovery()
+    }
+
+    func isTeammate(_ member: WhatsAppMember) -> Bool { teamHandles.contains(member.jid) }
+
+    func setTeammate(_ member: WhatsAppMember, on: Bool) throws {
+        if on {
+            try store.addTeammate(member.name, whatsapp: member.jid)
+        } else {
+            try store.removeTeammate(whatsapp: member.jid)
+        }
+        try loadTeamHandles()
     }
 
     /// Said to the founder before a chat is stopped.

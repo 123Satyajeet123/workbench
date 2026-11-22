@@ -114,6 +114,9 @@ struct GroupChooser: View {
             }
             .onDisappear { source.closeDiscovery() }
             SeveralChatsChooser(model: model, source: source)
+            if source.isChanging, let current = model.chosenSource {
+                Button("Keep \(current)", action: source.keep)
+            }
         }
     }
 }

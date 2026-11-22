@@ -114,4 +114,27 @@ private func addItem(to machine: Machine, in store: Store) async throws -> Item 
         try store.saveTeam(Team(name: "  ", people: []))
         #expect(try store.queries.team()?.name == "Brave Capital")
     }
+
+    @Test func aGroupMemberTickedAsATeammateIsLinkedOnceAndUntickingRemovesThem() throws {
+        let store = try makeStore()
+        try store.addTeammate("Asha", whatsapp: "a@s.whatsapp.net")
+        try store.addTeammate("Asha", whatsapp: "a@s.whatsapp.net")
+        try store.addTeammate("Dev", whatsapp: "d@s.whatsapp.net")
+        let team = try #require(try store.queries.team())
+        #expect(team.people.map(\.name) == ["Asha", "Dev"])
+        #expect(Set(try store.queries.whatsappLinks().values) == ["a@s.whatsapp.net", "d@s.whatsapp.net"])
+
+        try store.removeTeammate(whatsapp: "a@s.whatsapp.net")
+        #expect(try store.queries.team()?.people.map(\.name) == ["Dev"])
+        try store.addTeammate("Asha", whatsapp: "a@s.whatsapp.net")
+        #expect(try store.queries.team()?.people.map(\.name) == ["Dev", "Asha"])
+    }
+
+    @Test func tickingATeammateKeepsTheTeamNamedAtOnboarding() throws {
+        let store = try makeStore()
+        try store.saveTeam(Team(name: "Brave", people: [.init(name: "Kabir", role: "Founder", isMe: true)]))
+        try store.addTeammate("Asha", whatsapp: "a@s.whatsapp.net")
+        let team = try #require(try store.queries.team())
+        #expect(team.name == "Brave" && team.people.map(\.name) == ["Kabir", "Asha"])
+    }
 }

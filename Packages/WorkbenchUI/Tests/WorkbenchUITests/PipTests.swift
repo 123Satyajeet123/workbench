@@ -291,6 +291,49 @@ import WorkbenchCore
         #expect(team.context["members"] == ["Asha", "Bharat"])
     }
 
+    @Test func withOneChatAndATickedTeamPipExpectsOnlyThatTeam() async throws {
+        let (team, _, _, _, source) = try makeTeam()
+        try source.loadGroups()
+        try source.choose(try #require(source.groups.first { $0.jid == teamJID }))
+        try await source.loadMembers()
+        let asha = try #require(source.members.first { $0.name == "Asha" })
+        try source.setTeammate(asha, on: true)
+        #expect(source.isTeammate(asha))
+        #expect(team.context["members"] == ["Asha"])
+        try source.setTeammate(asha, on: false)
+        #expect(team.context["members"] == ["Asha", "Bharat"], "with nobody ticked Pip expects everyone again")
+    }
+
+    @Test func changingChatsReplacesTheOldChatAndKeepingThemChangesNothing() throws {
+        let (team, _, capture, _, source) = try makeTeam()
+        try source.loadGroups()
+        try source.choose(try #require(source.groups.first { $0.jid == teamJID }))
+        source.change()
+        #expect(team.isChoosingSource)
+        source.keep()
+        #expect(!team.isChoosingSource && source.chats.map(\.jid) == [teamJID])
+
+        source.change()
+        try source.loadGroups()
+        try source.choose(try #require(source.groups.first { $0.jid == familyJID }))
+        #expect(!team.isChoosingSource && source.chats.map(\.jid) == [familyJID])
+        #expect(capture.policy.allowList[.whatsapp] == [familyJID], "the old group may no longer be read")
+    }
+
+    @Test func changingChatsKeepsAChatAnotherMachineStillReads() throws {
+        let now = noon
+        let store = try scratchStore(clock: { now })
+        let capture = try CaptureService(store: store)
+        let source = try WhatsAppSource(
+            store: store, capture: capture, task: HelperSpec.team.task, founder: { "Kabir" },
+            container: try whatsApp(at: noon), othersReading: { [teamJID] })
+        try source.loadGroups()
+        try source.choose(try #require(source.groups.first { $0.jid == teamJID }))
+        try source.loadGroups()
+        try source.choose(try #require(source.groups.first { $0.jid == familyJID }))
+        #expect(capture.policy.allowList[.whatsapp] == [teamJID, familyJID])
+    }
+
     @Test func aSeveralChatSourceNamesEachLineSChatAndItsDayIsNotShared() async throws {
         let now = noon
         let store = try scratchStore(clock: { now })
