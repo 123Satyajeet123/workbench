@@ -1,10 +1,10 @@
 import AppKit
+import LocalSources
 import SwiftUI
 
 struct PermissionNotice: View {
     let message: String
-    /// The pane of Privacy & Security, such as `Privacy_Calendars`.
-    let pane: String
+    let pane: PrivacyPane
 
     var body: some View {
         HStack {
@@ -17,9 +17,5 @@ struct PermissionNotice: View {
 }
 
 enum SystemSettings {
-    static func open(pane: String) {
-        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?\(pane)") {
-            NSWorkspace.shared.open(url)
-        }
-    }
+    static func open(pane: PrivacyPane) { NSWorkspace.shared.open(pane.url) }
 }

@@ -1,4 +1,5 @@
 import Foundation
+import LocalSources
 import Testing
 import WorkbenchCore
 

@@ -4,21 +4,14 @@ import WorkbenchCore
 /// The Mac's calendar, behind a seam so a test can use a fake. It only reads.
 public protocol CalendarEvents: Sendable {
     /// Asks macOS once when it has not asked before; otherwise reports what the person chose.
-    func requestAccess() async -> CalendarAccess
+    func requestAccess() async -> SystemAccess
     func calendars() -> [CalendarInfo]
     /// The events that start in `interval`, in the calendars with these ids.
     func meetings(during interval: DateInterval, in calendarIDs: [String]) -> [Meeting]
 }
 
-public enum CalendarAccess: Sendable, Equatable {
-    case allowed
-    /// The person said no, now or before; only System Settings can change it.
-    case blocked
-    case failed(String)
-}
-
 public enum CalendarError: Error, Equatable {
-    case accessRefused(CalendarAccess)
+    case accessRefused(SystemAccess)
 }
 
 public struct CalendarDay: Sendable, Equatable {

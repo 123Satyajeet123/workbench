@@ -1,3 +1,4 @@
+import LocalSources
 import Testing
 import WorkbenchCore
 
@@ -16,10 +17,10 @@ struct ConnectStatusTests {
         let facts = ConnectFacts(
             screenOn: true, calendarOn: true, calendarRefused: true,
             microphoneRefused: true)
-        #expect(facts.status(of: .screen) == .needsPermission(pane: "Privacy_Accessibility"))
-        #expect(facts.status(of: .whatsApp) == .needsPermission(pane: "Privacy_AllFiles"))
-        #expect(facts.status(of: .calendar) == .needsPermission(pane: "Privacy_Calendars"))
-        #expect(facts.status(of: .calls) == .needsPermission(pane: "Privacy_Microphone"))
+        #expect(facts.status(of: .screen) == .needsPermission(pane: .accessibility))
+        #expect(facts.status(of: .whatsApp) == .needsPermission(pane: .fullDiskAccess))
+        #expect(facts.status(of: .calendar) == .needsPermission(pane: .calendars))
+        #expect(facts.status(of: .calls) == .needsPermission(pane: .microphone))
     }
 
     @Test func allowedSourcesAreReady() {
@@ -36,10 +37,10 @@ struct ConnectStatusTests {
     }
 
     @Test func whatsAppAsksForFullDiskAccessBeforeAnyChatIsRead() {
-        #expect(ConnectFacts(fullDiskAccess: false).status(of: .whatsApp) == .needsPermission(pane: "Privacy_AllFiles"))
+        #expect(ConnectFacts(fullDiskAccess: false).status(of: .whatsApp) == .needsPermission(pane: .fullDiskAccess))
         #expect(
             ConnectFacts(fullDiskAccess: false, chats: ["A"]).status(of: .whatsApp)
-                == .needsPermission(pane: "Privacy_AllFiles"))
+                == .needsPermission(pane: .fullDiskAccess))
         #expect(ConnectFacts(fullDiskAccess: true).status(of: .whatsApp) == .off)
     }
 

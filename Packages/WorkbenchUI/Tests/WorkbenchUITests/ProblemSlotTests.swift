@@ -7,7 +7,7 @@ import Testing
     @Test func whatsAppRefusedByMacOSPointsAtFullDiskAccess() {
         let slot = ProblemSlot()
         slot.report("list your WhatsApp groups", ReadError.notPermitted)
-        #expect(slot.settingsPane == "Privacy_AllFiles")
+        #expect(slot.settingsPane == .fullDiskAccess)
         #expect(slot.text?.contains("Full Disk Access") == true)
     }
 

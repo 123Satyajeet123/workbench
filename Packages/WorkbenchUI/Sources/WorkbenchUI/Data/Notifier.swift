@@ -1,12 +1,6 @@
 import AppKit
+import LocalSources
 import UserNotifications
-
-enum SystemAccess: Equatable {
-    case allowed
-    /// The founder said no, now or before; only System Settings can change it.
-    case blocked
-    case failed(String)
-}
 
 /// Shows a message to the founder outside the window. Silent: no notification plays a sound.
 protocol Notifier {

@@ -1,3 +1,4 @@
+import LocalSources
 import WorkbenchCore
 
 enum ConnectRow: CaseIterable, Identifiable {
@@ -56,7 +57,7 @@ enum ConnectRow: CaseIterable, Identifiable {
 
 enum ConnectStatus: Equatable {
     case ready, off, missing, waiting
-    case needsPermission(pane: String)
+    case needsPermission(pane: PrivacyPane)
     case chosen(String)
 
     var isDone: Bool {
@@ -111,23 +112,23 @@ struct ConnectFacts: Equatable {
             return readerFound ? .ready : .missing
         case .screen:
             guard screenOn else { return .off }
-            return screenTrusted ? .ready : .needsPermission(pane: "Privacy_Accessibility")
+            return screenTrusted ? .ready : .needsPermission(pane: .accessibility)
         case .screenText:
             guard screenTextOn else { return .off }
-            return screenTrusted ? .ready : .needsPermission(pane: "Privacy_Accessibility")
+            return screenTrusted ? .ready : .needsPermission(pane: .accessibility)
         case .mail:
             return mailOn ? .ready : .off
         case .web:
             return webOn ? .ready : .off
         case .whatsApp:
-            guard fullDiskAccess else { return .needsPermission(pane: "Privacy_AllFiles") }
+            guard fullDiskAccess else { return .needsPermission(pane: .fullDiskAccess) }
             if let only = chats.first, chats.count == 1 { return .chosen(only) }
             return chats.isEmpty ? .off : .chosen("\(chats.count) chats")
         case .calendar:
             guard calendarOn else { return .off }
-            return calendarRefused ? .needsPermission(pane: "Privacy_Calendars") : .ready
+            return calendarRefused ? .needsPermission(pane: .calendars) : .ready
         case .calls:
-            if microphoneRefused { return .needsPermission(pane: "Privacy_Microphone") }
+            if microphoneRefused { return .needsPermission(pane: .microphone) }
             return callsOn ? .ready : .off
         }
     }

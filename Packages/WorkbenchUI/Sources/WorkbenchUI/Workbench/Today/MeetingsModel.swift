@@ -52,7 +52,7 @@ final class MeetingsModel {
         }
     }
 
-    private static func sentence(_ access: CalendarAccess) -> String {
+    private static func sentence(_ access: SystemAccess) -> String {
         switch access {
         case .failed(let reason): "macOS refused calendar access: \(reason)"
         case .allowed, .blocked: "macOS has not given Workbench access to your calendar."

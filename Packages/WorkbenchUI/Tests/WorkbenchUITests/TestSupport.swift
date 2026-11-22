@@ -2,6 +2,7 @@ import AppKit
 import CaptureService
 import Foundation
 import Kernel
+import LocalSources
 import SQLite3
 import SwiftUI
 import Synchronization
