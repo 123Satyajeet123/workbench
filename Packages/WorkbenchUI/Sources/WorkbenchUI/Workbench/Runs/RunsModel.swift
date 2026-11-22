@@ -13,7 +13,8 @@ final class RunsModel {
     private(set) var runs: [Run] = []
     private(set) var quality: [Quality] = []
     private(set) var meter = Meter()
-    private(set) var problem: String?
+    let problems = ProblemSlot()
+    var problem: String? { problems.text }
 
     @ObservationIgnored private let store: Store
 
@@ -23,7 +24,7 @@ final class RunsModel {
     }
 
     func refresh() {
-        do {
+        problems.attempt("read the runs", clearing: true) {
             let now = store.clock()
             let today = Calendar.current.startOfDay(for: now)
             runs = try store.queries.runs()
@@ -32,9 +33,6 @@ final class RunsModel {
                 today: try store.queries.usage(since: today),
                 week: try store.queries.usage(since: today.addingTimeInterval(-6 * 86_400)),
                 all: runs.map(\.usage).reduce(Usage(), +))
-            problem = nil
-        } catch {
-            problem = "Could not read the runs: \(error.localizedDescription)"
         }
     }
 }

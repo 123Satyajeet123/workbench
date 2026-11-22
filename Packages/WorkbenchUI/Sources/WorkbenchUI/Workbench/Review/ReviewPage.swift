@@ -7,7 +7,7 @@ struct ReviewPage: View {
 
     var body: some View {
         Page(intro: .review, title: SidebarSelection.review.title, subtitle: subtitle) {
-            if let problem = review.problem { ProblemBanner(text: problem) }
+            ProblemSlotBanner(slot: review.problems)
             if review.items.isEmpty {
                 Text("Nothing waits for you. When a machine reads a day, what it finds appears here.")
                     .foregroundStyle(.supporting)

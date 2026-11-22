@@ -7,7 +7,8 @@ final class DealsModel {
     private(set) var deals: [WorkObject] = []
     private(set) var digests: [String: DealDigest] = [:]
     private(set) var unreadable: [String] = []
-    private(set) var problem: String?
+    let problems = ProblemSlot()
+    var problem: String? { problems.text }
 
     @ObservationIgnored private let store: Store
     @ObservationIgnored private let catalog: TeamCatalogModel
@@ -26,7 +27,7 @@ final class DealsModel {
     func deal(_ id: String) -> WorkObject? { deals.first { $0.id == id } }
 
     func refresh() {
-        attempt("read the deals") {
+        problems.attempt("read the deals") {
             if let folder = catalog.folder {
                 let read = WorkLog.read(from: folder)
                 try store.append(read.events)
@@ -65,19 +66,19 @@ final class DealsModel {
 
     func move(_ deal: WorkObject, to stage: String) {
         guard stage != WorkObject.actionRequired else { return }
-        attempt("drop the action") { try store.dropActions(of: deal.id) }
+        problems.attempt("drop the action") { try store.dropActions(of: deal.id) }
         add([.init(object: deal.id, kind: .stage, text: stage, replaces: deal.stageHeads)])
     }
 
     func requireAction(_ deal: WorkObject, what: String, due: WorkDay) {
         guard what.cleaned != nil else { return }
-        attempt("save the action") { try store.requireAction(of: deal, what: what, due: due, owner: me) }
+        problems.attempt("save the action") { try store.requireAction(of: deal, what: what, due: due, owner: me) }
         add([.init(object: deal.id, kind: .stage, text: WorkObject.actionRequired, replaces: deal.stageHeads)])
     }
 
     func finishAction(of deal: WorkObject) {
         guard let action = digests[deal.id]?.action else { return }
-        attempt("finish the action") { try store.apply(DealAction.lifecycle.closing([action])) }
+        problems.attempt("finish the action") { try store.apply(DealAction.lifecycle.closing([action])) }
         refresh()
     }
 
@@ -96,7 +97,7 @@ final class DealsModel {
     func archive(_ deal: WorkObject) { add([.init(object: deal.id, kind: .archive)]) }
 
     func link(_ item: Item, from helper: HelperModel, to deal: String) async {
-        do {
+        await problems.attempt("link the item") {
             let found = try await catalog.readers(of: helper)
             let missing = Set(found.missing.map(\.name))
             let audience = [me] + found.recipients.map(\.name).filter { !missing.contains($0) }
@@ -105,8 +106,6 @@ final class DealsModel {
                     object: deal, kind: .link, item: LinkedItem(machine: helper.machine, item: item, audience: audience)
                 )
             ])
-        } catch {
-            problem = "Could not link the item: \(error.localizedDescription)"
         }
     }
 
@@ -116,8 +115,6 @@ final class DealsModel {
         await link(item, from: helper, to: id)
         return id
     }
-
-    func dismissProblem() { problem = nil }
 
     struct Draft {
         var object: String
@@ -129,7 +126,7 @@ final class DealsModel {
 
     private func add(_ drafts: [Draft]) {
         guard !drafts.isEmpty else { return }
-        attempt("save the change") {
+        problems.attempt("save the change") {
             let first = try store.queries.nextClock()
             let events = drafts.enumerated().map { index, draft in
                 WorkEvent(
@@ -153,11 +150,4 @@ final class DealsModel {
         try WorkLog.write(mine, author: me, to: folder)
     }
 
-    private func attempt(_ step: String, _ work: () throws -> Void) {
-        do {
-            try work()
-        } catch {
-            problem = "Could not \(step): \(error.localizedDescription)"
-        }
-    }
 }

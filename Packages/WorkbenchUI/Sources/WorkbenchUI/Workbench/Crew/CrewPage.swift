@@ -24,7 +24,7 @@ struct CrewBody: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Space.l) {
-            if let problem = crew.problem { ProblemBanner(text: problem, dismiss: crew.dismissProblem) }
+            ProblemSlotBanner(slot: crew.problems)
             ForEach(crew.crew, id: \.machine.id) { helper in
                 MachineCard(helper: helper, facts: facts(of: helper), open: { open(.machine(helper.machine.id)) })
             }

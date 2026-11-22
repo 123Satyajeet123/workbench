@@ -17,7 +17,8 @@ final class ActionsModel {
     private(set) var drafting: Int64?
     private(set) var notice: String?
     private(set) var remindersBlocked = false
-    private(set) var problem: String?
+    let problems = ProblemSlot()
+    var problem: String? { problems.text }
 
     @ObservationIgnored private let store: Store
     @ObservationIgnored private let founder: () -> String
@@ -44,19 +45,16 @@ final class ActionsModel {
         guard let id = item.id else { return }
         drafting = id
         defer { drafting = nil }
-        do {
+        await problems.attempt("draft a message", clearing: true) {
             let drafter = Drafter(model: makeModel(try ModelChoice.saved(in: store)))
             let (draft, _) = try await drafter.draft(item, from: machine, founder: founder())
             self.draft = Draft(item: id, task: machine.task, to: draft.to, text: draft.text)
-            problem = nil
-        } catch {
-            problem = "Could not draft a message: \(error.localizedDescription)"
         }
     }
 
     func copy(_ draft: Draft) {
         pasteboard(draft.text)
-        attempt("log the copy") {
+        problems.attempt("log the copy") {
             try store.log(
                 "copy_draft", target: draft.task, detail: ["item": String(draft.item), "to": draft.to])
         }
@@ -69,7 +67,7 @@ final class ActionsModel {
         switch await reminders.authorize() {
         case .allowed:
             remindersBlocked = false
-            attempt("add the reminder") {
+            problems.attempt("add the reminder") {
                 try reminders.add(title: title, notes: "“\(item.quote)” — \(machine.name), \(item.day)")
                 try store.log("make_reminder", target: machine.task, detail: ["item": String(id), "title": title])
                 notice = "Added “\(title)” to Reminders."
@@ -77,21 +75,13 @@ final class ActionsModel {
         case .blocked:
             remindersBlocked = true
         case .failed(let reason):
-            problem = "macOS did not allow Reminders: \(reason)"
+            problems.show("macOS did not allow Reminders: \(reason)")
         }
     }
 
     func dismiss() {
         notice = nil
-        problem = nil
+        problems.dismiss()
         remindersBlocked = false
-    }
-
-    private func attempt(_ step: String, _ work: () throws -> Void) {
-        do {
-            try work()
-        } catch {
-            problem = "Could not \(step): \(error.localizedDescription)"
-        }
     }
 }

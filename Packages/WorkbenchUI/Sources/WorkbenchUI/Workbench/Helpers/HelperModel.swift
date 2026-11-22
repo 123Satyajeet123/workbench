@@ -60,7 +60,7 @@ final class HelperModel {
     }
 
     var problem: String? { shared.problems.text }
-    var problemPane: String? { shared.problems.settingsPane }
+    var problems: ProblemSlot { shared.problems }
     var phase: ReadPhase { reading.phase }
     var trial: TrialRun? { improvement.trial }
     var trialPhase: ReadPhase { improvement.trialPhase }
@@ -145,8 +145,6 @@ final class HelperModel {
         attempt("save the mark") { try shared.store.mark(item: id, as: item.state == mark ? .proposed : mark) }
         itemsWereChanged()
     }
-
-    func dismissProblem() { shared.problems.dismiss() }
 
     func attempt(_ step: String, _ work: () throws -> Void) { shared.problems.attempt(step, work) }
 

@@ -8,9 +8,7 @@ struct HelperContent: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Space.l) {
-            if let problem = model.problem {
-                ProblemBanner(text: problem, dismiss: model.dismissProblem, settingsPane: model.problemPane)
-            }
+            ProblemSlotBanner(slot: model.problems)
             ActionNotice()
             if model.isPaused { PausedNote(model: model) }
             if let update = crew.update(for: model) {
@@ -55,7 +53,7 @@ struct HelperContent: View {
         do {
             try await source.showMembers()
         } catch {
-            model.attempt("read the group members") { throw error }
+            model.problems.report("read the group members", error)
         }
     }
 }

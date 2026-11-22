@@ -43,7 +43,7 @@ final class Reminders {
         self.review = review
         self.mochi = mochi
         self.notifications = notifications
-        problems.attempt("save the reminders") { settings = try Self.settingsKey.load(from: store) ?? Settings() }
+        problems.attempt("read the reminders") { settings = try Self.settingsKey.load(from: store) ?? Settings() }
         morningBrief = state(Self.briefSettingKey) ?? false
     }
 
@@ -113,8 +113,6 @@ final class Reminders {
         guard let last = state(Self.mochiKey) else { return true }
         return now.timeIntervalSince(last) >= Self.week - 12 * 3600
     }
-
-    func dismissProblem() { problems.dismiss() }
 
     private func post(_ title: String, _ body: String, page: SidebarSelection) async {
         do {

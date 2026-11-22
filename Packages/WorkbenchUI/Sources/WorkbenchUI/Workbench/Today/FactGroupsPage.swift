@@ -37,7 +37,7 @@ struct FactGroupsBody: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Space.l) {
-            if let problem = model.problem { ProblemBanner(text: problem, dismiss: model.dismissProblem) }
+            ProblemSlotBanner(slot: model.problems)
             if let undo = model.undoable { UndoBar(undo: undo, model: model) }
             if groups.isEmpty { Text(empty).foregroundStyle(.supporting) }
             ForEach(groups) { group in

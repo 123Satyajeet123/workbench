@@ -8,7 +8,7 @@ struct TeamCatalogPage: View {
 
     var body: some View {
         Page(intro: .catalog, title: SidebarSelection.catalog.title, subtitle: subtitle) {
-            if let problem = catalog.problem { ProblemBanner(text: problem, dismiss: catalog.dismissProblem) }
+            ProblemSlotBanner(slot: catalog.problems)
             if catalog.folder == nil {
                 Text(
                     "Choose a folder your team syncs (for example in iCloud Drive). Each person shares machines into it."

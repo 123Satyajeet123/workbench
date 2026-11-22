@@ -51,7 +51,8 @@ final class TodayModel {
     private(set) var projectGroups: [FactGroup] = []
     private(set) var meetingCards: [MeetingCard] = []
     private(set) var undoable: Undo?
-    private(set) var problem: String?
+    let problems = ProblemSlot()
+    var problem: String? { problems.text }
     private(set) var revision = 0
 
     @ObservationIgnored private let store: Store
@@ -84,12 +85,7 @@ final class TodayModel {
     }
 
     func refresh() {
-        do {
-            try load()
-            problem = nil
-        } catch {
-            problem = "Could not read your day: \(error.localizedDescription)"
-        }
+        problems.attempt("read your day", clearing: true) { try load() }
         revision += 1
     }
 
@@ -180,7 +176,7 @@ final class TodayModel {
         let isCurrent = await helper.summarize(today)
         isSummarizing = false
         refresh()
-        if !isCurrent { problem = "Could not summarize your day. Its facts are listed without a summary." }
+        if !isCurrent { problems.show("Could not summarize your day. Its facts are listed without a summary.") }
     }
 
     func perform(_ choice: FactChoice, on items: [Item], text: String) {
@@ -191,8 +187,8 @@ final class TodayModel {
             undoable = Undo(plan: plan, text: text)
             reloadMachines()
         } catch {
-            problem = "Could not save that: \(error.localizedDescription)"
             refresh()
+            problems.report("save that", error)
         }
     }
 
@@ -203,8 +199,8 @@ final class TodayModel {
             self.undoable = nil
             reloadMachines()
         } catch {
-            problem = "Could not take that back: \(error.localizedDescription)"
             refresh()
+            problems.report("take that back", error)
         }
     }
 
@@ -214,7 +210,6 @@ final class TodayModel {
     }
 
     func dismissUndo() { undoable = nil }
-    func dismissProblem() { problem = nil }
 
     private func plan(for choice: FactChoice, _ items: [Item]) -> [ItemAction: [Int64]] {
         let ids = items.compactMap(\.id)

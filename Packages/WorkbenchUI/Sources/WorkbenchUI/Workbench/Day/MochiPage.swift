@@ -125,7 +125,7 @@ private struct BriefCard: View {
                 Text("No brief yet. Mochi writes one each morning when it is on in Settings › Reminders.")
                     .foregroundStyle(.supporting)
             }
-            if let problem = mochi.problem { Text(problem).textStyle(.callout).foregroundStyle(.supporting) }
+            if let problem = mochi.briefProblem { Text(problem).textStyle(.callout).foregroundStyle(.supporting) }
             Button(mochi.briefPhase == .reading ? "Writing…" : "Brief yesterday now") {
                 Task { await mochi.writeBrief(for: WorkDay(containing: .now).adding(days: -1)) }
             }

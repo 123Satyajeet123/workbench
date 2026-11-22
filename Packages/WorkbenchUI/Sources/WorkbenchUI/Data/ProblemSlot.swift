@@ -16,6 +16,15 @@ final class ProblemSlot {
         }
     }
 
+    func attempt(_ step: String, clearing: Bool = false, _ work: () async throws -> Void) async {
+        do {
+            try await work()
+            if clearing { dismiss() }
+        } catch {
+            report(step, error)
+        }
+    }
+
     func report(_ step: String, _ error: any Error) {
         guard !Self.isCancellation(error) else { return }
         text = "Could not \(step): \(error.localizedDescription)"

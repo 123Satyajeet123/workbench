@@ -22,4 +22,21 @@ import Testing
         slot.attempt("read the day", clearing: true) {}
         #expect(slot.settingsPane == nil && slot.text == nil)
     }
+
+    @Test func asyncWorkReportsItsFailureClearsOnSuccessAndIgnoresCancellation() async {
+        struct Broken: Error {}
+        let slot = ProblemSlot()
+        await slot.attempt("draft a message") {
+            await Task.yield()
+            throw Broken()
+        }
+        #expect(slot.text?.hasPrefix("Could not draft a message:") == true)
+        await slot.attempt("draft a message", clearing: true) { await Task.yield() }
+        #expect(slot.text == nil)
+        await slot.attempt("draft a message") {
+            await Task.yield()
+            throw CancellationError()
+        }
+        #expect(slot.text == nil)
+    }
 }

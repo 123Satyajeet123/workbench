@@ -28,7 +28,7 @@ struct ClaimChecksSection: View {
                 }
                 .disabled(claims.busy.contains(deal.id))
             }
-            if let problem = claims.problems.text { ProblemBanner(text: problem, dismiss: claims.problems.dismiss) }
+            ProblemSlotBanner(slot: claims.problems)
             if state.claims.isEmpty {
                 Text("No claims yet. Read them from the deck, then choose which to check.").textStyle(.callout)
                     .foregroundStyle(.supporting)

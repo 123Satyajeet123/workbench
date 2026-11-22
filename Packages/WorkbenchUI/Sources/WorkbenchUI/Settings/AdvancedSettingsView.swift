@@ -11,7 +11,7 @@ struct AdvancedSettingsView: View {
             subtitle: "Every call to a model, what it cost, and how often you marked its entries right.",
             accessory: { Button("Refresh", systemImage: "arrow.clockwise", action: model.refresh) }
         ) {
-            if let problem = model.problem { ProblemBanner(text: problem) }
+            ProblemSlotBanner(slot: model.problems)
             meter
             quality
             runs

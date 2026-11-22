@@ -120,6 +120,16 @@ extension Card where Icon == Image {
     }
 }
 
+struct ProblemSlotBanner: View {
+    let slot: ProblemSlot
+
+    var body: some View {
+        if let text = slot.text {
+            ProblemBanner(text: text, dismiss: slot.dismiss, settingsPane: slot.settingsPane)
+        }
+    }
+}
+
 struct ProblemBanner: View {
     let text: String
     var dismiss: (() -> Void)?

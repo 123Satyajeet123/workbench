@@ -8,7 +8,8 @@ final class MemoryModel {
 
     private(set) var answer: Asker.Answer?
     private(set) var asking = false
-    private(set) var problem: String?
+    let problems = ProblemSlot()
+    var problem: String? { problems.text }
 
     @ObservationIgnored private let store: Store
     @ObservationIgnored private let crew: Crew
@@ -63,18 +64,18 @@ final class MemoryModel {
         do {
             let asker = Asker(model: makeModel(try ModelChoice.saved(in: store)))
             answer = try await asker.ask(question, entries: try entries()).answer
-            problem = nil
+            problems.dismiss()
         } catch Asker.Refusal.badCitation {
             answer = nil
-            problem = "The answer cited something it was not given, so it is not shown."
+            problems.show("The answer cited something it was not given, so it is not shown.")
         } catch {
             answer = nil
-            problem = "Could not ask: \(error.localizedDescription)"
+            problems.report("ask", error)
         }
     }
 
     func clear() {
         answer = nil
-        problem = nil
+        problems.dismiss()
     }
 }

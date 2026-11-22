@@ -16,7 +16,7 @@ struct MochiProposals: View {
                 ReadPhaseLabel(phase: mochi.phase, items: "proposals", droppedBecause: "not backed by your days")
             }
             Text(note).textStyle(.callout).foregroundStyle(.supporting)
-            if let problem = mochi.problem { ProblemBanner(text: problem, dismiss: mochi.dismissProblem) }
+            ProblemSlotBanner(slot: mochi.problems)
             ForEach(mochi.waiting) { ProposalCard(proposal: $0, open: open) }
         }
         .onAppear(perform: mochi.refresh)

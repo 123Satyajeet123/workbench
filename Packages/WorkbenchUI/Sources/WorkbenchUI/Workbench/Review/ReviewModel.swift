@@ -8,7 +8,8 @@ final class ReviewModel {
 
     private(set) var items: [Item] = []
     private(set) var selected = 0
-    private(set) var problem: String?
+    let problems = ProblemSlot()
+    var problem: String? { problems.text }
     @ObservationIgnored private var undoStack: [(id: Int64, state: Mark, task: String)] = []
 
     @ObservationIgnored private let store: Store
@@ -32,12 +33,9 @@ final class ReviewModel {
     func name(of item: Item) -> String { crew.name(ofTask: item.task) }
 
     func refresh() {
-        do {
+        problems.attempt("read the queue", clearing: true) {
             items = try store.queries.waitingItems(since: WorkDay(containing: store.clock()).adding(days: -Self.days))
             selected = min(selected, max(items.count - 1, 0))
-            problem = nil
-        } catch {
-            problem = "Could not read the queue: \(error.localizedDescription)"
         }
     }
 
@@ -53,22 +51,14 @@ final class ReviewModel {
 
     func undo() {
         guard let last = undoStack.popLast() else { return }
-        do {
-            try store.mark(item: last.id, as: last.state)
-        } catch {
-            problem = "Could not undo: \(error.localizedDescription)"
-        }
+        problems.attempt("undo") { try store.mark(item: last.id, as: last.state) }
         changed(crew.machines.first { $0.spec.task == Trial.machineTask(of: last.task) })
         if let index = items.firstIndex(where: { $0.id == last.id }) { selected = index }
     }
 
     private func save(_ mark: Mark, on item: Item) {
         guard let id = item.id else { return }
-        do {
-            try store.mark(item: id, as: mark)
-        } catch {
-            problem = "Could not save the mark: \(error.localizedDescription)"
-        }
+        problems.attempt("save the mark") { try store.mark(item: id, as: mark) }
         changed(helper(for: item))
     }
 
