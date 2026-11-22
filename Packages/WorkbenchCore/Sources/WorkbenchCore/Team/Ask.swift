@@ -22,7 +22,7 @@ public struct MemoryEntry: Sendable, Equatable, Identifiable {
     }
 }
 
-public struct Asker: Sendable {
+public struct Asker: ModelTask {
     public struct Answer: Sendable, Equatable {
         public var text: String?
         public var cited: [MemoryEntry]
@@ -88,9 +88,8 @@ public struct Asker: Sendable {
         let found = try Self.search(question, in: entries)
         guard !found.isEmpty else { return (Answer(text: nil, cited: [], searched: 0), nil) }
         let lines = found.map { "[\($0.id)] \($0.source): \($0.text)" }
-        let (reply, run) = try await model.generate(
-            Reply.self, schema: Self.schema, task: Self.task, instructions: Self.instructions,
-            input: "Question: \(question)\n\nEntries:\n\(lines.joined(separator: "\n"))",
+        let (reply, run) = try await ask(
+            "Question: \(question)\n\nEntries:\n\(lines.joined(separator: "\n"))",
             holding: found.reduce(into: []) { $0.formUnion($1.kinds) },
             holdingUnknown: found.contains { $0.kindUnknown })
         return (try Self.checked(reply, given: found), run)

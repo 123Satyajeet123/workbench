@@ -1,6 +1,8 @@
 import Foundation
 
-public struct Drafter: Sendable {
+public struct Drafter: ModelTask {
+    typealias Reply = Draft
+
     public struct Draft: Decodable, Sendable, Equatable {
         public var to: String
         public var text: String
@@ -33,8 +35,8 @@ public struct Drafter: Sendable {
             \(fields.joined(separator: "\n"))
             Quote: "\(item.quote)"
             """
-        let (draft, run) = try await model.generate(
-            Draft.self, schema: Self.schema, task: Self.task, instructions: Self.instructions, input: input,
+        let (draft, run) = try await ask(
+            input,
             holding: [item.source])
         return (draft, run)
     }

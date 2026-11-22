@@ -31,7 +31,7 @@ public struct Decision: Sendable, Equatable {
     }
 }
 
-public struct Improver: Sendable {
+public struct Improver: ModelTask {
     public struct Edit: Sendable, Equatable {
         public enum Kind: String, Sendable, CaseIterable {
             case add, remove
@@ -90,9 +90,7 @@ public struct Improver: Sendable {
     public func propose(spec: HelperSpec, marked: [Item]) async throws -> (edit: Edit?, run: RunID?) {
         let training = marked.filter { EvalSplit($0.day) == .dev && $0.state != .proposed && $0.id != nil }
         guard training.filter({ $0.state == .rejected }).count >= Self.minimumWrong else { return (nil, nil) }
-        let (reply, run) = try await model.generate(
-            Reply.self, schema: Self.schema, task: Self.task, instructions: Self.instructions,
-            input: Self.input(spec: spec, marked: training), holding: Set(training.map(\.source)))
+        let (reply, run) = try await ask(Self.input(spec: spec, marked: training), holding: Set(training.map(\.source)))
         return (Self.checked(reply, brief: spec.brief, given: Set(training.compactMap(\.id))), run)
     }
 

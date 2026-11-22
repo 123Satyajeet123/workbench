@@ -27,7 +27,7 @@ public struct MorningBrief: Codable, Sendable, Equatable {
     public var isQuiet: Bool { !lines.contains { $0.kind == .ask || $0.kind == .stuck } }
 }
 
-public struct Briefer: Sendable {
+public struct Briefer: ModelTask {
     struct Reply: Decodable, Sendable {
         struct Raw: Decodable, Sendable {
             var kind: String
@@ -84,9 +84,7 @@ public struct Briefer: Sendable {
 
     public func brief(_ sources: [Source], day: WorkDay, unseen: [String] = []) async throws -> MorningBrief? {
         guard !sources.isEmpty else { return nil }
-        let (reply, run) = try await model.generate(
-            Reply.self, schema: Self.schema, task: Self.task, instructions: Self.instructions,
-            input: Self.input(sources, day: day), holding: Set(sources.map(\.item.source)))
+        let (reply, run) = try await ask(Self.input(sources, day: day), holding: Set(sources.map(\.item.source)))
         let given = Set(sources.compactMap(\.item.id))
         var kept: [MorningBrief.Line] = []
         for raw in reply.lines {

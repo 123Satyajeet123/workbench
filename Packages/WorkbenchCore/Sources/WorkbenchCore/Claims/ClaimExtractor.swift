@@ -1,6 +1,6 @@
 import Foundation
 
-public struct ClaimExtractor: Sendable {
+public struct ClaimExtractor: ModelTask {
     struct Reply: Decodable, Sendable {
         struct Raw: Decodable, Sendable {
             var line: Int64
@@ -44,9 +44,8 @@ public struct ClaimExtractor: Sendable {
 
     public func extract(deal: String, lines: [Evidence]) async throws -> (claims: [Claim], dropped: Int, run: RunID?) {
         guard !lines.isEmpty else { return ([], 0, nil) }
-        let (reply, run) = try await model.generate(
-            Reply.self, schema: Self.schema, task: Self.task, instructions: Self.instructions,
-            input: lines.map { "[\($0.id)] \($0.line)" }.joined(separator: "\n"), holding: [.mail])
+        let (reply, run) = try await ask(
+            lines.map { "[\($0.id)] \($0.line)" }.joined(separator: "\n"), holding: [.mail])
         let byID = Dictionary(lines.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         var claims: [Claim] = []
         for raw in reply.claims {

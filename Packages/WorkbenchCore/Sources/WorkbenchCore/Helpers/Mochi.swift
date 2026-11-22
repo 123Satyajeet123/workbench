@@ -31,7 +31,7 @@ public struct Proposal: Sendable, Equatable, Identifiable {
     }
 }
 
-public struct Mochi: Sendable {
+public struct Mochi: ModelTask {
     public struct Result: Sendable, Equatable {
         public var proposals: [Proposal]
         public var dropped: Int
@@ -112,9 +112,8 @@ public struct Mochi: Sendable {
         blocks: [Item], roster: [Machine], templates: [Template], earlier: [Proposal]
     ) async throws -> Result {
         guard Self.days(in: blocks) >= Self.minimumDays else { return Result(proposals: [], dropped: 0, run: nil) }
-        let (reply, run) = try await model.generate(
-            Reply.self, schema: Self.schema, task: Self.task, instructions: Self.instructions,
-            input: Self.input(blocks: blocks, roster: roster, templates: templates, earlier: earlier),
+        let (reply, run) = try await ask(
+            Self.input(blocks: blocks, roster: roster, templates: templates, earlier: earlier),
             holding: Set(blocks.map(\.source)))
         let byID = Dictionary(blocks.compactMap { item in item.id.map { ($0, item) } }, uniquingKeysWith: { a, _ in a })
         let views = Dictionary(templates.map { ($0.id, Set($0.views)) }, uniquingKeysWith: { a, _ in a })
