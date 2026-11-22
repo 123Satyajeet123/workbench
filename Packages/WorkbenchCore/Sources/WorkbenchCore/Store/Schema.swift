@@ -32,7 +32,7 @@ enum Schema {
     static var stepDigests: [String] { steps.map { Digest.sha256($0.joined(separator: ";\n")) } }
 
     static let steps = [
-        baseline, itemEvents, runText, summaries, itemActions, mail, typedItems, quoteMarks, newsArticles,
+        baseline, itemEvents, runText, summaries, itemActions, mail, typedItems, quoteMarks, newsArticles, evidence,
     ]
 
     /// Items that open and close (research 32): a later line closes a commitment or answers a question. An event is

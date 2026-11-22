@@ -40,6 +40,8 @@ struct SchemaTests {
         "749ee5e0550835c1fec697bbbc78c4b46c3a15ddf67a56f10eec8b27be868ead",
         // newsArticles
         "e65d7ffdb3669197a0b7105bd5ddca65f2bfc94f5f8c117a1a33c4ac4b1fa093",
+        // evidence (M1 step 1, ADR-015)
+        "d3bd5db1e688b17c05dda7f90a27438c26f39e4991c52ec0c5e74f92dfa45b96",
     ]
 
     @Test func aShippedStepNeverChanges() {

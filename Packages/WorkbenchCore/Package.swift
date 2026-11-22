@@ -11,7 +11,8 @@ let package = Package(
         .executable(name: "outbound-eval", targets: ["OutboundEvalRunner"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/groue/GRDB.swift", exact: "7.12.0")
+        .package(url: "https://github.com/groue/GRDB.swift", exact: "7.12.0"),
+        .package(path: "../Kernel"),
     ],
     targets: [
         .target(name: "WorkbenchCore", dependencies: [.product(name: "GRDB", package: "GRDB.swift")]),
@@ -19,6 +20,10 @@ let package = Package(
         .executableTarget(name: "ClaimEvalRunner", dependencies: ["WorkbenchCore"]),
         .executableTarget(name: "OutboundEvalRunner", dependencies: ["WorkbenchCore"]),
         .testTarget(
-            name: "WorkbenchCoreTests", dependencies: ["WorkbenchCore", .product(name: "GRDB", package: "GRDB.swift")]),
+            name: "WorkbenchCoreTests",
+            dependencies: [
+                "WorkbenchCore", .product(name: "GRDB", package: "GRDB.swift"),
+                .product(name: "Lines", package: "Kernel"),
+            ]),
     ]
 )
