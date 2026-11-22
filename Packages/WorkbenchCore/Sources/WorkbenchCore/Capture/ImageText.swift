@@ -14,6 +14,8 @@ public enum ImageText {
     /// photo, at every reading, reuses it (measured: 37 photos a day took 8.2 s and 140 MB each time).
     public static func text(in url: URL) -> String { shared.text(in: url) }
 
+    public static func texts(in urls: [URL]) async -> [URL: String] { await shared.texts(in: urls) }
+
     private static let shared = Memo(recognize: recognize)
 
     /// Recognized texts by file identity (path, size, modification time), at most `capacity` of them, oldest out
@@ -37,6 +39,10 @@ public enum ImageText {
         init(capacity: Int = 1_000, recognize: @escaping @Sendable (URL) -> String) {
             self.capacity = capacity
             self.recognize = recognize
+        }
+
+        @concurrent func texts(in urls: [URL]) async -> [URL: String] {
+            Dictionary(urls.map { ($0, text(in: $0)) }, uniquingKeysWith: { first, _ in first })
         }
 
         func text(in url: URL) -> String {

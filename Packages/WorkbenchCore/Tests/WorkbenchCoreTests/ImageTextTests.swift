@@ -39,4 +39,18 @@ import Testing
         _ = memo.text(in: first)
         #expect(calls.withLock { $0 } == 5, "past its capacity the oldest text is forgotten")
     }
+
+    @MainActor @Test func photosAreReadOffTheMainThreadEvenWhenTheWindowAsks() async throws {
+        let folder = temporaryDirectory()
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let photo = folder.appending(path: "a.png")
+        try "one".write(to: photo, atomically: true, encoding: .utf8)
+        let onMain = Mutex(false)
+        let memo = ImageText.Memo { url in
+            onMain.withLock { $0 = $0 || Thread.isMainThread }
+            return (try? String(contentsOf: url, encoding: .utf8)) ?? ""
+        }
+        #expect(await memo.texts(in: [photo]) == [photo: "one"])
+        #expect(!onMain.withLock { $0 })
+    }
 }

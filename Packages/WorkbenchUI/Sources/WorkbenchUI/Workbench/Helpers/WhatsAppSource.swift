@@ -119,9 +119,10 @@ final class WhatsAppSource: MachineSource {
         guard !chats.isEmpty else { return EvidenceSet(lines: []) }
         let (entries, people) = try await reader().read(from: day.start, to: day.end)
         try remember(people)
+        let photos = await ImageText.texts(in: entries.compactMap(\.photo))
         let names = Dictionary(chats.map { ($0.jid, $0.name) }, uniquingKeysWith: { first, _ in first })
         let lines = entries.compactMap { entry in
-            line(entry).map { line in
+            line(entry, photos: photos).map { line in
                 guard isSeveral, let chat = names[entry.chat] else { return line }
                 var named = line
                 named.line = "[\(chat)] " + line.line
@@ -136,12 +137,9 @@ final class WhatsAppSource: MachineSource {
     }
 
     /// A message as one numbered line. A photo's line is the text in it, read on this Mac, and its caption.
-    private func line(_ entry: WhatsAppEntry) -> Evidence? {
+    private func line(_ entry: WhatsAppEntry, photos: [URL: String]) -> Evidence? {
         var parts = [entry.title, entry.text].compactMap { $0 }.filter { !$0.isEmpty }
-        if entry.kind == .photo, case .file(let url) = entry.media {
-            let seen = ImageText.text(in: url)
-            if !seen.isEmpty { parts.insert("[photo] \(seen)", at: 0) }
-        }
+        if let url = entry.photo, let seen = photos[url], !seen.isEmpty { parts.insert("[photo] \(seen)", at: 0) }
         let text = parts.joined(separator: " — ")
         guard !text.isEmpty else { return nil }
         let sender: String
@@ -150,5 +148,12 @@ final class WhatsAppSource: MachineSource {
         case .member(_, let name): sender = name
         }
         return Evidence(id: entry.id, start: entry.date, line: "\(sender): \(text)", quotable: [text])
+    }
+}
+
+extension WhatsAppEntry {
+    fileprivate var photo: URL? {
+        guard kind == .photo, case .file(let url) = media else { return nil }
+        return url
     }
 }
