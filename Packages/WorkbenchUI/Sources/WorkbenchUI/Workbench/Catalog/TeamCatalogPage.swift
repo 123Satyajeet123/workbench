@@ -123,7 +123,7 @@ private struct SharedCard: View {
                 Monogram(name: machine.author, size: 22)
                 Text(machine.name).textStyle(.headline)
                 Text(
-                    "by \(machine.author) · \(MachineTemplate.all.first { $0.spec.task == machine.template }?.role ?? machine.template)"
+                    "by \(machine.author) · \(MachineTemplate.named(machine.template)?.role ?? machine.template)"
                 )
                 .textStyle(.caption).foregroundStyle(.supporting)
             }

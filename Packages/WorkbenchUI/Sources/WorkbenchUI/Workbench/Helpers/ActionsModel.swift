@@ -22,7 +22,7 @@ final class ActionsModel {
 
     @ObservationIgnored private let store: Store
     @ObservationIgnored private let founder: () -> String
-    @ObservationIgnored private let makeModel: (ModelChoice) -> RecordedModel
+    @ObservationIgnored private let makeModel: ModelMaker
     @ObservationIgnored private let reminders: ReminderList
     @ObservationIgnored private let pasteboard: (String) -> Void
 
@@ -32,7 +32,7 @@ final class ActionsModel {
     ) {
         self.store = store
         self.founder = founder
-        self.makeModel = makeModel ?? { $0.model(store: store) }
+        self.makeModel = ModelMaker(store: store, make: makeModel)
         self.reminders = reminders
         self.pasteboard =
             pasteboard ?? {
@@ -46,7 +46,7 @@ final class ActionsModel {
         drafting = id
         defer { drafting = nil }
         await problems.attempt("draft a message", clearing: true) {
-            let drafter = Drafter(model: makeModel(try ModelChoice.saved(in: store)))
+            let drafter = Drafter(model: try makeModel.current())
             let (draft, _) = try await drafter.draft(item, from: machine, founder: founder())
             self.draft = Draft(item: id, task: machine.task, to: draft.to, text: draft.text)
         }

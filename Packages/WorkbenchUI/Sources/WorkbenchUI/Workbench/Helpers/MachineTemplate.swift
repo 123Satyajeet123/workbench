@@ -41,5 +41,7 @@ struct MachineTemplate: Identifiable, Hashable {
     static func == (lhs: Self, rhs: Self) -> Bool { lhs.id == rhs.id }
     func hash(into hasher: inout Hasher) { hasher.combine(id) }
 
-    static func of(_ machine: Machine) -> MachineTemplate? { all.first { $0.spec.task == machine.template } }
+    static func of(_ machine: Machine) -> MachineTemplate? { named(machine.template) }
+
+    static func named(_ task: String) -> MachineTemplate? { all.first { $0.spec.task == task } }
 }

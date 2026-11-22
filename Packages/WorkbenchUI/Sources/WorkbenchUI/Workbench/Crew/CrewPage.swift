@@ -57,7 +57,7 @@ private struct MachineCard: View {
 
     var body: some View {
         Card(
-            title: "\(helper.name) · \(helper.isPaused ? "Paused" : MachineTemplate.of(helper.machine)?.role ?? "")",
+            title: "\(helper.name) · \(helper.role)",
             icon: { Mascot(look: .of(helper.machine), size: 22, mood: helper.mood) },
             content: {
                 Text("Reads: \(helper.reads)")

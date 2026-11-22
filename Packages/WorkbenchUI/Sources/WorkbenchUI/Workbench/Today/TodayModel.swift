@@ -81,7 +81,7 @@ final class TodayModel {
     private var factHelper: HelperModel? { crew.team }
     private var factMachine: Machine? { factHelper?.machine }
     private var sentinelTask: String? {
-        crew.machines.first { $0.machine.template == HelperSpec.derailment.task }?.spec.task
+        crew.sentinel?.spec.task
     }
 
     func refresh() {
@@ -205,7 +205,7 @@ final class TodayModel {
     }
 
     func title(of item: Item) -> String {
-        let field = crew.machines.first { $0.spec.task == item.task }?.spec.title
+        let field = crew.helper(task: item.task)?.spec.title
         return field.map { item[$0] } ?? item.quote
     }
 
@@ -232,7 +232,7 @@ final class TodayModel {
     }
 
     func chatLines(around item: Item, reach: Int64 = 2) async throws -> [ChatLine] {
-        guard item.citeFirst > 0, let helper = crew.machines.first(where: { $0.spec.task == item.task }) else {
+        guard item.citeFirst > 0, let helper = crew.helper(task: item.task) else {
             return []
         }
         return ChatLine.around(item, in: try await helper.source.evidence(on: item.day).lines, reach: reach)

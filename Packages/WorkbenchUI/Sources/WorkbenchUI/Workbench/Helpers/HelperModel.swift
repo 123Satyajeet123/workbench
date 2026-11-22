@@ -46,6 +46,7 @@ final class HelperModel {
     var source: any MachineSource { shared.source }
     var spec: HelperSpec { shared.spec }
     var name: String { shared.name }
+    var role: String { isPaused ? "Paused" : MachineTemplate.of(machine)?.role ?? "" }
     var isPaused: Bool { shared.isPaused }
     var day: WorkDay { shared.day }
     var today: WorkDay { shared.today }

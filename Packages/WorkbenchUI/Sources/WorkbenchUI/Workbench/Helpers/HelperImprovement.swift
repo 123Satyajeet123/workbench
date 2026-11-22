@@ -115,7 +115,7 @@ final class HelperImprovement {
         let spec = context.spec
         do {
             let marked = try context.store.queries.items(of: spec.task, since: context.today.adding(days: -60))
-            let improver = Improver(model: context.makeModel(try ModelChoice.saved(in: context.store)))
+            let improver = Improver(model: try context.makeModel.current())
             let (edit, run) = try await improver.propose(spec: spec, marked: marked)
             guard let edit else {
                 improveNote =

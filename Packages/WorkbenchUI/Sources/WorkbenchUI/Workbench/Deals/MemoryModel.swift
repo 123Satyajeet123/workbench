@@ -14,13 +14,13 @@ final class MemoryModel {
     @ObservationIgnored private let store: Store
     @ObservationIgnored private let crew: Crew
     @ObservationIgnored private let deals: DealsModel
-    @ObservationIgnored private let makeModel: (ModelChoice) -> RecordedModel
+    @ObservationIgnored private let makeModel: ModelMaker
 
     init(store: Store, crew: Crew, deals: DealsModel, makeModel: ((ModelChoice) -> RecordedModel)? = nil) {
         self.store = store
         self.crew = crew
         self.deals = deals
-        self.makeModel = makeModel ?? { $0.model(store: store) }
+        self.makeModel = ModelMaker(store: store, make: makeModel)
     }
 
     func entries() throws -> [MemoryEntry] {
@@ -62,7 +62,7 @@ final class MemoryModel {
         asking = true
         defer { asking = false }
         do {
-            let asker = Asker(model: makeModel(try ModelChoice.saved(in: store)))
+            let asker = Asker(model: try makeModel.current())
             answer = try await asker.ask(question, entries: try entries()).answer
             problems.dismiss()
         } catch Asker.Refusal.badCitation {

@@ -205,7 +205,7 @@ final class TeamCatalogModel {
 
     @discardableResult
     func adopt(_ machine: SharedMachine) -> Int64? {
-        guard MachineTemplate.all.contains(where: { $0.spec.task == machine.template }) else {
+        guard MachineTemplate.named(machine.template) != nil else {
             problems.show("\(machine.author)'s \(machine.name) needs a template this version does not have.")
             return nil
         }

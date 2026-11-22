@@ -18,7 +18,7 @@ final class ClaimsModel {
 
     @ObservationIgnored private let store: Store
     @ObservationIgnored private let me: () -> String
-    @ObservationIgnored private let makeModel: (ModelChoice) -> RecordedModel
+    @ObservationIgnored private let makeModel: ModelMaker
     @ObservationIgnored private let openSession: () throws -> WebSession
     @ObservationIgnored private let deckParts: (WorkObject) throws -> [MailPart]
 
@@ -29,7 +29,7 @@ final class ClaimsModel {
     ) {
         self.store = store
         self.me = me
-        self.makeModel = makeModel ?? { $0.model(store: store) }
+        self.makeModel = ModelMaker(store: store, make: makeModel)
         self.openSession = openSession ?? { try web.openSession() }
         self.deckParts =
             deckParts ?? { deal in
@@ -75,7 +75,7 @@ final class ClaimsModel {
                 problems.show("Mail is switched off for the \(label) label, so its text is not read.")
                 return
             }
-            let extractor = ClaimExtractor(model: makeModel(try ModelChoice.saved(in: store)))
+            let extractor = ClaimExtractor(model: try makeModel.current())
             let found = try await extractor.extract(deal: deal.id, lines: parts.compactMap(\.evidence))
             if let run = found.run, !found.claims.isEmpty {
                 let known = Set(try store.queries.claims(of: deal.id).map { $0.text.comparable })
@@ -97,7 +97,7 @@ final class ClaimsModel {
         do {
             for claim in chosen {
                 let session = try openSession()
-                let checker = ClaimChecker(model: makeModel(try ModelChoice.saved(in: store)), session: session)
+                let checker = ClaimChecker(model: try makeModel.current(), session: session)
                 let done = try await checker.check(claim, company: deal.title)
                 try store.saveCheck(done.check, claimQuote: claim.quote, run: done.run, session: session)
                 refresh(deal)
