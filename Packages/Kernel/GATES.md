@@ -17,8 +17,8 @@ Each gate has a command and a pass rule. Run the commands from the repo root unl
 
 ## Status, 2026-11-22, after review 1 (dev runs on macOS 26, Swift 6.4.2)
 - G1 pass: 162 tests in 20 suites; 20 of 20 repeated runs green.
-- G2 open: the Docker daemon runs, but pulling `swift:6.4` failed with "no space left on device" (2.1 GiB free on the
-  host disk). Needs about 5 GB free, then the G2 command. Nothing was pruned.
+- G2 passed (2026-11-22, main session): `docker run --rm -v "$PWD/Packages/Kernel":/w:ro -w /w swift:6.4 swift test
+  --scratch-path /tmp/b` gave "224 tests in 26 suites passed", exit 0; every planted-break test passes on Linux too.
 - G3 pass: 21 properties and 11 ported cases, 32 planted breaks, each caught.
 - G3b pass: 62 of 62 mutations caught (the 53 of review 1, 13 with patch text moved to the new code, plus 9 new).
 - G4, G5, G6 pass: no output. G7 drafted (draft 2). G8: only `Packages/Kernel/` is new.
