@@ -18,6 +18,8 @@ public final class PowerEvents {
         }
     }
 
+    isolated deinit { stop() }
+
     public func stop() {
         observers.forEach(NSWorkspace.shared.notificationCenter.removeObserver)
         observers = []

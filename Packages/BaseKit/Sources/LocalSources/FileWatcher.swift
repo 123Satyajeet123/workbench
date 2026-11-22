@@ -19,6 +19,8 @@ public final class FileWatcher {
         start(paths: folders.map(\.path).filter { FileManager.default.fileExists(atPath: $0) })
     }
 
+    isolated deinit { stop() }
+
     public func stop() {
         guard let stream else { return }
         FSEventStreamStop(stream)
