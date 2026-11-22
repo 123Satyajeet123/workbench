@@ -16,21 +16,20 @@ private struct Fold: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .firstTextBaseline, spacing: Space.s) {
-                Button(action: toggle) {
+            Button(action: toggle) {
+                HStack(alignment: .firstTextBaseline, spacing: Space.s) {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 10, weight: .bold))
                         .foregroundStyle(.iconTint)
                         .rotationEffect(.degrees(configuration.isExpanded ? 90 : 0))
                         .frame(width: 12)
+                    configuration.label
+                    Spacer(minLength: 0)
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(configuration.isExpanded ? "Collapse" : "Expand")
-                configuration.label
-                Spacer(minLength: 0)
+                .contentShape(.rect)
             }
-            .contentShape(.rect)
-            .onTapGesture(perform: toggle)
+            .buttonStyle(.plain)
+            .accessibilityValue(configuration.isExpanded ? "Expanded" : "Collapsed")
             if configuration.isExpanded {
                 configuration.content
                     .padding(.leading, 12 + Space.s)
