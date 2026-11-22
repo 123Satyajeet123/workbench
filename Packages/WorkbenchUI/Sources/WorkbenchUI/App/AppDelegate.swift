@@ -28,7 +28,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private static func comeToFront() {
-        NSApp.activate()
+        NSApp.activate(ignoringOtherApps: true)
         for window in NSApp.windows where window.isVisible && window.canBecomeMain {
             window.makeKeyAndOrderFront(nil)
         }
