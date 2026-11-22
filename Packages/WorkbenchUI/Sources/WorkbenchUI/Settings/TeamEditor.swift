@@ -43,7 +43,7 @@ struct TeamSettingsView: View {
                     FolderButton()
                 }
             }
-            if let problem = model.problem { ProblemBanner(text: problem) }
+            ProblemSlotBanner(slot: model.problems)
             HStack {
                 Spacer()
                 Button("Revert", action: model.reload)

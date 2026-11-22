@@ -66,7 +66,8 @@ final class TodayModel {
     private(set) var undoable: Undo?
     /// The bulk "handled" the person just made, which one click takes back.
     private(set) var handledBatch: HandledBatch?
-    private(set) var problem: String?
+    let problems = ProblemSlot()
+    var problem: String? { problems.text }
     /// Counts each load, so a view can animate what changed between two loads.
     private(set) var revision = 0
 
@@ -117,12 +118,7 @@ final class TodayModel {
     }
 
     func refresh() {
-        do {
-            try load()
-            problem = nil
-        } catch {
-            problem = "Could not read your day: \(error.localizedDescription)"
-        }
+        problems.attempt("read your day", clearing: true) { try load() }
         revision += 1
     }
 
@@ -247,7 +243,7 @@ final class TodayModel {
         let isCurrent = await helper.summarize(today)
         isSummarizing = false
         refresh()
-        if !isCurrent { problem = "Could not summarize your day. Its facts are listed without a summary." }
+        if !isCurrent { problems.show("Could not summarize your day. Its facts are listed without a summary.") }
     }
 
     func perform(_ choice: FactChoice, on items: [Item], text: String) {
@@ -258,8 +254,8 @@ final class TodayModel {
             undoable = Undo(plan: plan, text: text)
             reloadMachines()
         } catch {
-            problem = "Could not save that: \(error.localizedDescription)"
             refresh()
+            problems.report("save that", error)
         }
     }
 
@@ -270,8 +266,8 @@ final class TodayModel {
             self.undoable = nil
             reloadMachines()
         } catch {
-            problem = "Could not take that back: \(error.localizedDescription)"
             refresh()
+            problems.report("take that back", error)
         }
     }
 
@@ -306,7 +302,7 @@ final class TodayModel {
             handledBatch = batch
             reloadMachines()
         } catch {
-            problem = "Could not mark them as handled: \(error.localizedDescription)"
+            problems.report("mark them as handled", error)
             refresh()
         }
     }
@@ -319,7 +315,7 @@ final class TodayModel {
             handledBatch = nil
             reloadMachines()
         } catch {
-            problem = "Could not reopen them: \(error.localizedDescription)"
+            problems.report("reopen them", error)
             refresh()
         }
     }
@@ -330,12 +326,11 @@ final class TodayModel {
             try Self.firstRunKey.save("kept", to: store)
             refresh()
         } catch {
-            problem = "Could not save that: \(error.localizedDescription)"
+            problems.report("save that", error)
         }
     }
 
     func dismissUndo() { undoable = nil }
-    func dismissProblem() { problem = nil }
 
     private func plan(for choice: FactChoice, _ items: [Item]) -> [ItemAction: [Int64]] {
         let ids = items.compactMap(\.id)

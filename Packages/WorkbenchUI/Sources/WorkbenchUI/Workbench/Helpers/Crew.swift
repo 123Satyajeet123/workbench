@@ -208,8 +208,6 @@ final class Crew {
         reload()
     }
 
-    func dismissProblem() { problems.dismiss() }
-
     private func source(for machine: Machine) throws -> any MachineSource {
         switch machine.spec.source {
         case .screenSessions: ScreenSource(store: store)

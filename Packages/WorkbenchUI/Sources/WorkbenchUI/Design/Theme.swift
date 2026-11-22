@@ -137,6 +137,16 @@ extension View {
     private func calloutFill() -> some View { background(.calloutFill, in: .rect(cornerRadius: Radius.card)) }
 }
 
+struct ProblemSlotBanner: View {
+    let slot: ProblemSlot
+
+    var body: some View {
+        if let text = slot.text {
+            ProblemBanner(text: text, dismiss: slot.dismiss, settingsPane: slot.settingsPane)
+        }
+    }
+}
+
 struct ProblemBanner: View {
     let text: String
     var dismiss: (() -> Void)?

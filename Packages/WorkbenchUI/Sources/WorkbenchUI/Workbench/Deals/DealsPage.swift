@@ -10,7 +10,7 @@ struct DealsPage: View {
 
     var body: some View {
         Page(intro: .deals, title: SidebarSelection.deals.title, subtitle: subtitle) {
-            if let problem = deals.problem { ProblemBanner(text: problem, dismiss: deals.dismissProblem) }
+            ProblemSlotBanner(slot: deals.problems)
             AskBox()
             HStack {
                 TextField("New deal: company name", text: $newTitle).frame(maxWidth: 280)

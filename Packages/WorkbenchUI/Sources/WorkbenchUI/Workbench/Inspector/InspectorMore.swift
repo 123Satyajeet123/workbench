@@ -32,7 +32,7 @@ struct InspectorMore: View {
             if let linked {
                 Label(linked, systemImage: "checkmark.circle").foregroundStyle(Tone.good.color).text(.meta)
             }
-            if let problem = deals.problem { ProblemBanner(text: problem, dismiss: deals.dismissProblem) }
+            if let problem = deals.problem { ProblemBanner(text: problem, dismiss: deals.problems.dismiss) }
             ActionNotice()
         }
         .onChange(of: item.id) { linked = nil }
@@ -72,7 +72,7 @@ struct InspectorMore: View {
     }
 
     private func newDeal() {
-        deals.dismissProblem()
+        deals.problems.dismiss()
         Task {
             if await deals.newDeal(from: item, of: helper) != nil && deals.problem == nil {
                 linked = "Made a new deal from this."
@@ -82,7 +82,7 @@ struct InspectorMore: View {
 
     private func add(to deal: WorkObject) {
         isChoosing = false
-        deals.dismissProblem()
+        deals.problems.dismiss()
         Task {
             await deals.link(item, from: helper, to: deal.id)
             if deals.problem == nil { linked = "Added to \(deal.title)." }

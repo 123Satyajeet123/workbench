@@ -9,7 +9,8 @@ import WorkbenchCore
 final class DealsModel {
     private(set) var deals: [WorkObject] = []
     private(set) var digests: [String: DealDigest] = [:]
-    private(set) var problem: String?
+    let problems = ProblemSlot()
+    var problem: String? { problems.text }
 
     @ObservationIgnored private let store: Store
     @ObservationIgnored private let catalog: TeamCatalogModel
@@ -30,7 +31,7 @@ final class DealsModel {
 
     /// Reads teammates' logs into the store, then folds every event as the founder sees it.
     func refresh() {
-        attempt("read the deals") {
+        problems.attempt("read the deals") {
             catalog.refresh()
             try store.append(catalog.workEvents)
             deals = WorkObject.fold(try store.queries.workEvents(), viewer: me).filter {
@@ -78,9 +79,9 @@ final class DealsModel {
     func move(_ deal: WorkObject, to stage: StageID) {
         let meaning = type.resolveStage(stage).meaning
         guard meaning != .waiting else { return }
-        attempt("drop the action") { try store.dropActions(of: deal.id) }
-        if meaning != .watch { attempt("drop the revisit") { try store.dropRevisits(of: deal.id) } }
-        attempt("move the deal") { add([try stageDraft(deal, to: stage)]) }
+        problems.attempt("drop the action") { try store.dropActions(of: deal.id) }
+        if meaning != .watch { problems.attempt("drop the revisit") { try store.dropRevisits(of: deal.id) } }
+        problems.attempt("move the deal") { add([try stageDraft(deal, to: stage)]) }
     }
 
     func meaning(of stage: StageID) -> Meaning { type.resolveStage(stage).meaning }
@@ -94,8 +95,8 @@ final class DealsModel {
     /// one, becomes a dated fact on Today. The deal is followed in the news from then on.
     func pass(_ deal: WorkObject, reason: String, revisit: WorkDay?) {
         guard let watch = type.firstStage(meaning: .watch) else { return }
-        attempt("drop the action") { try store.dropActions(of: deal.id) }
-        attempt("save the revisit") {
+        problems.attempt("drop the action") { try store.dropActions(of: deal.id) }
+        problems.attempt("save the revisit") {
             if let revisit {
                 try store.setRevisit(of: deal, on: revisit, reason: reason)
             } else {
@@ -103,7 +104,7 @@ final class DealsModel {
             }
         }
         var drafts: [Draft] = []
-        attempt("move the deal") { drafts.append(try stageDraft(deal, to: watch.id)) }
+        problems.attempt("move the deal") { drafts.append(try stageDraft(deal, to: watch.id)) }
         if let reason = reason.cleaned { drafts.append(Draft(object: deal.id, kind: .note, text: "Passed: \(reason)")) }
         add(drafts)
     }
@@ -111,13 +112,13 @@ final class DealsModel {
     /// Moves the deal to the waiting stage and opens the one dated fact it waits for, owned by the founder.
     func requireAction(_ deal: WorkObject, what: String, due: WorkDay) {
         guard what.cleaned != nil, let waiting = type.firstStage(meaning: .waiting) else { return }
-        attempt("save the action") { try store.requireAction(of: deal, what: what, due: due, owner: me) }
-        attempt("move the deal") { add([try stageDraft(deal, to: waiting.id)]) }
+        problems.attempt("save the action") { try store.requireAction(of: deal, what: what, due: due, owner: me) }
+        problems.attempt("move the deal") { add([try stageDraft(deal, to: waiting.id)]) }
     }
 
     func finishAction(of deal: WorkObject) {
         guard let action = digests[deal.id]?.action else { return }
-        attempt("finish the action") { try store.apply(DealAction.lifecycle.closing([action]), surface: .deals) }
+        problems.attempt("finish the action") { try store.apply(DealAction.lifecycle.closing([action]), surface: .deals) }
         refresh()
     }
 
@@ -137,7 +138,7 @@ final class DealsModel {
 
     /// Links a machine's item, with the audience of its source as it is now.
     func link(_ item: Item, from helper: HelperModel, to deal: String) async {
-        do {
+        await problems.attempt("link the item") {
             let found = try await catalog.readers(of: helper)
             let missing = Set(found.missing.map(\.name))
             let audience = [me] + found.recipients.map(\.name).filter { !missing.contains($0) }
@@ -146,8 +147,6 @@ final class DealsModel {
                     object: deal, kind: .link, item: LinkedItem(machine: helper.machine, item: item, audience: audience)
                 )
             ])
-        } catch {
-            problem = "Could not link the item: \(error.localizedDescription)"
         }
     }
 
@@ -162,10 +161,8 @@ final class DealsModel {
     /// evidence, and the candidate marked right.
     func addCandidate(_ item: Item, of helper: HelperModel, from source: OutboundSource) async {
         guard let id = await newDeal(from: item, of: helper) else { return }
-        attempt("mark the startup") { try source.accepted(item, asDeal: id) }
+        problems.attempt("mark the startup") { try source.accepted(item, asDeal: id) }
     }
-
-    func dismissProblem() { problem = nil }
 
     struct Draft {
         var object: String
@@ -177,7 +174,7 @@ final class DealsModel {
 
     private func add(_ drafts: [Draft]) {
         guard !drafts.isEmpty else { return }
-        attempt("save the change") {
+        problems.attempt("save the change") {
             let first = try store.queries.nextClock()
             let events = drafts.enumerated().map { index, draft in
                 WorkEvent(
@@ -203,11 +200,4 @@ final class DealsModel {
         try catalog.send(mine.map(SharedThing.event))
     }
 
-    private func attempt(_ step: String, _ work: () throws -> Void) {
-        do {
-            try work()
-        } catch {
-            problem = "Could not \(step): \(error.localizedDescription)"
-        }
-    }
 }

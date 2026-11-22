@@ -12,7 +12,10 @@ final class MochiModel {
     private(set) var proposals: [Proposal] = []
     private(set) var trainingDays = 0
     private(set) var phase = ReadPhase.idle
-    private(set) var problem: String?
+    let problems = ProblemSlot()
+    var problem: String? { problems.text }
+    let briefProblems = ProblemSlot()
+    var briefProblem: String? { briefProblems.text }
     private(set) var brief: MorningBrief?
     private(set) var briefPhase = ReadPhase.idle
     private static let briefKey = StateKey<MorningBrief>.json("mochi.brief")
@@ -38,12 +41,10 @@ final class MochiModel {
     }
 
     func refresh() {
-        do {
+        problems.attempt("read Mochi's proposals") {
             proposals = try store.queries.proposals()
             trainingDays = Mochi.days(in: try blocks())
             brief = try Self.briefKey.load(from: store)
-        } catch {
-            problem = "Could not read Mochi's proposals: \(error.localizedDescription)"
         }
     }
 
@@ -61,15 +62,15 @@ final class MochiModel {
             let briefer = Briefer(model: makeModel(try ModelChoice.saved(in: store)))
             let unseen = crew.machines.filter { !$0.isPaused && $0.items(on: day).isEmpty }.map(\.name)
             guard let written = try await briefer.brief(sources, day: day, unseen: unseen) else {
-                problem = "No machine found anything on \(day) to brief."
+                briefProblems.show("No machine found anything on \(day) to brief.")
                 return nil
             }
             try Self.briefKey.save(written, to: store)
             brief = written
-            problem = nil
+            briefProblems.dismiss()
             return written
         } catch {
-            problem = "Mochi could not write the brief: \(error.localizedDescription)"
+            briefProblems.report("write the brief", error)
             return nil
         }
     }
@@ -93,10 +94,10 @@ final class MochiModel {
                 earlier: proposals)
             try store.saveProposals(result, grant: try await store.grant(for: .screen, at: store.clock()))
             phase = .read(kept: result.proposals.count, dropped: result.dropped)
-            problem = nil
+            problems.dismiss()
         } catch {
             phase = .idle
-            problem = "Mochi could not read your days: \(error.localizedDescription)"
+            problems.report("read your days", error)
         }
         refresh()
     }
@@ -107,7 +108,7 @@ final class MochiModel {
         guard let template = MachineTemplate.all.first(where: { $0.spec.task == proposal.template }),
             let id = crew.create(from: template, name: proposal.name), let helper = crew.helper(id: id)
         else {
-            problem = "Mochi's proposal names a template this version does not have."
+            problems.show("Mochi's proposal names a template this version does not have.")
             return nil
         }
         crew.edit(helper, brief: proposal.brief)
@@ -118,15 +119,9 @@ final class MochiModel {
 
     func decide(_ proposal: Proposal, _ decision: Proposal.Decision) {
         guard let id = proposal.id else { return }
-        do {
-            try store.decide(id, decision)
-        } catch {
-            problem = "Could not save the decision: \(error.localizedDescription)"
-        }
+        problems.attempt("save the decision") { try store.decide(id, decision) }
         refresh()
     }
-
-    func dismissProblem() { problem = nil }
 
     private func blocks() throws -> [Item] {
         guard let timeline = crew.timeline else { return [] }

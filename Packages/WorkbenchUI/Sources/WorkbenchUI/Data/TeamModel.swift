@@ -9,7 +9,8 @@ final class TeamModel {
     var team: Team
     var template: TeamTemplate
     let templates: [TeamTemplate]
-    private(set) var problem: String?
+    let problems = ProblemSlot()
+    var problem: String? { problems.text }
 
     private static let templateKey = StateKey<String>.text("team.template")
 
@@ -26,12 +27,9 @@ final class TeamModel {
     }
 
     func reload() {
-        do {
+        problems.attempt("read your team", clearing: true) {
             team = try store?.queries.team() ?? Team(name: "", people: [])
             template = try savedTemplate() ?? template
-            problem = nil
-        } catch {
-            problem = "Your team could not be read: \(error.localizedDescription)"
         }
         if !team.people.contains(where: \.isMe), let name = me().cleaned {
             team.people.insert(.init(name: name, role: "Founder", isMe: true), at: 0)
@@ -47,12 +45,10 @@ final class TeamModel {
 
     func save() {
         guard let store else { return }
-        do {
+        problems.attempt("save your team") {
             try store.saveTeam(team)
             try Self.templateKey.save(template.id, to: store)
             reload()
-        } catch {
-            problem = "Your team was not saved: \(error.localizedDescription)"
         }
     }
 

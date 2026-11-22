@@ -36,7 +36,8 @@ final class TeamCatalogModel {
     private(set) var workEvents: [WorkEvent] = []
     private(set) var unreadable: [String] = []
     private(set) var refusal: Refusal?
-    private(set) var problem: String?
+    let problems = ProblemSlot()
+    var problem: String? { problems.text }
 
     let trust: TeamTrustModel
     @ObservationIgnored let store: Store
@@ -69,7 +70,7 @@ final class TeamCatalogModel {
 
     func review(_ machine: SharedMachine, in place: Place, approve: Bool, note: String) {
         guard machine.author != me else { return }
-        attempt("save the review") {
+        problems.attempt("save the review") {
             let review = MachineReview(reviewer: me, of: machine, approve: approve, note: note, at: store.clock())
             if place == .team {
                 try send([.review(review)])
@@ -81,7 +82,7 @@ final class TeamCatalogModel {
     }
 
     func choosePublic(_ url: URL) {
-        attempt("save the public folder") {
+        problems.attempt("save the public folder") {
             try store.saveState(url.path(percentEncoded: false), forKey: Self.publicKey)
         }
         publicFolder = url
@@ -89,14 +90,16 @@ final class TeamCatalogModel {
     }
 
     func choose(_ url: URL) {
-        attempt("save the team folder") { try store.saveState(url.path(percentEncoded: false), forKey: Self.folderKey) }
+        problems.attempt("save the team folder") {
+            try store.saveState(url.path(percentEncoded: false), forKey: Self.folderKey)
+        }
         folder = url
         refresh()
     }
 
     func refresh() {
         unreadable = []
-        if let folder { attempt("read the team folder") { try readTeam(folder) } }
+        if let folder { problems.attempt("read the team folder") { try readTeam(folder) } }
         if let publicFolder {
             let machines = SharedMachine.read(from: publicFolder)
             let reviews = MachineReview.read(from: publicFolder)
@@ -139,13 +142,13 @@ final class TeamCatalogModel {
     /// holds the share back and names who cannot.
     func share(day helper: HelperModel) async {
         guard folder != nil else {
-            problem = "Choose a team folder in Settings › Team first."
+            problems.show("Choose a team folder in Settings › Team first.")
             return
         }
-        do {
+        await problems.attempt("share \(helper.name)'s day") {
             let (recipients, missing) = try await audience(of: helper)
             guard !recipients.isEmpty else {
-                problem = "Add your teammates in Settings › Team first."
+                problems.show("Add your teammates in Settings › Team first.")
                 return
             }
             guard missing.isEmpty else { return }
@@ -153,7 +156,7 @@ final class TeamCatalogModel {
                 author: me, machine: helper.machine, day: helper.day, items: helper.items,
                 audience: [me] + recipients.map(\.name), at: store.clock())
             guard try send([.day(day)]) == 0 else {
-                problem = "A teammate has no confirmed key yet, so nothing was sent. Confirm their fingerprint first."
+                problems.show("A teammate has no confirmed key yet, so nothing was sent. Confirm their fingerprint first.")
                 return
             }
             try store.log(
@@ -162,14 +165,12 @@ final class TeamCatalogModel {
                     "day": day.day, "to": recipients.map(\.name).joined(separator: ", "),
                     "items": String(day.entries.count),
                 ])
-        } catch {
-            problem = "Could not share \(helper.name)'s day: \(error.localizedDescription)"
         }
         refresh()
     }
 
     func unshare(day helper: HelperModel) {
-        attempt("stop sharing \(helper.name)'s day") {
+        problems.attempt("stop sharing \(helper.name)'s day") {
             let day = SharedDay.key(author: me, task: helper.spec.task, day: helper.day.description)
             try send([.retraction(key: day, by: me)])
             try store.log("unshare_day", target: helper.spec.task, detail: ["day": helper.day.description])
@@ -179,11 +180,9 @@ final class TeamCatalogModel {
 
     /// The founder says which group member a teammate is; the held-back share is checked again, not sent.
     func link(_ person: Team.Person, to member: WhatsAppMember, for helper: HelperModel) async {
-        do {
+        await problems.attempt("link \(person.name)") {
             try store.link(person, whatsapp: member.jid)
             _ = try await audience(of: helper)
-        } catch {
-            problem = "Could not link \(person.name): \(error.localizedDescription)"
         }
     }
 
@@ -198,12 +197,13 @@ final class TeamCatalogModel {
     /// Writes the machine's spec and its record in counts, never what it read, to the team or the public folder.
     func share(_ helper: HelperModel, to place: Place = .team) {
         guard let folder = folder(for: place) else {
-            problem =
+            problems.show(
                 place == .team
-                ? "Choose a team folder in Settings › Team first." : "Choose a public folder on the Team page first."
+                    ? "Choose a team folder in Settings › Team first."
+                    : "Choose a public folder on the Team page first.")
             return
         }
-        attempt("share \(helper.name)") {
+        problems.attempt("share \(helper.name)") {
             let record = SharedMachine.Record(task: helper.spec.task, quality: try store.queries.quality())
             let machine = SharedMachine(author: me, machine: helper.machine, record: record, at: store.clock())
             if place == .team { try send([.machine(machine)]) } else { try machine.write(to: folder) }
@@ -213,7 +213,7 @@ final class TeamCatalogModel {
 
     func unshare(_ helper: HelperModel, from place: Place = .team) {
         guard let folder = folder(for: place) else { return }
-        attempt("stop sharing \(helper.name)") {
+        problems.attempt("stop sharing \(helper.name)") {
             if place == .team {
                 try send([.retraction(key: SharedMachine.key(author: me, task: helper.spec.task), by: me)])
             } else {
@@ -227,20 +227,12 @@ final class TeamCatalogModel {
     @discardableResult
     func adopt(_ machine: SharedMachine) -> Int64? {
         guard MachineTemplate.all.contains(where: { $0.spec.task == machine.template }) else {
-            problem = "\(machine.author)'s \(machine.name) needs a template this version does not have."
+            problems.show("\(machine.author)'s \(machine.name) needs a template this version does not have.")
             return nil
         }
         return crew.create(spec: machine.spec, template: machine.template, name: machine.name)
     }
 
-    func dismissProblem() { problem = nil }
     func dismissRefusal() { refusal = nil }
 
-    private func attempt(_ step: String, _ work: () throws -> Void) {
-        do {
-            try work()
-        } catch {
-            problem = "Could not \(step): \(error.localizedDescription)"
-        }
-    }
 }

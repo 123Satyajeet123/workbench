@@ -194,7 +194,7 @@ private struct ChatsSheet: View {
             .padding(Space.l)
             ScrollView {
                 VStack(alignment: .leading, spacing: Space.m) {
-                    if let problem = pip.problem { ProblemBanner(text: problem, settingsPane: pip.problemPane) }
+                    ProblemSlotBanner(slot: pip.problems)
                     GroupChooser(model: pip, source: source)
                 }
                 .padding([.horizontal, .bottom], Space.l)
@@ -212,7 +212,7 @@ private struct ChatsSheet: View {
         .background(.pageFill)
         .onChange(of: source.chats.map(\.id)) { dismiss() }
         .task {
-            pip.dismissProblem()
+            pip.problems.dismiss()
             guard source.groups.isEmpty, source.direct.isEmpty else { return }
             pip.attempt("list your WhatsApp chats", source.loadGroups)
         }
