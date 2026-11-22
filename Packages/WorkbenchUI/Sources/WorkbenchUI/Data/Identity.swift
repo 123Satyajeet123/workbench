@@ -10,6 +10,12 @@ struct Identity: Codable, Equatable {
 
     var hasName: Bool { !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 
+    func greeting(at date: Date = .now) -> String {
+        let hour = Calendar.current.component(.hour, from: date)
+        let part = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening"
+        return hasName ? "\(part), \(name)" : part
+    }
+
     static func load(from store: Store) throws -> Identity? {
         try stateKey.load(from: store)
     }

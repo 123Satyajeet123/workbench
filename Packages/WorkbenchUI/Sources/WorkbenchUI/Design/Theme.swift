@@ -136,6 +136,10 @@ extension View {
         }
     }
 
+    func pill(_ fill: some ShapeStyle = .quaternary) -> some View {
+        textStyle(.caption).padding(.horizontal, Space.s).padding(.vertical, 2).background(fill, in: .capsule)
+    }
+
     private func calloutFill() -> some View { background(.calloutFill, in: .rect(cornerRadius: Radius.card)) }
 }
 

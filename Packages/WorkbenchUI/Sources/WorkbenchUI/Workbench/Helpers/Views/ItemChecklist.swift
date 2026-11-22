@@ -71,8 +71,7 @@ struct ClosedRow: View {
                 HStack(spacing: Space.s) {
                     Text(item[model.spec.title]).strikethrough()
                     if let outcome = item.closed?.outcome {
-                        Text(outcome).textStyle(.caption).padding(.horizontal, Space.s).padding(.vertical, 2)
-                            .background(.quaternary, in: .capsule)
+                        Text(outcome).pill()
                     }
                 }
                 Text(closing).textStyle(.callout).foregroundStyle(.supporting).textSelection(.enabled)

@@ -10,7 +10,7 @@ struct TodayPage: View {
     var body: some View {
         Page(
             intro: .day,
-            title: greeting, subtitle: Date.now.formatted(date: .complete, time: .omitted),
+            title: identity.identity.greeting(), subtitle: Date.now.formatted(date: .complete, time: .omitted),
             look: SidebarSelection.day.look
         ) {
             TodayBody(model: today, brief: mochi.brief)
@@ -18,12 +18,6 @@ struct TodayPage: View {
         .onAppear(perform: today.refresh)
         .task { await today.refreshMeetings() }
         .task(id: today.today) { await today.summarizeIfMissing() }
-    }
-
-    private var greeting: String {
-        let hour = Calendar.current.component(.hour, from: .now)
-        let part = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening"
-        return identity.identity.hasName ? "\(part), \(identity.identity.name)" : part
     }
 }
 

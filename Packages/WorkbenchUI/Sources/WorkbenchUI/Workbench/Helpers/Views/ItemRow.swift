@@ -20,8 +20,7 @@ struct ItemRow: View {
                 HStack(spacing: Space.s) {
                     Text(item[model.spec.title])
                     ForEach(badgeFields, id: \.self) { field in
-                        Text(item[field]).textStyle(.caption).padding(.horizontal, Space.s).padding(.vertical, 2)
-                            .background(.quaternary, in: .capsule)
+                        Text(item[field]).pill()
                     }
                 }
                 Text(showsSpan ? item.quotedWords : "\(item.quotedWords) · \(time(item.start))")
