@@ -58,6 +58,20 @@ struct ModelChoice: Codable, Hashable, Identifiable {
     }
 }
 
+struct ModelMaker {
+    private let store: Store
+    private let make: (ModelChoice) -> RecordedModel
+
+    init(store: Store, make: ((ModelChoice) -> RecordedModel)?) {
+        self.store = store
+        self.make = make ?? { $0.model(store: store) }
+    }
+
+    func callAsFunction(_ choice: ModelChoice) -> RecordedModel { make(choice) }
+
+    func current() throws -> RecordedModel { make(try ModelChoice.saved(in: store)) }
+}
+
 /// Who pays for model calls. Anthropic's terms point programs to the user's own API key; the Claude plan sign-in stays
 /// for personal use (code.claude.com/docs/en/legal-and-compliance).
 enum Billing: String, CaseIterable, Identifiable {

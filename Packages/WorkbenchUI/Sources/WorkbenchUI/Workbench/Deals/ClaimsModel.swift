@@ -28,7 +28,7 @@ final class ClaimsModel {
     @ObservationIgnored private let store: Store
     @ObservationIgnored private let me: () -> String
     @ObservationIgnored private let owner: Result<PersonID, any Error>
-    @ObservationIgnored private let makeModel: (ModelChoice) -> RecordedModel
+    @ObservationIgnored private let makeModel: ModelMaker
     @ObservationIgnored private let openSession: () throws -> WebSession
     @ObservationIgnored private let evidence: (WorkObject) throws -> [Evidence]
 
@@ -40,7 +40,7 @@ final class ClaimsModel {
         self.store = store
         self.me = me
         self.owner = owner
-        self.makeModel = makeModel ?? { $0.model(store: store) }
+        self.makeModel = ModelMaker(store: store, make: makeModel)
         self.openSession = openSession ?? { try web.openSession() }
         self.evidence = evidence ?? { try store.queries.evidence(of: $0, author: me()) }
     }
@@ -121,7 +121,7 @@ final class ClaimsModel {
                 problems.show("No machine lists claim types, so there is nothing to read claims for.")
                 return
             }
-            let extractor = ClaimExtractor(model: makeModel(try ModelChoice.saved(in: store)), types: types)
+            let extractor = ClaimExtractor(model: try makeModel.current(), types: types)
             let found = try await extractor.extract(deal: deal.id, lines: lines)
             if let run = found.run, !found.claims.isEmpty {
                 let known = Set(try store.queries.claims(of: deal.id).map { $0.text.comparable })
@@ -157,7 +157,7 @@ final class ClaimsModel {
                 return
             }
             let grants = try store.grants(for: lines)
-            let rater = DealRater(model: makeModel(try ModelChoice.saved(in: store)), criteria: criteria)
+            let rater = DealRater(model: try makeModel.current(), criteria: criteria)
             if let rating = try await rater.rate(deal: deal.id, company: deal.title, lines: lines),
                 let grant = rating.source.flatMap({ kind in grants.first { $0.key.kind == kind }?.value })
             {
@@ -194,7 +194,7 @@ final class ClaimsModel {
             for claim in chosen {
                 let session = try openSession()
                 let checker = ClaimChecker(
-                    model: makeModel(try ModelChoice.saved(in: store)), session: session, types: types)
+                    model: try makeModel.current(), session: session, types: types)
                 do {
                     let done = try await checker.check(claim, company: deal.title)
                     try store.saveCheck(done.check, claimQuote: claim.quote, run: done.run, session: session)

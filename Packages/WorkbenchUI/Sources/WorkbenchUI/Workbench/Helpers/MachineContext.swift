@@ -12,7 +12,7 @@ final class MachineContext {
 
     @ObservationIgnored let source: any MachineSource
     @ObservationIgnored let store: Store
-    @ObservationIgnored let makeModel: (ModelChoice) -> RecordedModel
+    @ObservationIgnored let makeModel: ModelMaker
     /// Called after a read or a mark changed this machine's items, so the review queue can follow.
     @ObservationIgnored var itemsChanged: () -> Void = {}
     @ObservationIgnored var reload: () -> Void = {}
@@ -24,7 +24,7 @@ final class MachineContext {
         self.machine = machine
         self.source = source
         self.store = store
-        self.makeModel = makeModel ?? { $0.model(store: store) }
+        self.makeModel = ModelMaker(store: store, make: makeModel)
         self.notifications = notifications
         day = WorkDay(containing: store.clock())
     }

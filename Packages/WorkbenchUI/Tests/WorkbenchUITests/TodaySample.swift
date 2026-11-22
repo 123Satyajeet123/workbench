@@ -79,7 +79,7 @@ enum TodaySample {
     ) async throws {
         let today = WorkDay(containing: store.clock())
         try store.savePolicy(CapturePolicy(switches: [.whatsapp: true], allowList: [.whatsapp: [scope]]))
-        guard let pip = crew.machines.first(where: { $0.machine.template == HelperSpec.team.task }) else {
+        guard let pip = crew.team else {
             return
         }
         try await save(facts: facts, of: pip.machine, today: today, scope: scope, store: store)

@@ -29,7 +29,7 @@ final class ReviewModel {
     var current: Item? { items.indices.contains(selected) ? items[selected] : nil }
 
     func helper(for item: Item) -> HelperModel? {
-        crew.machines.first { $0.spec.task == Trial.machineTask(of: item.task) }
+        crew.helper(task: item.task)
     }
 
     func name(of item: Item) -> String { crew.name(ofTask: item.task) }
@@ -54,7 +54,7 @@ final class ReviewModel {
     func undo() {
         guard let last = undoStack.popLast() else { return }
         problems.attempt("undo") { try store.mark(item: last.id, as: last.state) }
-        changed(crew.machines.first { $0.spec.task == Trial.machineTask(of: last.task) })
+        changed(crew.helper(task: last.task))
         if let index = items.firstIndex(where: { $0.id == last.id }) { selected = index }
     }
 

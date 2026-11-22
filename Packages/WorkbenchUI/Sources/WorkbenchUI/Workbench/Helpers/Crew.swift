@@ -56,6 +56,8 @@ final class Crew {
 
     var team: HelperModel? { machines.first { $0.machine.template == HelperSpec.team.task } }
 
+    var sentinel: HelperModel? { machines.first { $0.machine.template == HelperSpec.derailment.task } }
+
     var crew: [HelperModel] { machines.filter { $0 !== timeline } }
 
     var followable: HelperModel? { machines.first { $0.spec.lifecycle != nil } }
@@ -83,8 +85,10 @@ final class Crew {
 
     func helper(id: Int64) -> HelperModel? { machines.first { $0.machine.id == id } }
 
+    func helper(task: String) -> HelperModel? { machines.first { $0.spec.task == Trial.machineTask(of: task) } }
+
     func name(ofTask task: String) -> String {
-        guard let name = machines.first(where: { $0.spec.task == Trial.machineTask(of: task) })?.name else {
+        guard let name = helper(task: task)?.name else {
             return task
         }
         return Trial.isTrial(task) ? "\(name) · new brief" : name
@@ -156,7 +160,7 @@ final class Crew {
     }
 
     func update(for helper: HelperModel) -> (template: MachineTemplate, changes: [String])? {
-        guard let template = MachineTemplate.all.first(where: { $0.spec.task == helper.machine.template }),
+        guard let template = MachineTemplate.of(helper.machine),
             let changes = helper.spec.update(toward: template.spec)
         else { return nil }
         return (template, changes)

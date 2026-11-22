@@ -22,12 +22,12 @@ final class MochiModel {
 
     @ObservationIgnored private let store: Store
     @ObservationIgnored private let crew: Crew
-    @ObservationIgnored private let makeModel: (ModelChoice) -> RecordedModel
+    @ObservationIgnored private let makeModel: ModelMaker
 
     init(store: Store, crew: Crew, makeModel: ((ModelChoice) -> RecordedModel)? = nil) {
         self.store = store
         self.crew = crew
-        self.makeModel = makeModel ?? { $0.model(store: store) }
+        self.makeModel = ModelMaker(store: store, make: makeModel)
         refresh()
     }
 
@@ -59,7 +59,7 @@ final class MochiModel {
         briefPhase = .reading
         defer { briefPhase = .idle }
         do {
-            let briefer = Briefer(model: makeModel(try ModelChoice.saved(in: store)))
+            let briefer = Briefer(model: try makeModel.current())
             let unseen = crew.machines.filter { !$0.isPaused && $0.items(on: day).isEmpty }.map(\.name)
             guard let written = try await briefer.brief(sources, day: day, unseen: unseen) else {
                 briefProblems.show("No machine found anything on \(day) to brief.")
@@ -85,7 +85,7 @@ final class MochiModel {
         phase = .reading
         do {
             _ = try await store.grant(for: .screen, at: store.clock())
-            let mochi = Mochi(model: makeModel(try ModelChoice.saved(in: store)))
+            let mochi = Mochi(model: try makeModel.current())
             let result = try await mochi.propose(
                 blocks: try blocks(), roster: crew.machines.map(\.machine),
                 templates: MachineTemplate.all.map {
@@ -105,7 +105,7 @@ final class MochiModel {
     /// Builds the machine from its template with Mochi's brief, then records the decision.
     @discardableResult
     func accept(_ proposal: Proposal) -> Int64? {
-        guard let template = MachineTemplate.all.first(where: { $0.spec.task == proposal.template }),
+        guard let template = MachineTemplate.of(id: proposal.template),
             let id = crew.create(from: template, name: proposal.name), let helper = crew.helper(id: id)
         else {
             problems.show("Mochi's proposal names a template this version does not have.")

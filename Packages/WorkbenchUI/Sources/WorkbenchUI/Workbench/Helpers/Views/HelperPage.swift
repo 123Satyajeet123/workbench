@@ -12,8 +12,7 @@ struct HelperPage: View {
     }
 
     private var subtitle: String {
-        let role = model.isPaused ? "Paused" : MachineTemplate.of(model.machine)?.role ?? ""
-        return model.chosenSource.map { "\(role) · \($0)" } ?? role
+        model.chosenSource.map { "\(model.role) · \($0)" } ?? model.role
     }
 }
 

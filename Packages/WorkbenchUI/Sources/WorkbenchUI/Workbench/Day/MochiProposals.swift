@@ -46,7 +46,7 @@ private struct ProposalCard: View {
             HStack(spacing: Space.s) {
                 Mascot(look: Mascot.Look(hue: 0.4, wear: .antenna), size: 22)
                 Text(proposal.name).textStyle(.headline)
-                Text(MachineTemplate.all.first { $0.spec.task == proposal.template }?.role ?? proposal.template)
+                Text(MachineTemplate.of(id: proposal.template)?.role ?? proposal.template)
                     .textStyle(.caption).foregroundStyle(.supporting)
             }
             Text(proposal.why)

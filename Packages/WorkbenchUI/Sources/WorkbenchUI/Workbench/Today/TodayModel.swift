@@ -114,7 +114,7 @@ final class TodayModel {
     private var factHelper: HelperModel? { crew.team }
     private var factMachine: Machine? { factHelper?.machine }
     private var sentinelTask: String? {
-        crew.machines.first { $0.machine.template == HelperSpec.derailment.task }?.spec.task
+        crew.sentinel?.spec.task
     }
 
     func refresh() {
@@ -273,7 +273,7 @@ final class TodayModel {
 
     func title(of item: Item) -> String {
         if NewsSignals.owns(item.task) { return item[NewsSignals.headlineField] }
-        let field = crew.machines.first { $0.spec.task == item.task }?.spec.title
+        let field = crew.helper(task: item.task)?.spec.title
         return field.map { item[$0] } ?? item.quote
     }
 
@@ -362,7 +362,7 @@ final class TodayModel {
     /// store: the chat is not read again, and a message deleted since shows as deleted. Another source gives its lines as
     /// it has them now. Empty when the fact cites no line or its machine is gone.
     func chatLines(around item: Item, reach: Int = 2) async throws -> [ChatLine] {
-        guard item.citeFirst > 0, let helper = crew.machines.first(where: { $0.spec.task == item.task }) else {
+        guard item.citeFirst > 0, let helper = crew.helper(task: item.task) else {
             return []
         }
         if let whatsApp = helper.source as? WhatsAppSource { return try await whatsApp.proof(of: item, reach: reach) }

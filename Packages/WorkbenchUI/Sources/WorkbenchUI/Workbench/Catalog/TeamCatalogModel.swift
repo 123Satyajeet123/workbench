@@ -226,7 +226,7 @@ final class TeamCatalogModel {
     /// The teammate's machine becomes the founder's own: the same spec (brief, fields, view), a new task, zero trust.
     @discardableResult
     func adopt(_ machine: SharedMachine) -> Int64? {
-        guard MachineTemplate.all.contains(where: { $0.spec.task == machine.template }) else {
+        guard MachineTemplate.of(id: machine.template) != nil else {
             problems.show("\(machine.author)'s \(machine.name) needs a template this version does not have.")
             return nil
         }
