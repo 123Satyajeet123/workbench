@@ -36,7 +36,7 @@ public struct MorningBrief: Codable, Sendable, Equatable {
 
 /// Writes the brief: one model call over the day's items, the model decides what matters; code keeps a line only when
 /// it cites items it was given.
-public struct Briefer: Sendable {
+public struct Briefer: ModelTask {
     struct Reply: Decodable, Sendable {
         struct Raw: Decodable, Sendable {
             var kind: String
@@ -95,9 +95,8 @@ public struct Briefer: Sendable {
     /// that found nothing that day.
     public func brief(_ sources: [Source], day: WorkDay, unseen: [String] = []) async throws -> MorningBrief? {
         guard !sources.isEmpty else { return nil }
-        let (reply, run) = try await model.generate(
-            Reply.self, schema: Self.schema, task: Self.task, instructions: Self.instructions,
-            input: Self.input(sources, day: day), holding: Set(sources.map(\.item.source)))
+        let (reply, run) = try await ask(
+            Self.input(sources, day: day), holding: Set(sources.map(\.item.source)))
         let given = Set(sources.compactMap(\.item.id))
         var kept: [MorningBrief.Line] = []
         for raw in reply.lines {

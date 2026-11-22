@@ -36,7 +36,7 @@ public struct Decision: Sendable, Equatable {
 /// to the machine's brief (research 20 §2.3: small typed edits; a rewrite collapses). The edit is only a challenger:
 /// it starts a trial, and the person's marks decide. Code keeps an edit only when it cites marked items it was given,
 /// removes text the brief has, and keeps the brief within the growth cap.
-public struct Improver: Sendable {
+public struct Improver: ModelTask {
     public struct Edit: Sendable, Equatable {
         public enum Kind: String, Sendable, CaseIterable {
             case add, remove
@@ -100,9 +100,8 @@ public struct Improver: Sendable {
     public func propose(spec: HelperSpec, marked: [Item]) async throws -> (edit: Edit?, run: RunID?) {
         let training = marked.filter { DevHalf($0.day) == .learn && $0.state != .proposed && $0.id != nil }
         guard training.filter({ $0.state == .rejected }).count >= Self.minimumWrong else { return (nil, nil) }
-        let (reply, run) = try await model.generate(
-            Reply.self, schema: Self.schema, task: Self.task, instructions: Self.instructions,
-            input: Self.input(spec: spec, marked: training), holding: Set(training.map(\.source)))
+        let (reply, run) = try await ask(
+            Self.input(spec: spec, marked: training), holding: Set(training.map(\.source)))
         return (Self.checked(reply, brief: spec.brief, given: Set(training.compactMap(\.id))), run)
     }
 

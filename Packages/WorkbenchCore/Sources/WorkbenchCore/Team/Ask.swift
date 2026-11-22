@@ -31,7 +31,7 @@ public struct MemoryEntry: Sendable, Equatable, Identifiable {
 /// Questions over the team's memory (research 24, step 10). Full-text search finds the entries; one model call
 /// answers from them alone. Code keeps an answer only when every citation names an entry it was given and quotes
 /// that entry's words exactly. An answer without a citation is never shown.
-public struct Asker: Sendable {
+public struct Asker: ModelTask {
     public struct Answer: Sendable, Equatable {
         /// Nil when the model found no answer it could cite.
         public var text: String?
@@ -100,9 +100,8 @@ public struct Asker: Sendable {
         let found = try Self.search(question, in: entries)
         guard !found.isEmpty else { return (Answer(text: nil, cited: [], searched: 0), nil) }
         let lines = found.map { "[\($0.id)] \($0.source): \($0.text)" }
-        let (reply, run) = try await model.generate(
-            Reply.self, schema: Self.schema, task: Self.task, instructions: Self.instructions,
-            input: "Question: \(question)\n\nEntries:\n\(lines.joined(separator: "\n"))",
+        let (reply, run) = try await ask(
+            "Question: \(question)\n\nEntries:\n\(lines.joined(separator: "\n"))",
             holding: found.reduce(into: []) { $0.formUnion($1.kinds) },
             holdingUnknown: found.contains { $0.kindUnknown })
         return (try Self.checked(reply, given: found), run)

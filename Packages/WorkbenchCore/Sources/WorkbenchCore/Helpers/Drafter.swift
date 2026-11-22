@@ -2,7 +2,9 @@ import Foundation
 
 /// Writes a short message the founder may send about one item a machine found. One model call. The founder reads,
 /// edits and sends it; Workbench never sends anything.
-public struct Drafter: Sendable {
+public struct Drafter: ModelTask {
+    typealias Reply = Draft
+
     public struct Draft: Decodable, Sendable, Equatable {
         /// Who the message is for, as the item names them; empty when the item names no one.
         public var to: String
@@ -36,8 +38,8 @@ public struct Drafter: Sendable {
             \(fields.joined(separator: "\n"))
             Quote: "\(item.quote)"
             """
-        let (draft, run) = try await model.generate(
-            Draft.self, schema: Self.schema, task: Self.task, instructions: Self.instructions, input: input,
+        let (draft, run) = try await ask(
+            input,
             holding: [item.source])
         return (draft, run)
     }

@@ -38,7 +38,7 @@ public struct SummaryScope: Sendable {
 
 /// Summarizes many scopes in one model call. The model decides what each scope did; code keeps a line only when it
 /// cites items of its own scope.
-public struct Summarizer: Sendable {
+public struct Summarizer: ModelTask {
     struct Reply: Decodable, Sendable {
         struct Cited: Decodable, Sendable {
             var text: String
@@ -106,9 +106,8 @@ public struct Summarizer: Sendable {
     public func summarize(_ scopes: [SummaryScope], day: WorkDay) async throws -> [Summary] {
         let asked = scopes.filter { !$0.sources.isEmpty }
         guard !asked.isEmpty else { return [] }
-        let (reply, run) = try await model.generate(
-            Reply.self, schema: Self.schema, task: Self.task, instructions: Self.instructions,
-            input: Self.input(asked, day: day), holding: Set(asked.flatMap(\.sources).map(\.item.source)))
+        let (reply, run) = try await ask(
+            Self.input(asked, day: day), holding: Set(asked.flatMap(\.sources).map(\.item.source)))
         var answered = Set<Int>()
         return reply.summaries.compactMap { raw in
             guard asked.indices.contains(raw.scope - 1), answered.insert(raw.scope).inserted else { return nil }
