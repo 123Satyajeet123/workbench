@@ -18,7 +18,6 @@ struct UpdateBanner: View {
             Spacer()
             Button("Update", action: update).buttonStyle(.primary)
         }
-        .padding(Space.m)
-        .background(.calloutFill, in: .rect(cornerRadius: Radius.card))
+        .calloutBox()
     }
 }

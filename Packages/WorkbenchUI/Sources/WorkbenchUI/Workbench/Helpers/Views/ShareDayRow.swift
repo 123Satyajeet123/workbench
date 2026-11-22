@@ -59,7 +59,6 @@ struct RefusalCard: View {
             }
             Button("Dismiss", action: catalog.dismissRefusal)
         }
-        .padding(Space.m)
-        .background(.calloutFill, in: .rect(cornerRadius: Radius.card))
+        .calloutBox()
     }
 }

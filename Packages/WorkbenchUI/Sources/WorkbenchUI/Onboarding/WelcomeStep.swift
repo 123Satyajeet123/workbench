@@ -33,9 +33,7 @@ struct WelcomeStep: View {
                 .textStyle(.callout)
                 .foregroundStyle(.supporting)
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(Space.m)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(.calloutFill, in: .rect(cornerRadius: Radius.card))
+                .calloutBox(fillsWidth: true)
         }
     }
 }

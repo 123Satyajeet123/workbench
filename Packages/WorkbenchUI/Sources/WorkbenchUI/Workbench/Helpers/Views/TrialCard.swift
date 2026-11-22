@@ -31,8 +31,7 @@ struct TrialCard: View {
                 }
             }
         }
-        .padding(Space.m)
-        .background(.calloutFill, in: .rect(cornerRadius: Radius.card))
+        .calloutBox()
     }
 
     /// What the trial changes against the live machine, in one line.

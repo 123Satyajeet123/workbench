@@ -117,9 +117,7 @@ struct Card<Icon: View, Content: View>: View {
             }.textStyle(.headline)
             content
         }
-        .padding(Space.l)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.calloutFill, in: .rect(cornerRadius: Radius.card))
+        .calloutBox(padding: Space.l, fillsWidth: true)
     }
 }
 
@@ -127,6 +125,18 @@ extension Card where Icon == Image {
     init(title: String, symbol: String, @ViewBuilder content: () -> Content) {
         self.init(title: title, icon: { Image(systemName: symbol) }, content: content)
     }
+}
+
+extension View {
+    @ViewBuilder func calloutBox(padding: CGFloat = Space.m, fillsWidth: Bool = false) -> some View {
+        if fillsWidth {
+            self.padding(padding).frame(maxWidth: .infinity, alignment: .leading).calloutFill()
+        } else {
+            self.padding(padding).calloutFill()
+        }
+    }
+
+    private func calloutFill() -> some View { background(.calloutFill, in: .rect(cornerRadius: Radius.card)) }
 }
 
 /// A plain-words problem with a way to dismiss it.
@@ -151,8 +161,7 @@ struct ProblemBanner: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .padding(Space.m)
-        .background(.calloutFill, in: .rect(cornerRadius: Radius.card))
+        .calloutBox()
         .textStyle(.callout)
     }
 

@@ -27,8 +27,7 @@ struct RuleForm: View {
                 Button("Cancel", action: cancel)
             }
         }
-        .padding(Space.m)
-        .background(.calloutFill, in: .rect(cornerRadius: Radius.card))
+        .calloutBox()
     }
 
     private var numberFields: some View {

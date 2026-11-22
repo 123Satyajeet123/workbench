@@ -44,9 +44,7 @@ struct ClaimChecksSection: View {
                     .textStyle(.callout).foregroundStyle(.supporting)
             }
         }
-        .padding(Space.m)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.calloutFill, in: .rect(cornerRadius: Radius.card))
+        .calloutBox(fillsWidth: true)
         .onAppear { claims.refresh(deal) }
     }
 }

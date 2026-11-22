@@ -67,9 +67,7 @@ struct AutomationStripView: View {
                     Text(row.precision).textStyle(.callout)
                     if let rule = row.rule { Text(rule).textStyle(.callout).foregroundStyle(.supporting) }
                 }
-                .padding(Space.s)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(.calloutFill, in: .rect(cornerRadius: Radius.card))
+                .calloutBox(padding: Space.s, fillsWidth: true)
             }
         }
     }

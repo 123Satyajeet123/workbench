@@ -69,8 +69,6 @@ private struct ProposalCard: View {
                 Button("Never") { mochi.decide(proposal, .rejected) }
             }
         }
-        .padding(Space.l)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.calloutFill, in: .rect(cornerRadius: Radius.card))
+        .calloutBox(padding: Space.l, fillsWidth: true)
     }
 }
