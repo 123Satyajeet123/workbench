@@ -41,7 +41,7 @@ extension Store {
             task: spec.task, day: WorkDay(containing: now), scope: "", source: .typed, citeFirst: 0, citeLast: 0,
             start: now, end: now, fields: fields, quote: words, run: nil, authority: .ownWords)
         return try writer.write { db in
-            let id = try insert(item, day: item.day, scope: "", db)
+            let id = try Self.insertItem(db, item, at: clock())
             if spec.lifecycle != nil { try reconcileTimers(db, item: id) }
             return id
         }

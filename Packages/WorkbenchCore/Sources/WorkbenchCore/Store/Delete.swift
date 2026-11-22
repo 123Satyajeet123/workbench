@@ -204,12 +204,12 @@ extension Store {
         var arguments: [any DatabaseValueConvertible] = []
         if let kinds {
             let names = kinds.map(\.rawValue) + [RunText.unknownKind]
-            let marks = Array(repeating: "?", count: names.count).joined(separator: ",")
+            let marks = databaseQuestionMarks(count: names.count)
             conditions.append("EXISTS (SELECT 1 FROM json_each(run_text.kinds) WHERE value IN (\(marks)))")
             arguments += names
         }
         if let tasks {
-            conditions.append("run.task IN (\(Array(repeating: "?", count: tasks.count).joined(separator: ",")))")
+            conditions.append("run.task IN (\(databaseQuestionMarks(count: tasks.count)))")
             arguments += tasks
         }
         if let from {
@@ -229,7 +229,7 @@ extension Store {
     }
 
     private func removeActivity(_ db: Database, _ kinds: [Activity.Kind], before cutoff: Date) throws {
-        let marks = Array(repeating: "?", count: kinds.count).joined(separator: ",")
+        let marks = databaseQuestionMarks(count: kinds.count)
         try db.execute(
             sql: "DELETE FROM activity WHERE kind IN (\(marks)) AND ts < ?",
             arguments: StatementArguments(kinds.map(\.rawValue)) + [cutoff.stored])

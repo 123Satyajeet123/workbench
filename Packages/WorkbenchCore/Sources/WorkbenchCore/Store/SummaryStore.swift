@@ -14,7 +14,7 @@ extension Store {
     func saveSummaries(_ stored: [StoredSummary], day: WorkDay, task: String, field: String) throws {
         try writer.write { db in
             let kept = stored.map(\.summary.scope)
-            let marks = Array(repeating: "?", count: kept.count).joined(separator: ",")
+            let marks = databaseQuestionMarks(count: kept.count)
             try db.execute(
                 sql: "DELETE FROM summary WHERE day = ? AND task = ? AND field = ? AND scope NOT IN (\(marks))",
                 arguments: StatementArguments([day.description, task, field] + kept))
@@ -35,7 +35,7 @@ extension Store {
 
     /// Drops the summaries built from a kind of source, up to the day of the cutoff: coarse, and in the safe direction.
     func removeSummaries(_ db: Database, holding kinds: [SourceKind], before cutoff: Date) throws {
-        let marks = Array(repeating: "?", count: kinds.count).joined(separator: ",")
+        let marks = databaseQuestionMarks(count: kinds.count)
         try db.execute(
             sql: """
                 DELETE FROM summary WHERE day <= ? AND EXISTS (
@@ -59,7 +59,7 @@ extension Store {
     }
 
     func removeSummaries(_ db: Database, tasks: [String]) throws {
-        let marks = Array(repeating: "?", count: tasks.count).joined(separator: ",")
+        let marks = databaseQuestionMarks(count: tasks.count)
         try db.execute(sql: "DELETE FROM summary WHERE task IN (\(marks))", arguments: StatementArguments(tasks))
     }
 }

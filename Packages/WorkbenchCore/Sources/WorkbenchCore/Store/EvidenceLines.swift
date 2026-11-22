@@ -90,7 +90,7 @@ extension Queries {
     /// message, and a tombstone for each message deleted for everyone. The current version is the one seen last.
     public func currentLines(in containers: [String], from start: Date, to end: Date) throws -> [StoredLine] {
         guard !containers.isEmpty else { return [] }
-        let marks = Array(repeating: "?", count: containers.count).joined(separator: ",")
+        let marks = databaseQuestionMarks(count: containers.count)
         return try reader.read { db in
             try StoredLine.fetchAll(
                 db,

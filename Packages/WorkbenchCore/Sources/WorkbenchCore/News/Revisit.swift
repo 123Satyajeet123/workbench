@@ -38,16 +38,12 @@ extension Store {
         ]
         return try writer.write { db in
             try dropRevisits(of: deal.id, db)
-            try db.execute(
-                sql: """
-                    INSERT INTO item(task, day, scope, source, cite_first, cite_last, start_at, end_at, fields, quote,
-                        created_at, authority) VALUES (?,?,?,?,0,0,?,?,?,?,?,?)
-                    """,
-                arguments: [
-                    Revisit.task, WorkDay(containing: now).description, "", SourceKind.typed.rawValue, now.stored,
-                    now.stored, try Coding.json(fields), line, now.stored, Authority.ownWords.rawValue,
-                ])
-            let id = db.lastInsertedRowID
+            let id = try Self.insertItem(
+                db,
+                Item(
+                    task: Revisit.task, day: WorkDay(containing: now), scope: "", source: .typed, citeFirst: 0,
+                    citeLast: 0, start: now, end: now, fields: fields, quote: line, run: nil, authority: .ownWords),
+                at: now)
             try reconcileTimers(db, item: id)
             return id
         }

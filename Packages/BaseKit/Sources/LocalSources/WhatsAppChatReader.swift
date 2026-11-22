@@ -43,6 +43,8 @@ public struct WhatsAppMember: Codable, Sendable, Equatable {
 /// Reads one chat, named by its WhatsApp ID: the founder's own chat or one group. The policy must allow that ID; no
 /// other chat is ever queried.
 public struct WhatsAppChatReader: Sendable {
+    static func marks(_ count: Int) -> String { Array(repeating: "?", count: count).joined(separator: ",") }
+
     enum SessionType {
         static let person = 0
         static let group = 1
@@ -89,7 +91,7 @@ public struct WhatsAppChatReader: Sendable {
     private func memberNames(_ database: ReadOnlyDatabase) throws -> (
         names: [String: String], active: [String], chats: [String: [String]]
     ) {
-        let marks = Array(repeating: "?", count: chatJIDs.count).joined(separator: ",")
+        let marks = Self.marks(chatJIDs.count)
         let groupRows = try database.rows(
             """
             SELECT g.ZMEMBERJID, g.ZCONTACTNAME, p.ZPUSHNAME, g.ZISACTIVE, s.ZCONTACTJID
@@ -138,7 +140,7 @@ public struct WhatsAppChatReader: Sendable {
             let contacts = try? ReadOnlyDatabase(path: container.appending(path: "ContactsV2.sqlite").path),
             (try? contacts.requireColumns(["ZLID", "ZWHATSAPPID", "ZFULLNAME"], in: "ZWAADDRESSBOOKCONTACT")) != nil
         else { return [:] }
-        let marks = Array(repeating: "?", count: jids.count).joined(separator: ",")
+        let marks = Self.marks(jids.count)
         let rows =
             (try? contacts.rows(
                 """

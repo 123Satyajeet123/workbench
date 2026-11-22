@@ -190,7 +190,7 @@ extension WhatsAppChatReader: EvidenceSource {
     {
         var found: [String: MessageIdentity] = [:]
         for batch in Array(stanzas).chunked(by: 500) {
-            let marks = Array(repeating: "?", count: batch.count).joined(separator: ",")
+            let marks = Self.marks(batch.count)
             let rows = try database.rows(
                 """
                 SELECT \(MessageIdentity.columns) \(MessageIdentity.tables)

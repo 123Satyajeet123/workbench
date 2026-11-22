@@ -26,7 +26,10 @@ extension Store {
                         SameClaim.holds(item, $0, citation: spec.citation, choices: spec.choiceFields)
                     })
                 else { return nil }
-                let id = try insert(item, day: day, scope: scope, db)
+                var row = item
+                row.day = day
+                row.scope = scope
+                let id = try Self.insertItem(db, row, at: clock())
                 if spec.lifecycle != nil { try reconcileTimers(db, item: id) }
                 return id
             }
@@ -50,17 +53,19 @@ extension Store {
             : try Queries.items(db, of: spec.task, day: day, scope: scope)
     }
 
-    func insert(_ item: Item, day: WorkDay, scope: String, _ db: Database) throws -> Int64 {
+    /// The one place a row enters `item`, with every column. It writes no event: the `item_opens` trigger records the
+    /// opening.
+    static func insertItem(_ db: Database, _ item: Item, at now: Date) throws -> Int64 {
         try db.execute(
             sql: """
                 INSERT INTO item(task, run_id, day, scope, source, cite_first, cite_last, start_at, end_at, fields,
                     quote, created_at, quote_line, quote_part, quote_start, quote_end, label, authority)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                VALUES (\(databaseQuestionMarks(count: 18)))
                 """,
             arguments: [
-                item.task, item.run, day.description, scope, item.source.rawValue, item.citeFirst, item.citeLast,
-                item.start.stored, item.end.stored, try Coding.json(item.fields), item.quote, clock().stored,
-                item.quoteSpan?.line, item.quoteSpan?.part, item.quoteSpan?.start, item.quoteSpan?.end,
+                item.task, item.run, item.day.description, item.scope, item.source.rawValue, item.citeFirst,
+                item.citeLast, item.start.stored, item.end.stored, try Coding.json(item.fields), item.quote,
+                now.stored, item.quoteSpan?.line, item.quoteSpan?.part, item.quoteSpan?.start, item.quoteSpan?.end,
                 try item.label.map { try Coding.json(StoredLabel($0)) }, item.authority.rawValue,
             ])
         return db.lastInsertedRowID
@@ -191,7 +196,7 @@ extension Queries {
         of task: String, lifecycle: HelperSpec.Lifecycle, asOf day: WorkDay? = nil, limit: Int = 300
     ) throws -> [Item] {
         guard !lifecycle.open.isEmpty else { return [] }
-        let values = Array(repeating: "?", count: lifecycle.open.count).joined(separator: ",")
+        let values = databaseQuestionMarks(count: lifecycle.open.count)
         let status: String
         var bounds = StatementArguments()
         if let day {

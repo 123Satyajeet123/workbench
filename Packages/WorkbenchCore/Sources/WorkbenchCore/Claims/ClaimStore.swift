@@ -45,17 +45,13 @@ extension Store {
         _ db: Database, task: String, run: RunID?, source: SourceKind, cite: Int64, fields: [String: String],
         quote: String, label: Label? = nil, authority: Authority = .unknown, at now: Date
     ) throws -> Int64 {
-        try db.execute(
-            sql: """
-                INSERT INTO item(task, run_id, day, scope, source, cite_first, cite_last, start_at, end_at, fields,
-                    quote, created_at, label, authority) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-                """,
-            arguments: [
-                task, run, WorkDay(containing: now).description, "", source.rawValue, cite, cite, now.stored,
-                now.stored, try Coding.json(fields), quote, now.stored,
-                try label.map { try Coding.json(StoredLabel($0)) }, authority.rawValue,
-            ])
-        return db.lastInsertedRowID
+        try Self.insertItem(
+            db,
+            Item(
+                task: task, day: WorkDay(containing: now), scope: "", source: source, citeFirst: cite, citeLast: cite,
+                start: now, end: now, fields: fields, quote: quote, run: run, label: label,
+                authority: authority),
+            at: now)
     }
 
     /// The claims of a deal the founder chose to check. Choosing again replaces the choice.
