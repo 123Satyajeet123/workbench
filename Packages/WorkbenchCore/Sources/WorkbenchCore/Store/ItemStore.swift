@@ -25,17 +25,11 @@ extension Store {
             var added: [Int64] = []
             for item in result.items
             where !known.contains(where: { item.repeats($0, citation: spec.citation, choices: spec.choiceFields) }) {
-                try db.execute(
-                    sql: """
-                        INSERT INTO item(task, run_id, day, scope, source, cite_first, cite_last, start_at, end_at, fields,
-                            quote, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
-                        """,
-                    arguments: [
-                        item.task, item.run, day.description, scope, item.source.rawValue, item.citeFirst,
-                        item.citeLast, item.start.stored, item.end.stored, try Coding.json(item.fields), item.quote,
-                        clock().stored,
-                    ])
-                added.append(db.lastInsertedRowID)
+                added.append(
+                    try Self.insertItem(
+                        db, task: item.task, run: item.run, day: day, scope: scope, source: item.source,
+                        cite: (item.citeFirst, item.citeLast), span: (item.start, item.end), fields: item.fields,
+                        quote: item.quote, at: clock()))
             }
             if !added.isEmpty {
                 try db.execute(
@@ -51,6 +45,23 @@ extension Store {
                 try Self.recordYield(db, of: run, kept: result.items.count, dropped: result.dropped)
             }
         }
+    }
+
+    static func insertItem(
+        _ db: Database, task: String, run: RunID?, day: WorkDay, scope: String, source: SourceKind,
+        cite: (first: Int64, last: Int64), span: (start: Date, end: Date), fields: [String: String], quote: String,
+        at now: Date
+    ) throws -> Int64 {
+        try db.execute(
+            sql: """
+                INSERT INTO item(task, run_id, day, scope, source, cite_first, cite_last, start_at, end_at, fields,
+                    quote, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+                """,
+            arguments: [
+                task, run, day.description, scope, source.rawValue, cite.first, cite.last, span.start.stored,
+                span.end.stored, try Coding.json(fields), quote, now.stored,
+            ])
+        return db.lastInsertedRowID
     }
 
     public func close(item id: Int64, as outcome: String) throws {
@@ -104,7 +115,7 @@ extension Queries {
         of task: String, lifecycle: HelperSpec.Lifecycle, asOf day: WorkDay? = nil, limit: Int = 300
     ) throws -> [Item] {
         guard !lifecycle.open.isEmpty else { return [] }
-        let values = Array(repeating: "?", count: lifecycle.open.count).joined(separator: ",")
+        let values = databaseQuestionMarks(count: lifecycle.open.count)
         let status: String
         var bounds = StatementArguments()
         if let day {

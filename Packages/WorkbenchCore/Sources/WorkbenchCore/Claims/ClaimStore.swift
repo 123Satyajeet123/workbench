@@ -39,16 +39,9 @@ extension Store {
         _ db: Database, task: String, run: RunID, source: SourceKind, cite: Int64, fields: [String: String],
         quote: String, at now: Date
     ) throws -> Int64 {
-        try db.execute(
-            sql: """
-                INSERT INTO item(task, run_id, day, scope, source, cite_first, cite_last, start_at, end_at, fields,
-                    quote, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
-                """,
-            arguments: [
-                task, run, WorkDay(containing: now).description, "", source.rawValue, cite, cite, now.stored,
-                now.stored, try Coding.json(fields), quote, now.stored,
-            ])
-        return db.lastInsertedRowID
+        try Self.insertItem(
+            db, task: task, run: run, day: WorkDay(containing: now), scope: "", source: source, cite: (cite, cite),
+            span: (now, now), fields: fields, quote: quote, at: now)
     }
 
     public func choose(claims ids: [Int64], deal: String) throws {

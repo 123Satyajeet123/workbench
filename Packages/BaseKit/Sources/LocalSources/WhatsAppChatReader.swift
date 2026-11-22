@@ -54,6 +54,8 @@ public struct WhatsAppMember: Codable, Sendable, Equatable {
 }
 
 public struct WhatsAppChatReader: Sendable {
+    private static func marks(_ count: Int) -> String { Array(repeating: "?", count: count).joined(separator: ",") }
+
     private enum MessageType {
         static let text = 0
         static let photo = 1
@@ -101,7 +103,7 @@ public struct WhatsAppChatReader: Sendable {
             """, binding: [.integer(Int64(SessionType.group)), .text(words)]
         ).compactMap { row in row.text(0).map { WhatsAppChat(jid: $0, name: row.text(1) ?? $0) } }
         guard selection.directWithMembers, !groups.isEmpty else { return groups }
-        let marks = Array(repeating: "?", count: groups.count).joined(separator: ",")
+        let marks = Self.marks(groups.count)
         let direct = try snapshot.rows(
             """
             SELECT s.ZCONTACTJID, s.ZPARTNERNAME FROM ZWACHATSESSION s
@@ -140,7 +142,7 @@ public struct WhatsAppChatReader: Sendable {
         for chat in chatJIDs { _ = try await policy.grant(for: .whatsapp, label: chat, at: now) }
         guard !chatJIDs.isEmpty else { return ([], []) }
         let snapshot = try Self.snapshot(container)
-        let marks = Array(repeating: "?", count: chatJIDs.count).joined(separator: ",")
+        let marks = Self.marks(chatJIDs.count)
         let rows = try snapshot.rows(
             """
             SELECT m.Z_PK, m.ZMESSAGEDATE, m.ZMESSAGETYPE, m.ZTEXT, i.ZMEDIALOCALPATH, i.ZTITLE, m.ZISFROMME,
@@ -170,7 +172,7 @@ public struct WhatsAppChatReader: Sendable {
     private func memberNames(_ snapshot: SQLiteSnapshot) throws -> (
         names: [String: String], active: [String], chats: [String: [String]]
     ) {
-        let marks = Array(repeating: "?", count: chatJIDs.count).joined(separator: ",")
+        let marks = Self.marks(chatJIDs.count)
         let groupRows = try snapshot.rows(
             """
             SELECT g.ZMEMBERJID, g.ZCONTACTNAME, p.ZPUSHNAME, g.ZISACTIVE, s.ZCONTACTJID
@@ -217,7 +219,7 @@ public struct WhatsAppChatReader: Sendable {
             let snapshot = try? SQLiteSnapshot(copying: container.appending(path: "ContactsV2.sqlite").path),
             (try? snapshot.requireColumns(["ZLID", "ZWHATSAPPID", "ZFULLNAME"], in: "ZWAADDRESSBOOKCONTACT")) != nil
         else { return [:] }
-        let marks = Array(repeating: "?", count: jids.count).joined(separator: ",")
+        let marks = Self.marks(jids.count)
         let rows =
             (try? snapshot.rows(
                 """

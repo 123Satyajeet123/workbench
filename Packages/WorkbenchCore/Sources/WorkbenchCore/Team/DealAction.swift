@@ -31,16 +31,9 @@ extension Store {
                 "kind": "commitment", "person": owner, "project": deal.title, "text": what, "eta": due.description,
                 "asks": "founder", "stance": "said", DealAction.dealField: deal.id,
             ]
-            try db.execute(
-                sql: """
-                    INSERT INTO item(task, day, scope, source, cite_first, cite_last, start_at, end_at, fields, quote,
-                        created_at) VALUES (?,?,?,?,0,0,?,?,?,?,?)
-                    """,
-                arguments: [
-                    DealAction.task, WorkDay(containing: now).description, "", SourceKind.typed.rawValue,
-                    now.stored, now.stored, try Coding.json(fields), what, now.stored,
-                ])
-            return db.lastInsertedRowID
+            return try Self.insertItem(
+                db, task: DealAction.task, run: nil, day: WorkDay(containing: now), scope: "", source: .typed,
+                cite: (0, 0), span: (now, now), fields: fields, quote: what, at: now)
         }
     }
 
