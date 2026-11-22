@@ -1,10 +1,16 @@
 import Foundation
+import struct Kernel.PersonID
 import LocalSources
 import Synchronization
 import Testing
 import WorkbenchCore
 
 @testable import CaptureService
+
+extension CaptureService {
+    /// A service for a test, owned by a fixed test person.
+    convenience init(store: Store) throws { try self.init(store: store, owner: .success(PersonID("test-owner"))) }
+}
 
 @MainActor
 struct CaptureServiceTests {

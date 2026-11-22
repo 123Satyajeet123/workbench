@@ -79,6 +79,9 @@ public struct CapturePolicy: Codable, Sendable, Equatable {
         self.allowList = allowList
     }
 
+    /// Captured data older than this is deleted: it is how far back anything reads.
+    public static let retention: TimeInterval = 30 * 86_400
+
     /// Sources that read other people's words read only the labels listed: one chat or one mail label, never all of them.
     public static let needsAllowList: Set<SourceKind> = [.whatsapp, .mail]
 

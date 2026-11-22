@@ -41,7 +41,7 @@ enum AppLaunch {
     static func start(storeFolder: URL = defaultStoreFolder) -> AppLaunch {
         do {
             let store = try Store(directory: storeFolder)
-            let service = try CaptureService(store: store)
+            let service = try CaptureService(store: store, owner: OwnerIdentity.result(secrets: KeychainSecrets()))
             let identity = IdentityModel(store: store)
             try store.seedMachines(MachineTemplate.seeded.map { ($0.spec, $0.name) })
             let onboarding = OnboardingModel(store: store, identity: identity)

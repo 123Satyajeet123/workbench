@@ -42,7 +42,7 @@ import WorkbenchCore
     @Test func aSecondReadingSendsOnlyNewLinesAndNeverReReadsOrDuplicates() async throws {
         let s = try setup(
             reply:
-                #"{"items":[{"person":"Asha","project":"Login","kind":"done","text":"Login API","eta":"","asks":"team","stance":"said","cite":11,"quote":"login API done"}],"closes":[]}"#
+                #"{"items":[{"person":"Asha","project":"Login","kind":"done","text":"Login API","eta":"","asks":"team","stance":"said","cite":@login API done@,"quote":"login API done"}],"closes":[]}"#
         )
         await s.pip.read()
         #expect(s.pip.items.count == 1)
@@ -54,7 +54,7 @@ import WorkbenchCore
         try addMessage(30, "payments blocked on keys", at: noon.addingTimeInterval(600), to: s.container)
         s.model.replies.withLock {
             $0["team ledger"] =
-                #"{"items":[{"person":"Asha","project":"Login","kind":"done","text":"Login API reworded","eta":"","asks":"team","stance":"said","cite":11,"quote":"login API done"},{"person":"Asha","project":"Login","kind":"blocker","text":"Payments blocked","eta":"","asks":"team","stance":"said","cite":30,"quote":"payments blocked on keys"}],"closes":[]}"#
+                #"{"items":[{"person":"Asha","project":"Login","kind":"done","text":"Login API reworded","eta":"","asks":"team","stance":"said","cite":@login API done@,"quote":"login API done"},{"person":"Asha","project":"Login","kind":"blocker","text":"Payments blocked","eta":"","asks":"team","stance":"said","cite":@payments blocked on keys@,"quote":"payments blocked on keys"}],"closes":[]}"#
         }
         await s.pip.read()
         #expect(s.pip.phase == .read(kept: 1, dropped: 1), "a line read before cannot be cited again")
@@ -64,7 +64,7 @@ import WorkbenchCore
     @Test func aReadingBringsTheDaysSummariesUpToDateByPersonAndByProject() async throws {
         let s = try setup(
             reply:
-                #"{"items":[{"person":"Asha","project":"Login","kind":"done","text":"Login API","eta":"","asks":"team","stance":"said","cite":11,"quote":"login API done"}],"closes":[]}"#
+                #"{"items":[{"person":"Asha","project":"Login","kind":"done","text":"Login API","eta":"","asks":"team","stance":"said","cite":@login API done@,"quote":"login API done"}],"closes":[]}"#
         )
         await s.pip.read()
         #expect(s.model.summaryCalls.withLock { $0 } == 2, "one set of summaries for people, one for projects")
@@ -74,7 +74,7 @@ import WorkbenchCore
     @Test func readingThroughTheDayAlertsOnlyForNewBlockersAndOnlyInsideItsHours() async throws {
         let s = try setup(
             reply:
-                #"{"items":[{"person":"Asha","project":"Login","kind":"blocker","text":"Waiting for keys","eta":"","asks":"team","stance":"said","cite":11,"quote":"login API done"},{"person":"Asha","project":"Login","kind":"done","text":"Login API","eta":"","asks":"team","stance":"said","cite":11,"quote":"login API"}],"closes":[]}"#
+                #"{"items":[{"person":"Asha","project":"Login","kind":"blocker","text":"Waiting for keys","eta":"","asks":"team","stance":"said","cite":@login API done@,"quote":"login API done"},{"person":"Asha","project":"Login","kind":"done","text":"Login API","eta":"","asks":"team","stance":"said","cite":@login API done@,"quote":"login API"}],"closes":[]}"#
         )
         s.pip.watch = WatchSchedule(isOn: true, everyMinutes: 60, fromHour: 9, untilHour: 22)
         await s.pip.readIfDue()

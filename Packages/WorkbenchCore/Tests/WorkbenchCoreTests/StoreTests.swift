@@ -42,6 +42,8 @@ struct SchemaTests {
         "e65d7ffdb3669197a0b7105bd5ddca65f2bfc94f5f8c117a1a33c4ac4b1fa093",
         // evidence (M1 step 1, ADR-015)
         "56768362e2e678c9f5869e487e2aa21f5ca3688d82995dfed9766827b1e2cb66",
+        // runWindow (M1 step 2b)
+        "a5d93f43c55d73a4f8a780a54a0de70a790bf4022d034c63a4f14ce6988e3f5f",
     ]
 
     @Test func aShippedStepNeverChanges() {

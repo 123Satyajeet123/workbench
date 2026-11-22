@@ -1,31 +1,6 @@
 import Foundation
+import Lines
 import WorkbenchCore
-
-public enum WhatsAppMedia: Sendable, Equatable {
-    case file(URL)
-    case notDownloaded
-}
-
-public enum WhatsAppSender: Sendable, Equatable {
-    case me
-    /// A group member: their WhatsApp ID and the name this Mac knows them by.
-    case member(jid: String, name: String)
-}
-
-public struct WhatsAppEntry: Sendable, Equatable {
-    public enum Kind: Sendable, Equatable { case text, photo, document, voiceNote }
-
-    public var id: Int64
-    /// The chat it was sent in: a group or a direct chat.
-    public var chat: String
-    public var date: Date
-    public var kind: Kind
-    public var sender: WhatsAppSender
-    /// The message text, or the caption of a document.
-    public var text: String
-    public var title: String?
-    public var media: WhatsAppMedia?
-}
 
 public struct WhatsAppChat: Codable, Sendable, Equatable, Identifiable, Hashable {
     public var jid: String
@@ -33,6 +8,8 @@ public struct WhatsAppChat: Codable, Sendable, Equatable, Identifiable, Hashable
     public var id: String { jid }
     /// WhatsApp names groups `…@g.us`; a direct chat is the other person's id.
     public var isGroup: Bool { jid.hasSuffix("@g.us") }
+    /// The container of the chat's stored lines.
+    public var container: String { WhatsAppJID.canonical(jid) }
 }
 
 /// Which chats a several-chat machine reads, as the founder put it: groups whose name holds some words, and the direct
@@ -45,6 +22,12 @@ public struct ChatSelection: Codable, Sendable, Equatable {
         self.nameContains = nameContains
         self.directWithMembers = directWithMembers
     }
+}
+
+/// The people in some chats: those in them now, and the name of every person any of them ever had, by WhatsApp ID.
+public struct WhatsAppPeople: Sendable, Equatable {
+    public var members: [WhatsAppMember]
+    public var names: [String: String]
 }
 
 public struct WhatsAppMember: Codable, Sendable, Equatable {
@@ -63,13 +46,6 @@ public struct WhatsAppMember: Codable, Sendable, Equatable {
 /// Reads one chat, named by its WhatsApp ID: the founder's own chat or one group. The policy must allow that ID; no
 /// other chat is ever queried.
 public struct WhatsAppChatReader: Sendable {
-    private enum MessageType {
-        static let text = 0
-        static let photo = 1
-        static let voiceNote = 3
-        static let document = 8
-    }
-
     enum SessionType {
         static let person = 0
         static let group = 1
@@ -138,51 +114,16 @@ public struct WhatsAppChatReader: Sendable {
         ).compactMap { row in row.text(0).map { WhatsAppChat(jid: $0, name: row.text(1) ?? $0) } }
     }
 
-    /// Messages of the chats in [start, end), oldest first.
-    public func entries(from start: Date = .distantPast, to end: Date = .distantFuture, now: Date = .now)
-        async throws -> [WhatsAppEntry]
-    {
-        try await read(from: start, to: end, now: now).entries
-    }
-
-    /// The people in the chats now: the groups' members and the other person of each direct chat.
-    public func members(now: Date = .now) async throws -> [WhatsAppMember] {
-        try await read(from: .distantFuture, to: .distantFuture, now: now).members
-    }
-
-    /// The messages of the chats in [start, end) and the people in them, from one copy of WhatsApp's database: a copy
-    /// per chat would copy the whole database dozens of times for a several-chat machine.
-    public func read(from start: Date, to end: Date, now: Date = .now) async throws -> (
-        entries: [WhatsAppEntry], members: [WhatsAppMember]
-    ) {
+    /// The people in the chats now, and the name of everyone the chats ever had. Only names: no message is read.
+    public func people(now: Date = .now) async throws -> WhatsAppPeople {
         for chat in chatJIDs { _ = try await policy.grant(for: .whatsapp, label: chat, at: now) }
-        guard !chatJIDs.isEmpty else { return ([], []) }
-        let snapshot = try Self.snapshot(container)
-        let marks = Array(repeating: "?", count: chatJIDs.count).joined(separator: ",")
-        let rows = try snapshot.rows(
-            """
-            SELECT m.Z_PK, m.ZMESSAGEDATE, m.ZMESSAGETYPE, m.ZTEXT, i.ZMEDIALOCALPATH, i.ZTITLE, m.ZISFROMME,
-                g.ZMEMBERJID, s.ZCONTACTJID, s.ZSESSIONTYPE
-            FROM ZWAMESSAGE m
-            JOIN ZWACHATSESSION s ON s.Z_PK = m.ZCHATSESSION
-            LEFT JOIN ZWAMEDIAITEM i ON i.ZMESSAGE = m.Z_PK
-            LEFT JOIN ZWAGROUPMEMBER g ON g.Z_PK = m.ZGROUPMEMBER
-            WHERE s.ZCONTACTJID IN (\(marks)) AND s.ZSESSIONTYPE IN (?, ?) AND m.ZMESSAGETYPE IN (?, ?, ?, ?)
-                AND m.ZMESSAGEDATE >= ? AND m.ZMESSAGEDATE < ?
-            ORDER BY m.ZMESSAGEDATE, m.Z_PK
-            """,
-            binding: chatJIDs.map { .text($0) } + [
-                .integer(Int64(SessionType.person)), .integer(Int64(SessionType.group)),
-                .integer(Int64(MessageType.text)), .integer(Int64(MessageType.photo)),
-                .integer(Int64(MessageType.voiceNote)), .integer(Int64(MessageType.document)),
-                .real(start.timeIntervalSinceReferenceDate), .real(end.timeIntervalSinceReferenceDate),
-            ])
-        let (names, active, chats) = try memberNames(snapshot)
+        guard !chatJIDs.isEmpty else { return WhatsAppPeople(members: [], names: [:]) }
+        let (names, active, chats) = try memberNames(try Self.snapshot(container))
         let members = active.compactMap { jid in
             names[jid].map { WhatsAppMember(jid: jid, name: $0, chats: chats[jid, default: []]) }
         }
         .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-        return (rows.compactMap { entry($0, names: names) }, members)
+        return WhatsAppPeople(members: members, names: names)
     }
 
     /// The name of everyone in the chats, by ID, the IDs of those in them now, and the chats each of those is in now:
@@ -269,44 +210,12 @@ public struct WhatsAppChatReader: Sendable {
         try snapshot.requireColumns(["ZJID", "ZPUSHNAME"], in: "ZWAPROFILEPUSHNAME")
         return snapshot
     }
-
-    private func entry(_ row: SQLiteRow, names: [String: String]) -> WhatsAppEntry? {
-        let kind: WhatsAppEntry.Kind
-        switch Int(row.integer(2)) {
-        case MessageType.text: kind = .text
-        case MessageType.photo: kind = .photo
-        case MessageType.voiceNote: kind = .voiceNote
-        case MessageType.document: kind = .document
-        default: return nil
-        }
-        // In a direct chat a received message has no group member: it is from the other person of the chat.
-        let chat = row.text(8) ?? ""
-        let jid = row.text(7) ?? (Int(row.integer(9)) == SessionType.person ? chat : "")
-        let sender: WhatsAppSender =
-            row.integer(6) != 0 ? .me : .member(jid: jid, name: names[jid] ?? MemberNames.fallback(for: jid))
-        return WhatsAppEntry(
-            id: row.integer(0), chat: chat, date: Date(timeIntervalSinceReferenceDate: row.real(1)), kind: kind,
-            sender: sender,
-            text: MemberNames.mentions(in: row.text(3) ?? "", names: names), title: row.text(5),
-            media: kind == .text ? nil : media(atRelativePath: row.text(4)))
-    }
-
-    /// A path counts only when the file exists inside the container's `Message` folder.
-    private func media(atRelativePath path: String?) -> WhatsAppMedia {
-        guard let path, !path.isEmpty else { return .notDownloaded }
-        let root = container.appending(path: "Message").resolvingSymlinksInPath()
-        let file = root.appending(path: path).resolvingSymlinksInPath()
-        guard file.path.hasPrefix(root.path + "/"), FileManager.default.fileExists(atPath: file.path) else {
-            return .notDownloaded
-        }
-        return .file(file)
-    }
 }
 
 /// How a member is named to the founder. WhatsApp now keeps many members by a privacy ID (`…@lid`) with empty
 /// contact names, so an empty string counts as no name, and the first-name column, which can hold encoded data, is
 /// never used. Two members with one name get the end of their ID, so a board never merges two people.
-enum MemberNames {
+public enum MemberNames {
     /// The first candidate that holds a letter or a digit, in order, for each member: a name such as "." or "🙂"
     /// names nobody, so it falls back like an empty one.
     static func resolve(_ members: [(jid: String, candidates: [String?])]) -> [String: String] {
@@ -321,10 +230,10 @@ enum MemberNames {
             uniquingKeysWith: { first, _ in first })
     }
 
-    static func fallback(for jid: String) -> String { "Member ·\(tail(jid))" }
+    public static func fallback(for jid: String) -> String { "Member ·\(tail(jid))" }
 
     /// `@` followed by a member's ID number, as WhatsApp writes a mention, becomes `@` and their name.
-    static func mentions(in text: String, names: [String: String]) -> String {
+    public static func mentions(in text: String, names: [String: String]) -> String {
         text.replacing(#/@(\d{5,})/#) { match in
             let number = String(match.output.1)
             guard let name = names["\(number)@lid"] ?? names["\(number)@s.whatsapp.net"] else {

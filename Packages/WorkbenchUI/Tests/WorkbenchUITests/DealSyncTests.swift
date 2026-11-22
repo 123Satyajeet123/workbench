@@ -41,7 +41,7 @@ import WorkbenchCore
             makeModel: { _ in
                 RecordedModel(
                     ScriptedModel(
-                        #"{"items":[{"person":"Asha","project":"Login","kind":"done","text":"Login API","eta":"","asks":"team","stance":"said","cite":11,"quote":"login API done"}],"closes":[]}"#
+                        #"{"items":[{"person":"Asha","project":"Login","kind":"done","text":"Login API","eta":"","asks":"team","stance":"said","cite":@login API done@,"quote":"login API done"}],"closes":[]}"#
                     ), store: kabirStore)
             }, notifier: FakeNotifier())
         await pip.read()

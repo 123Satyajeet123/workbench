@@ -12,7 +12,7 @@ enum FactChoice: Equatable {
 /// A line of the chat a fact came from.
 struct ChatLine: Identifiable, Equatable {
     var id: Int64
-    var time: Date
+    var time: Date?
     var text: String
     var isCited: Bool
 
@@ -275,13 +275,15 @@ final class TodayModel {
         return plan
     }
 
-    /// The chat lines around the ones a fact cites, as its source has them now. Empty when the fact cites no line or
-    /// its machine is gone.
-    func chatLines(around item: Item, reach: Int64 = 2) async throws -> [ChatLine] {
+    /// The chat lines around the ones a fact cites. A WhatsApp fact shows the lines its run read, from the evidence
+    /// store: the chat is not read again, and a message deleted since shows as deleted. Another source gives its lines as
+    /// it has them now. Empty when the fact cites no line or its machine is gone.
+    func chatLines(around item: Item, reach: Int = 2) async throws -> [ChatLine] {
         guard item.citeFirst > 0, let helper = crew.machines.first(where: { $0.spec.task == item.task }) else {
             return []
         }
-        return ChatLine.around(item, in: try await helper.source.evidence(on: item.day).lines, reach: reach)
+        if let whatsApp = helper.source as? WhatsAppSource { return try await whatsApp.proof(of: item, reach: reach) }
+        return ChatLine.around(item, in: try await helper.source.evidence(on: item.day).lines, reach: Int64(reach))
     }
 
     /// The machines' own pages read the same rows, so they follow an action too.

@@ -29,22 +29,31 @@ private final class ActingModel: StructuredModel, Sendable {
 /// Starts a call that never ends by itself, as a slow model does, and fails the way its own error says.
 private final class StallingModel: StructuredModel, Sendable {
     let name = "stalling"
-    let started = Mutex(false)
+    private let startSignal: AsyncStream<Void>
+    private let startContinuation: AsyncStream<Void>.Continuation
     let failure: (any Error & Sendable)?
 
-    init(failure: (any Error & Sendable)? = nil) { self.failure = failure }
+    init(failure: (any Error & Sendable)? = nil) {
+        (startSignal, startContinuation) = AsyncStream<Void>.makeStream()
+        self.failure = failure
+    }
+
+    /// Returns when the first call starts, or when the waiting task is cancelled.
+    func waitUntilStarted() async {
+        for await _ in startSignal { return }
+    }
 
     func generate<T: Decodable & Sendable>(_ type: T.Type, schema: JSONSchema, instructions: String, input: String)
         async throws -> ModelAnswer<T>
     {
-        started.withLock { $0 = true }
+        startContinuation.yield()
         if let failure { throw failure }
         try await Task.sleep(for: .seconds(60))
         throw URLError(.timedOut)
     }
 }
 
-@Suite struct TimelineModelTests {
+@Suite(.timeLimit(.minutes(1))) struct TimelineModelTests {
     private let noon = Calendar.current.date(
         bySettingHour: 12, minute: 0, second: 0, of: Date(timeIntervalSince1970: 1_790_000_000))!
     private let screenOn = CapturePolicy(switches: [.screen: true, .screenText: true])
@@ -136,8 +145,15 @@ private final class StallingModel: StructuredModel, Sendable {
         let model = StallingModel()
         let timeline = stalling(try morning(), model)
         let reading = Task { await timeline.read() }
-        while !model.started.withLock({ $0 }) { await Task.yield() }
-        reading.cancel()
+        let reachedTheModel = await withTaskGroup(of: Bool.self) { group in
+            group.addTask { await model.waitUntilStarted(); return true }
+            group.addTask { await reading.value; return false }
+            let first = await group.next() ?? false
+            reading.cancel()
+            group.cancelAll()
+            return first
+        }
+        #expect(reachedTheModel, "the reading ended before it called the model")
         await reading.value
         #expect(timeline.problem == nil)
         #expect(timeline.phase == .idle)

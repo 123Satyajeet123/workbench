@@ -90,7 +90,7 @@ import WorkbenchCore
     }
 
     private let oneEntry = #"""
-        {"items":[{"person":"Asha","project":"Login","kind":"done","text":"Login API","eta":"","asks":"team","stance":"said","cite":11,"quote":"login API done"}],"closes":[]}
+        {"items":[{"person":"Asha","project":"Login","kind":"done","text":"Login API","eta":"","asks":"team","stance":"said","cite":@login API done@,"quote":"login API done"}],"closes":[]}
         """#
 
     @Test func listingGroupsAllowsNoChatAndChoosingOneAllowsOnlyThatOne() throws {
@@ -109,8 +109,8 @@ import WorkbenchCore
     @Test func readingADaySendsOnlyTheTeamGroupAndStoresCheckedEntriesWithTheirRun() async throws {
         let reply = #"""
             {"items":[
-              {"person":"Asha","project":"Login","kind":"done","text":"Login API","eta":"","asks":"team","stance":"said","cite":11,"quote":"login API done"},
-              {"person":"Asha","project":"Login","kind":"done","text":"Invented","eta":"","asks":"team","stance":"said","cite":11,"quote":"payments done"}],"closes":[]}
+              {"person":"Asha","project":"Login","kind":"done","text":"Login API","eta":"","asks":"team","stance":"said","cite":@login API done@,"quote":"login API done"},
+              {"person":"Asha","project":"Login","kind":"done","text":"Invented","eta":"","asks":"team","stance":"said","cite":@login API done@,"quote":"payments done"}],"closes":[]}
             """#
         let (team, store, _, model, source) = try makeTeam(reply: reply)
         try source.loadGroups()
@@ -142,8 +142,8 @@ import WorkbenchCore
     @Test func aReadingAsksAboutOneOfItsItemsUntilItIsAnswered() async throws {
         let reply = #"""
             {"items":[
-              {"person":"Asha","project":"Login","kind":"done","text":"Login API","eta":"","asks":"team","stance":"said","cite":11,"quote":"login API done"},
-              {"person":"Bharat","project":"Login","kind":"plan","text":"Payments","eta":"","asks":"team","stance":"said","cite":11,"quote":"login API"}],"closes":[]}
+              {"person":"Asha","project":"Login","kind":"done","text":"Login API","eta":"","asks":"team","stance":"said","cite":@login API done@,"quote":"login API done"},
+              {"person":"Bharat","project":"Login","kind":"plan","text":"Payments","eta":"","asks":"team","stance":"said","cite":@login API done@,"quote":"login API"}],"closes":[]}
             """#
         let (team, store, _, _, source) = try makeTeam(reply: reply)
         try source.loadGroups()
@@ -175,9 +175,9 @@ import WorkbenchCore
         let now = noon
         let store = try scratchStore(clock: { now })
         let container = try whatsApp(at: noon)
-        let photo = try addPhoto("OTA 4.1.11 installed", to: container, at: noon.addingTimeInterval(120))
+        try addPhoto("OTA 4.1.11 installed", to: container, at: noon.addingTimeInterval(120))
         let model = ScriptedModel(
-            #"{"items":[{"person":"Asha","project":"Login","kind":"done","text":"Installed the OTA","eta":"","asks":"team","stance":"said","cite":\#(photo),"quote":"OTA 4.1.11 installed"}],"closes":[]}"#
+            #"{"items":[{"person":"Asha","project":"Login","kind":"done","text":"Installed the OTA","eta":"","asks":"team","stance":"said","cite":@[photo]@,"quote":"OTA 4.1.11 installed"}],"closes":[]}"#
         )
         let source = try WhatsAppSource(
             store: store, capture: try CaptureService(store: store), task: HelperSpec.team.task, founder: { "Kabir" },
@@ -292,8 +292,10 @@ import WorkbenchCore
         let now = noon
         let store = try scratchStore(clock: { now })
         let capture = try CaptureService(store: store)
+        let container = try whatsApp(at: noon)
+        try addGroupMember(9, chat: 2, jid: "z@s.whatsapp.net", name: "Zed", to: container)
         let source = try WhatsAppSource(
-            store: store, capture: capture, task: "context", founder: { "Kabir" }, container: try whatsApp(at: noon))
+            store: store, capture: capture, task: "context", founder: { "Kabir" }, container: container)
         try source.preview(ChatSelection(nameContains: "a", directWithMembers: false))
         #expect(source.matching.map(\.name) == ["Team", "Family"])
         try source.choose(source.matching)
@@ -312,7 +314,7 @@ import WorkbenchCore
         let store = try scratchStore()
         let capture = try CaptureService(store: store)
         let reply = #"""
-            {"items":[{"person":"Asha","project":"Login","kind":"done","text":"Login API","eta":"","asks":"team","stance":"said","cite":11,"quote":"login API done"}],"closes":[]}
+            {"items":[{"person":"Asha","project":"Login","kind":"done","text":"Login API","eta":"","asks":"team","stance":"said","cite":@login API done@,"quote":"login API done"}],"closes":[]}
             """#
         let model = ScriptedModel(reply)
         let source = try WhatsAppSource(

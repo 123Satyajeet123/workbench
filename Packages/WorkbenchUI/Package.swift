@@ -8,13 +8,14 @@ let package = Package(
         .library(name: "WorkbenchUI", targets: ["WorkbenchUI"])
     ],
     dependencies: [
-        .package(path: "../WorkbenchCore"), .package(path: "../BaseKit"),
+        .package(path: "../WorkbenchCore"), .package(path: "../BaseKit"), .package(path: "../Kernel"),
     ],
     targets: [
         .target(
             name: "WorkbenchUI",
             dependencies: [
                 "WorkbenchCore",
+                .product(name: "Kernel", package: "Kernel"),
                 .product(name: "AgentCLI", package: "BaseKit"),
                 .product(name: "CaptureService", package: "BaseKit"),
                 .product(name: "LocalSources", package: "BaseKit"),
@@ -24,7 +25,9 @@ let package = Package(
         ),
         .testTarget(
             name: "WorkbenchUITests",
-            dependencies: ["WorkbenchUI", .product(name: "AgentCLI", package: "BaseKit")],
+            dependencies: [
+                "WorkbenchUI", .product(name: "AgentCLI", package: "BaseKit"), .product(name: "Kernel", package: "Kernel"),
+            ],
             swiftSettings: [.defaultIsolation(MainActor.self)]
         ),
     ]

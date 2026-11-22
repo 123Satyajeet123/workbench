@@ -1,12 +1,18 @@
 import AppKit
 import CaptureService
 import Foundation
+import Kernel
 import SQLite3
 import SwiftUI
 import Synchronization
 import WorkbenchCore
 
 @testable import WorkbenchUI
+
+extension CaptureService {
+    /// A service for a test, owned by a fixed test person.
+    convenience init(store: Store) throws { try self.init(store: store, owner: .success(PersonID("test-owner"))) }
+}
 
 func scratchFolder() -> URL {
     FileManager.default.temporaryDirectory.appending(path: "wbui-\(UUID().uuidString)")
@@ -21,7 +27,8 @@ func captureSettings(over store: Store? = nil) throws -> CaptureSettings {
     CaptureSettings(service: try CaptureService(store: try store ?? scratchStore()))
 }
 
-/// Answers with one JSON reply and remembers each input.
+/// Answers with one JSON reply and remembers each input. As in `KeyedModel`, `@words@` in the reply becomes the number of
+/// the input line that holds the words: a line's number is its row in the evidence store, so a reply cannot hard-code it.
 final class ScriptedModel: StructuredModel, Sendable {
     let name = "scripted"
     private let reply: String
@@ -33,9 +40,10 @@ final class ScriptedModel: StructuredModel, Sendable {
         async throws -> ModelAnswer<T>
     {
         inputs.withLock { $0.append(input) }
+        let cited = KeyedModel.cite(reply, in: input)
         return ModelAnswer(
-            value: try JSONDecoder().decode(T.self, from: Data(reply.utf8)), model: "scripted-1",
-            usage: Usage(inputTokens: 300, outputTokens: 40, costUSD: 0.02), reply: reply)
+            value: try JSONDecoder().decode(T.self, from: Data(cited.utf8)), model: "scripted-1",
+            usage: Usage(inputTokens: 300, outputTokens: 40, costUSD: 0.02), reply: cited)
     }
 }
 
@@ -85,16 +93,19 @@ func whatsApp(at date: Date) throws -> URL {
         CREATE TABLE ZWACHATSESSION (Z_PK INTEGER PRIMARY KEY, ZCONTACTJID TEXT, ZSESSIONTYPE INTEGER, ZPARTNERNAME TEXT,
             ZLASTMESSAGEDATE REAL);
         CREATE TABLE ZWAMESSAGE (Z_PK INTEGER PRIMARY KEY, ZCHATSESSION INTEGER, ZMESSAGEDATE REAL, ZMESSAGETYPE INTEGER,
-            ZTEXT TEXT, ZISFROMME INTEGER, ZGROUPMEMBER INTEGER);
-        CREATE TABLE ZWAMEDIAITEM (Z_PK INTEGER PRIMARY KEY, ZMESSAGE INTEGER, ZMEDIALOCALPATH TEXT, ZTITLE TEXT);
+            ZTEXT TEXT, ZISFROMME INTEGER, ZGROUPMEMBER INTEGER, ZSTANZAID TEXT);
+        CREATE TABLE ZWAMEDIAITEM (Z_PK INTEGER PRIMARY KEY, ZMESSAGE INTEGER, ZMEDIALOCALPATH TEXT, ZTITLE TEXT,
+            ZMETADATA BLOB);
+        CREATE TABLE Z_METADATA (Z_VERSION INTEGER PRIMARY KEY, Z_UUID TEXT);
+        INSERT INTO Z_METADATA VALUES (1, 'STORE-UI-1');
         CREATE TABLE ZWAGROUPMEMBER (Z_PK INTEGER PRIMARY KEY, ZCHATSESSION INTEGER, ZMEMBERJID TEXT, ZCONTACTNAME TEXT,
             ZFIRSTNAME TEXT, ZISACTIVE INTEGER);
         CREATE TABLE ZWAPROFILEPUSHNAME (Z_PK INTEGER PRIMARY KEY, ZJID TEXT, ZPUSHNAME TEXT);
         INSERT INTO ZWACHATSESSION VALUES (1, '\(teamJID)', 1, 'Team', 2), (2, '\(familyJID)', 1, 'Family', 1);
         INSERT INTO ZWAGROUPMEMBER VALUES (1, 1, 'a@s.whatsapp.net', 'Asha', NULL, 1),
             (2, 1, 'b@s.whatsapp.net', 'Bharat', NULL, 1);
-        INSERT INTO ZWAMESSAGE VALUES (10, 1, \(seconds), 0, 'ki aaj kya kiya?', 1, NULL),
-            (11, 1, \(seconds + 60), 0, 'login API done', 0, 1), (12, 2, \(seconds), 0, 'dinner at 8', 0, NULL);
+        INSERT INTO ZWAMESSAGE VALUES (10, 1, \(seconds), 0, 'ki aaj kya kiya?', 1, NULL, 'S10'),
+            (11, 1, \(seconds + 60), 0, 'login API done', 0, 1, 'S11'), (12, 2, \(seconds), 0, 'dinner at 8', 1, NULL, 'S12');
         """
     var db: OpaquePointer?
     defer { sqlite3_close(db) }
@@ -150,6 +161,7 @@ final class KeyedModel: StructuredModel, Sendable {
 }
 
 /// Adds a photo message from Asha with `text` drawn in it to a fixture container; returns its message id.
+@discardableResult
 func addPhoto(_ text: String, to container: URL, at date: Date) throws -> Int64 {
     let image = NSImage(size: NSSize(width: 900, height: 160))
     image.lockFocus()
@@ -164,7 +176,7 @@ func addPhoto(_ text: String, to container: URL, at date: Date) throws -> Int64 
     let rep = NSBitmapImageRep(data: image.tiffRepresentation ?? Data())
     try (rep?.representation(using: .png, properties: [:]) ?? Data()).write(to: file)
     let sql = """
-        INSERT INTO ZWAMESSAGE VALUES (20, 1, \(date.timeIntervalSinceReferenceDate), 1, NULL, 0, 1);
+        INSERT INTO ZWAMESSAGE VALUES (20, 1, \(date.timeIntervalSinceReferenceDate), 1, NULL, 0, 1, 'S20');
         INSERT INTO ZWAMEDIAITEM (ZMESSAGE, ZMEDIALOCALPATH, ZTITLE) VALUES (20, 'Media/shot.png', NULL);
         """
     var db: OpaquePointer?
@@ -190,7 +202,7 @@ func addMessage(_ id: Int64, _ text: String, member: Int? = 1, at date: Date, to
     let fromMe = member == nil ? 1 : 0
     let sql = """
         INSERT INTO ZWAMESSAGE VALUES (\(id), 1, \(date.timeIntervalSinceReferenceDate), 0, '\(text)', \(fromMe),
-            \(member.map(String.init) ?? "NULL"));
+            \(member.map(String.init) ?? "NULL"), 'S\(id)');
         """
     var db: OpaquePointer?
     defer { sqlite3_close(db) }
@@ -228,6 +240,14 @@ func renderPNG(_ view: some View, named name: String, width: CGFloat = 640) thro
 final class MemorySecrets: SecretStore, Sendable {
     let values = Mutex<[String: String]>([:])
     func read(_ name: String) -> String? { values.withLock { $0[name] } }
+    func lookup(_ name: String) throws -> String? { values.withLock { $0[name] } }
+    func create(_ value: String, as name: String) throws -> Bool {
+        values.withLock { values in
+            guard values[name] == nil else { return false }
+            values[name] = value
+            return true
+        }
+    }
     func save(_ value: String, as name: String) throws { values.withLock { $0[name] = value } }
     func remove(_ name: String) throws { values.withLock { $0[name] = nil } }
 }

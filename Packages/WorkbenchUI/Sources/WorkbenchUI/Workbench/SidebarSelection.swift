@@ -112,7 +112,7 @@ enum SidebarSelection: Hashable, Identifiable, RawRepresentable {
         case .projects:
             "Where each project stands: decisions, open questions, blockers and promises."
         case .calls:
-            "Each call stays on this Mac for \(Int(CaptureService.retention / 86_400)) days. A call that could not be saved says why."
+            "Each call stays on this Mac for \(Int(CapturePolicy.retention / 86_400)) days. A call that could not be saved says why."
         case .deals:
             "Your team's deals, one column per stage. Open a deal to see where it came from and what it needs next."
         case .mochi:

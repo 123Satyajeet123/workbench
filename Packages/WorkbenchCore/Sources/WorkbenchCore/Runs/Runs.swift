@@ -39,9 +39,21 @@ public struct RunText: Sendable, Equatable {
     static let unknownKind = "unknown"
 }
 
+/// A line a run's input shows, by the number in front of it.
+public struct WindowLine: Sendable, Equatable {
+    public var number: Int64
+    public var lineID: Data
+
+    public init(number: Int64, lineID: Data) {
+        self.number = number
+        self.lineID = lineID
+    }
+}
+
 /// A model whose every call is a run in the store: the row and the input are written before the input leaves the Mac
 /// and finished with what came back. `holding` names the consent kinds the input holds, and `holdingUnknown` says
-/// that it also holds text of an unknown kind.
+/// that it also holds text of an unknown kind. `window` names the stored lines the input shows, so a number the model
+/// cites resolves to the line that run saw.
 public struct RecordedModel: Sendable {
     public let model: any StructuredModel
     let store: Store
@@ -53,13 +65,14 @@ public struct RecordedModel: Sendable {
 
     public func generate<T: Decodable & Sendable>(
         _ type: T.Type, schema: JSONSchema, task: String, instructions: String, input: String,
-        holding kinds: Set<SourceKind>, holdingUnknown: Bool = false
+        holding kinds: Set<SourceKind>, holdingUnknown: Bool = false, window: [WindowLine] = []
     ) async throws -> (value: T, run: RunID) {
         let schemaText = try schema.jsonText
         let prompt = Digest.sha256(instructions + "\n" + schemaText)
         try store.keepPrompt(hash: prompt, task: task, instructions: instructions, schema: schemaText)
         let run = try store.beginRun(
-            task: task, model: model.name, prompt: prompt, input: input, kinds: kinds, holdsUnknown: holdingUnknown)
+            task: task, model: model.name, prompt: prompt, input: input, kinds: kinds, holdsUnknown: holdingUnknown,
+            window: window)
         do {
             let answer = try await model.generate(type, schema: schema, instructions: instructions, input: input)
             guard schema.accepts(json: answer.reply) else {
@@ -77,7 +90,8 @@ public struct RecordedModel: Sendable {
 
 extension Store {
     func beginRun(
-        task: String, model: String, prompt: String, input: String, kinds: Set<SourceKind>, holdsUnknown: Bool = false
+        task: String, model: String, prompt: String, input: String, kinds: Set<SourceKind>, holdsUnknown: Bool = false,
+        window: [WindowLine] = []
     ) throws -> RunID {
         let names = kinds.map(\.rawValue).sorted() + (holdsUnknown ? [RunText.unknownKind] : [])
         return try writer.write { db in
@@ -90,6 +104,11 @@ extension Store {
             try db.execute(
                 sql: "INSERT INTO run_text(run_id, input, kinds) VALUES (?,?,?)",
                 arguments: [run, input, try Coding.json(names)])
+            for line in window {
+                try db.execute(
+                    sql: "INSERT INTO run_window(run_id, ordinal, line_id) VALUES (?,?,?)",
+                    arguments: [run, line.number, line.lineID])
+            }
             return run
         }
     }

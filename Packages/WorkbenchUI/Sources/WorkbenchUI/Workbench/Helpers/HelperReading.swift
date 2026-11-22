@@ -2,8 +2,8 @@ import Foundation
 import Observation
 import WorkbenchCore
 
-/// Reads a day of the machine's source with the chosen model, and keeps where the last reading stopped so no line is
-/// read twice.
+/// Reads a day of the machine's source with the chosen model, and sends only the lines no earlier reading saw, so no
+/// line is read twice.
 @Observable
 final class HelperReading {
     private(set) var phase = ReadPhase.idle
@@ -29,18 +29,16 @@ final class HelperReading {
             if let news = context.source as? NewsSource { return try await readNews(news, on: day) }
             if let outbound = context.source as? OutboundSource { return try await findStartups(outbound, on: day) }
             let full = try await context.source.evidence(on: day)
-            // A reading starts where the last one stopped: earlier lines go along as context only, so nothing is
+            // A reading sends the lines no earlier reading saw: earlier lines go along as context only, so nothing is
             // read twice and nothing comes back reworded.
-            let lastLineKey = MachineKey.lastLine(spec.task, scope: scope, day: day)
-            let last = try lastLineKey.load(from: store)
-            var evidence = full.after(last)
+            var evidence = full.marking(read: try numbersRead(in: full, scope: scope, day: day))
             for (set, names) in try recentLabels() { evidence.context[set] = names }
             let open = try store.queries.openItems(readBy: spec, asOf: day == context.today ? nil : day)
             // A machine that follows another reads each day once even when nobody wrote, while there are facts to
             // watch: a commitment can fall due on a quiet day.
             let followedKey = MachineKey.followedRead(spec.task)
             let followsOpenFacts = spec.follows != nil && !open.isEmpty
-            let isCaughtUp = followsOpenFacts ? try followedKey.load(from: store) == day : last != nil
+            let isCaughtUp = followsOpenFacts ? try followedKey.load(from: store) == day : evidence.hasBeenRead
             if evidence.newLines.isEmpty, isCaughtUp {
                 phase = .upToDate
                 context.problems.dismiss()
@@ -51,8 +49,8 @@ final class HelperReading {
             let result = try await reader.read(
                 day: day, scope: scope, evidence: evidence, marked: try context.marked(), open: open)
             try store.saveReading(
-                result, of: spec, day: day, scope: scope, grant: try await context.grant(), replacing: last == nil)
-            if let top = full.lines.map(\.id).max() { try lastLineKey.save(top, to: store) }
+                result, of: spec, day: day, scope: scope, grant: try await context.grant(), replacing: !evidence.hasBeenRead)
+            try keepCursor(of: full, scope: scope, day: day)
             if followsOpenFacts { try followedKey.save(day, to: store) }
             context.reloadIfShown(day)
             phase = .read(kept: result.items.count, dropped: result.dropped)
@@ -65,6 +63,22 @@ final class HelperReading {
             context.problems.report("read the day", error)
             return false
         }
+    }
+
+    /// The numbers of the lines an earlier reading of this machine saw. A line the evidence store holds was read when a
+    /// finished run of this machine had it in its window, so a store that starts again from number one loses nothing.
+    /// A line of another source was read when its number is at most the last one a reading saw.
+    private func numbersRead(in full: EvidenceSet, scope: String, day: WorkDay) throws -> Set<Int64> {
+        let stored = full.lines.filter { $0.lineID != nil }.map(\.id)
+        let cursor = try MachineKey.lastLine(context.spec.task, scope: scope, day: day).load(from: context.store)
+        let past = full.lines.filter { $0.lineID == nil && $0.id <= (cursor ?? .min) }.map(\.id)
+        return try context.store.queries.numbersRead(by: context.spec.task, among: stored).union(past)
+    }
+
+    /// Where a reading of lines that are not in the evidence store stopped.
+    private func keepCursor(of full: EvidenceSet, scope: String, day: WorkDay) throws {
+        guard let top = full.lines.filter({ $0.lineID == nil }).map(\.id).max() else { return }
+        try MachineKey.lastLine(context.spec.task, scope: scope, day: day).save(top, to: context.store)
     }
 
     /// The news machine reads articles, not days: one check fetches the feeds and reads each matched article.

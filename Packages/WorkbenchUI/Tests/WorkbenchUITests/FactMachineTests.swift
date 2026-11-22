@@ -23,7 +23,7 @@ import WorkbenchCore
         try source.choose(try #require(source.groups.first { $0.jid == teamJID }))
         let model = KeyedModel([
             "You keep the facts of a founder's company":
-                #"{"items":[{"kind":"status","text":"Login API is done","person":"Asha","project":"Login API","eta":"","asks":"team","stance":"said","cite":11,"quote":"login API done"},{"kind":"question","text":"No project","person":"Asha","project":" ","eta":"","asks":"team","stance":"said","cite":11,"quote":"login API done"}],"closes":[]}"#
+                #"{"items":[{"kind":"status","text":"Login API is done","person":"Asha","project":"Login API","eta":"","asks":"team","stance":"said","cite":@login API done@,"quote":"login API done"},{"kind":"question","text":"No project","person":"Asha","project":" ","eta":"","asks":"team","stance":"said","cite":@login API done@,"quote":"login API done"}],"closes":[]}"#
         ])
         var spec = HelperSpec.team
         spec.task = "team.ledger-1"
@@ -38,7 +38,7 @@ import WorkbenchCore
         try addMessage(30, "payments blocked on keys", at: noon.addingTimeInterval(600), to: container)
         model.replies.withLock {
             $0["You keep the facts of a founder's company"] =
-                #"{"items":[{"kind":"status","text":"Payments are blocked on keys","person":"Asha","project":"Login API","eta":"","asks":"team","stance":"said","cite":30,"quote":"payments blocked on keys"}],"closes":[]}"#
+                #"{"items":[{"kind":"status","text":"Payments are blocked on keys","person":"Asha","project":"Login API","eta":"","asks":"team","stance":"said","cite":@payments blocked on keys@,"quote":"payments blocked on keys"}],"closes":[]}"#
         }
         await pip.read()
         let input = try #require(model.inputs.withLock { $0.last })
@@ -57,7 +57,7 @@ import WorkbenchCore
         try source.choose(try #require(source.groups.first { $0.jid == teamJID }))
         let model = KeyedModel([
             "You keep the facts of a founder's company":
-                #"{"items":[{"kind":"commitment","text":"Ship the login API","person":"Asha","project":"Login API","eta":"","asks":"team","stance":"said","cite":11,"quote":"login API done"}],"closes":[]}"#
+                #"{"items":[{"kind":"commitment","text":"Ship the login API","person":"Asha","project":"Login API","eta":"","asks":"team","stance":"said","cite":@login API done@,"quote":"login API done"}],"closes":[]}"#
         ])
         var spec = HelperSpec.team
         spec.task = "team.ledger-1"
@@ -73,7 +73,7 @@ import WorkbenchCore
         try addMessage(40, "login shipped to everyone", at: tomorrow, to: container)
         model.replies.withLock {
             $0["You keep the facts of a founder's company"] =
-                #"{"items":[],"closes":[{"handle":"F1","outcome":"kept","cite":40,"quote":"login shipped"}]}"#
+                #"{"items":[],"closes":[{"handle":"F1","outcome":"kept","cite":@login shipped to everyone@,"quote":"login shipped"}]}"#
         }
         pip.show(WorkDay(containing: tomorrow))
         await pip.read()

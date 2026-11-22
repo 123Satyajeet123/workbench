@@ -15,9 +15,11 @@ public final class FileWatcher {
     private var stream: FSEventStreamRef?
     private let handler: Handler
 
-    public init(folders: [URL] = defaultFolders, handler: @escaping Handler) {
+    /// `latency` is how long FSEvents gathers changes before it delivers them.
+    public init(folders: [URL] = defaultFolders, latency: TimeInterval = 1.0, handler: @escaping Handler) {
         self.handler = handler
-        start(paths: folders.map(\.path).filter { FileManager.default.fileExists(atPath: $0) })
+        start(
+            paths: folders.map(\.path).filter { FileManager.default.fileExists(atPath: $0) }, latency: latency)
     }
 
     public func stop() {
@@ -36,7 +38,7 @@ public final class FileWatcher {
         return nil
     }
 
-    private func start(paths: [String]) {
+    private func start(paths: [String], latency: TimeInterval) {
         guard !paths.isEmpty else { return }
         var context = FSEventStreamContext(
             version: 0, info: Unmanaged.passUnretained(self).toOpaque(), retain: nil, release: nil, copyDescription: nil
@@ -51,7 +53,8 @@ public final class FileWatcher {
         let options = UInt32(kFSEventStreamCreateFlagFileEvents | kFSEventStreamCreateFlagUseCFTypes)
         guard
             let stream = FSEventStreamCreate(
-                nil, callback, &context, paths as CFArray, FSEventStreamEventId(kFSEventStreamEventIdSinceNow), 1.0,
+                nil, callback, &context, paths as CFArray, FSEventStreamEventId(kFSEventStreamEventIdSinceNow),
+                latency,
                 options)
         else { return }
         FSEventStreamSetDispatchQueue(stream, .main)

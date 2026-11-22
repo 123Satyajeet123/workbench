@@ -42,36 +42,26 @@ enum LegacyCitations {
                 """, arguments: revoke.arguments)
     }
 
-    /// The text and kind of the lines that old ids in `refs` of one space point at. A fact of one chat (`scope` not
-    /// empty) sees only lines of that chat: row numbers are global, so a range holds rows of other chats too.
-    static func lines(in space: LegacySpace, refs: ClosedRange<Int64>, scope: String, db: Database) throws
-        -> [CitedLine]
+    /// The lines that old ids in `refs` of one space point at, each under its old id. A fact of one chat sees only
+    /// lines of that chat: row numbers are global, so a range holds rows of other chats too.
+    static func lines(in space: LegacySpace, refs: ClosedRange<Int64>, container: String?, db: Database) throws
+        -> [StoredLine]
     {
-        try CitedLine.fetchAll(
+        try StoredLine.fetchAll(
             db,
             sql: """
-                SELECT evidence.text, evidence.tombstone FROM evidence_legacy
-                JOIN evidence ON evidence.line_id = evidence_legacy.line_id
+                SELECT evidence_legacy.ref AS number, \(StoredLine.columns) FROM evidence_legacy
+                JOIN evidence e ON e.line_id = evidence_legacy.line_id
                 WHERE evidence_legacy.space = ? AND evidence_legacy.ref BETWEEN ? AND ?
-                    AND (? = '' OR evidence.container = ?)
+                    AND (? IS NULL OR e.container = ?)
                 ORDER BY evidence_legacy.ref, evidence_legacy.ord
-                """, arguments: [space.rawValue, refs.lowerBound, refs.upperBound, scope, scope])
+                """, arguments: [space.rawValue, refs.lowerBound, refs.upperBound, container, container])
     }
 
     static func isMapped(_ ref: Int64, in space: LegacySpace, db: Database) throws -> Bool {
         try Bool.fetchOne(
             db, sql: "SELECT EXISTS (SELECT 1 FROM evidence_legacy WHERE space = ? AND ref = ?)",
             arguments: [space.rawValue, ref]) ?? false
-    }
-
-    struct CitedLine: Equatable, FetchableRecord {
-        var text: String
-        var isTombstone: Bool
-
-        init(row: GRDB.Row) {
-            text = row["text"]
-            isTombstone = row["tombstone"] == 1
-        }
     }
 }
 
@@ -119,7 +109,8 @@ extension Store {
                 cited.formUnion([first, last])
                 let scope: String = fact["scope"]
                 let lines = try LegacyCitations.lines(
-                    in: .whatsAppRow, refs: first...last, scope: WhatsAppJID.canonical(scope), db: db)
+                    in: .whatsAppRow, refs: first...last, container: scope.isEmpty ? nil : WhatsAppJID.canonical(scope),
+                    db: db)
                 report.facts += 1
                 if lines.isEmpty {
                     report.unresolved += 1

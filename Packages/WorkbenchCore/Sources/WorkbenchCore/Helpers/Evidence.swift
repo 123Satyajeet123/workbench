@@ -10,9 +10,13 @@ public struct Evidence: Sendable, Equatable {
     public var line: String
     /// The texts a quote may be taken from.
     public var quotable: [String]
+    /// The stored line behind this one, when its source keeps lines in the evidence store: a run records it, so the
+    /// number a model cites resolves to this line later.
+    public var lineID: Data?
 
-    public init(id: Int64, start: Date, end: Date? = nil, line: String, quotable: [String]) {
+    public init(id: Int64, start: Date, end: Date? = nil, line: String, quotable: [String], lineID: Data? = nil) {
         self.id = id
+        self.lineID = lineID
         self.start = start
         self.end = end
         self.line = line.split(whereSeparator: \.isNewline).joined(separator: " ")
@@ -26,24 +30,34 @@ public struct Evidence: Sendable, Equatable {
 public struct EvidenceSet: Sendable, Equatable {
     public var lines: [Evidence]
     public var context: [String: [String]]
-    /// Lines up to this number were read before: they are shown for context, and no item may cite them.
-    public var readUpTo: Int64?
+    /// The numbers of lines an earlier reading saw: they are shown for context, and no item may cite them.
+    public var read: Set<Int64>
 
-    public init(lines: [Evidence], context: [String: [String]] = [:], readUpTo: Int64? = nil) {
+    public init(lines: [Evidence], context: [String: [String]] = [:], read: Set<Int64> = []) {
         self.lines = lines
         self.context = context
-        self.readUpTo = readUpTo
+        self.read = read
     }
 
-    /// Lines no earlier reading saw.
-    public var newLines: [Evidence] { lines.filter { $0.id > (readUpTo ?? .min) } }
+    /// A source whose line numbers only grow: every line numbered up to `readUpTo` was read.
+    public init(lines: [Evidence], context: [String: [String]] = [:], readUpTo: Int64) {
+        self.init(lines: lines, context: context, read: Set(lines.map(\.id).filter { $0 <= readUpTo }))
+    }
 
-    /// The lines after `last`, with up to `context` earlier lines before them so a reply such as "done" keeps its
-    /// question. Nil `last` keeps every line.
-    public func after(_ last: Int64?, context: Int = 20) -> EvidenceSet {
-        guard let last else { return self }
-        let seen = lines.filter { $0.id <= last }.suffix(context)
-        return EvidenceSet(lines: seen + lines.filter { $0.id > last }, context: self.context, readUpTo: last)
+    /// Whether an earlier reading saw anything of this day.
+    public var hasBeenRead: Bool { !read.isEmpty }
+
+    public func isRead(_ number: Int64) -> Bool { read.contains(number) }
+
+    /// Lines no earlier reading saw.
+    public var newLines: [Evidence] { lines.filter { !isRead($0.id) } }
+
+    /// The new lines, with up to `context` earlier lines before them so a reply such as "done" keeps its question.
+    public func marking(read: Set<Int64>, context: Int = 20) -> EvidenceSet {
+        guard !read.isEmpty else { return self }
+        let marked = EvidenceSet(lines: lines, context: self.context, read: read)
+        let seen = lines.filter { marked.isRead($0.id) }.suffix(context)
+        return EvidenceSet(lines: seen + marked.newLines, context: self.context, read: read)
     }
 }
 

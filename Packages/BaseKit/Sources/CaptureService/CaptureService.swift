@@ -1,4 +1,5 @@
 import Foundation
+import Kernel
 import LocalSources
 import Observation
 import WorkbenchCore
@@ -8,8 +9,6 @@ import WorkbenchCore
 @MainActor @Observable
 public final class CaptureService {
     public static let interval: Duration = .seconds(2)
-    /// Captured data older than this is deleted: activity, recordings and team entries alike.
-    public static let retention: TimeInterval = 30 * 86_400
 
     public private(set) var policy: CapturePolicy
     public private(set) var status: CaptureStatus
@@ -20,17 +19,22 @@ public final class CaptureService {
     /// The last write or delete that failed in the background, in plain words. Nil after the next one succeeds.
     public private(set) var problem: String?
 
+    @ObservationIgnored private let ownerResult: Result<PersonID, any Error>
     @ObservationIgnored private let store: Store
     @ObservationIgnored private let loop: CaptureLoop
     @ObservationIgnored private var ticker: Task<Void, Never>?
     @ObservationIgnored private var fileWatcher: FileWatcher?
+    @ObservationIgnored private var whatsAppWatch: WhatsAppIngestWatch?
     @ObservationIgnored private var power: PowerEvents?
     @ObservationIgnored private var askedForTrust = false
     @ObservationIgnored private var lastPrune = Date.distantPast
     @ObservationIgnored private var recorder: CallAudioRecorder?
 
-    public init(store: Store) throws {
+    /// `owner` is the person who uses this Mac, as the Kernel names a person, or why there is none yet. Only the sources
+    /// that store lines need it, and they fail closed without it.
+    public init(store: Store, owner: Result<PersonID, any Error>) throws {
         self.store = store
+        ownerResult = owner
         let policy = try store.currentPolicy()
         self.policy = policy
         status = policy.status(accessibilityGranted: ScreenReader.isTrusted, at: store.clock())
@@ -38,6 +42,9 @@ public final class CaptureService {
         try store.closeInterruptedRecordings()
         try store.closeInterruptedRuns()
     }
+
+    /// The owner of every source this Mac reads. Throws why there is none.
+    public func owner() throws -> PersonID { try ownerResult.get() }
 
     public func start() {
         guard ticker == nil else { return }
@@ -56,6 +63,7 @@ public final class CaptureService {
         power?.stop()
         power = nil
         setFileWatcher(on: false)
+        setWhatsAppWatch(on: false)
     }
 
     /// The new policy is saved as one consent event, then used by the next reading.
@@ -131,7 +139,7 @@ public final class CaptureService {
     func pruneIfDue(at now: Date) async {
         guard now.timeIntervalSince(lastPrune) >= 3600 else { return }
         lastPrune = now
-        report(await loop.forget(before: now.addingTimeInterval(-Self.retention)))
+        report(await loop.forget(before: now.addingTimeInterval(-CapturePolicy.retention)))
     }
 
     private func tick() {
@@ -140,7 +148,9 @@ public final class CaptureService {
         if apps != playingApps { playingApps = apps }
         let now = store.clock()
         Task { await pruneIfDue(at: now) }
-        setFileWatcher(on: (status == .capturing || status == .needsPermission) && policy.isEnabled(.files))
+        let isCapturing = status == .capturing || status == .needsPermission
+        setFileWatcher(on: isCapturing && policy.isEnabled(.files))
+        setWhatsAppWatch(on: isCapturing && policy.isEnabled(.whatsapp) && policy.allowList[.whatsapp]?.isEmpty == false)
         guard status == .capturing, policy.isEnabled(.screen), let app = FrontApp.current() else {
             requestTrustOnce()
             return
@@ -174,6 +184,21 @@ public final class CaptureService {
         } else if !on, let watcher = fileWatcher {
             watcher.stop()
             fileWatcher = nil
+        }
+    }
+
+    private func setWhatsAppWatch(on: Bool) {
+        if on, whatsAppWatch == nil {
+            switch ownerResult {
+            case .success(let owner):
+                whatsAppWatch = WhatsAppIngestWatch(store: store, owner: owner) { [weak self] failure in
+                    self?.report(failure)
+                }
+            case .failure(let error): report(error.localizedDescription)
+            }
+        } else if !on, let watch = whatsAppWatch {
+            watch.stop()
+            whatsAppWatch = nil
         }
     }
 

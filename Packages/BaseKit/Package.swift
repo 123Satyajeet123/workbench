@@ -14,9 +14,15 @@ let package = Package(
     dependencies: [.package(path: "../WorkbenchCore"), .package(path: "../Kernel")],
     targets: [
         .target(name: "AgentCLI", dependencies: ["WorkbenchCore"]),
-        .target(name: "LocalSources", dependencies: ["WorkbenchCore", .product(name: "Lines", package: "Kernel")]),
+        .target(
+            name: "LocalSources",
+            dependencies: [
+                "WorkbenchCore", .product(name: "Kernel", package: "Kernel"), .product(name: "Lines", package: "Kernel"),
+            ]),
         .target(name: "WebResearch", dependencies: ["WorkbenchCore"]),
-        .target(name: "CaptureService", dependencies: ["WorkbenchCore", "LocalSources"]),
+        .target(
+            name: "CaptureService",
+            dependencies: ["WorkbenchCore", "LocalSources", .product(name: "Kernel", package: "Kernel")]),
         .executableTarget(name: "TranscribeBakeoff", dependencies: ["LocalSources", "WorkbenchCore"]),
         .testTarget(name: "AgentCLITests", dependencies: ["AgentCLI"]),
         .testTarget(name: "LocalSourcesTests", dependencies: ["LocalSources"]),

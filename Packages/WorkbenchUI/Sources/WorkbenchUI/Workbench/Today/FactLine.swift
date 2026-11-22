@@ -81,7 +81,7 @@ struct FactLine: View {
     @ViewBuilder private var chatLines: some View {
         if let chat {
             ForEach(chat) { line in
-                Text("\(line.time.formatted(date: .omitted, time: .shortened))  \(line.text)")
+                Text("\(line.time?.formatted(date: .omitted, time: .shortened) ?? "")  \(line.text)")
                     .textStyle(.callout, weight: line.isCited ? .semibold : nil)
                     .foregroundStyle(line.isCited ? Color.primary : .supporting).textSelection(.enabled)
             }

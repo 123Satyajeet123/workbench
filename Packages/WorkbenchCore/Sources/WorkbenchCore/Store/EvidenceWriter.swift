@@ -211,21 +211,15 @@ struct EvidenceStamp {
 
     static let optimizeSearch = "INSERT INTO evidence_fts(evidence_fts) VALUES ('optimize')"
 
-    /// Writes one line. A line already stored only has its `last_seen` moved forward. A tombstone first erases the
-    /// text lines of its message, and takes over their old citations. A text line of a revoked message is refused by
-    /// the store.
+    /// Writes one line. A line already stored only has its `last_seen` moved forward. A tombstone is written first, then
+    /// the text lines of its message go, and it takes over their old citations and their places in run windows. A text
+    /// line of a revoked message is refused by the store.
     static func write(_ item: ObservedLine, _ stamp: EvidenceStamp, in db: Database) throws -> IngestReport {
         var report = IngestReport()
         let line = item.line
         let key = Data(line.entity.bytes)
-        var citations = [item.legacy].compactMap { $0 }.map(LegacyCitations.Row.init)
-        if line.isTombstone {
-            let revoke = Revoke(key: key, container: stamp.container, messageRef: item.messageRef)
-            citations += try LegacyCitations.refs(erasedBy: revoke, in: db)
-            try db.execute(sql: "DELETE FROM evidence WHERE \(Revoke.erased)", arguments: revoke.arguments)
-            report.erasedLines = db.changesCount
-        }
         let lineID = Data(line.id.bytes)
+        var citations = [item.legacy].compactMap { $0 }.map(LegacyCitations.Row.init)
         try db.execute(
             sql: """
                 INSERT INTO evidence(line_id, entity_key, quality, source_id, container, event_time, first_seen,
@@ -251,6 +245,16 @@ struct EvidenceStamp {
                 arguments: [stamp.now, lineID])
         } else {
             report.refusedAfterRevoke = 1
+        }
+        if line.isTombstone {
+            let revoke = Revoke(key: key, container: stamp.container, messageRef: item.messageRef)
+            citations += try LegacyCitations.refs(erasedBy: revoke, in: db)
+            try db.execute(
+                sql: """
+                    UPDATE run_window SET line_id = ? WHERE line_id IN (SELECT line_id FROM evidence WHERE \(Revoke.erased))
+                    """, arguments: StatementArguments([lineID]) + revoke.arguments)
+            try db.execute(sql: "DELETE FROM evidence WHERE \(Revoke.erased)", arguments: revoke.arguments)
+            report.erasedLines = db.changesCount
         }
         for citation in citations where report.refusedAfterRevoke == 0 {
             try LegacyCitations.map(citation, to: lineID, in: db)

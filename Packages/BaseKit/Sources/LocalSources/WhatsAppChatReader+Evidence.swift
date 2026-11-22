@@ -8,8 +8,8 @@ import WorkbenchCore
 /// read-only open of the other app's file), and checks the file header and the store's identity before it reads.
 extension WhatsAppChatReader: EvidenceSource {
     public static let readerVersion = "whatsapp-store 1"
-    /// The owner is a member of every audience (research E-R3 §6).
-    static let audienceOwner = "me"
+    /// The owner is a member of every audience (research E-R3 §6), and the `actor` of the owner's own lines.
+    public static let audienceOwner = "me"
 
     public var descriptor: SourceDescriptor { .whatsAppChat }
 
@@ -76,7 +76,8 @@ extension WhatsAppChatReader: EvidenceSource {
         let audience = try audience(of: place, in: snapshot)
         let rows = try snapshot.rows(
             """
-            SELECT \(MessageIdentity.columns), m.ZMESSAGEDATE, m.ZMESSAGETYPE, m.ZTEXT, i.ZTITLE, i.ZMETADATA
+            SELECT \(MessageIdentity.columns), m.ZMESSAGEDATE, m.ZMESSAGETYPE, m.ZTEXT, i.ZTITLE, i.ZMETADATA,
+                i.ZMEDIALOCALPATH
             \(MessageIdentity.tables)
             WHERE m.ZCHATSESSION = ?
                 AND (m.Z_PK > ? OR m.ZMESSAGEDATE >= ? OR m.ZMESSAGETYPE = ?)
@@ -87,7 +88,7 @@ extension WhatsAppChatReader: EvidenceSource {
                 .real(plan.rescanSince.timeIntervalSinceReferenceDate),
                 .integer(Int64(WhatsAppMessageType.revokedCode)),
             ])
-        let messages = rows.map(Message.init(row:))
+        let messages = rows.map(Message.init(row:)).map { readingPhoto($0, now: now) }
         let replies = try identities(
             ofStanzas: Set(messages.compactMap(\.quotedStanza)), in: place, snapshot: snapshot)
         var lines: [ObservedLine] = []
@@ -108,6 +109,32 @@ extension WhatsAppChatReader: EvidenceSource {
             cursorAfter: Scan.cursor(
                 after: plan, storeID: storeID, highestRow: messages.map(\.identity.row).max(), readAt: now),
             mapsLegacyRefs: plan.mapsLegacyRefs, readerVersion: Self.readerVersion, census: census, unkeyed: unkeyed)
+    }
+
+    /// A photo's words are the text in it, read on this Mac, then its caption. Teams post screenshots of builds and
+    /// logs as updates. Only a photo sent within the retention (how far back anything reads) is read, so the first reading of a long chat does not
+    /// recognize every photo it ever held.
+    private func readingPhoto(_ message: Message, now: Date) -> Message {
+        guard message.type == .image, let time = message.time, Double(UTCInstant(now).milliseconds - time.milliseconds) / 1000 < CapturePolicy.retention,
+            let file = mediaFile(atRelativePath: message.mediaPath)
+        else { return message }
+        let seen = ImageText.text(in: file)
+        guard !seen.isEmpty else { return message }
+        var read = message
+        read.words = ["[photo] \(seen)", message.words].filter { !$0.isEmpty }
+            .joined(separator: WhatsAppMessageText.separator)
+        return read
+    }
+
+    /// A path counts only when the file exists inside the container's `Message` folder.
+    private func mediaFile(atRelativePath path: String?) -> URL? {
+        guard let path, !path.isEmpty else { return nil }
+        let root = container.appending(path: "Message").resolvingSymlinksInPath()
+        let file = root.appending(path: path).resolvingSymlinksInPath()
+        guard file.path.hasPrefix(root.path + "/"), FileManager.default.fileExists(atPath: file.path) else {
+            return nil
+        }
+        return file
     }
 
     private func observedLine(
@@ -225,6 +252,7 @@ private struct Message {
     var time: UTCInstant?
     var words: String
     var quotedStanza: String?
+    var mediaPath: String?
 
     var type: WhatsAppMessageType { WhatsAppMessageType(code: typeCode) }
     var hasText: Bool { !words.isEmpty }
@@ -235,6 +263,7 @@ private struct Message {
         typeCode = Int(row.integer(7))
         words = WhatsAppMessageText.compose(title: row.text(9), text: row.text(8))
         quotedStanza = row.blob(10).flatMap { WhatsAppReply.quotedStanzaID(metadata: $0) }
+        mediaPath = row.text(11)
     }
 }
 

@@ -16,6 +16,8 @@ final class WhatsAppSource: MachineSource {
     private(set) var members: [WhatsAppMember] = []
     /// The WhatsApp IDs of the teammates the founder set up and linked, as of the last read.
     private(set) var teamHandles: Set<String> = []
+    /// The name of every person the chats ever had, by WhatsApp ID, as of the last read of the people.
+    @ObservationIgnored private var names: [String: String] = [:]
 
     @ObservationIgnored private let store: Store
     @ObservationIgnored private let capture: CaptureService
@@ -90,7 +92,7 @@ final class WhatsAppSource: MachineSource {
     /// (measured: 7 "access data from other apps" prompts in one day), so only checks that must be live use this.
     func loadMembers() async throws {
         guard !chats.isEmpty else { return }
-        try remember(try await reader().members())
+        try remember(try await reader().people())
     }
 
     /// The members as of the last read, for showing a page; WhatsApp is read only when none are known yet.
@@ -102,9 +104,10 @@ final class WhatsAppSource: MachineSource {
         if !capture.policy.isEnabled(.whatsapp) { try capture.update { $0.switches[.whatsapp] = true } }
     }
 
-    private func remember(_ current: [WhatsAppMember]) throws {
-        members = current
-        try membersKey.save(current, to: store)
+    private func remember(_ people: WhatsAppPeople) throws {
+        members = people.members
+        names = people.names
+        try membersKey.save(people.members, to: store)
         try loadTeamHandles()
     }
 
@@ -113,42 +116,62 @@ final class WhatsAppSource: MachineSource {
         teamHandles = Set(try store.queries.whatsappLinks().filter { people.contains($0.key) }.values)
     }
 
-    /// The day's messages of every chosen chat, each a numbered line, and the people in them, from one read. With
-    /// several chats each line names its chat.
+    /// The day's messages of every chosen chat, each a numbered line, and the people in them. The chats are first read
+    /// into the evidence store; the lines come from there, as the proof cards read them. A message deleted for everyone
+    /// has no words to show a model, so it is not a line here. With several chats each line names its chat.
     func evidence(on day: WorkDay) async throws -> EvidenceSet {
         guard !chats.isEmpty else { return EvidenceSet(lines: []) }
-        let (entries, people) = try await reader().read(from: day.start, to: day.end)
-        try remember(people)
-        let names = Dictionary(chats.map { ($0.jid, $0.name) }, uniquingKeysWith: { first, _ in first })
-        let lines = entries.compactMap { entry in
-            line(entry).map { line in
-                guard isSeveral, let chat = names[entry.chat] else { return line }
-                var named = line
-                named.line = "[\(chat)] " + line.line
-                return named
-            }
-        }
+        try await keepChats()
+        try await loadMembers()
+        let stored = try store.queries.currentLines(in: chats.map(\.container), from: day.start, to: day.end)
+        let lines = stored.filter { !$0.isTombstone }.map { evidence($0, start: day.start) }
         return EvidenceSet(lines: lines, context: ["members": members.map(\.name)])
+    }
+
+    /// The lines that prove a fact, as the run that made it saw them, with a deleted message shown as deleted. Reading
+    /// them reads no chat.
+    func proof(of item: Item, reach: Int) async throws -> [ChatLine] {
+        if names.isEmpty { try await loadMembers() }
+        return try store.queries.proofLines(of: item, reach: reach).map { proof in
+            ChatLine(
+                id: proof.line.number, time: proof.line.time, text: words(of: proof.line).line,
+                isCited: proof.isCited)
+        }
+    }
+
+    /// Reads the chosen chats into the store. A chat that cannot be read stops the reading, as it always did.
+    private func keepChats() async throws {
+        let report = try await store.ingest(reader(), owner: try capture.owner(), now: store.clock())
+        if let failure = report.failures.first { throw failure.error }
     }
 
     private func reader() -> WhatsAppChatReader {
         WhatsAppChatReader(container: container, chatJIDs: chats.map(\.jid), policy: store)
     }
 
-    /// A message as one numbered line. A photo's line is the text in it, read on this Mac, and its caption.
-    private func line(_ entry: WhatsAppEntry) -> Evidence? {
-        var parts = [entry.title, entry.text].compactMap { $0 }.filter { !$0.isEmpty }
-        if entry.kind == .photo, case .file(let url) = entry.media {
-            let seen = ImageText.text(in: url)
-            if !seen.isEmpty { parts.insert("[photo] \(seen)", at: 0) }
-        }
-        let text = parts.joined(separator: " — ")
-        guard !text.isEmpty else { return nil }
-        let sender: String
-        switch entry.sender {
-        case .me: sender = founder().isEmpty ? "Founder" : "\(founder()) (founder)"
-        case .member(_, let name): sender = name
-        }
-        return Evidence(id: entry.id, start: entry.date, line: "\(sender): \(text)", quotable: [text])
+    private func evidence(_ stored: StoredLine, start: Date) -> Evidence {
+        let shown = words(of: stored)
+        return Evidence(
+            id: stored.number, start: stored.time ?? start, line: shown.line, quotable: shown.quote.map { [$0] } ?? [],
+            lineID: stored.lineID)
+    }
+
+    /// A stored line as one line of text, and the words a quote may be taken from. A deleted message has no words.
+    private func words(of stored: StoredLine) -> (line: String, quote: String?) {
+        let text = stored.isTombstone ? Self.deletedWords : MemberNames.mentions(in: stored.text, names: names)
+        let chat = isSeveral ? chatNames[stored.container].map { "[\($0)] " } ?? "" : ""
+        return ("\(chat)\(sender(of: stored)): \(text)", stored.isTombstone ? nil : text)
+    }
+
+    static let deletedWords = "This message was deleted"
+
+    private var chatNames: [String: String] {
+        Dictionary(chats.map { ($0.container, $0.name) }, uniquingKeysWith: { first, _ in first })
+    }
+
+    private func sender(of stored: StoredLine) -> String {
+        guard let actor = stored.actor else { return "Unknown" }
+        if actor == WhatsAppChatReader.audienceOwner { return founder().isEmpty ? "Founder" : "\(founder()) (founder)" }
+        return names[actor] ?? MemberNames.fallback(for: actor)
     }
 }

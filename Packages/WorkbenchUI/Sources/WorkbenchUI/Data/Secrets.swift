@@ -4,6 +4,10 @@ import Security
 /// Where Workbench keeps a secret the founder typed: the founder's own Anthropic API key. Never the store, never a log.
 protocol SecretStore: Sendable {
     func read(_ name: String) -> String?
+    /// The secret, or nil when there is none. Any other failure throws: a store that cannot answer has not said "none".
+    func lookup(_ name: String) throws -> String?
+    /// Adds a secret that does not exist yet. False when one exists: it is never overwritten.
+    func create(_ value: String, as name: String) throws -> Bool
     func save(_ value: String, as name: String) throws
     func remove(_ name: String) throws
 }
@@ -35,6 +39,27 @@ struct KeychainSecrets: SecretStore {
             return nil
         }
         return String(data: data, encoding: .utf8)
+    }
+
+    func lookup(_ name: String) throws -> String? {
+        var query = query(name)
+        query[kSecReturnData as String] = true
+        query[kSecMatchLimit as String] = kSecMatchLimitOne
+        var item: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &item)
+        if status == errSecItemNotFound { return nil }
+        guard status == errSecSuccess, let data = item as? Data else { throw Failure(status: status) }
+        return String(data: data, encoding: .utf8)
+    }
+
+    func create(_ value: String, as name: String) throws -> Bool {
+        var query = query(name)
+        query[kSecValueData as String] = Data(value.utf8)
+        query[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        let status = SecItemAdd(query as CFDictionary, nil)
+        if status == errSecDuplicateItem { return false }
+        guard status == errSecSuccess else { throw Failure(status: status) }
+        return true
     }
 
     /// Updates the item in place, or adds it: the old key stays until the new one is stored.

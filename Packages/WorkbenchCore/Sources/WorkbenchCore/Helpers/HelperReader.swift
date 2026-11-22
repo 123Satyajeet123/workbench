@@ -62,7 +62,8 @@ public struct HelperReader: Sendable {
             Reply.self, schema: schema, task: spec.task, instructions: instructions,
             input: Self.examples(examples, spec: spec) + Self.open(open, spec: spec)
                 + Self.input(day: day, evidence: evidence),
-            holding: [spec.source.kind])
+            holding: [spec.source.kind],
+            window: evidence.lines.compactMap { line in line.lineID.map { WindowLine(number: line.id, lineID: $0) } })
         var kept: [Item] = []
         for raw in reply.items {
             guard let item = item(raw, day: day, scope: scope, evidence: evidence, open: open, run: run),
@@ -222,10 +223,10 @@ public struct HelperReader: Sendable {
             let minutes = Int((end.timeIntervalSince(line.start) / 60).rounded())
             return "[\(line.id)] \(line.start.formatted(time))–\(end.formatted(time)) (\(minutes)) \(line.line)"
         }
-        guard let readUpTo = evidence.readUpTo else {
+        guard evidence.hasBeenRead else {
             return (["Work day: \(day)"] + context + [""] + evidence.lines.map(format)).joined(separator: "\n")
         }
-        let seen = evidence.lines.filter { $0.id <= readUpTo }.map(format)
+        let seen = evidence.lines.filter { evidence.isRead($0.id) }.map(format)
         let new = evidence.newLines.map(format)
         return
             (["Work day: \(day)"] + context + ["", "Read before; context only, cite nothing here:"] + seen
@@ -269,7 +270,7 @@ public struct HelperReader: Sendable {
     }
 
     private func lines(_ firstID: Int64?, _ lastID: Int64?, raw: [String: JSONValue], evidence: EvidenceSet) -> Cited? {
-        guard let firstID, let lastID, firstID <= lastID, firstID > (evidence.readUpTo ?? .min),
+        guard let firstID, let lastID, firstID <= lastID, !evidence.isRead(firstID),
             let quote = raw["quote"]?.string,
             let first = evidence.lines.first(where: { $0.id == firstID }),
             let last = evidence.lines.first(where: { $0.id == lastID }),
@@ -287,7 +288,7 @@ public struct HelperReader: Sendable {
         let latest = evidence.lines.map(\.start).max() ?? day.start
         let facts = handles.compactMap { $0.string.flatMap { fact($0, open: open) } }
         let ids = given.compactMap(\.integer)
-        let cited = ids.compactMap { id in evidence.lines.first { $0.id == id && id > (evidence.readUpTo ?? .min) } }
+        let cited = ids.compactMap { id in evidence.lines.first { $0.id == id && !evidence.isRead(id) } }
         guard facts.count == handles.count, cited.count == given.count, ids.count == given.count,
             facts.contains(where: { $0.quote.contains(quote: quote) })
                 || cited.contains(where: { $0.contains(quote: quote) })
@@ -311,7 +312,7 @@ public struct HelperReader: Sendable {
     private func close(_ raw: [String: JSONValue], open: [Item], evidence: EvidenceSet) -> Close? {
         guard let handle = raw["handle"]?.string, let item = fact(handle, open: open), let id = item.id,
             let outcome = raw["outcome"]?.string,
-            let lineID = raw["cite"]?.integer, lineID > (evidence.readUpTo ?? .min),
+            let lineID = raw["cite"]?.integer, !evidence.isRead(lineID),
             let line = evidence.lines.first(where: { $0.id == lineID }), line.start >= item.start,
             let quote = raw["quote"]?.string, line.contains(quote: quote)
         else { return nil }
