@@ -23,8 +23,7 @@ struct AskBox: View {
                             .textSelection(.enabled)
                     }
                 }
-                .padding(Space.m)
-                .background(.calloutFill, in: .rect(cornerRadius: Radius.card))
+                .calloutBox()
             }
         }
     }

@@ -63,9 +63,7 @@ struct DealCard: View {
             if let action = digest?.action { ActionLine(action: action) }
             if let ribbon = digest?.story.ribbon { CaptureRibbon(ribbon: ribbon) }
         }
-        .padding(Space.s)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.calloutFill, in: .rect(cornerRadius: Radius.card))
+        .calloutBox(padding: Space.s, fillsWidth: true)
     }
 }
 

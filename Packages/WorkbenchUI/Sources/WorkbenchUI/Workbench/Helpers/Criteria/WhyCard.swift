@@ -14,9 +14,7 @@ struct WhyCard: View {
             if triage.needsReview { ReviewFlag(reasons: triage.review) }
             ForEach(triage.results) { RuleResultRow(result: $0, isDeciding: triage.decidedBy.contains($0.id)) }
         }
-        .padding(Space.m)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.calloutFill, in: .rect(cornerRadius: Radius.card))
+        .calloutBox(fillsWidth: true)
     }
 
     private var decision: String {

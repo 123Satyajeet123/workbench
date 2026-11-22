@@ -30,8 +30,7 @@ struct TrialCard: View {
                 }
             }
         }
-        .padding(Space.m)
-        .background(.calloutFill, in: .rect(cornerRadius: Radius.card))
+        .calloutBox()
     }
 
     private func change(_ version: HelperModel.Version) -> String {

@@ -64,9 +64,7 @@ private struct SharedDayCard: View {
                 }
             }
         }
-        .padding(Space.l)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.calloutFill, in: .rect(cornerRadius: Radius.card))
+        .calloutBox(padding: Space.l, fillsWidth: true)
     }
 }
 
@@ -141,9 +139,7 @@ private struct SharedCard: View {
                 ReviewControls(machine: machine, place: place)
             }
         }
-        .padding(Space.l)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.calloutFill, in: .rect(cornerRadius: Radius.card))
+        .calloutBox(padding: Space.l, fillsWidth: true)
     }
 
     private var reviewLine: String {
