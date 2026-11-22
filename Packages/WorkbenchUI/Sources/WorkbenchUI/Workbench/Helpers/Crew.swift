@@ -178,13 +178,20 @@ final class Crew {
         reload()
     }
 
+    private func whatsAppChats(except task: String) -> Set<String> {
+        let others = machines.filter { $0.spec.task != task }.compactMap { $0.source as? WhatsAppSource }
+        return Set(others.flatMap(\.chats).map(\.jid))
+    }
+
     private func source(for machine: Machine) throws -> any MachineSource {
         switch machine.spec.source {
         case .screenSessions: ScreenSource(store: store)
         case .pageText: try PageSource(store: store, task: machine.task)
         case .mail: MailSource(store: store, capture: capture)
         case .whatsappChat:
-            try WhatsAppSource(store: store, capture: capture, task: machine.task, founder: founder)
+            try WhatsAppSource(
+                store: store, capture: capture, task: machine.task, founder: founder,
+                othersReading: { [weak self] in self?.whatsAppChats(except: machine.task) ?? [] })
         }
     }
 }

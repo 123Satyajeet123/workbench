@@ -14,10 +14,10 @@ struct HelperContent: View {
             if let update = crew.update(for: model) {
                 UpdateBanner(name: model.name, changes: update.changes) { crew.upgrade(model) }
             }
-            if model.isReady {
-                readyContent
-            } else {
+            if model.isChoosingSource {
                 SourceChooser(model: model)
+            } else {
+                readyContent
             }
         }
         .sheet(item: Binding(get: { actions.draft }, set: { actions.draft = $0 })) { DraftSheet(draft: $0) }

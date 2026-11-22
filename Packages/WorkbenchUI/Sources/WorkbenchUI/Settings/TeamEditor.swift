@@ -27,22 +27,3 @@ struct TeamEditor: View {
         }
     }
 }
-
-struct TeamSettingsView: View {
-    @Environment(TeamModel.self) private var model
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Space.l) {
-            TeamEditor()
-            ProblemSlotBanner(slot: model.problems)
-            HStack {
-                Spacer()
-                Button("Revert", action: model.reload)
-                Button("Save", action: model.save).buttonStyle(.primary).keyboardShortcut(.defaultAction)
-            }
-        }
-        .padding(Space.l)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .onAppear(perform: model.reload)
-    }
-}

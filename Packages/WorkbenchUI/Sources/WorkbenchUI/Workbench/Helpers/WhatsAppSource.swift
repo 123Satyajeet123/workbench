@@ -11,19 +11,22 @@ final class WhatsAppSource: MachineSource {
     private(set) var matching: [WhatsAppChat] = []
     private(set) var members: [WhatsAppMember] = []
     private(set) var teamHandles: Set<String> = []
+    private(set) var isChanging = false
 
     @ObservationIgnored private let store: Store
     @ObservationIgnored private let capture: CaptureService
     @ObservationIgnored private let founder: () -> String
     @ObservationIgnored private let container: URL
+    @ObservationIgnored private let othersReading: () -> Set<String>
     @ObservationIgnored private let chatsKey: StateKey<[WhatsAppChat]>
     @ObservationIgnored private let membersKey: StateKey<[WhatsAppMember]>
 
     init(
         store: Store, capture: CaptureService, task: String, founder: @escaping () -> String,
-        container: URL = WhatsAppChatReader.defaultContainer
+        container: URL = WhatsAppChatReader.defaultContainer, othersReading: @escaping () -> Set<String> = { [] }
     ) throws {
         self.store = store
+        self.othersReading = othersReading
         self.capture = capture
         self.founder = founder
         self.container = container
@@ -40,9 +43,9 @@ final class WhatsAppSource: MachineSource {
     var scope: String { chat?.jid ?? "" }
     var isReady: Bool { !chats.isEmpty }
     var expectedPeople: [WhatsAppMember] {
-        guard isSeveral else { return members }
-        let team = members.filter { teamHandles.contains($0.jid) }
+        let team = members.filter(isTeammate)
         guard team.isEmpty else { return team }
+        guard isSeveral else { return members }
         guard let first = chats.first(where: \.isGroup) ?? chats.first else { return [] }
         return members.filter { $0.chats?.contains(first.jid) == true }
     }
@@ -63,14 +66,34 @@ final class WhatsAppSource: MachineSource {
     func choose(_ group: WhatsAppChat) throws { try choose([group]) }
 
     func choose(_ chosen: [WhatsAppChat]) throws {
+        let dropped = Set(chats.map(\.jid)).subtracting(chosen.map(\.jid)).subtracting(othersReading())
         try capture.update {
             $0.switches[.whatsapp] = true
+            $0.allowList[.whatsapp, default: []].subtract(dropped)
             $0.allowList[.whatsapp, default: []].formUnion(chosen.map(\.jid))
         }
         try chatsKey.save(chosen, to: store)
         chats = chosen
+        keep()
+    }
+
+    func change() { isChanging = true }
+
+    func keep() {
+        isChanging = false
         groups = []
         matching = []
+    }
+
+    func isTeammate(_ member: WhatsAppMember) -> Bool { teamHandles.contains(member.jid) }
+
+    func setTeammate(_ member: WhatsAppMember, on: Bool) throws {
+        if on {
+            try store.addTeammate(member.name, whatsapp: member.jid)
+        } else {
+            try store.removeTeammate(whatsapp: member.jid)
+        }
+        try loadTeamHandles()
     }
 
     /// The people in the chats as WhatsApp has them now. Reading WhatsApp's data can make macOS ask the founder again

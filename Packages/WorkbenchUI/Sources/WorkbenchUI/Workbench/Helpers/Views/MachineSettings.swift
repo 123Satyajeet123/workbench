@@ -7,6 +7,7 @@ struct MachineSettings: View {
         Fold("Settings") {
             VStack(alignment: .leading, spacing: Space.l) {
                 ReadNote(model: model)
+                if let source = model.source as? WhatsAppSource { TeamPicker(model: model, source: source) }
                 if !model.isTrying { ImproveRow(model: model) }
                 if model.spec.nudge != nil { NudgeRow(model: model) }
                 WatchRow(model: model)

@@ -6,6 +6,7 @@ import Testing
 
 @MainActor private final class FoldState: ObservableObject {
     @Published var shown = 0
+    @Published var hidden = 0
     @Published var innerTaps = 0
 }
 
@@ -14,7 +15,7 @@ private struct FoldWithButton: View {
 
     var body: some View {
         Fold {
-            Text("Inside").onAppear { state.shown += 1 }
+            Text("Inside").onAppear { state.shown += 1 }.onDisappear { state.hidden += 1 }
         } label: {
             HStack {
                 Text("Settings")
@@ -49,12 +50,20 @@ private struct FoldWithButton: View {
             try await Task.sleep(for: .milliseconds(300))
         }
 
+        func settle(_ done: () -> Bool) async throws {
+            for _ in 0..<30 where !done() { try await Task.sleep(for: .milliseconds(100)) }
+        }
+
         try await click(x: 40)
+        try await settle { state.shown == 1 }
         #expect(state.shown == 1)
         try await click(x: 5)
+        try await settle { state.hidden == 1 }
         try await click(x: 5)
+        try await settle { state.shown == 2 }
         #expect(state.shown == 2)
         try await click(x: 285)
+        try await settle { state.innerTaps == 1 }
         #expect(state.innerTaps == 1 && state.shown == 2)
     }
 }

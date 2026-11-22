@@ -34,6 +34,9 @@ struct ReadNote: View {
                 Button("Turn on Screen") { capture.set(.screen, on: true) }
                     .help("Workbench keeps which app, window and page you are in. Never pixels or keystrokes.")
             }
+            if let source = model.source as? WhatsAppSource {
+                Button("Change chats", action: source.change)
+            }
             if let source = model.source as? PageSource {
                 HStack {
                     if !capture.isOn(.screenText) {

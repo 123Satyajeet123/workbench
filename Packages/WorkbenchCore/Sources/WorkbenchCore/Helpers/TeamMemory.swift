@@ -71,6 +71,45 @@ extension Store {
         }
     }
 
+    public func addTeammate(_ name: String, whatsapp jid: String) throws {
+        guard let name = name.cleaned, let jid = jid.cleaned else { return }
+        try writer.write { db in
+            guard try Self.teammate(db, whatsapp: jid) == nil else { return }
+            let now = clock().stored
+            let team: Int64
+            if let existing = try Int64.fetchOne(db, sql: "SELECT id FROM team LIMIT 1") {
+                team = existing
+            } else {
+                try db.execute(sql: "INSERT INTO team(name, created_at) VALUES ('Your team', ?)", arguments: [now])
+                team = db.lastInsertedRowID
+            }
+            try db.execute(
+                sql: "INSERT INTO member(team_id, name, role, is_me, added_at) VALUES (?, ?, '', 0, ?)",
+                arguments: [team, name, now])
+            try db.execute(
+                sql: "INSERT INTO member_handle(member_id, kind, handle, at) VALUES (?, 'whatsapp', ?, ?)",
+                arguments: [db.lastInsertedRowID, jid, now])
+        }
+    }
+
+    public func removeTeammate(whatsapp jid: String) throws {
+        try writer.write { db in
+            guard let member = try Self.teammate(db, whatsapp: jid) else { return }
+            try db.execute(
+                sql: "UPDATE member SET removed_at = ? WHERE id = ?", arguments: [clock().stored, member])
+        }
+    }
+
+    private static func teammate(_ db: Database, whatsapp jid: String) throws -> Int64? {
+        try Int64.fetchOne(
+            db,
+            sql: """
+                SELECT member.id FROM member JOIN member_handle ON member_handle.member_id = member.id
+                WHERE member.removed_at IS NULL AND member_handle.kind = 'whatsapp' AND member_handle.handle = ?
+                """,
+            arguments: [jid])
+    }
+
     public func log(_ kind: String, target: String, detail: [String: String] = [:]) throws {
         let json = try Coding.json(detail)
         try writer.write { db in

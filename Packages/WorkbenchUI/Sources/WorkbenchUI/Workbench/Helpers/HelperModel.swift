@@ -52,6 +52,7 @@ final class HelperModel {
     var today: WorkDay { shared.today }
     var scope: String { source.scope }
     var isReady: Bool { source.isReady }
+    var isChoosingSource: Bool { !isReady || (source as? WhatsAppSource)?.isChanging == true }
     var context: [String: [String]] { source.context }
     var notifications: Notifications { shared.notifications }
 

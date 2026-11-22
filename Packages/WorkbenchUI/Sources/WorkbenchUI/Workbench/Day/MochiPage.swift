@@ -17,7 +17,7 @@ struct MochiPage: View {
         ) {
             BriefCard()
             if let timeline = crew.timeline { TimelineSection(model: timeline) }
-            TeamCard()
+            TeamCard(open: open)
             Card(
                 title: "\(SidebarSelection.calls.title) · \(SidebarSelection.calls.role)",
                 icon: {
@@ -60,20 +60,26 @@ struct MochiPage: View {
 }
 
 private struct TeamCard: View {
+    let open: (SidebarSelection) -> Void
     @Environment(TeamModel.self) private var team
+    @Environment(Crew.self) private var crew
 
     var body: some View {
         Card(title: team.team.name.cleaned ?? "Your team", symbol: "person.3") {
             if team.team.people.isEmpty {
-                Text("No team yet. Add your team and its people in Settings.").foregroundStyle(.supporting)
+                Text("No team yet. Tick your team's people on \(pip?.name ?? "Pip")'s page.").foregroundStyle(
+                    .supporting)
             } else {
                 Text(
                     team.team.people.map { $0.role.isEmpty ? $0.name : "\($0.name) (\($0.role))" }.formatted(
                         .list(type: .and)))
             }
-            SettingsLink { Text("Edit team") }
+            if let pip { Button("Edit team on \(pip.name)'s page") { open(.machine(pip.machine.id)) } }
         }
+        .onAppear(perform: team.reload)
     }
+
+    private var pip: HelperModel? { crew.team }
 }
 
 private struct TimelineSection: View {
