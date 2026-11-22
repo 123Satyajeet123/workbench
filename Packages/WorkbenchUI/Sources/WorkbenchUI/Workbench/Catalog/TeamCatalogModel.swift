@@ -107,8 +107,7 @@ final class TeamCatalogModel {
         }
     }
 
-    /// Reads every letter in the team folder: keeps what passes the checks, and moves this person's old plaintext
-    /// files into envelopes once they are a confirmed member.
+    /// Reads every letter in the team folder and keeps what passes the checks.
     private func readTeam(_ folder: URL) throws {
         try trust.announce(folder: folder, me: me)
         guard let sync = trust.sync(folder: folder, me: me) else {
@@ -116,12 +115,7 @@ final class TeamCatalogModel {
             (shared, days, workEvents, reviews[.team]) = ([], [], [], [])
             return
         }
-        var received = try sync.receive()
-        if received.roster.member(trust.card.fingerprint) != nil,
-            try PlaintextMigration.run(team: folder, sync: sync) > 0
-        {
-            received = try sync.receive()
-        }
+        let received = try sync.receive()
         trust.absorb(received)
         (shared, days, workEvents, reviews[.team]) = (
             received.machines, received.days, received.events, received.reviews

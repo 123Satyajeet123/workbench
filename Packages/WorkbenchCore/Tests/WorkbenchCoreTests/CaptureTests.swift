@@ -4,10 +4,19 @@ import Testing
 @testable import WorkbenchCore
 
 private let screenOn = CapturePolicy(switches: [.screen: true, .screenText: true])
-private let filesOn = CapturePolicy(switches: [.files: true])
 private let terminal = ScreenSnapshot(
     app: "Terminal", bundleID: "com.apple.Terminal", windowID: 1, title: "claude", text: "hello")
-private let sourceFile = "/Users/me/Projects/app/Sources/main.swift"
+
+/// A file row as an older version wrote it. Nothing writes these now; the store still holds and deletes them.
+private func oldFileRow() throws -> ActivityBatch {
+    try #require(
+        ActivityBatch(
+            [
+                Activity(
+                    at: t0, kind: .file, title: "modify", document: "file:///Users/me/Projects/app/Sources/main.swift")
+            ],
+            grant: grant(.files)))
+}
 
 private func kinds(_ batch: ActivityBatch?) -> [Activity.Kind] { batch?.activities.map(\.kind) ?? [] }
 
@@ -66,31 +75,18 @@ struct CaptureVerdictTests {
 
 }
 
-struct FileCaptureTests {
-
-    @Test func neverKeepsBuildOutputOrPasswordFiles() {
-        var recorder = CaptureEngine()
-        for path in ["/p/app/.git/index", "/p/app/.build/x.o", "/p/node_modules/a.js", "/d/passwords.txt"] {
-            #expect(recorder.observe(.modify, path: path, policy: filesOn, at: t0) == nil, "\(path)")
-        }
-        #expect(recorder.observe(.create, path: "/d/notes.txt", policy: filesOn, at: t0) != nil)
-    }
-
-}
-
 struct ActivityStoreTests {
 
     @Test func deletingOneSourceKeepsTheOtherAndDeletingEverythingKeepsNothing() throws {
         let store = try makeStore()
-        var files = CaptureEngine()
         var screen = CaptureEngine()
-        let file = files.observe(.modify, path: sourceFile, policy: filesOn, at: t0)
+        let file = try oldFileRow()
         let window = screen.observe(terminal, idleSeconds: 0, policy: screenOn, at: t0)
-        try store.record(#require(file))
+        try store.record(file)
         try store.record(#require(window))
         try store.delete(.kind(.files, before: day(1)))
         #expect(try store.queries.activities(since: day(-1)).map(\.kind) == [.window, .text])
-        try store.record(#require(file))
+        try store.record(file)
         try store.delete(.kind(.screen, before: day(1)))
         #expect(try store.queries.activities(since: day(-1)).map(\.kind) == [.file])
         try store.delete(.everything(before: nil))
@@ -99,9 +95,7 @@ struct ActivityStoreTests {
 
     @Test func deletingTheCalendarKindRemovesNothingElseAndNeverFails() throws {
         let store = try makeStore()
-        var files = CaptureEngine()
-        let file = files.observe(.modify, path: sourceFile, policy: filesOn, at: t0)
-        try store.record(#require(file))
+        try store.record(oldFileRow())
         try store.delete(.kind(.calendar, before: nil))
         #expect(try store.queries.activities(since: day(-1)).map(\.kind) == [.file])
     }

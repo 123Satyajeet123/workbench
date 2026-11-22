@@ -5,7 +5,8 @@ import WorkbenchCore
 /// File creations, changes and renames under the given folders, from FSEvents. Delivered on the main queue.
 @MainActor
 public final class FileWatcher {
-    public typealias Handler = @MainActor (CaptureEngine.FileChange, String) -> Void
+    public enum Change: String, Sendable { case create, modify, rename }
+    public typealias Handler = @MainActor (Change, String) -> Void
 
     public static var defaultFolders: [URL] {
         let home = FileManager.default.homeDirectoryForCurrentUser
@@ -30,7 +31,7 @@ public final class FileWatcher {
         self.stream = nil
     }
 
-    nonisolated static func change(forFlags flags: UInt32) -> CaptureEngine.FileChange? {
+    nonisolated static func change(forFlags flags: UInt32) -> Change? {
         guard flags & UInt32(kFSEventStreamEventFlagItemIsFile) != 0 else { return nil }
         if flags & UInt32(kFSEventStreamEventFlagItemRenamed) != 0 { return .rename }
         if flags & UInt32(kFSEventStreamEventFlagItemCreated) != 0 { return .create }

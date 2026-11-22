@@ -187,9 +187,6 @@ struct CaptureSource: Identifiable {
             source: .screenText, name: "Screen text", symbol: "text.viewfinder",
             reason: "The text in the window you are in. Never a password field or a private window."),
         CaptureSource(
-            source: .files, name: "Files", symbol: "doc",
-            reason: "Which files change in your folders. Not their contents."),
-        CaptureSource(
             source: .mail, name: "Mail", symbol: "envelope",
             reason: "Gmail threads you open in the label you named in a deal helper. No other mail."),
         CaptureSource(

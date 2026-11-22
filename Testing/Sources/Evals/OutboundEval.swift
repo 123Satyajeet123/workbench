@@ -1,4 +1,5 @@
 import Foundation
+import WorkbenchCore
 
 /// Past deals with the investor's own calls, and the pages saved for them. A deal the investor called hot or warm is
 /// one they accepted; cold is one they turned down. `split` is mandatory and says whether every number made from it is

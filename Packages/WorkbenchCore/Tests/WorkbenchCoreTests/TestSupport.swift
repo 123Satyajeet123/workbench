@@ -11,14 +11,6 @@ func temporaryDirectory() -> URL {
     FileManager.default.temporaryDirectory.appending(path: "wbcore-\(UUID().uuidString)")
 }
 
-/// Writes the plaintext event log that older versions wrote, so tests can start from one.
-func writeLegacyLog(_ events: [WorkEvent], author: String, to team: URL) throws {
-    let folder = team.appending(path: WorkLog.subfolder)
-    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-    let lines = try events.map { try Coding.json($0) }.joined(separator: "\n")
-    try Data((lines + "\n").utf8).write(to: folder.appending(path: WorkLog.fileName(author: author)))
-}
-
 func makeStore(clock: @escaping @Sendable () -> Date = { t0 }) throws -> Store {
     try Store(directory: temporaryDirectory(), clock: clock)
 }

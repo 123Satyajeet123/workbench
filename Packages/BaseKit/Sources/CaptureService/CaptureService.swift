@@ -23,7 +23,6 @@ public final class CaptureService {
     @ObservationIgnored private let store: Store
     @ObservationIgnored private let loop: CaptureLoop
     @ObservationIgnored private var ticker: Task<Void, Never>?
-    @ObservationIgnored private var fileWatcher: FileWatcher?
     @ObservationIgnored private var whatsAppWatch: WhatsAppIngestWatch?
     @ObservationIgnored private var power: PowerEvents?
     @ObservationIgnored private var askedForTrust = false
@@ -62,7 +61,6 @@ public final class CaptureService {
         ticker = nil
         power?.stop()
         power = nil
-        setFileWatcher(on: false)
         setWhatsAppWatch(on: false)
     }
 
@@ -149,8 +147,8 @@ public final class CaptureService {
         let now = store.clock()
         Task { await pruneIfDue(at: now) }
         let isCapturing = status == .capturing || status == .needsPermission
-        setFileWatcher(on: isCapturing && policy.isEnabled(.files))
-        setWhatsAppWatch(on: isCapturing && policy.isEnabled(.whatsapp) && policy.allowList[.whatsapp]?.isEmpty == false)
+        setWhatsAppWatch(
+            on: isCapturing && policy.isEnabled(.whatsapp) && policy.allowList[.whatsapp]?.isEmpty == false)
         guard status == .capturing, policy.isEnabled(.screen), let app = FrontApp.current() else {
             requestTrustOnce()
             return
@@ -178,15 +176,6 @@ public final class CaptureService {
         Task { report(await loop.system(event, policy: policy, at: now)) }
     }
 
-    private func setFileWatcher(on: Bool) {
-        if on, fileWatcher == nil {
-            fileWatcher = FileWatcher { [weak self] change, path in self?.file(change, path: path) }
-        } else if !on, let watcher = fileWatcher {
-            watcher.stop()
-            fileWatcher = nil
-        }
-    }
-
     private func setWhatsAppWatch(on: Bool) {
         if on, whatsAppWatch == nil {
             switch ownerResult {
@@ -200,11 +189,6 @@ public final class CaptureService {
             watch.stop()
             whatsAppWatch = nil
         }
-    }
-
-    private func file(_ change: CaptureEngine.FileChange, path: String) {
-        let (policy, now) = (policy, store.clock())
-        Task { report(await loop.file(change, path: path, policy: policy, at: now)) }
     }
 }
 
@@ -244,10 +228,6 @@ actor CaptureLoop {
             snapshot = reader.read(app, withText: true)
         }
         return keep(engine.observe(snapshot, idleSeconds: idleSeconds, policy: policy, at: now))
-    }
-
-    func file(_ change: CaptureEngine.FileChange, path: String, policy: CapturePolicy, at now: Date) -> String? {
-        keep(engine.observe(change, path: path, policy: policy, at: now))
     }
 
     func system(_ event: CaptureEngine.SystemEvent, policy: CapturePolicy, at now: Date) -> String? {

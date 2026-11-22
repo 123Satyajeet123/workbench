@@ -1,8 +1,10 @@
 import Foundation
 import WorkbenchCore
 
+@testable import WorkbenchUI
+
 /// A scratch store filled with a made-up day: facts of three people, a finding of the watch, and the summaries over
-/// them. For previews and for the test that renders Today. It never touches the founder's store.
+/// them. For the tests that render Today. It never touches the founder's store.
 enum TodaySample {
     /// A model that gives one fixed reply, so the sample needs no real model.
     private nonisolated struct FixedModel: StructuredModel {

@@ -2,17 +2,11 @@ import Foundation
 
 /// Turns what the sensors see into the activity worth keeping. Pure: the policy decides every item.
 public struct CaptureEngine: Sendable {
-    public enum FileChange: String, Sendable { case create, modify, rename }
     public enum SystemEvent: Sendable { case sleep, wake }
 
     public var idleAfter: TimeInterval
     /// While the place stays the same, its text is kept again only when it changed and this much time passed.
     public var textInterval: TimeInterval
-    /// One row per file per this many seconds.
-    public var fileWindow: TimeInterval
-    /// At most this many file rows per window. A person edits a few files a minute; a clone, an unzip or a build
-    /// writes thousands, and none of those is the person's work. 60 is a placeholder until real days measure it.
-    public var filesPerWindow = 60
     /// While the place stays the same, a changed title is kept again after this much time. A terminal or editor shows
     /// its current task in the title.
     public var titleInterval: TimeInterval
@@ -23,17 +17,12 @@ public struct CaptureEngine: Sendable {
     private var lastText: String?
     private var lastTextAt = Date.distantPast
     private var idle = false
-    private var lastSeen: [String: Date] = [:]
-    private var fileWindowStart = Date.distantPast
-    private var filesInWindow = 0
 
     public init(
-        idleAfter: TimeInterval = 120, textInterval: TimeInterval = 60, fileWindow: TimeInterval = 60,
-        titleInterval: TimeInterval = 60
+        idleAfter: TimeInterval = 120, textInterval: TimeInterval = 60, titleInterval: TimeInterval = 60
     ) {
         self.idleAfter = idleAfter
         self.textInterval = textInterval
-        self.fileWindow = fileWindow
         self.titleInterval = titleInterval
     }
 
@@ -92,24 +81,6 @@ public struct CaptureEngine: Sendable {
             lastTextAt = now
         }
         return ActivityBatch(out, grant: grant)
-    }
-
-    public mutating func observe(_ change: FileChange, path: String, policy: CapturePolicy, at now: Date)
-        -> ActivityBatch?
-    {
-        guard case .keep(let grant) = policy.verdict(forFile: path, at: now) else { return nil }
-        if let last = lastSeen[path], now.timeIntervalSince(last) < fileWindow { return nil }
-        lastSeen[path] = now
-        if now.timeIntervalSince(fileWindowStart) >= fileWindow {
-            fileWindowStart = now
-            filesInWindow = 0
-        }
-        guard filesInWindow < filesPerWindow else { return nil }
-        filesInWindow += 1
-        if lastSeen.count > 2048 { lastSeen = lastSeen.filter { now.timeIntervalSince($0.value) < fileWindow } }
-        return ActivityBatch(
-            [Activity(at: now, kind: .file, title: change.rawValue, document: URL(filePath: path).absoluteString)],
-            grant: grant)
     }
 
     /// Sleep and wake bound a gap in the record. After either, the next window is written again.

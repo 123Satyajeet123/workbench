@@ -144,9 +144,7 @@ import Testing
             #expect(dump.range(of: Data(word.utf8)) == nil, "\(word) is in the dump")
         }
 
-        let legacy = temporaryDirectory()
-        try writeLegacyLog([workEvent("e1", by: "Kabir", clock: 1, text: secret)], author: "Kabir", to: legacy)
-        let old = try Data(contentsOf: legacy.appending(path: "events/Kabir.jsonl"))
-        #expect(old.range(of: Data(secret.utf8)) != nil, "the check can tell: the old plaintext log shows it")
+        let plain = Data(try Coding.json(workEvent("e1", by: "Kabir", clock: 1, text: secret)).utf8)
+        #expect(plain.range(of: Data(secret.utf8)) != nil, "the check can tell: a plain event shows it")
     }
 }

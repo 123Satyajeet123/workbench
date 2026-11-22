@@ -90,11 +90,11 @@ public struct CapturePolicy: Codable, Sendable, Equatable {
     public func authorize(_ request: CaptureRequest, at now: Date) -> CaptureDecision {
         if mode == .off { return .deny(.captureOff) }
         guard isEnabled(request.kind) else { return .deny(.sourceSwitchedOff) }
-        if let label = request.label, matches(label, in: denyList[request.kind], kind: request.kind) {
+        if let label = request.label, denyList[request.kind]?.contains(label) == true {
             return .deny(.labelDenied)
         }
         if let allowed = allowList[request.kind] ?? (Self.needsAllowList.contains(request.kind) ? [] : nil),
-            request.label.map({ matches($0, in: allowed, kind: request.kind) }) != true
+            request.label.map({ allowed.contains($0) }) != true
         {
             return .deny(.labelNotAllowed)
         }
@@ -112,12 +112,6 @@ public struct CapturePolicy: Codable, Sendable, Equatable {
                     kind: request.kind, label: request.label, expiresAt: now.addingTimeInterval(Self.grantLifetime)))
         }
     }
-
-    private func matches(_ label: String, in entries: Set<String>?, kind: SourceKind) -> Bool {
-        guard let entries else { return false }
-        guard kind == .files else { return entries.contains(label) }
-        return entries.contains { label == $0 || label.hasPrefix($0.hasSuffix("/") ? $0 : $0 + "/") }
-    }
 }
 
 public enum CaptureStatus: Sendable, Equatable {
@@ -133,7 +127,7 @@ extension CapturePolicy {
         case .privateMode(let until) where now < until: return .privateMode
         case .on, .paused, .privateMode: break
         }
-        guard isEnabled(.screen) || isEnabled(.files) else { return .off }
+        guard isEnabled(.screen) else { return .off }
         return isEnabled(.screen) && !accessibilityGranted ? .needsPermission : .capturing
     }
 }

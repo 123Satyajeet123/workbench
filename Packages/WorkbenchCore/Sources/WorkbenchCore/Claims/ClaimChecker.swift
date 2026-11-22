@@ -2,11 +2,17 @@ import Foundation
 
 /// What a judge says about a claim and the pages: the page it read, the words it relied on, and its verdict. Code
 /// decides whether to keep it (`ClaimChecker.settle`).
-struct RawVerdict: Decodable, Sendable, Equatable {
+public struct RawVerdict: Decodable, Sendable, Equatable {
     var verdict: ClaimVerdict
     /// The number of the page the quote is in; 0 for none.
     var page: Int
     var quote: String
+
+    public init(verdict: ClaimVerdict, page: Int, quote: String) {
+        self.verdict = verdict
+        self.page = page
+        self.quote = quote
+    }
 }
 
 /// Checks one claim on the web: the model writes the queries, the provider searches, pages are fetched, the model
@@ -118,7 +124,9 @@ public struct ClaimChecker: Sendable {
     /// The verdict code keeps. `supported` and `contradicted` stay only with a quote found in the page they name, in
     /// the part of the page the judge read; otherwise the verdict is `unclear`. `not_found` and `unclear` keep no
     /// quote and no address, and `not_found` never becomes `contradicted`.
-    static func settle(_ raw: RawVerdict, pages: [FetchedPage]) -> (verdict: ClaimVerdict, quote: String, url: String) {
+    public static func settle(_ raw: RawVerdict, pages: [FetchedPage]) -> (
+        verdict: ClaimVerdict, quote: String, url: String
+    ) {
         guard raw.verdict.needsQuote else { return (raw.verdict, "", "") }
         guard pages.indices.contains(raw.page - 1), let quote = raw.quote.cleaned,
             String(pages[raw.page - 1].text.prefix(pageBudget)).contains(quote: quote)

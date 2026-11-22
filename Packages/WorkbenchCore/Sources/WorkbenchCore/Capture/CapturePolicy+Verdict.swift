@@ -17,14 +17,6 @@ extension CapturePolicy {
         }
     }
 
-    public func verdict(forFile path: String, at now: Date) -> CaptureVerdict {
-        switch authorize(CaptureRequest(kind: .files, label: path), at: now) {
-        case .allow(let grant): Self.hidesFile(path) ? .hide(grant) : .keep(grant)
-        case .deny(.labelDenied), .deny(.labelNotAllowed): bare(.files, at: now)
-        case .deny, .confirm: .stop
-        }
-    }
-
     private func bare(_ kind: SourceKind, at now: Date) -> CaptureVerdict {
         authorize(CaptureRequest(kind: kind), at: now).grant.map(CaptureVerdict.hide) ?? .stop
     }
@@ -35,14 +27,6 @@ extension CapturePolicy {
         return snapshot.secureFocus || browserWithoutAddress || Self.privateBundleIDs.contains(snapshot.bundleID)
             || (Self.privateWords + Self.privateWindowMarkers).contains { title.contains($0) }
             || Self.isSite(snapshot.document, in: Self.privateDomains.union(denyList[.screen] ?? []))
-    }
-
-    private static func hidesFile(_ path: String) -> Bool {
-        let url = URL(filePath: path)
-        let name = url.lastPathComponent
-        return privateWords.contains { name.lowercased().contains($0) } || noiseNames.contains(name)
-            || noiseSuffixes.contains { name.hasSuffix($0) }
-            || url.pathComponents.contains { noiseFolders.contains($0) }
     }
 
     /// The document's host is one of the domains or a subdomain of one. A trailing dot names the same host.
@@ -84,10 +68,4 @@ extension CapturePolicy {
     private static let privateWindowMarkers = [
         "private browsing", "incognito", "inprivate", "private window", "- private",
     ]
-    private static let noiseFolders: Set<String> = [
-        ".git", "node_modules", ".build", "DerivedData", ".swiftpm", "Pods", ".venv", "__pycache__", ".next",
-        ".Trash", "Library",
-    ]
-    private static let noiseNames: Set<String> = [".DS_Store"]
-    private static let noiseSuffixes = ["~", ".swp", ".tmp", ".lock", ".sqlite-wal", ".sqlite-shm"]
 }

@@ -20,7 +20,7 @@ run() { # name file perl-expr packages...
   for pkg in "$@"; do
     out=$(cd $pkg && swift test 2>&1)
     if ! print -r -- "$out" | grep -qE 'Test run with [0-9]+ tests?' || print -r -- "$out" | grep -q "error: .*failed with a nonzero exit\|Build failed"; then
-      local raw="${TMPDIR:-/tmp}/promise-${name// /-}-$pkg.log"
+      local raw="${TMPDIR:-/tmp}/promise-${name// /-}-${pkg:t}.log"
       print -r -- "$out" > "$raw"
       unfinished+=" [$pkg: run failed, raw output in $raw]"
       continue
@@ -33,7 +33,7 @@ run() { # name file perl-expr packages...
   if [[ -n $unfinished ]]; then echo "$name | RUN FAILED, no count |$unfinished | partial: $failed"; return; fi
   echo "$name | caught by $n | $failed"
 }
-run "1 quote check off" $C/Helpers/Evidence.swift 's/quotable\.contains \{ \$0\.contains\(quote: quote\) \}/true/' WorkbenchCore WorkbenchUI
+run "1 quote check off" $C/Helpers/Evidence.swift 's/quotable\.contains \{ \$0\.contains\(quote: quote\) \}/true/' WorkbenchCore WorkbenchUI ../Testing
 run "2 source switches ignored" $C/Capture/CapturePolicy.swift 's/switches\[kind\] \?\? false/true/' WorkbenchCore WorkbenchUI
 run "3 WhatsApp allow-list off" $C/Capture/CapturePolicy.swift 's/needsAllowList: Set<SourceKind> = \[\.whatsapp, \.mail\]/needsAllowList: Set<SourceKind> = [.mail]/' WorkbenchCore BaseKit WorkbenchUI
 run "4 team-member check off" $C/Helpers/HelperReader.swift 's/context\[set\]\?\.contains\(value\) == true/true/' WorkbenchCore WorkbenchUI

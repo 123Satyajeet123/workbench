@@ -140,35 +140,6 @@ extension WorkObject {
     public static let afterAction = "In conversation"
 }
 
-/// The plaintext log older versions wrote, one file per person in the team folder, one JSON event per line. Nothing
-/// writes it now: migration reads a person's own file once, sends it as envelopes, and removes it.
-public enum WorkLog {
-    public static let subfolder = "events"
-
-    public static func fileName(author: String) -> String { TeamFolder.safe(author) + ".jsonl" }
-
-    public static func remove(author: String, from team: URL) throws {
-        let file = team.appending(path: subfolder).appending(path: fileName(author: author))
-        if FileManager.default.fileExists(atPath: file.path) { try FileManager.default.removeItem(at: file) }
-    }
-
-    /// Every event in every person's file, and the files with a line that could not be read.
-    public static func read(from team: URL) -> (events: [WorkEvent], unreadable: [String]) {
-        let folder = team.appending(path: subfolder)
-        let files = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? []
-        var events: [WorkEvent] = []
-        var unreadable: [String] = []
-        for file in files where file.pathExtension == "jsonl" {
-            let text = (try? String(contentsOf: file, encoding: .utf8)) ?? ""
-            let lines = text.split(separator: "\n").map(String.init)
-            let decoded = lines.compactMap { try? Coding.value(WorkEvent.self, from: $0) }
-            if decoded.count != lines.count { unreadable.append(file.lastPathComponent) }
-            events += decoded
-        }
-        return (events, unreadable.sorted())
-    }
-}
-
 extension Store {
     /// Keeps an event once, whoever wrote it. Importing the same log again changes nothing.
     public func append(_ events: [WorkEvent]) throws {

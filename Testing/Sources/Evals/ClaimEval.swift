@@ -1,4 +1,5 @@
 import Foundation
+import WorkbenchCore
 
 /// One planted claim of the dev set (`data/vc/dev/claims.json`). Every number made from it is dev, never held-out.
 public struct DevClaim: Decodable, Sendable {

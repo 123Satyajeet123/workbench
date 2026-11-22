@@ -20,7 +20,10 @@ jobs:
           xcodebuild -version
           swift --version
       - name: Lint
-        run: xcrun swift-format lint -r --strict --configuration .swift-format Packages Workbench
+        run: xcrun swift-format lint -r --strict --configuration .swift-format Packages Testing Workbench
+      - name: Kernel
+        working-directory: Packages/Kernel
+        run: swift test
       - name: WorkbenchCore
         working-directory: Packages/WorkbenchCore
         run: swift test
@@ -29,6 +32,9 @@ jobs:
         run: swift test
       - name: WorkbenchUI
         working-directory: Packages/WorkbenchUI
+        run: swift test
+      - name: Testing
+        working-directory: Testing
         run: swift test
       - name: App builds
         run: xcodebuild -scheme Workbench -configuration Release build CODE_SIGNING_ALLOWED=NO -quiet

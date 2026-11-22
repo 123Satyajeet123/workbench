@@ -1,4 +1,5 @@
 import Foundation
+import WorkbenchCore
 
 /// A model that answers a page from the candidates saved for its address, so an eval runs with no model and no
 /// network. The reply is built to fit the schema it is asked for: a field the saved candidate lacks is empty, a rule

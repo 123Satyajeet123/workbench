@@ -1,5 +1,6 @@
 import Testing
 
+@testable import Evals
 @testable import WorkbenchCore
 
 @Suite struct WordErrorRateTests {

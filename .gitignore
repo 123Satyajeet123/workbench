@@ -43,3 +43,4 @@ Signing.local.xcconfig
 
 # SwiftPM: the app pins its dependencies (Workbench.xcodeproj/.../Package.resolved); the local library packages do not
 Packages/*/Package.resolved
+Testing/Package.resolved

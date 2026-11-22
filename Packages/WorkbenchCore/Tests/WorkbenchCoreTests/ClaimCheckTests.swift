@@ -92,4 +92,10 @@ import Testing
             .check(claim, company: "Acme")
         #expect(pages.fetched.withLock { $0 }.isEmpty && result.verdict == .notFound)
     }
+
+    @Test func htmlBecomesVisibleText() {
+        let html =
+            "<html><style>p{}</style><script>var x=1</script><p>Raised&nbsp;&#36;11 Mn</p><!-- c --><b>seed</b></html>"
+        #expect(HTMLText.plain(html) == "Raised $11 Mn seed")
+    }
 }

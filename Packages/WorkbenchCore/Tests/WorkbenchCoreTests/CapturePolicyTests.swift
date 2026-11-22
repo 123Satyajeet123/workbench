@@ -26,4 +26,10 @@ import Testing
         #expect(policy.authorize(files, at: day(1)).grant != nil)
     }
 
+    @Test func captureRunsOnlyWhileTheScreenSwitchIsOn() {
+        #expect(filesOn.status(accessibilityGranted: true, at: t0) == .off)
+        let screenOn = CapturePolicy(switches: [.screen: true])
+        #expect(screenOn.status(accessibilityGranted: true, at: t0) == .capturing)
+        #expect(screenOn.status(accessibilityGranted: false, at: t0) == .needsPermission)
+    }
 }

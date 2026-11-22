@@ -1,4 +1,5 @@
 import Foundation
+import WorkbenchCore
 
 /// A judge with no model, for the offline eval: it compares amounts and years, and looks for a name as written. It
 /// never reads a label. It is a floor to beat, not a stand-in for the model's reading.

@@ -41,7 +41,7 @@ public enum OutboundReview {
     }
 
     /// One candidate for each startup: of several pages that name the same one, the best ranked stays.
-    static func bestOfEach(_ found: [Item], criteria: Criteria, known: KnownCompanies) -> [Item] {
+    public static func bestOfEach(_ found: [Item], criteria: Criteria, known: KnownCompanies) -> [Item] {
         var seen = known
         var kept: [Item] = []
         for candidate in rank(found, criteria: criteria)

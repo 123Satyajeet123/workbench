@@ -57,12 +57,14 @@ Brave and Chrome do not show page text to Accessibility, so a small extension se
 ## Code map
 - `Packages/WorkbenchCore`: the store (SQLite, schema as append-only steps), consent grants, model runs, the helper
   engine (`Helpers/`: a helper is data — a source, a brief, typed fields, a view), items and marks, the held-out split.
-- `Packages/BaseKit`: the claude/codex runner (no tools, no session), local readers (screen, WhatsApp, files, call
+- `Packages/BaseKit`: the claude/codex runner (no tools, no session), local readers (screen, WhatsApp, call
   audio), the capture service.
 - `Packages/WorkbenchUI`: the app: sidebar, helper pages, settings, menu bar.
+- `Testing/`: code that is not shipped: the offline eval tools (`claim-eval`, `outbound-eval`, `transcribe-bakeoff`) and
+  what they use. No shipped target depends on it.
 - `Extension/`: the browser extension (visible page text to the `workbench-pages` host in WorkbenchCore).
 
 Test: `swift test` in each package. Tests guard product promises, not code details: a test stays only if it guards a
 promise (consent, privacy, quotes, marks and trust, deletion, upgrades, the main flows) or a bug that happened.
 `scripts/promises.sh` plants one bug behind each promise and shows which tests catch it; run it before deleting tests.
-Lint: `xcrun swift-format lint -r --configuration .swift-format Packages`.
+Lint: `xcrun swift-format lint -r --configuration .swift-format Packages Testing`.

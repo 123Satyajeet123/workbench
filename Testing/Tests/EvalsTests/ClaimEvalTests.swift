@@ -1,6 +1,7 @@
 import Foundation
 import Testing
 
+@testable import Evals
 @testable import WorkbenchCore
 
 @Suite struct ClaimEvalTests {
@@ -41,11 +42,5 @@ import Testing
         let built = ClaimEval.cases(from: set) { $0.truthQuote }
         let report = ClaimEval.run(built.cases) { _, _ in (.contradicted, 1, "words the page does not have") }
         #expect(report.plantedContradicted == 0 && report.trueContradicted == 0)
-    }
-
-    @Test func htmlBecomesVisibleText() {
-        let html =
-            "<html><style>p{}</style><script>var x=1</script><p>Raised&nbsp;&#36;11 Mn</p><!-- c --><b>seed</b></html>"
-        #expect(HTMLText.plain(html) == "Raised $11 Mn seed")
     }
 }

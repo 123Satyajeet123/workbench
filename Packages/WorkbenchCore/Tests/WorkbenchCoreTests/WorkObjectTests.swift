@@ -75,9 +75,8 @@ import Testing
         let linked = LinkedItem(machine: machine, item: item, audience: ["Asha"])
         #expect(linked.source == .whatsapp)
 
-        let folder = temporaryDirectory()
-        try writeLegacyLog([event("l1", .link, by: "Asha", clock: 4, item: linked)], author: "Asha", to: folder)
-        let shared = try #require(WorkLog.read(from: folder).events.first)
+        let shared = try Coding.value(
+            WorkEvent.self, from: Coding.json(event("l1", .link, by: "Asha", clock: 4, item: linked)))
         #expect(shared.item?.source == .whatsapp)
 
         let old =
