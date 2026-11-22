@@ -15,10 +15,7 @@ struct ItemBoard: View {
         }
         let byGroup = Dictionary(grouping: model.items) { $0[field] }
         ForEach(groups, id: \.self) { group in
-            VStack(alignment: .leading, spacing: Space.s) {
-                Text(group).textStyle(.headline)
-                ForEach(byGroup[group, default: []]) { ItemRow(model: model, item: $0, showsSpan: false) }
-            }
+            ItemSection(model: model, heading: group, items: byGroup[group, default: []], field: field)
             Divider()
         }
     }

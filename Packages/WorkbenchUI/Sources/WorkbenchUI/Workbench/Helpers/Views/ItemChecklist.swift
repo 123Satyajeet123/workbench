@@ -15,14 +15,10 @@ struct ItemChecklist: View {
             let openByValue = Dictionary(grouping: model.open) { $0[field] }
             ForEach(sections, id: \.self) { value in
                 let own = openByValue[value, default: []]
-                VStack(alignment: .leading, spacing: Space.s) {
-                    Text("\(value.isEmpty ? "Other" : value) · \(own.count)").textStyle(.headline)
-                    ForEach(own) { item in
-                        HStack(alignment: .top) {
-                            ItemRow(model: model, item: item, showsSpan: false, grouping: field)
-                            CloseMenu(outcomes: model.spec.lifecycle?.outcomes ?? []) { model.close(item, as: $0) }
-                        }
-                    }
+                ItemSection(
+                    model: model, heading: "\(value.isEmpty ? "Other" : value) · \(own.count)", items: own, field: field
+                ) { item in
+                    CloseMenu(outcomes: model.spec.lifecycle?.outcomes ?? []) { model.close(item, as: $0) }
                 }
             }
             if !model.closed.isEmpty {
