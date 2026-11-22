@@ -32,4 +32,4 @@ JSON
     echo "Registered for $browser (extension id $id)"
 done
 echo "Next: load $root/Extension in your browser's extensions page (Developer mode › Load unpacked)."
-echo "Already loaded? Press reload on its card: version 0.2.0 adds the Gmail reader for mail.google.com."
+echo "Already loaded? Press reload on its card: version 0.3.0 adds the WhatsApp Web reader for chats you allow."

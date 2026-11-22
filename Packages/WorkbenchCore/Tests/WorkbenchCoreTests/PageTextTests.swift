@@ -45,6 +45,17 @@ import Testing
         #expect(try store.queries.activities(since: .distantPast).isEmpty)
     }
 
+    @Test func whatsAppWebIsNeverKeptAsAPageEvenWithScreenTextOn() throws {
+        #expect(page("https://web.whatsapp.com/").batch(policy: on, at: t0) == nil)
+        #expect(page("https://web.whatsapp.com/send?phone=91").batch(policy: on, at: t0) == nil)
+        #expect(page("https://whatsapp.com/").batch(policy: on, at: t0) != nil, "only the web client is excluded")
+        let store = try makeStore()
+        try store.savePolicy(on)
+        let reply = PageHost.answer(try JSONEncoder().encode(page("https://web.whatsapp.com/")), store: store)
+        #expect(reply == PageHost.Reply(kept: false))
+        #expect(try store.queries.activities(since: .distantPast).isEmpty)
+    }
+
     @Test func theHostKeepsAllowedPagesAndAnswersEveryFrame() throws {
         let store = try makeStore()
         try store.savePolicy(on)
@@ -69,6 +80,24 @@ import Testing
         _ = PageHost.receive(huge + NativeMessage.frame(try JSONEncoder().encode(page("https://x.com/"))), store: store)
         _ = PageHost.receive(NativeMessage.frame(Data("not json".utf8)), store: store)
         #expect(try store.queries.activities(since: t0.addingTimeInterval(-1)).isEmpty)
+    }
+
+    @Test func aFrameIsReadWholeOrNamedBrokenOrTheEndOfTheInput() {
+        func next(_ bytes: [UInt8]) -> NativeMessage.Incoming {
+            var rest = Data(bytes)
+            return NativeMessage.next(read: { count in
+                let chunk = rest.prefix(count)
+                rest = rest.dropFirst(chunk.count)
+                return Data(chunk)
+            })
+        }
+        #expect(next([]) == .end)
+        #expect(next([2, 0, 0, 0, 0x7B, 0x7D]) == .message(Data("{}".utf8)))
+        #expect(next([2, 0]) == .broken(.truncated), "a header cut short")
+        #expect(next([5, 0, 0, 0, 1]) == .broken(.truncated), "a body cut short")
+        #expect(next([0xFF, 0xFF, 0xFF, 0x7F]) == .broken(.tooLong(0x7FFF_FFFF)))
+        #expect(next([0, 0, 0x10, 0]) == .broken(.truncated), "1 MiB is the most a frame may hold, and none follows")
+        #expect(next([1, 0, 0x10, 0]) == .broken(.tooLong(0x10_0001)))
     }
 
     private func text(_ url: String, _ text: String, at offset: Double, kind: Activity.Kind = .page) -> Activity {

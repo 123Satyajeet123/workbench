@@ -14,8 +14,8 @@ public enum StoreError: Error, Equatable {
     case logNotTruncated
 }
 
-/// The one store: `workbench.sqlite` and the recordings folder beside it. One writer and many readers share the
-/// file, so the store is safe to share between threads and between processes.
+/// The one store: `workbench.sqlite` and the recordings folder beside it. Only the app process opens it. The native
+/// browser host opens none and sends each write to the app. Threads share one store.
 public final class Store: Sendable {
     public let directory: URL
     public let queries: Queries

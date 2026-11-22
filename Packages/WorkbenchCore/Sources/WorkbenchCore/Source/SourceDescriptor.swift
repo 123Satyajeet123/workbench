@@ -11,7 +11,10 @@ public struct SourceDescriptor: Sendable, Equatable {
     public enum Retention: String, Sendable { case chat }
 
     /// How the source gives its text. The raw value is the `obtained_by` of the line.
-    public enum Obtained: String, Sendable { case db }
+    public enum Obtained: String, Sendable {
+        case db
+        case domText = "dom_text"
+    }
 
     /// The source's own name, unique across sources: the key of its `SourceID`.
     public let key: String
@@ -24,6 +27,9 @@ public struct SourceDescriptor: Sendable, Equatable {
     public let obtainedBy: Obtained
     /// How far before its last read a reader looks again for edited messages.
     public let editWindow: TimeInterval
+    /// The key of the source this one stands in for: it writes a chat only while that source cannot read it. Two
+    /// sources that write one chat would give two texts for one entity key, which looks like an edit.
+    public let fallbackFor: String?
 
     /// The id of this source for one owner. Two owners never share one.
     public func sourceID(owner: PersonID) throws(IdentifierError) -> SourceID {
@@ -32,18 +38,31 @@ public struct SourceDescriptor: Sendable, Equatable {
 }
 
 extension SourceDescriptor {
+    private static let whatsAppGrammar = """
+        one work day of a WhatsApp group. Each line is `[number] HH:mm sender: text`. People write in Hindi, \
+        English and Hinglish.
+        """
+
     public static let whatsAppChat = SourceDescriptor(
-        key: "whatsapp.chat", aliases: ["whatsapp_chat"], consent: .whatsapp,
-        grammar: """
-            one work day of a WhatsApp group. Each line is `[number] HH:mm sender: text`. People write in Hindi, \
-            English and Hinglish.
-            """,
-        retention: .chat, obtainedBy: .db, editWindow: Scan.chatEditWindow)
+        key: "whatsapp.chat", aliases: ["whatsapp_chat"], consent: .whatsapp, grammar: whatsAppGrammar,
+        retention: .chat, obtainedBy: .db, editWindow: Scan.chatEditWindow, fallbackFor: nil)
+
+    /// The WhatsApp Web page, read by the browser extension. It reads one chat at a time and has no row numbers, so
+    /// it keeps no cursor and looks back over no window.
+    public static let whatsAppWeb = SourceDescriptor(
+        key: "whatsapp.web", aliases: [], consent: .whatsapp, grammar: whatsAppGrammar, retention: .chat,
+        obtainedBy: .domText, editWindow: 0, fallbackFor: whatsAppChat.key)
 }
 
 /// The sources this build knows. A source starts only when a machine names it.
 public enum SourceRegistry {
-    public static let all: [SourceDescriptor] = [.whatsAppChat]
+    public static let all: [SourceDescriptor] = [.whatsAppChat, .whatsAppWeb]
+
+    /// Whether `descriptor` may write a chat now, given the keys of the sources that can read it now. A source that
+    /// stands in for another writes only when that other cannot read.
+    public static func mayWrite(_ descriptor: SourceDescriptor, whileReadable readable: Set<String>) -> Bool {
+        descriptor.fallbackFor.map { !readable.contains($0) } ?? true
+    }
 
     /// The source with this key or alias, or nil when no ported source has it.
     public static func descriptor(named name: String) -> SourceDescriptor? {

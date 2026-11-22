@@ -88,6 +88,32 @@ final class WhatsAppSource: MachineSource {
         matching = []
     }
 
+    /// Said to the founder before a chat is stopped.
+    static let stopReadingWarning = "Workbench erases what it stored from this chat."
+
+    /// The warning, and the machines that stop reading the chat with it.
+    static func stopWarning(alsoStopping names: [String]) -> String {
+        guard !names.isEmpty else { return stopReadingWarning }
+        let list = names.formatted(.list(type: .and, width: .standard))
+        return "\(stopReadingWarning) \(list) also \(names.count == 1 ? "stops" : "stop") reading it."
+    }
+
+    /// Stops reading one chat for every machine. Consent is per chat and global: the chat leaves the allow-list, which
+    /// erases its lines and the copies of their words (`CaptureService.update`), and then each machine that chose it
+    /// drops it. Other chats stay.
+    static func stopReading(_ chat: WhatsAppChat, among sources: [WhatsAppSource], capture: CaptureService) throws {
+        try capture.update { $0.allowList[.whatsapp]?.remove(chat.jid) }
+        for source in sources where source.chats.contains(where: { $0.id == chat.id }) { try source.drop(chat) }
+    }
+
+    private func drop(_ chat: WhatsAppChat) throws {
+        chats.removeAll { $0.id == chat.id }
+        try chatsKey.save(chats, to: store)
+        let remaining = Set(chats.map(\.jid))
+        members = members.filter { $0.chats.map { !remaining.isDisjoint(with: $0) } ?? true }
+        try membersKey.save(members, to: store)
+    }
+
     /// The people in the chats as WhatsApp has them now. Reading WhatsApp's data can make macOS ask the founder again
     /// (measured: 7 "access data from other apps" prompts in one day), so only checks that must be live use this.
     func loadMembers() async throws {

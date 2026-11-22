@@ -9,7 +9,7 @@ import WorkbenchCore
 extension WhatsAppChatReader: EvidenceSource {
     public static let readerVersion = "whatsapp-store 1"
     /// The owner is a member of every audience (research E-R3 §6), and the `actor` of the owner's own lines.
-    public static let audienceOwner = "me"
+    public static let audienceOwner = WhatsAppAudience.owner
 
     public var descriptor: SourceDescriptor { .whatsAppChat }
 

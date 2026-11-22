@@ -1,4 +1,5 @@
 import Foundation
+@_exported import PagesRelay
 
 /// The text of a web page as the person saw it, sent by the Workbench browser extension. Chromium browsers do not show
 /// page text to a read-only Accessibility client (measured on Brave, 2026-11-19), so the extension reads it in the
@@ -18,11 +19,11 @@ public struct WebPage: Codable, Sendable, Equatable {
         self.text = text
     }
 
-    /// The batch to keep, or nil when the policy keeps no text of this page. Gmail is never kept as a page: its text
-    /// comes only as mail, from the label the person named.
+    /// The batch to keep, or nil when the policy keeps no text of this page. Gmail and WhatsApp Web are never kept as
+    /// pages: their text comes only as mail from the label the person named, and as chat lines from an allowed chat.
     public func batch(policy: CapturePolicy, at now: Date) -> ActivityBatch? {
         guard policy.isEnabled(.screenText), CapturePolicy.browserBundleIDs.contains(browser), !text.isEmpty,
-            !CapturePolicy.isSite(url, in: [MailContext.site])
+            !CapturePolicy.isSite(url, in: [MailContext.site, WhatsAppWebSnapshot.host])
         else { return nil }
         let snapshot = ScreenSnapshot(
             app: browserName, bundleID: browser, windowID: 0, document: url, title: title, text: text)
@@ -81,35 +82,8 @@ extension WebPage {
     }
 }
 
-/// Chrome's native messaging frame: a 4-byte length in native byte order (little-endian on Macs), then UTF-8 JSON.
-public enum NativeMessage {
-    /// Larger messages are refused. A page's text is far smaller; a deck travels in chunks that fit here. A browser
-    /// allows 1 MiB from a host and 64 MiB to it.
-    public static let maximumLength = 1024 * 1024
-
-    public enum Failure: Error, Equatable {
-        case truncated
-        case tooLong(Int)
-    }
-
-    /// The message at the start of `data`, and how many bytes it took; nil when `data` is empty.
-    public static func first(in data: Data) throws -> (message: Data, consumed: Int)? {
-        guard !data.isEmpty else { return nil }
-        guard data.count >= 4 else { throw Failure.truncated }
-        let length = data.prefix(4).enumerated().reduce(0) { $0 | Int($1.element) << (8 * $1.offset) }
-        guard length <= maximumLength else { throw Failure.tooLong(length) }
-        guard data.count >= 4 + length else { throw Failure.truncated }
-        let start = data.startIndex + 4
-        return (data[start..<start + length], 4 + length)
-    }
-
-    public static func frame(_ message: Data) -> Data {
-        let length = UInt32(message.count)
-        return Data((0..<4).map { UInt8(truncatingIfNeeded: length >> (8 * $0)) }) + message
-    }
-}
-
-/// The native host's work for one message: keep the page or mail if the policy allows, and answer whether it was kept.
+/// The app's work for one message the native host passed on: keep the page, mail or chat if the policy allows, and
+/// answer whether it was kept.
 public enum PageHost {
     public struct Reply: Codable, Equatable {
         public var kept: Bool
@@ -118,12 +92,18 @@ public enum PageHost {
         public var labels: [String]?
         /// The attached files of a mail message whose decks the host still lacks.
         public var wantDecks: [String]?
+        /// The WhatsApp chats the web page may be read for now; answers a "whatsapp_status" message.
+        public var chats: [String]?
 
-        public init(kept: Bool, error: String? = nil, labels: [String]? = nil, wantDecks: [String]? = nil) {
+        public init(
+            kept: Bool, error: String? = nil, labels: [String]? = nil, wantDecks: [String]? = nil,
+            chats: [String]? = nil
+        ) {
             self.kept = kept
             self.error = error
             self.labels = labels
             self.wantDecks = wantDecks
+            self.chats = chats
         }
 
         public var framed: Data { NativeMessage.frame((try? JSONEncoder().encode(self)) ?? Data()) }
@@ -134,9 +114,12 @@ public enum PageHost {
         var type: String?
     }
 
-    /// Answers one message: keeps the page or mail if the policy allows. `decks` holds the chunks of decks still
+    /// Answers one message: keeps the page, mail or chat if the policy allows. `decks` holds the chunks of decks still
     /// arriving, so one value serves a whole session.
-    public static func answer(_ message: Data, store: Store, decks: DeckAssembly = DeckAssembly()) -> Reply {
+    public static func answer(
+        _ message: Data, store: Store, decks: DeckAssembly = DeckAssembly(),
+        whatsApp: WhatsAppWebIntake = .refusing
+    ) -> Reply {
         do {
             let decoder = JSONDecoder()
             switch try decoder.decode(Envelope.self, from: message).type {
@@ -145,6 +128,9 @@ public enum PageHost {
                 let batch = page.batch(policy: try store.currentPolicy(), at: store.clock())
                 if let batch { try store.record(batch) }
                 return Reply(kept: batch != nil)
+            case "whatsapp_status": return try whatsApp.status(store: store)
+            case "whatsapp_web":
+                return try whatsApp.keep(decoder.decode(WhatsAppWebSnapshot.self, from: message), store: store)
             case "mail_status": return try MailIntake.status(store: store)
             case "mail": return try MailIntake.keep(try decoder.decode(MailMessage.self, from: message), store: store)
             case "mail_deck":
@@ -160,27 +146,24 @@ public enum PageHost {
     /// Serves a browser: reads one frame, answers it at once, and repeats until the input ends. A browser keeps the
     /// pipe open until it has the answer, so the host must never wait for the end of the input before it answers.
     /// A broken or oversize frame is answered and ends the session.
-    public static func serve(read: (Int) -> Data, write: (Data) -> Void, store: Store) {
+    public static func serve(
+        read: (Int) -> Data, write: (Data) -> Void, store: Store, whatsApp: WhatsAppWebIntake = .refusing
+    ) {
         let decks = DeckAssembly()
         while true {
-            let header = read(4)
-            guard header.count == 4 else { return }
-            let length = header.enumerated().reduce(0) { $0 | Int($1.element) << (8 * $1.offset) }
-            guard length <= NativeMessage.maximumLength else {
-                write(Reply(kept: false, error: "\(NativeMessage.Failure.tooLong(length))").framed)
+            switch NativeMessage.next(read: read) {
+            case .end: return
+            case .broken(let failure):
+                write(Reply(kept: false, error: "\(failure)").framed)
                 return
+            case .message(let message):
+                write(answer(message, store: store, decks: decks, whatsApp: whatsApp).framed)
             }
-            let message = read(length)
-            guard message.count == length else {
-                write(Reply(kept: false, error: "\(NativeMessage.Failure.truncated)").framed)
-                return
-            }
-            write(answer(message, store: store, decks: decks).framed)
         }
     }
 
     /// Every message in `input`, each answered by one reply frame.
-    public static func receive(_ input: Data, store: Store) -> Data {
+    public static func receive(_ input: Data, store: Store, whatsApp: WhatsAppWebIntake = .refusing) -> Data {
         var rest = input
         var out = Data()
         serve(
@@ -188,7 +171,7 @@ public enum PageHost {
                 let chunk = rest.prefix(count)
                 rest = rest.dropFirst(chunk.count)
                 return Data(chunk)
-            }, write: { out += $0 }, store: store)
+            }, write: { out += $0 }, store: store, whatsApp: whatsApp)
         return out
     }
 }

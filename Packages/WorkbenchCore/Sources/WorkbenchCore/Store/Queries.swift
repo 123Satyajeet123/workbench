@@ -8,10 +8,14 @@ public struct Queries: Sendable {
 
     /// The latest consent. A store with none yet has the default policy.
     public func policy() throws -> CapturePolicy {
-        let latest = try reader.read { db in
-            try String.fetchOne(db, sql: "SELECT policy FROM consent ORDER BY id DESC LIMIT 1")
-        }
-        guard let json = latest else { return CapturePolicy() }
+        try reader.read { db in try Self.policy(in: db) }
+    }
+
+    /// The latest consent, read inside a transaction that is already open.
+    static func policy(in db: Database) throws -> CapturePolicy {
+        guard
+            let json = try String.fetchOne(db, sql: "SELECT policy FROM consent ORDER BY id DESC LIMIT 1")
+        else { return CapturePolicy() }
         return try Coding.value(CapturePolicy.self, from: json)
     }
 

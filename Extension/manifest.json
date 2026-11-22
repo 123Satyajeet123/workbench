@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Workbench pages",
-  "version": "0.2.0",
-  "description": "Sends the text you see on a page, and the Gmail threads you open inside the label you named, to Workbench on this Mac. Workbench keeps them only when its switches are on.",
+  "version": "0.3.0",
+  "description": "Sends the text you see on a page, the Gmail threads you open inside the label you named, and the WhatsApp Web chats you allowed, to Workbench on this Mac. Workbench keeps them only when its switches are on.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA9/HcJpZYRgOJNzLRnUbuVX4NppN7cTb9aKIcApVVjhv+W2x5ZqZAfXON+uiPwPYyRhBliREyhWPoe3+Zjj8YsGa49xSMD8gdEC858oB48ZxYEsozVPZo1I7A59iy0RwmWxVehY4PizCCSSeVoEJG0YpIvAasZQ7P+fhrwhBTRr8a8f3i8DmSEG+OHM0iQKlYBV+q3TqDAfkpXjrfP4dEWPxNZYUX8Jx51aCgI2HZijcAzU2kkZWw+pvVC2YAxI7nBqLfaIkxwaskIaIgqLhYeL1gY0ATA6D4w7ErlSab2tOtaX65oqiKcIMJQ3vMK/4NhZ/pAqypA/foosOjxKcUhQIDAQAB",
   "permissions": [
     "nativeMessaging"
@@ -16,7 +16,8 @@
         "<all_urls>"
       ],
       "exclude_matches": [
-        "https://mail.google.com/*"
+        "https://mail.google.com/*",
+        "https://web.whatsapp.com/*"
       ],
       "js": [
         "content.js"
@@ -32,6 +33,16 @@
         "mail/reader.js",
         "mail/deck.js",
         "mail/watch.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://web.whatsapp.com/*"
+      ],
+      "js": [
+        "whatsapp/reader.js",
+        "whatsapp/watch.js"
       ],
       "run_at": "document_idle"
     }

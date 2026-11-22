@@ -59,4 +59,10 @@ run "12 model gets tools, guard removed" BaseKit/Sources/AgentCLI/ProcessPlan.sw
 run "25 a revoke leaves its words in a quote or run text" $C/Store/EvidenceWriter.swift 's/report\.flaggedItems = try Store\.eraseCopies\(of: \.line\(lineID\), in: db\)/report.flaggedItems = 0/' WorkbenchCore
 run "26 Settings WhatsApp delete keeps lines" BaseKit/Sources/CaptureService/CaptureService.swift 's/try store\.delete\(\.kind\(kind, before: nil\)\)/try store.delete(.kind(.typed, before: nil))/' BaseKit WorkbenchUI
 run "27 removing a chat keeps its lines" BaseKit/Sources/CaptureService/CaptureService.swift 's/for chat in withdrawn \{ try store\.eraseEvidence/for chat in [String]() { try store.eraseEvidence/' BaseKit
+run "28 the native host writes the store" WorkbenchCore/Package.swift 's/executableTarget\(name: "WorkbenchPages", dependencies: \["PagesRelay"\]\)/executableTarget(name: "WorkbenchPages", dependencies: ["PagesRelay", "WorkbenchCore"])/' WorkbenchCore
+run "29 WhatsApp Web writes a chat that is not allowed" $C/WhatsApp/WhatsAppWebIntake.swift 's/\.sorted\(\)\.first \{ WhatsAppJID\.canonical\(\$0\) == chat \}/.sorted().first/' WorkbenchCore BaseKit
+run "30 both sources write one chat" $C/Source/SourceDescriptor.swift 's/descriptor\.fallbackFor\.map \{ !readable\.contains\(\$0\) \} \?\? true/true/' WorkbenchCore BaseKit
+run "31 stop reading keeps the chat's lines" WorkbenchUI/Sources/WorkbenchUI/Workbench/Helpers/WhatsAppSource.swift 's/\{ \$0\.allowList\[\.whatsapp\]\?\.remove\(chat\.jid\) \}/{ _ in }/' WorkbenchUI
+run "32 two app copies write the store" $C/Store/StoreLock.swift 's/flock\(file, LOCK_EX \| LOCK_NB\)/flock(file, LOCK_SH | LOCK_NB)/' WorkbenchCore
+run "33 stopping a chat leaves it with another machine" WorkbenchUI/Sources/WorkbenchUI/Workbench/Helpers/WhatsAppSource.swift 's/where source\.chats\.contains\(where: \{ \$0\.id == chat\.id \}\)/where false/' WorkbenchUI
 echo DONE

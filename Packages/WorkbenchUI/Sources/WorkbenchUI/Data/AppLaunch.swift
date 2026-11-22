@@ -27,6 +27,10 @@ struct AppSession {
     let web: WebResearchSettings
     let claims: ClaimsModel
     let runs: RunsModel
+    /// Where the browser host sends what the extension read. Held so that it listens as long as the app runs.
+    let pages: PageHostListener
+    /// The right to write the store, held until the app ends.
+    let writerLock: StoreLock
     let navigation = Navigation()
 }
 
@@ -38,10 +42,17 @@ enum AppLaunch {
         URL.applicationSupportDirectory.appending(path: "Workbench")
     }
 
+    /// The sources that can read their chats now: the WhatsApp store reader, once Full Disk Access is granted.
+    nonisolated private static func readableSources() -> Set<String> {
+        FullDiskAccess.isGranted() ? [SourceDescriptor.whatsAppChat.key] : []
+    }
+
     static func start(storeFolder: URL = defaultStoreFolder) -> AppLaunch {
         do {
+            let writerLock = try StoreLock(directory: storeFolder)
             let store = try Store(directory: storeFolder)
-            let service = try CaptureService(store: store, owner: OwnerIdentity.result(secrets: KeychainSecrets()))
+            let owner = OwnerIdentity.result(secrets: KeychainSecrets())
+            let service = try CaptureService(store: store, owner: owner)
             let identity = IdentityModel(store: store)
             try store.seedMachines(MachineTemplate.seeded.map { ($0.spec, $0.name) })
             let onboarding = OnboardingModel(store: store, identity: identity)
@@ -64,7 +75,11 @@ enum AppLaunch {
                 catalog: catalog, actions: ActionsModel(store: store, founder: { identity.identity.name }),
                 deals: deals, memory: MemoryModel(store: store, crew: crew, deals: deals),
                 web: web, claims: ClaimsModel(store: store, me: { catalog.me }, web: web),
-                runs: RunsModel(store: store))
+                runs: RunsModel(store: store),
+                pages: try PageHostListener(
+                    path: PagesSocket.path(in: storeFolder), store: store,
+                    whatsApp: WhatsAppWebIntake(owner: owner, readableSources: Self.readableSources)),
+                writerLock: writerLock)
             service.start()
             session.reminders.start()
             return .ready(session)

@@ -13,7 +13,7 @@ enum EgressScan {
         #"\bURLSession\w*"#, #"\bURLRequest\b"#, #"\bNSURLConnection\b"#, #"\bURLProtocol\b"#,
         #"\bNW(Connection|Listener|Endpoint)\b"#,
         #"(?m)^\s*import\s+Network\b"#, #"\bCFNetwork\b"#, #"\bCFHTTP\w*"#, #"\bCFSocket\w*"#, #"\bgetaddrinfo\b"#,
-        #"\bWKWebView\b"#,
+        #"\bWKWebView\b"#, #"\bAF_INET6?\b"#, #"\bsockaddr_in6?\b"#,
     ]
 
     static func networkSymbolHits(in text: String) -> [String] {
@@ -21,12 +21,12 @@ enum EgressScan {
     }
 
     /// Hosts the shipped sources may name: Gmail, the one page the extension reads and the one origin its attachment
-    /// fetch may use; and the two search providers, which only the consent kind `web` may reach (`WebSession`). The
+    /// fetch may use; WhatsApp Web, the one other page it reads; and the two search providers, which only the consent kind `web` may reach (`WebSession`). The
     /// pages a search returns are fetched from hosts the provider names, never from a host written in the source.
     /// The two news feed hosts are named in `NewsFeed.swift` only, and only a `FeedSession` (the consent kind `web`)
     /// may fetch them.
     static let allowedHosts: Set<String> = [
-        "mail.google.com", "api.search.brave.com", "api.exa.ai", "inc42.com", "yourstory.com",
+        "mail.google.com", "web.whatsapp.com", "api.search.brave.com", "api.exa.ai", "inc42.com", "yourstory.com",
     ]
 
     /// The one file that names the feed hosts, and the feed hosts.
@@ -164,6 +164,8 @@ struct NoEgressTests {
         #expect(
             !EgressScan.networkSymbolHits(in: "let (data, _) = try await URLSession.shared.data(from: url)").isEmpty)
         #expect(!EgressScan.networkSymbolHits(in: "import Network\nlet c = NWConnection(to: e, using: .tcp)").isEmpty)
+        #expect(!EgressScan.networkSymbolHits(in: "let s = socket(AF_INET, SOCK_STREAM, 0)").isEmpty)
+        #expect(EgressScan.networkSymbolHits(in: "let s = socket(AF_UNIX, SOCK_STREAM, 0)").isEmpty)
         #expect(
             EgressScan.networkSymbolHits(in: "let parts = URLComponents(string: text)\nlet file = URL(filePath: path)")
                 .isEmpty)

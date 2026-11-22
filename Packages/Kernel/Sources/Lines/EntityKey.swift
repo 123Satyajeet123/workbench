@@ -21,7 +21,8 @@ public enum WhatsAppJID {
         return String(text.dropLast("@c.us".count)) + "@s.whatsapp.net"
     }
 
-    static func isGroup(_ jid: String) -> Bool { jid.hasSuffix("@g.us") }
+    /// Whether the jid names a group chat (`@g.us`).
+    public static func isGroup(_ jid: String) -> Bool { jid.hasSuffix("@g.us") }
 }
 
 /// Who sent a message in a group chat.

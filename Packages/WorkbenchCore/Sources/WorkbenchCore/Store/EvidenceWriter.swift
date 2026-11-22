@@ -120,27 +120,29 @@ extension Store {
         return report
     }
 
-    /// Writes one reading. The grant must be live and the policy must still allow the chat at this moment: a revoke
-    /// between the read and the write writes nothing. The lines, the erasure that a revoke asks for, the cursor and
-    /// the note that old ids were mapped commit together or not at all; then the log is truncated if any text was
-    /// erased.
+    /// Writes one reading. The grant must be live, and the policy must allow the chat inside the write transaction
+    /// itself: a revoke between the read and the write writes nothing, and none can slip in between the check and the
+    /// write. The lines, the erasure that a revoke asks for, the cursor (when the source has one) and the note that
+    /// old ids were mapped commit together or not at all; then the log is truncated if any text was erased.
     func record(_ reading: SourceReading, of descriptor: SourceDescriptor, owner: PersonID) throws -> IngestReport {
         try check(reading.grant, kind: descriptor.consent, label: reading.label)
         let request = CaptureRequest(kind: descriptor.consent, label: reading.label)
-        guard try queries.policy().authorize(request, at: clock()).grant != nil else {
-            throw EvidenceError.consentWithdrawn
-        }
         let source = try descriptor.sourceID(owner: owner)
         let grantID = Self.grantID(kind: descriptor.consent, label: reading.label)
         let stamp = EvidenceStamp(
             source: source, label: Label(source: source).id, grantID: grantID, reading: reading,
             descriptor: descriptor, now: UTCInstant(clock()))
         var report = try writer.write { db in
+            guard try Queries.policy(in: db).authorize(request, at: clock()).grant != nil else {
+                throw EvidenceError.consentWithdrawn
+            }
             var report = IngestReport()
             for item in reading.lines { report.add(try EvidenceStamp.write(item, stamp, in: db)) }
             if report.erasedLines > 0 { try db.execute(sql: EvidenceStamp.optimizeSearch) }
-            try Self.saveCursor(reading.cursorAfter, grantID: grantID, in: db, at: clock())
-            if reading.mapsLegacyRefs { try Self.noteLegacyMapped(reading.cursorAfter, grantID: grantID, in: db) }
+            if let cursor = reading.cursorAfter {
+                try Self.saveCursor(cursor, grantID: grantID, in: db, at: clock())
+                if reading.mapsLegacyRefs { try Self.noteLegacyMapped(cursor, grantID: grantID, in: db) }
+            }
             return report
         }
         report.census = reading.census

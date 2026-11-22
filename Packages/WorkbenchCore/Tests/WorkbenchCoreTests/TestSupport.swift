@@ -11,6 +11,11 @@ func temporaryDirectory() -> URL {
     FileManager.default.temporaryDirectory.appending(path: "wbcore-\(UUID().uuidString)")
 }
 
+/// A socket path short enough for `sockaddr_un`, which the long store folders of tests are not.
+func shortSocketPath() -> String {
+    FileManager.default.temporaryDirectory.appending(path: "wb-\(UUID().uuidString.prefix(8)).sock").path
+}
+
 func makeStore(clock: @escaping @Sendable () -> Date = { t0 }) throws -> Store {
     try Store(directory: temporaryDirectory(), clock: clock)
 }

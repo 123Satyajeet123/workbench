@@ -16,10 +16,12 @@ let package = Package(
         .target(
             name: "WorkbenchCore",
             dependencies: [
-                .product(name: "GRDB", package: "GRDB.swift"), .product(name: "Kernel", package: "Kernel"),
+                "PagesRelay", .product(name: "GRDB", package: "GRDB.swift"),
+                .product(name: "Kernel", package: "Kernel"),
                 .product(name: "Lines", package: "Kernel"),
             ]),
-        .executableTarget(name: "WorkbenchPages", dependencies: ["WorkbenchCore"]),
+        .target(name: "PagesRelay"),
+        .executableTarget(name: "WorkbenchPages", dependencies: ["PagesRelay"]),
         .testTarget(
             name: "WorkbenchCoreTests",
             dependencies: [

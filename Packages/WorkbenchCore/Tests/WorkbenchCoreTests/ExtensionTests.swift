@@ -41,26 +41,39 @@ enum ExtensionFiles {
         return try #require(manifest["content_scripts"] as? [[String: Any]])
     }
 
+    private func entry(running script: String) throws -> [String: Any] {
+        try #require(try contentScripts().first { ($0["js"] as? [String])?.contains(script) == true })
+    }
+
     @Test func theMailScriptsMatchOnlyMailGoogleCom() throws {
-        let scripts = try contentScripts()
-        let mail = try #require(scripts.first { ($0["js"] as? [String])?.contains("mail/watch.js") == true })
+        let mail = try entry(running: "mail/watch.js")
         #expect(mail["matches"] as? [String] == ["https://mail.google.com/*"])
         #expect(
             (mail["js"] as? [String])?.allSatisfy { $0.hasPrefix("mail/") } == true,
             "page-text code never runs in the mail entry")
-        for other in scripts where (other["js"] as? [String])?.contains("mail/watch.js") != true {
+        for other in try contentScripts() where (other["js"] as? [String])?.contains("mail/watch.js") != true {
             #expect(
                 (other["js"] as? [String])?.contains { $0.hasPrefix("mail/") } == false,
                 "mail code is in no other entry")
-            #expect(
-                other["exclude_matches"] as? [String] == ["https://mail.google.com/*"],
-                "page text leaves Gmail to the mail path")
+        }
+    }
+
+    @Test func theWhatsAppScriptsMatchOnlyTheWebClientAndPageTextLeavesIt() throws {
+        let chat = try entry(running: "whatsapp/watch.js")
+        #expect(chat["matches"] as? [String] == ["https://web.whatsapp.com/*"])
+        #expect((chat["js"] as? [String])?.allSatisfy { $0.hasPrefix("whatsapp/") } == true)
+        let pageText = try entry(running: "content.js")
+        let excluded = Set(pageText["exclude_matches"] as? [String] ?? [])
+        #expect(excluded == ["https://mail.google.com/*", "https://web.whatsapp.com/*"])
+        for other in try contentScripts() where (other["js"] as? [String])?.contains("content.js") != true {
+            #expect((other["exclude_matches"] as? [String]) == nil)
         }
     }
 
     @Test func noShippedScriptDispatchesAnEventOrChangesThePage() throws {
         let scripts = try ExtensionFiles.scripts()
-        #expect(scripts.keys.contains("content.js") && scripts.keys.contains("mail/watch.js"))
+        let shipped: Set = ["content.js", "mail/watch.js", "whatsapp/reader.js", "whatsapp/watch.js"]
+        #expect(Set(scripts.keys).isSuperset(of: shipped))
         for (name, code) in scripts { #expect(ExtensionFiles.drivingCalls(in: code, file: name).isEmpty, "\(name)") }
     }
 

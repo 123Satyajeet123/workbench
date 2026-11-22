@@ -11,6 +11,7 @@ struct MachineSettings: View {
         DisclosureGroup("Settings", isExpanded: $isOpen) {
             VStack(alignment: .leading, spacing: Space.l) {
                 ReadNote(model: model)
+                if let whatsApp = model.source as? WhatsAppSource { ChosenChats(model: model, source: whatsApp) }
                 if !model.isTrying { ImproveRow(model: model) }
                 if model.spec.nudge != nil { NudgeRow(model: model) }
                 if model.isOutbound { WeeklySearchRow(model: model) } else { WatchRow(model: model) }

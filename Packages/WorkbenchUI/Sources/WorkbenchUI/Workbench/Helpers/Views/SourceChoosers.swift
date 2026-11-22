@@ -78,6 +78,7 @@ struct GroupChooser: View {
         VStack(alignment: .leading, spacing: Space.m) {
             Text("Choose what \(model.name) reads. It reads only those chats, and only the day you ask it to.")
                 .foregroundStyle(.supporting)
+            if !source.chats.isEmpty { ChosenChats(model: model, source: source) }
             Card(title: "One group", symbol: "person.3") {
                 Text("Your team's WhatsApp group.").foregroundStyle(.supporting)
                 if source.groups.isEmpty {

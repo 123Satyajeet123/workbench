@@ -82,8 +82,8 @@ public struct SourceReading: Sendable {
     public var container: String
     public var audience: AudienceDigest
     public var lines: [ObservedLine]
-    /// Where the next read starts. Saved with the lines, or not at all.
-    public var cursorAfter: ScanCursor
+    /// Where the next read starts. Saved with the lines, or not at all. A source that reads what is on a page has none.
+    public var cursorAfter: ScanCursor?
     /// Whether this read gave old citation ids to its lines, so the store notes that they were mapped.
     public var mapsLegacyRefs: Bool
     public var readerVersion: String
@@ -94,7 +94,7 @@ public struct SourceReading: Sendable {
 
     public init(
         grant: CaptureGrant, label: String, container: String, audience: AudienceDigest, lines: [ObservedLine],
-        cursorAfter: ScanCursor, mapsLegacyRefs: Bool = false, readerVersion: String,
+        cursorAfter: ScanCursor?, mapsLegacyRefs: Bool = false, readerVersion: String,
         census: [Int: TypeCensus] = [:], unkeyed: Int = 0
     ) {
         self.grant = grant

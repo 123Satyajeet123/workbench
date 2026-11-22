@@ -1,5 +1,6 @@
 import CaptureService
 import Foundation
+import LocalSources
 import Observation
 import WorkbenchCore
 
@@ -16,6 +17,7 @@ final class Crew {
     @ObservationIgnored private let capture: CaptureService
     @ObservationIgnored private let founder: () -> String
     @ObservationIgnored private let makeModel: ((ModelChoice) -> RecordedModel)?
+    @ObservationIgnored private let whatsAppContainer: URL
     @ObservationIgnored private let alarm: VersionAlarm
     @ObservationIgnored private let openWebSession: () throws -> WebSession
     let notifications: Notifications
@@ -23,18 +25,22 @@ final class Crew {
     convenience init(
         store: Store, capture: CaptureService, founder: @escaping () -> String,
         makeModel: ((ModelChoice) -> RecordedModel)? = nil, notifier: Notifier = SystemNotifier(),
-        openWebSession: (() throws -> WebSession)? = nil
+        openWebSession: (() throws -> WebSession)? = nil,
+        whatsAppContainer: URL = WhatsAppChatReader.defaultContainer
     ) {
         self.init(
             store: store, capture: capture, founder: founder, makeModel: makeModel,
-            notifications: Notifications(notifier: notifier), openWebSession: openWebSession)
+            notifications: Notifications(notifier: notifier), openWebSession: openWebSession,
+            whatsAppContainer: whatsAppContainer)
     }
 
     init(
         store: Store, capture: CaptureService, founder: @escaping () -> String,
         makeModel: ((ModelChoice) -> RecordedModel)?, notifications: Notifications,
-        openWebSession: (() throws -> WebSession)? = nil
+        openWebSession: (() throws -> WebSession)? = nil,
+        whatsAppContainer: URL = WhatsAppChatReader.defaultContainer
     ) {
+        self.whatsAppContainer = whatsAppContainer
         self.store = store
         self.openWebSession = openWebSession ?? { try WebResearchSettings(store: store).openSession() }
         self.capture = capture
@@ -66,6 +72,18 @@ final class Crew {
     /// its own: the editor shows whether the two still match.
     var intakeCriteria: Criteria? {
         machines.first { $0.machine.template == HelperSpec.dealIntake.task }?.spec.criteria
+    }
+
+    /// The names of the other machines that read this chat.
+    func otherReaders(of chat: WhatsAppChat, besides helper: HelperModel) -> [String] {
+        machines.filter { $0 !== helper && ($0.source as? WhatsAppSource)?.chats.contains { $0.id == chat.id } == true }
+            .map(\.name)
+    }
+
+    /// Stops reading a chat for every machine that reads it, and erases what was stored from it.
+    func stopReading(_ chat: WhatsAppChat) throws {
+        try WhatsAppSource.stopReading(
+            chat, among: machines.compactMap { $0.source as? WhatsAppSource }, capture: capture)
     }
 
     func helper(id: Int64) -> HelperModel? { machines.first { $0.machine.id == id } }
@@ -210,7 +228,8 @@ final class Crew {
         case .webSearch:
             OutboundSource(store: store, capture: capture, task: machine.task, openSession: openWebSession)
         case .whatsappChat:
-            try WhatsAppSource(store: store, capture: capture, task: machine.task, founder: founder)
+            try WhatsAppSource(
+                store: store, capture: capture, task: machine.task, founder: founder, container: whatsAppContainer)
         }
     }
 }
