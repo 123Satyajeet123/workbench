@@ -208,4 +208,12 @@ public enum Mark: String, Codable, CaseIterable, Sendable {
     /// From the model, not yet seen by the founder.
     case proposed
     case confirmed, rejected
+
+    var word: String {
+        switch self {
+        case .confirmed: "right"
+        case .rejected: "wrong"
+        case .proposed: "unmarked"
+        }
+    }
 }

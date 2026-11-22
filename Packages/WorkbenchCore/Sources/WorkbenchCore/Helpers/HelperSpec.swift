@@ -303,3 +303,13 @@ extension HelperSpec {
         return changes.isEmpty ? nil : changes
     }
 }
+
+extension HelperSpec {
+    func shownValues(of item: Item) -> String {
+        let shown = fields.filter { !$0.kind.isComputed }.map { "\($0.name)=\(item[$0.name])" }
+        return (shown + Self.dueText(of: item)).joined(separator: " ")
+    }
+
+    /// The day a fact is due now, as the model sees it: code resolved it, the model never writes one.
+    static func dueText(of item: Item) -> [String] { item.dueDay.map { ["due=\($0)"] } ?? [] }
+}

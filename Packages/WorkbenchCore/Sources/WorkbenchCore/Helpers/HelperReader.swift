@@ -181,7 +181,7 @@ public struct HelperReader: Sendable {
     static func examples(_ examples: [Item], spec: HelperSpec) -> String {
         guard !examples.isEmpty else { return "" }
         let lines = examples.map { item in
-            "- \(item.state == .confirmed ? "right" : "wrong"): \(values(of: item, spec: spec)) — \"\(item.quote)\""
+            "- \(item.state.word): \(spec.shownValues(of: item)) — \"\(item.quote)\""
         }
         return "Examples the founder marked on other days:\n" + lines.joined(separator: "\n") + "\n\n"
     }
@@ -191,23 +191,15 @@ public struct HelperReader: Sendable {
         let lines = open.enumerated().map { handle, item in
             let line = "F\(handle + 1) (\(item.day)) "
             return spec.lifecycle == nil
-                ? line + followedValues(of: item) + " — \"\(item.quote)\"" : line + values(of: item, spec: spec)
+                ? line + followedValues(of: item) + " — \"\(item.quote)\"" : line + spec.shownValues(of: item)
         }
         return "Still open from earlier days:\n" + lines.joined(separator: "\n") + "\n\n"
     }
 
     private static func followedValues(of item: Item) -> String {
         let fields = item.fields.filter { $0.key != Item.dueField }.sorted { $0.key < $1.key }
-        return (fields.map { "\($0.key)=\($0.value)" } + dueText(of: item)).joined(separator: " ")
+        return (fields.map { "\($0.key)=\($0.value)" } + HelperSpec.dueText(of: item)).joined(separator: " ")
     }
-
-    private static func values(of item: Item, spec: HelperSpec) -> String {
-        let fields = spec.fields.filter { !$0.kind.isComputed }.map { "\($0.name)=\(item[$0.name])" }
-        return (fields + dueText(of: item)).joined(separator: " ")
-    }
-
-    /// The day a fact is due now, as the model sees it: code resolved it, the model never writes one.
-    private static func dueText(of item: Item) -> [String] { item.dueDay.map { ["due=\($0)"] } ?? [] }
 
     public var schema: JSONSchema {
         let fields =
