@@ -11,10 +11,7 @@ struct ItemGroups: View {
         ForEach(values, id: \.self) { value in
             let own = byValue[value, default: []]
             if !own.isEmpty {
-                VStack(alignment: .leading, spacing: Space.s) {
-                    Text("\(value.capitalized) · \(own.count)").textStyle(.headline)
-                    ForEach(own) { ItemRow(model: model, item: $0, showsSpan: false, grouping: field) }
-                }
+                ItemSection(model: model, heading: "\(value.capitalized) · \(own.count)", items: own, field: field)
                 Divider()
             }
         }
