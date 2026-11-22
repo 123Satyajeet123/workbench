@@ -1,3 +1,4 @@
+import LocalSources
 import SwiftUI
 
 enum Space {
@@ -133,7 +134,7 @@ struct ProblemSlotBanner: View {
 struct ProblemBanner: View {
     let text: String
     var dismiss: (() -> Void)?
-    var settingsPane: String?
+    var settingsPane: PrivacyPane?
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: Space.s) {

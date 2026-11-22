@@ -61,7 +61,7 @@ struct ConnectList: View {
                 ? "Reads what you allow, with your own sign-in."
                 : "Install it and sign in, then check again."
         case .whatsApp:
-            facts.status(of: .whatsApp) == .needsPermission(pane: "Privacy_AllFiles")
+            facts.status(of: .whatsApp) == .needsPermission(pane: .fullDiskAccess)
                 ? "Turn on Workbench in Full Disk Access. macOS then asks to quit and reopen; setup opens here again."
                 : "\(crew.team?.name ?? "Pip") reads the team group you choose, only the day you ask."
         case .calls:

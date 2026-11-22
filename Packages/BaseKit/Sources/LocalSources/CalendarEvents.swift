@@ -2,19 +2,13 @@ import Foundation
 import WorkbenchCore
 
 public protocol CalendarEvents: Sendable {
-    func requestAccess() async -> CalendarAccess
+    func requestAccess() async -> SystemAccess
     func calendars() -> [CalendarInfo]
     func meetings(during interval: DateInterval, in calendarIDs: [String]) -> [Meeting]
 }
 
-public enum CalendarAccess: Sendable, Equatable {
-    case allowed
-    case blocked
-    case failed(String)
-}
-
 public enum CalendarError: Error, Equatable {
-    case accessRefused(CalendarAccess)
+    case accessRefused(SystemAccess)
 }
 
 public struct CalendarDay: Sendable, Equatable {

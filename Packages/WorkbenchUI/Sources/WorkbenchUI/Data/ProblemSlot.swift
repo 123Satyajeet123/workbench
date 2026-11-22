@@ -5,7 +5,7 @@ import Observation
 @Observable
 final class ProblemSlot {
     private(set) var text: String?
-    private(set) var settingsPane: String?
+    private(set) var settingsPane: PrivacyPane?
 
     func attempt(_ step: String, clearing: Bool = false, _ work: () throws -> Void) {
         do {
@@ -28,7 +28,7 @@ final class ProblemSlot {
     func report(_ step: String, _ error: any Error) {
         guard !Self.isCancellation(error) else { return }
         text = "Could not \(step): \(error.localizedDescription)"
-        settingsPane = (error as? ReadError) == .notPermitted ? "Privacy_AllFiles" : nil
+        settingsPane = (error as? ReadError) == .notPermitted ? .fullDiskAccess : nil
     }
 
     func show(_ message: String) {

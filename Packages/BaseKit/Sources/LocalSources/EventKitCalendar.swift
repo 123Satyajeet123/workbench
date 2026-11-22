@@ -7,19 +7,7 @@ public final class EventKitCalendar: CalendarEvents, @unchecked Sendable {
 
     public init() {}
 
-    public func requestAccess() async -> CalendarAccess {
-        switch EKEventStore.authorizationStatus(for: .event) {
-        case .fullAccess: return .allowed
-        case .denied, .restricted, .writeOnly: return .blocked
-        case .notDetermined: break
-        @unknown default: break
-        }
-        do {
-            return try await store.requestFullAccessToEvents() ? .allowed : .blocked
-        } catch {
-            return .failed(error.localizedDescription)
-        }
-    }
+    public func requestAccess() async -> SystemAccess { await EventKitAccess.request(.event) }
 
     public func calendars() -> [CalendarInfo] {
         store.calendars(for: .event).map { CalendarInfo(id: $0.calendarIdentifier, title: $0.title) }

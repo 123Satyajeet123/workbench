@@ -1,6 +1,7 @@
 import AppKit
 import CaptureService
 import Foundation
+import LocalSources
 import SQLite3
 import SwiftUI
 import Synchronization

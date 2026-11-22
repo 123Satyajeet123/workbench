@@ -1,5 +1,6 @@
 import AppKit
 import EventKit
+import LocalSources
 
 protocol ReminderList {
     func authorize() async -> SystemAccess
@@ -13,19 +14,7 @@ struct AppleReminders: ReminderList {
 
     private let store = EKEventStore()
 
-    func authorize() async -> SystemAccess {
-        switch EKEventStore.authorizationStatus(for: .reminder) {
-        case .fullAccess: return .allowed
-        case .denied, .restricted, .writeOnly: return .blocked
-        case .notDetermined: break
-        @unknown default: break
-        }
-        do {
-            return try await store.requestFullAccessToReminders() ? .allowed : .blocked
-        } catch {
-            return .failed(error.localizedDescription)
-        }
-    }
+    func authorize() async -> SystemAccess { await EventKitAccess.request(.reminder) }
 
     func add(title: String, notes: String) throws {
         guard let list = store.defaultCalendarForNewReminders() else { throw NoList() }
@@ -34,11 +23,5 @@ struct AppleReminders: ReminderList {
         reminder.notes = notes
         reminder.calendar = list
         try store.save(reminder, commit: true)
-    }
-
-    static func openSettings() {
-        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Reminders") {
-            NSWorkspace.shared.open(url)
-        }
     }
 }

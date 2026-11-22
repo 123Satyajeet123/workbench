@@ -35,7 +35,7 @@ struct ActionNotice: View {
         } else if actions.remindersBlocked {
             HStack {
                 Text("Reminders is off for Workbench. Turn it on in System Settings, then try again.")
-                Button("Open Settings", action: AppleReminders.openSettings)
+                Button("Open Settings") { SystemSettings.open(pane: .reminders) }
                 Button("Dismiss", action: actions.dismiss)
             }
         } else if let notice = actions.notice {

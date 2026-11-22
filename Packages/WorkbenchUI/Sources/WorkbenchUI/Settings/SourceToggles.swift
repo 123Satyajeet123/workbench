@@ -21,10 +21,10 @@ struct SourceToggles: View {
             .toggleStyle(.switch)
             if source.source == .screen, capture.isOn(.screen), capture.status == .needsPermission {
                 PermissionNotice(
-                    message: "macOS has not given Workbench Accessibility access yet.", pane: "Privacy_Accessibility")
+                    message: "macOS has not given Workbench Accessibility access yet.", pane: .accessibility)
             }
             if source.source == .call, microphoneRefused {
-                PermissionNotice(message: "macOS refused microphone access.", pane: "Privacy_Microphone")
+                PermissionNotice(message: "macOS refused microphone access.", pane: .microphone)
             }
             if source.source == .calendar, capture.isOn(.calendar) { calendarDetails }
         }
@@ -32,7 +32,7 @@ struct SourceToggles: View {
 
     @ViewBuilder private var calendarDetails: some View {
         if let refusal = today?.meetings.refusal {
-            PermissionNotice(message: refusal, pane: "Privacy_Calendars")
+            PermissionNotice(message: refusal, pane: .calendars)
         }
         CalendarChooser(calendars: capture.calendarChoices(among: today?.meetings.calendars ?? [])) {
             capture.toggle($0, among: today?.meetings.calendars ?? [])

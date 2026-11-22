@@ -1,11 +1,6 @@
 import AppKit
+import LocalSources
 import UserNotifications
-
-enum SystemAccess: Equatable {
-    case allowed
-    case blocked
-    case failed(String)
-}
 
 protocol Notifier {
     func authorize() async -> SystemAccess

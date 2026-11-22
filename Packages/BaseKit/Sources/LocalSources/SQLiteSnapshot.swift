@@ -65,14 +65,10 @@ final class SQLiteSnapshot {
 
     // SQLite reports a refused file and a missing one as the same failure.
     private static func checkAccess(_ path: String) throws {
-        let file = open(path, O_RDONLY)
-        guard file < 0 else {
-            close(file)
-            return
-        }
-        switch errno {
-        case EPERM, EACCES: throw ReadError.notPermitted
-        case ENOENT: throw ReadError.storeMissing
+        switch FullDiskAccess.openError(path) {
+        case nil: return
+        case EPERM?, EACCES?: throw ReadError.notPermitted
+        case ENOENT?: throw ReadError.storeMissing
         default: throw ReadError.unreadableStore
         }
     }

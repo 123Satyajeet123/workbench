@@ -61,7 +61,7 @@ struct TodayBody: View {
 
     @ViewBuilder private var meetings: some View {
         if model.meetings.offersMeetings { MeetingsOffer(model: model) }
-        if let refusal = model.meetings.refusal { PermissionNotice(message: refusal, pane: "Privacy_Calendars") }
+        if let refusal = model.meetings.refusal { PermissionNotice(message: refusal, pane: .calendars) }
         if !model.meetingCards.isEmpty { MeetingsSection(model: model) }
     }
 

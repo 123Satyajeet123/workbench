@@ -5,14 +5,14 @@ import WorkbenchCore
 @testable import LocalSources
 
 final class FakeCalendar: CalendarEvents, @unchecked Sendable {
-    var access = CalendarAccess.allowed
+    var access = SystemAccess.allowed
     var events: [Meeting]
     private(set) var accessAsks = 0
     private(set) var reads: [[String]] = []
 
     init(_ events: [Meeting] = []) { self.events = events }
 
-    func requestAccess() async -> CalendarAccess {
+    func requestAccess() async -> SystemAccess {
         accessAsks += 1
         return access
     }
