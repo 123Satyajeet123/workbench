@@ -4,6 +4,7 @@ import SwiftUI
 struct GeneralSettingsView: View {
     @Environment(IdentityModel.self) private var identityModel
     @Environment(ModelSettings.self) private var models
+    @AppStorage(AppTheme.key) private var theme = AppTheme.system
 
     var body: some View {
         @Bindable var identityModel = identityModel
@@ -40,17 +41,25 @@ struct GeneralSettingsView: View {
                     FormNote("\(models.choice.kind.rawValue) is not installed on this Mac. Install it and sign in.")
                 }
             }
+            Section("Appearance") {
+                Picker("Theme", selection: $theme) {
+                    ForEach(AppTheme.allCases) { Text($0.title).tag($0) }
+                }
+                .pickerStyle(.segmented)
+            }
             RemindersSection()
             Section("Startup") {
                 LoginItemToggle()
             }
         }
         .formStyle(.grouped)
+        .onChange(of: theme) { _, theme in theme.apply() }
     }
 }
 
 private struct APIKeyField: View {
     @Environment(ModelSettings.self) private var models
+    @AppStorage(AppTheme.key) private var theme = AppTheme.system
     @State private var typed = ""
 
     var body: some View {

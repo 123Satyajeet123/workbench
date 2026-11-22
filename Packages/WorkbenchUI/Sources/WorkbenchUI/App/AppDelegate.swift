@@ -19,6 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         UNUserNotificationCenter.current().delegate = self
+        AppTheme.saved().apply()
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
