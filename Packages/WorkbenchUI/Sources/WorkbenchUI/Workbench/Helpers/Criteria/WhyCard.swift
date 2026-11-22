@@ -28,15 +28,15 @@ struct WhyCard: View {
 /// The why card folded under a deal's row; a deal that needs review says so on the fold.
 struct WhyDisclosure: View {
     let triage: Triage
-    @State private var isOpen: Bool
+    let isOpen: Bool
 
     init(triage: Triage, isOpen: Bool = false) {
         self.triage = triage
-        _isOpen = State(initialValue: isOpen)
+        self.isOpen = isOpen
     }
 
     var body: some View {
-        DisclosureGroup(isExpanded: $isOpen) {
+        Fold(isOpen: isOpen) {
             WhyCard(triage: triage).padding(.top, Space.xs)
         } label: {
             Text("Why \(triage.rating.rawValue)" + (triage.needsReview ? " · needs your review" : ""))

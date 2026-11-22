@@ -37,7 +37,7 @@ struct RunSummary: View {
     }
 
     private func queries(_ run: OutboundRunRecord) -> some View {
-        DisclosureGroup("Queries sent (\(run.queries.count))") {
+        Fold("Queries sent (\(run.queries.count))") {
             VStack(alignment: .leading, spacing: 2) {
                 ForEach(Array(run.queries.enumerated()), id: \.offset) { _, query in
                     Text(query.query).textStyle(.callout).textSelection(.enabled)

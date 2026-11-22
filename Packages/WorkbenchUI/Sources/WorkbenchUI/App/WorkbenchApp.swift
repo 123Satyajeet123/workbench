@@ -21,7 +21,6 @@ public struct WorkbenchApp: App {
                     }
                 }
                 .zoomed(Zoom(zoom))
-                .disclosureGroupStyle(.fold)
                 .background(.pageFill)
                 .environment(session)
                 .onOpenURL { url in session.navigation.requested = SidebarSelection(url: url) }

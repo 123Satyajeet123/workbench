@@ -48,7 +48,7 @@ struct DecisionHistory: View {
     var body: some View {
         let decisions = model.decisions.prefix(5)
         if !decisions.isEmpty {
-            DisclosureGroup("History") {
+            Fold("History") {
                 ForEach(decisions, id: \.logKey) { decision in
                     Text("\(decision.at.formatted(date: .abbreviated, time: .shortened)) · \(line(decision))")
                         .textStyle(.callout).foregroundStyle(.supporting)

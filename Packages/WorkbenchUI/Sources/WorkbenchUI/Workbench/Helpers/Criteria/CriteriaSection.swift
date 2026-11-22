@@ -7,7 +7,6 @@ struct CriteriaSection: View {
     let helper: HelperModel
     @Environment(Crew.self) private var crew
     @State private var model: CriteriaModel
-    @State private var isOpen = false
 
     init(helper: HelperModel) {
         self.helper = helper
@@ -15,10 +14,7 @@ struct CriteriaSection: View {
     }
 
     var body: some View {
-        DisclosureGroup(
-            "Criteria · \(model.draft.rules.count) \(model.draft.rules.count == 1 ? "rule" : "rules")",
-            isExpanded: $isOpen
-        ) {
+        Fold("Criteria · \(model.draft.rules.count) \(model.draft.rules.count == 1 ? "rule" : "rules")") {
             CriteriaBody(model: model, save: { model.save { crew.setCriteria(helper, $0) } })
                 .padding(.top, Space.m)
         }

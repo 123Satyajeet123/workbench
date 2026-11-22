@@ -5,10 +5,9 @@ import SwiftUI
 struct MachineSettings: View {
     let model: HelperModel
     @Environment(TeamCatalogModel.self) private var catalog
-    @State private var isOpen = false
 
     var body: some View {
-        DisclosureGroup("Settings", isExpanded: $isOpen) {
+        Fold("Settings") {
             VStack(alignment: .leading, spacing: Space.l) {
                 ReadNote(model: model)
                 if let whatsApp = model.source as? WhatsAppSource { ChosenChats(model: model, source: whatsApp) }
