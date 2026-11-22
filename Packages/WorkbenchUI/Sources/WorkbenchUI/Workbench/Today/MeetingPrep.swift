@@ -42,7 +42,8 @@ enum MeetingPrep {
     static let quotesShown = 3
 
     static func cards(
-        for meetings: [Meeting], groups: [FactGroup], rows: [SummaryRow], deals: [WorkObject], actions: [Item]
+        for meetings: [Meeting], groups: [FactGroup], rows: [SummaryRow], deals: [WorkObject], actions: [Item],
+        now: Date
     ) -> [MeetingCard] {
         let people = Set(groups.map(\.name) + rows.map(\.subject)).subtracting([""])
         let identities = deals.map(DealIdentity.init)
@@ -52,7 +53,7 @@ enum MeetingPrep {
                 let prep =
                     switch subject {
                     case .person(let name): person(name, groups: groups, rows: rows)
-                    case .deal(let id): deals.first { $0.id == id }.map { deal($0, actions: actions) }
+                    case .deal(let id): deals.first { $0.id == id }.map { deal($0, actions: actions, now: now) }
                     }
                 return prep.flatMap { $0.isEmpty ? nil : $0 }
             }
@@ -66,11 +67,13 @@ enum MeetingPrep {
             facts: groups.first { $0.name == name }?.open ?? [], quotes: [])
     }
 
-    private static func deal(_ deal: WorkObject, actions: [Item]) -> Prep {
+    private static func deal(_ deal: WorkObject, actions: [Item], now: Date) -> Prep {
         let latest = deal.items.sorted { $0.item.day > $1.item.day }.prefix(quotesShown)
         return Prep(
             subject: .deal(deal.id), name: deal.title, line: nil, stage: deal.stages.first,
-            facts: actions.filter { $0[DealAction.dealField] == deal.id && $0.closed == nil },
+            facts: actions.filter {
+                $0[DealAction.dealField] == deal.id && $0.isOpen(in: DealAction.lifecycle, at: now)
+            },
             quotes: latest.map {
                 Prep.Quote(
                     text: $0.item.quote, source: "\($0.item.source?.capturedFrom ?? "another source") · \($0.item.day)")

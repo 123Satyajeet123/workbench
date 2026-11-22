@@ -125,6 +125,23 @@ final class FakeCalendar: CalendarEvents, @unchecked Sendable {
         #expect(prep.quotes.map(\.text) == ["Acme is raising"] && prep.quotes[0].source.hasPrefix("a page"))
     }
 
+    @Test func aDealActionTheFounderSnoozedStaysOffTheMeetingCard() async throws {
+        let fixture = try DealFixture()
+        let deal = try await fixture.deal("Acme", reading: VCFixture.hot)
+        let due = WorkDay(containing: .now).adding(days: 3)
+        fixture.deals.requireAction(deal, what: "Get the cap table", due: due)
+        let snoozed = try #require(try fixture.store.queries.openDealActions().first?.id)
+        try fixture.store.apply(.snooze(until: due), to: [snoozed])
+        let today = TodayModel(
+            store: fixture.store, crew: fixture.crew,
+            calendar: FakeCalendar([Self.meeting("Pitch", guests: [("Priya", "priya@acme.com")])]),
+            deals: { fixture.deals.deals }, defaults: UserDefaults(suiteName: "wb-\(UUID().uuidString)")!)
+        try fixture.store.savePolicy(CapturePolicy(switches: [.calendar: true]))
+        await today.refreshMeetings()
+        let prep = try #require(today.meetingCards.first?.preps.first)
+        #expect(prep.subject == .deal(deal.id) && prep.facts.isEmpty)
+    }
+
     @Test func aMeetingThatMatchesNothingShowsWithNoCard() async throws {
         let found = try await day([Self.meeting("Dentist", guests: [("Dr Rao", "rao@clinic.in")])])
         #expect(found.model.meetingCards.map(\.meeting.title) == ["Dentist"])

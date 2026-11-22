@@ -187,3 +187,20 @@ private func closed(_ item: Item) -> Item {
         #expect(Summary(scope: "project: Deck: v2", short: nil, details: [], run: RunID(1)).subject == "Deck: v2")
     }
 }
+
+@Suite struct OpenItemTests {
+    private let lifecycle = HelperSpec.Lifecycle(field: "kind", open: ["blocker", "commitment"], outcomes: ["kept"])
+
+    @Test func anItemIsOpenWhileItsKindStaysOpenAndNothingClosedHidOrRejectedIt() {
+        #expect(fact(1, kind: "blocker").isOpen(in: lifecycle, at: t0))
+        #expect(!fact(2, kind: "plan").isOpen(in: lifecycle, at: t0))
+        #expect(!closed(fact(3, kind: "blocker")).isOpen(in: lifecycle, at: t0))
+        #expect(!hidden(fact(4, kind: "blocker")).isOpen(in: lifecycle, at: t0))
+        #expect(!fact(5, kind: "blocker", state: .rejected).isOpen(in: lifecycle, at: t0))
+        #expect(!fact(6, kind: "blocker").isOpen(in: nil, at: t0))
+        var snoozed = fact(7, kind: "blocker")
+        snoozed.hiding = .snoozed(until: t0.addingTimeInterval(60))
+        #expect(!snoozed.isOpen(in: lifecycle, at: t0))
+        #expect(snoozed.isOpen(in: lifecycle, at: t0.addingTimeInterval(120)))
+    }
+}
