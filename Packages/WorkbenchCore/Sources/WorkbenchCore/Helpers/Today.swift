@@ -17,6 +17,10 @@ extension Item {
 
     /// Whether lists show it at `now`: not marked wrong, not hidden, not snoozed.
     public func isListed(at now: Date) -> Bool { state != .rejected && !isHidden(at: now) }
+
+    public func isOpen(in lifecycle: HelperSpec.Lifecycle?, at now: Date) -> Bool {
+        closed == nil && isListed(at: now) && lifecycle.map { $0.open.contains(self[$0.field]) } == true
+    }
 }
 
 /// One line of Today's "Needs you": an open fact or a finding, and why it is there.
@@ -88,9 +92,7 @@ public enum FactGroups {
     ) -> [FactGroup] {
         let named = Dictionary(grouping: facts.filter { $0.isListed(at: now) && !$0[field].isEmpty }) { $0[field] }
         let groups = named.map { name, items in
-            let isOpen = { (item: Item) in
-                item.closed == nil && lifecycle.map { $0.open.contains(item[$0.field]) } == true
-            }
+            let isOpen = { (item: Item) in item.isOpen(in: lifecycle, at: now) }
             return FactGroup(
                 name: name, open: items.filter(isOpen).sorted(by: soonestThenNewest),
                 rest: items.filter { !isOpen($0) }.sorted(by: newest))

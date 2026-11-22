@@ -54,7 +54,7 @@ struct DealDigestReader {
             touching += try machines.filter { $0.template == HelperSpec.derailment.task }.map { try stripMachine($0) }
         }
         return DealDigest(
-            triage: first, action: own.first { $0.closed == nil && !$0.isHidden(at: store.clock()) },
+            triage: first, action: own.first { $0.isOpen(in: DealAction.lifecycle, at: store.clock()) },
             story: DealStory.make(deal: deal, ratings: ratings, marks: marks, actions: own), machines: touching,
             signals: signals.filter { $0.signalCompany == deal.id && $0.isListed(at: store.clock()) },
             revisit: revisits.first { $0[Revisit.dealField] == deal.id && $0.closed == nil })

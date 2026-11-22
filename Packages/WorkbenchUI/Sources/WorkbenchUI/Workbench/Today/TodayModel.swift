@@ -116,7 +116,7 @@ final class TodayModel {
     private func buildMeetingCards() {
         meetingCards = MeetingPrep.cards(
             for: meetings.meetings, groups: people, rows: team, deals: deals(),
-            actions: (try? store.queries.openDealActions()) ?? [])
+            actions: (try? store.queries.openDealActions()) ?? [], now: store.clock())
     }
 
     private func load() throws {
