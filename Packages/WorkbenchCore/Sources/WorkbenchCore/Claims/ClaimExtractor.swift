@@ -1,7 +1,5 @@
 import Foundation
 
-/// Reads the claims out of a deal's deck and mail: one model call. Code keeps a claim only when it cites a line it was
-/// given and its quote is in that line.
 public struct ClaimExtractor: Sendable {
     struct Reply: Decodable, Sendable {
         struct Raw: Decodable, Sendable {
@@ -44,7 +42,6 @@ public struct ClaimExtractor: Sendable {
         self.model = model
     }
 
-    /// The claims the lines state, and how many the model gave that failed the checks. Nil run when no line was given.
     public func extract(deal: String, lines: [Evidence]) async throws -> (claims: [Claim], dropped: Int, run: RunID?) {
         guard !lines.isEmpty else { return ([], 0, nil) }
         let (reply, run) = try await model.generate(

@@ -2,8 +2,6 @@ import Foundation
 import GRDB
 
 extension Store {
-    /// Keeps Mochi's proposals from one run, and the run's yield. Reading Mochi's input needs screen consent, because
-    /// the blocks come from screen sessions; the grant is asked after the model ran.
     public func saveProposals(_ result: Mochi.Result, grant: CaptureGrant) throws {
         try check(grant, kind: .screen)
         try writer.write { db in
@@ -24,7 +22,6 @@ extension Store {
         }
     }
 
-    /// Decisions are history: the latest is the proposal's state.
     public func decide(_ proposal: Int64, _ decision: Proposal.Decision) throws {
         try writer.write { db in
             try db.execute(
@@ -35,7 +32,6 @@ extension Store {
 }
 
 extension Queries {
-    /// Every proposal, newest first.
     public func proposals() throws -> [Proposal] {
         try reader.read { db in
             try db.fetch(
@@ -47,7 +43,6 @@ extension Queries {
 }
 
 extension Proposal {
-    /// A row of `proposal_now`.
     init(row: Row) throws {
         self.init(
             id: try row.optionalValue("id"), run: try row.value("run_id"), name: try row.value("name"),

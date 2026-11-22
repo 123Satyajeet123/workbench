@@ -1,8 +1,5 @@
 import Foundation
 
-/// Which of the founder's marks a machine sees as examples (research 20 §9.2). Leave one day out: never an item of the
-/// day being read, never an item of a held-out day (those judge versions and never shape them), never an unmarked
-/// item. Newest days first; at most half of them wrong, so the machine sees mistakes without learning only refusal.
 public enum Exemplars {
     public static func pick(_ marked: [Item], for day: WorkDay, count: Int) -> [Item] {
         guard count > 0 else { return [] }

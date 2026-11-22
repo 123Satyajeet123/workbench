@@ -2,7 +2,6 @@ import Foundation
 import GRDB
 
 extension Store {
-    /// Does `action` to every item.
     public func apply(_ action: ItemAction, to items: [Int64]) throws {
         try apply([action: items])
     }
@@ -11,9 +10,6 @@ extension Store {
         try undo([action: items])
     }
 
-    /// Does each action to its items, all in one transaction: a failure changes none. A hide, a wrong and a
-    /// not-relevant keep the item on its machine's own page, shown as hidden; only the Today, People and Projects
-    /// lists leave it out.
     public func apply(_ plan: [ItemAction: [Int64]]) throws {
         try writer.write { db in
             for (action, items) in plan {
@@ -22,8 +18,6 @@ extension Store {
         }
     }
 
-    /// Takes the actions back: a done is reopened, and the others are shown again. A mark that an action made is
-    /// taken back too (marked as proposed).
     public func undo(_ plan: [ItemAction: [Int64]]) throws {
         try writer.write { db in
             for (action, items) in plan {

@@ -1,19 +1,12 @@
 import Foundation
 import GRDB
 
-/// One thing the asker may see: an item of their machines, or an item or note on a deal they can read.
 public struct MemoryEntry: Sendable, Equatable, Identifiable {
     public var id: String
-    /// Where it comes from, for the asker: machine and day, or deal and author.
     public var source: String
-    /// What is searched and shown to the model.
     public var text: String
-    /// The exact words a citation must quote from.
     public var quote: String
-    /// The consent kinds the entry's text came from.
     public var kinds: Set<SourceKind>
-    /// The text came from a source of unknown kind, as an old shared item did: a run that holds it falls to every
-    /// source delete.
     public var kindUnknown: Bool
 
     public init(
@@ -29,20 +22,14 @@ public struct MemoryEntry: Sendable, Equatable, Identifiable {
     }
 }
 
-/// Questions over the team's memory (research 24, step 10). Full-text search finds the entries; one model call
-/// answers from them alone. Code keeps an answer only when every citation names an entry it was given and quotes
-/// that entry's words exactly. An answer without a citation is never shown.
 public struct Asker: Sendable {
     public struct Answer: Sendable, Equatable {
-        /// Nil when the model found no answer it could cite.
         public var text: String?
         public var cited: [MemoryEntry]
-        /// How many entries the search gave the model.
         public var searched: Int
     }
 
     public enum Refusal: Error, Equatable {
-        /// A citation named an entry the model was not given, or quoted words that entry does not have.
         case badCitation(String)
     }
 
@@ -57,7 +44,6 @@ public struct Asker: Sendable {
     }
 
     public static let task = "memory.ask"
-    /// Entries the search gives one question at most.
     public static let limit = 30
 
     public static let instructions = """
@@ -80,7 +66,6 @@ public struct Asker: Sendable {
         self.model = model
     }
 
-    /// The entries that best match the question's words, by BM25 over a throwaway full-text index.
     public static func search(_ question: String, in entries: [MemoryEntry], limit: Int = limit) throws -> [MemoryEntry]
     {
         let words = question.lowercased().split(whereSeparator: { !$0.isLetter && !$0.isNumber }).map(String.init)

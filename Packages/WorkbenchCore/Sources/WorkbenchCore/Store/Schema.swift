@@ -1,18 +1,9 @@
 import Foundation
 import GRDB
 
-/// The schema of `workbench.sqlite` as an append-only list of steps. `user_version` counts the steps a store has run;
-/// opening a store runs the steps it lacks, in one transaction. A shipped step never changes (`SchemaTests` pins each
-/// one's digest), so a step is literal text: a new need is a new step after the last. A store from a newer Workbench
-/// is refused. The first step is the whole schema as of 2026-11-19; the steps that led to it, written while there was
-/// no data worth keeping, were folded into it.
 enum Schema {
     static var version: Int32 { Int32(steps.count) }
 
-    /// Reads the version and runs the missing steps in one write transaction, so a second process that opens the same
-    /// file waits, then finds the steps done. Foreign keys are off while the steps run, because a step may rebuild a
-    /// table that others reference (a drop with foreign keys on would cascade into them). They are checked before the
-    /// transaction commits and switched on again after it.
     static func open(_ writer: some DatabaseWriter) throws {
         try writer.writeWithoutTransaction { db in
             try db.execute(sql: "PRAGMA foreign_keys = OFF")
@@ -33,9 +24,6 @@ enum Schema {
 
     static let steps = [baseline, itemEvents, runText, summaries, itemActions, mail, typedItems, quoteMarks]
 
-    /// Items that open and close (research 32): a later line closes a commitment or answers a question. An event is
-    /// never rewritten; the latest one is the item's state. Valid time is when the closing line was said; record time
-    /// is when the app learned it.
     private static let itemEvents = [
         """
         CREATE TABLE item_event(
@@ -54,9 +42,6 @@ enum Schema {
         """,
     ]
 
-    /// Replayable runs: what each run was asked and answered, with the consent kinds its input holds. Also the
-    /// indexes that foreign-key and join columns lacked, and `item` rebuilt with AUTOINCREMENT by the 12-step
-    /// procedure of the SQLite ALTER TABLE document, "Making Other Kinds Of Table Schema Changes".
     private static let runText = [
         """
         CREATE TABLE run_text(
@@ -96,9 +81,6 @@ enum Schema {
         """,
     ]
 
-    /// Cited summaries of a day's items per scope (a person or a project), derived data kept so a page does not ask the
-    /// model again. The fingerprint is a hash of the scope's input; a changed scope no longer matches it. `kinds` are
-    /// the consent kinds the summary was built from, for a privacy delete.
     private static let summaries = [
         """
         CREATE TABLE summary(
@@ -110,9 +92,6 @@ enum Schema {
         """
     ]
 
-    /// Gmail threads the person opened inside the label they named (research 41). A part is one message of a thread, or
-    /// one page of a deck attached to a message (`name` is the file, `page` counts from 1; a message has no name and
-    /// page 0). A part is stored once per message id. `mail_open` counts each thread once per day it was opened.
     private static let mail = [
         """
         CREATE TABLE mail_part(
@@ -131,9 +110,6 @@ enum Schema {
         """,
     ]
 
-    /// Facts the person typed (the kind `typed`) have no model run: `item.run_id` may be null, and is null exactly for
-    /// that kind. `item` is rebuilt by the 12-step procedure, and the old deal actions move: they become `typed`, lose
-    /// their run, and the zero-cost runs that stood for them go.
     private static let typedItems = [
         "DROP VIEW item_mark",
         """
@@ -168,8 +144,6 @@ enum Schema {
         """,
     ]
 
-    /// The founder's second mark on a claim check: is its quote right. The first, is the verdict right, is the item's
-    /// own mark. Like a mark, each one is a new row and the latest stands.
     private static let quoteMarks = [
         """
         CREATE TABLE quote_mark(
@@ -180,7 +154,6 @@ enum Schema {
     ]
 
     private static let baseline = [
-        // Settings, consent, and every model call with its cost and yield.
         "CREATE TABLE state(key TEXT PRIMARY KEY, value TEXT NOT NULL, saved_at TEXT NOT NULL)",
         "CREATE TABLE consent(id INTEGER PRIMARY KEY, ts TEXT NOT NULL, policy TEXT NOT NULL)",
         """
@@ -199,8 +172,6 @@ enum Schema {
             hash TEXT PRIMARY KEY, task TEXT NOT NULL CHECK(task <> ''), instructions TEXT NOT NULL,
             schema TEXT NOT NULL, first_used TEXT NOT NULL)
         """,
-        // What capture keeps. `page` is a page's visible text from the browser extension; `text` is a window's
-        // Accessibility text.
         """
         CREATE TABLE activity(
             id INTEGER PRIMARY KEY, ts TEXT NOT NULL,
@@ -216,8 +187,6 @@ enum Schema {
             state TEXT NOT NULL CHECK(state IN ('recording','saved','failed')), error TEXT,
             CHECK((state = 'recording') = (ended_at IS NULL)), CHECK((state = 'failed') = (error IS NOT NULL)))
         """,
-        // What machines find, and the founder's marks; the latest mark is an item's state. `asked_with` is the chance
-        // the app picked an item to ask about; null for an item it did not pick.
         """
         CREATE TABLE item(
             id INTEGER PRIMARY KEY, task TEXT NOT NULL CHECK(task <> ''), run_id INTEGER NOT NULL REFERENCES run(id),
@@ -243,8 +212,6 @@ enum Schema {
         "CREATE INDEX item_day ON item(task, day, scope)",
         "CREATE INDEX item_run ON item(run_id)",
         "CREATE INDEX mark_item ON mark(item_id, id)",
-        // The team and its people, and machines as records a person owns: renamed, edited, paused or deleted by a
-        // new change row; the latest change is the machine's state.
         "CREATE TABLE team(id INTEGER PRIMARY KEY, name TEXT NOT NULL CHECK(name <> ''), created_at TEXT NOT NULL)",
         """
         CREATE TABLE member(
@@ -267,7 +234,6 @@ enum Schema {
             change.state FROM machine JOIN machine_change change ON change.id =
             (SELECT MAX(id) FROM machine_change WHERE machine_id = machine.id)
         """,
-        // Every decision on a machine's brief, never updated: a trial started, a switch, a rejection, a rollback.
         """
         CREATE TABLE machine_decision(
             id INTEGER PRIMARY KEY, task TEXT NOT NULL CHECK(task <> ''), at TEXT NOT NULL,
@@ -275,7 +241,6 @@ enum Schema {
             decided_by TEXT NOT NULL CHECK(decided_by IN ('person','proposer','alarm')),
             brief TEXT NOT NULL, parent_brief TEXT NOT NULL, detail TEXT NOT NULL CHECK(json_valid(detail)))
         """,
-        // Mochi's proposals and the founder's decisions on them; the latest decision is a proposal's state.
         """
         CREATE TABLE proposal(
             id INTEGER PRIMARY KEY, run_id INTEGER NOT NULL REFERENCES run(id), name TEXT NOT NULL CHECK(name <> ''),
@@ -294,9 +259,6 @@ enum Schema {
             'waiting') AS decision
         FROM proposal
         """,
-        // Who each teammate is in a source (their WhatsApp id), set by the founder; the latest link wins. Every act
-        // that leaves the founder's store, logged once. Every event on shared work objects, from every teammate: a
-        // union by event id, never updated.
         """
         CREATE TABLE member_handle(
             id INTEGER PRIMARY KEY, member_id INTEGER NOT NULL REFERENCES member(id),

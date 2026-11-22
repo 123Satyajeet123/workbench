@@ -4,7 +4,6 @@ import Testing
 
 @testable import WorkbenchCore
 
-/// Web research sends nothing unless the consent is on, a key exists and the month's cap is not reached.
 @Suite struct WebGateTests {
     private let hit = SearchHit(title: "t", url: URL(string: "https://news.example/a")!, snippet: "")
 

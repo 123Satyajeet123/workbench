@@ -4,7 +4,6 @@ import Testing
 
 @testable import WorkbenchCore
 
-/// A row the app could not write itself, planted with raw SQL: it passes the table's checks but not the Swift type.
 struct BadRowTests {
     private func plantItem(in store: Store, run: RunID, fields: String) throws {
         try store.writer.write { db in

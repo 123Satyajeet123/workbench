@@ -1,6 +1,5 @@
 import Foundation
 
-/// The search services Workbench can send a query to. The founder picks one and gives its key.
 public enum SearchProviderKind: String, Codable, CaseIterable, Sendable {
     case brave, exa
 
@@ -11,7 +10,6 @@ public enum SearchProviderKind: String, Codable, CaseIterable, Sendable {
         }
     }
 
-    /// The only host Workbench sends this provider's queries to.
     public var host: String {
         switch self {
         case .brave: "api.search.brave.com"
@@ -19,7 +17,6 @@ public enum SearchProviderKind: String, Codable, CaseIterable, Sendable {
         }
     }
 
-    /// The name of the key in the Keychain.
     public var keyName: String { "web-search-\(rawValue)" }
 }
 
@@ -35,7 +32,6 @@ public struct SearchHit: Sendable, Equatable {
     }
 }
 
-/// A page as fetched: its address and its text, as plain text.
 public struct FetchedPage: Sendable, Equatable {
     public var url: URL
     public var text: String
@@ -54,10 +50,8 @@ public protocol PageFetching: Sendable {
     func fetch(_ url: URL) async throws -> FetchedPage
 }
 
-/// The founder's choices for web research. The switch itself is the consent kind `web`.
 public struct WebSettings: Codable, Sendable, Equatable {
     public var provider: SearchProviderKind
-    /// The most queries sent in one calendar month.
     public var monthlyCap: Int
 
     public init(provider: SearchProviderKind = .brave, monthlyCap: Int = 100) {

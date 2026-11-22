@@ -3,7 +3,6 @@ import GRDB
 
 public typealias RunID = Int64
 
-/// One model call: what was asked of which model, what it cost and how it ended.
 public struct Run: Sendable, Equatable, Identifiable {
     public enum Outcome: String, Sendable, CaseIterable {
         case running, done, failed
@@ -12,7 +11,6 @@ public struct Run: Sendable, Equatable, Identifiable {
     public var id: RunID
     public var task: String
     public var model: String
-    /// A hash of the instructions and the schema: the prompt version.
     public var prompt: String
     public var inputBytes: Int
     public var startedAt: Date
@@ -20,28 +18,19 @@ public struct Run: Sendable, Equatable, Identifiable {
     public var outcome: Outcome
     public var error: String?
     public var usage: Usage
-    /// Entries the task kept and dropped from the answer. Nil until the task says.
     public var kept: Int?
     public var dropped: Int?
 }
 
-/// What a run was asked and what it answered, kept so the run can be replayed.
 public struct RunText: Sendable, Equatable {
     public var input: String
-    /// The reply as the model gave it. Nil while the run is open, and when it failed.
     public var reply: String?
-    /// The consent kinds the input holds: a delete of one of them removes this text.
     public var kinds: Set<SourceKind>
-    /// The input also holds text whose consent kind is not known: every source delete removes this text.
     public var holdsUnknown = false
 
-    /// How an unknown kind is written among the stored kinds.
     static let unknownKind = "unknown"
 }
 
-/// A model whose every call is a run in the store: the row and the input are written before the input leaves the Mac
-/// and finished with what came back. `holding` names the consent kinds the input holds, and `holdingUnknown` says
-/// that it also holds text of an unknown kind.
 public struct RecordedModel: Sendable {
     public let model: any StructuredModel
     let store: Store
@@ -109,7 +98,6 @@ extension Store {
         }
     }
 
-    /// How many entries the task kept from the run's answer, and how many failed its checks.
     public func recordYield(of run: RunID, kept: Int, dropped: Int) throws {
         try writer.write { db in try Self.recordYield(db, of: run, kept: kept, dropped: dropped) }
     }
@@ -118,7 +106,6 @@ extension Store {
         try db.execute(sql: "UPDATE run SET kept = ?, dropped = ? WHERE id = ?", arguments: [kept, dropped, run])
     }
 
-    /// A run still open when the app starts was cut off.
     public func closeInterruptedRuns() throws {
         try writer.write { db in
             try db.execute(
@@ -142,7 +129,6 @@ extension Queries {
         }
     }
 
-    /// What a run was asked and answered, to replay it. Nil once a privacy delete or the retention removed it.
     public func runText(of run: RunID) throws -> RunText? {
         try reader.read { db in
             try db.fetch(
@@ -184,9 +170,7 @@ extension RunText {
     }
 }
 
-/// The founder's judgement of one thing a model proposed. Marks give each task its precision.
 public enum Mark: String, Codable, CaseIterable, Sendable {
-    /// From the model, not yet seen by the founder.
     case proposed
     case confirmed, rejected
 }

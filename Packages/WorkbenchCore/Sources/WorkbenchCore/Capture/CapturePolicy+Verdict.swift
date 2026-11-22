@@ -1,7 +1,5 @@
 import Foundation
 
-/// What the policy says about one thing a sensor saw. `hide` drops that thing only and grants the bare markers
-/// (idle, skipped); `stop` drops all capture.
 public enum CaptureVerdict: Sendable, Equatable {
     case keep(CaptureGrant)
     case hide(CaptureGrant)
@@ -45,13 +43,11 @@ extension CapturePolicy {
             || url.pathComponents.contains { noiseFolders.contains($0) }
     }
 
-    /// The document's host is one of the domains or a subdomain of one. A trailing dot names the same host.
     public static func isSite(_ document: String, in domains: Set<String>) -> Bool {
         guard let host = host(of: document) else { return false }
         return domains.contains { host == $0 || host.hasSuffix("." + $0) }
     }
 
-    /// Address bars often drop the scheme ("example.com/path").
     public static func host(of document: String) -> String? {
         guard !document.isEmpty, !document.hasPrefix("file:") else { return nil }
         let withScheme = document.contains("://") ? document : "https://" + document

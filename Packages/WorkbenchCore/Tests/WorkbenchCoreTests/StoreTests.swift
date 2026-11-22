@@ -11,7 +11,6 @@ private func userVersion(in folder: URL) throws -> Int? {
     }
 }
 
-/// A store as the shipped app left it: the first `count` steps run, `user_version` set to `count`, some marks kept.
 private func storeMade(withSteps count: Int, in folder: URL) throws {
     try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
     let queue = try DatabaseQueue(path: folder.appending(path: "workbench.sqlite").path)
@@ -27,8 +26,6 @@ private func mode(_ url: URL) throws -> Int {
 }
 
 struct SchemaTests {
-    /// The digest of each shipped step. A shipped step never changes; a new step adds a line here. The first is the
-    /// whole schema as of 2026-11-19 (checked equal, table by table, to the chain of steps it replaced).
     private let shipped = [
         "00fdbbe73d6e0a0a4a4a3d12e117d15fcc162b0d35f7458d557a70b8cb937137",
         "3e5bb4786866f0e70a7ffe1c95d129e977c00e587edbd8cbe841fa97f06b9e03",
@@ -99,13 +96,11 @@ struct SchemaTests {
     }
 }
 
-/// Step 3 rebuilds `item` while other tables point at it.
 struct ItemRebuildTests {
     private let itemColumns = """
         task, run_id, day, scope, source, cite_first, cite_last, start_at, end_at, fields, quote, created_at
         """
 
-    /// A store at step 2 with a run, items 1 to 3, a mark and a close event on item 3, and a proposal citing item 3.
     private func storeAtStepTwo() throws -> URL {
         let folder = temporaryDirectory()
         try storeMade(withSteps: 2, in: folder)

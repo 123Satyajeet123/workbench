@@ -17,7 +17,6 @@ private func close(_ handle: String, _ outcome: String, cite: Int, quote: String
     #"{"handle":"\#(handle)","outcome":"\#(outcome)","cite":\#(cite),"quote":"\#(quote)"}"#
 }
 
-/// Day one opens a commitment and a question; day two may close them.
 private let dayOne = EvidenceSet(
     lines: [
         Evidence(

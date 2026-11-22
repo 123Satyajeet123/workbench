@@ -17,7 +17,6 @@ private let dayOne = EvidenceSet(
             id: 2, start: at(first, 610), line: "Raj: do we hire a designer?", quotable: ["do we hire a designer?"]),
     ], context: ["members": ["Asha", "Raj"]])
 
-/// Lines 1 to 20 were read before; 21 and 22 are new.
 private let dayTwo = EvidenceSet(
     lines: [
         Evidence(id: 20, start: at(second, 500), line: "Asha: pitch is on", quotable: ["pitch is on"]),
@@ -36,7 +35,6 @@ private func finding(
 private func reply(_ findings: String...) -> String { #"{"items":["# + findings.joined(separator: ",") + "]}" }
 
 @Suite struct DerailmentTests {
-    /// A store with Pip holding two open facts from day one, and a Sentinel spec that follows it.
     private func watch() async throws -> (store: Store, sentinel: HelperSpec) {
         let store = try makeStore()
         let pip = try store.createMachine(from: .team, name: "Pip")

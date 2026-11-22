@@ -1,7 +1,6 @@
 import Foundation
 import GRDB
 
-/// One recorded call: two audio files in its own folder under the store.
 public struct Recording: Sendable, Equatable, Identifiable {
     public enum State: String, Sendable, CaseIterable { case recording, saved, failed }
 
@@ -18,7 +17,6 @@ public struct Recording: Sendable, Equatable, Identifiable {
 extension Store {
     static let recordingsFolder = "recordings"
 
-    /// The only way to start a recording: a live grant for a call.
     public func startRecording(app: String, bundleID: String, grant: CaptureGrant) throws -> Recording {
         try check(grant, kind: .call)
         let now = clock()
@@ -46,7 +44,6 @@ extension Store {
         }
     }
 
-    /// A recording still open when the app starts was cut off: the app stopped during the call.
     public func closeInterruptedRecordings() throws {
         try writer.write { db in
             try db.execute(

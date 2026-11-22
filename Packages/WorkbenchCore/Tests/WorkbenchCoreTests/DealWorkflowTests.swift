@@ -85,8 +85,6 @@ import Testing
         #expect(try Coding.value(LinkedItem.self, from: json) == linked)
     }
 
-    // MARK: Action required
-
     private final class Ticking: @unchecked Sendable {
         let now = Mutex(t0)
         func advance(_ seconds: Double) { now.withLock { $0 = $0.addingTimeInterval(seconds) } }
@@ -180,8 +178,6 @@ import Testing
         #expect(plan.keys.map { $0 } == [.done(outcome: "done")])
     }
 
-    // MARK: Typed facts
-
     @discardableResult
     private func openAction(_ store: Store) throws -> Int64 {
         let deal = try deal(in: store, at: "Action required", since: t0)
@@ -247,8 +243,6 @@ import Testing
         #expect(throws: DatabaseError.self) { try insert(source: "typed", run: "1") }
         #expect(throws: DatabaseError.self) { try insert(source: "whatsapp", run: "NULL") }
     }
-
-    // MARK: Ribbon and timeline
 
     @Test func theRibbonAndTheTimelineCountTheFixture() throws {
         let day = WorkDay(containing: t0)

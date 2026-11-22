@@ -36,7 +36,6 @@ import Testing
         var numbered = current
         for (id, index) in ids { numbered[index].id = id }
         let winsFirst = Dictionary(uniqueKeysWithValues: (1...11).map { (Int64($0), Int64($0)) })
-        // Items 1–9 are the wins, 10–11 the losses; here the two losses were marked first.
         var lossesFirst: [Int64: Int64] = [10: 1, 11: 2]
         for id in Int64(1)...9 { lossesFirst[id] = id + 2 }
         let early = Trial(current: numbered, challenger: [], citation: .range, markOrder: winsFirst)

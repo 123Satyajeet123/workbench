@@ -1,7 +1,6 @@
 import Foundation
 import GRDB
 
-/// A summary as kept: with the fingerprint of the input it was written from, and the consent kinds of that input.
 struct StoredSummary: Sendable, Equatable {
     var fingerprint: String
     var kinds: Set<SourceKind>
@@ -9,8 +8,6 @@ struct StoredSummary: Sendable, Equatable {
 }
 
 extension Store {
-    /// Replaces the summaries of one day, machine and grouping field: the given ones are written, and any other scope
-    /// kept earlier is dropped, because the items it was built from are gone.
     func saveSummaries(_ stored: [StoredSummary], day: WorkDay, task: String, field: String) throws {
         try writer.write { db in
             let kept = stored.map(\.summary.scope)
@@ -33,7 +30,6 @@ extension Store {
         }
     }
 
-    /// Drops the summaries built from a kind of source, up to the day of the cutoff: coarse, and in the safe direction.
     func removeSummaries(_ db: Database, holding kinds: [SourceKind], before cutoff: Date) throws {
         let marks = Array(repeating: "?", count: kinds.count).joined(separator: ",")
         try db.execute(
@@ -51,13 +47,10 @@ extension Store {
 }
 
 extension Queries {
-    /// The summaries kept for one day, machine and grouping field, in order of name. A page reads these; it never
-    /// asks the model.
     public func summaries(day: WorkDay, task: String, field: String) throws -> [Summary] {
         try storedSummaries(day: day, task: task, field: field).values.map(\.summary).sorted { $0.scope < $1.scope }
     }
 
-    /// The summaries kept for one day, machine and grouping field, by scope.
     func storedSummaries(day: WorkDay, task: String, field: String) throws -> [String: StoredSummary] {
         try reader.read { db in
             let rows = try db.fetch(

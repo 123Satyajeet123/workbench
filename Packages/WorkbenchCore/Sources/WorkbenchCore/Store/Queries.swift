@@ -1,12 +1,10 @@
 import Foundation
 import GRDB
 
-/// Every read. A read takes one snapshot of the file, so a query of several statements sees one moment.
 public struct Queries: Sendable {
     let reader: any DatabaseReader
     let directory: URL
 
-    /// The latest consent. A store with none yet has the default policy.
     public func policy() throws -> CapturePolicy {
         let latest = try reader.read { db in
             try String.fetchOne(db, sql: "SELECT policy FROM consent ORDER BY id DESC LIMIT 1")
@@ -25,7 +23,6 @@ public struct Queries: Sendable {
         try activities(from: start, to: .distantFuture)
     }
 
-    /// Activity in `start..<end`, oldest first.
     public func activities(from start: Date, to end: Date) throws -> [Activity] {
         try reader.read { db in
             try db.fetch(

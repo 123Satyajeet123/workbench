@@ -1,13 +1,8 @@
 import Foundation
 
-/// Whether a helper has earned trust: from audit answers on held-out days, an exact binomial bound (Clopper-Pearson)
-/// on how often its items are wrong. "Earned" means the bound is at most `allowedWrong` with chance `confidence` —
-/// a finite-sample guarantee for an item picked the way audits pick, not an average that hides a bad streak.
 public struct Certificate: Sendable, Equatable {
     public enum Status: Sendable, Equatable {
-        /// At least this many more answers, all right, before the bound can reach the allowed rate.
         case needsMore(Int)
-        /// The bound is at or below the allowed rate.
         case earned(bound: Double)
     }
 
@@ -28,7 +23,6 @@ public struct Certificate: Sendable, Equatable {
         return .needsMore(max(1, Self.fewestAnswers(wrong: wrong) - answers))
     }
 
-    /// The largest wrong-rate p with P(at most `wrong` wrong in `answers` | p) ≥ 1 − confidence.
     public static func upperBound(wrong: Int, of answers: Int, confidence: Double = confidence) -> Double {
         guard answers > 0, wrong < answers else { return 1 }
         var (low, high) = (0.0, 1.0)
@@ -39,7 +33,6 @@ public struct Certificate: Sendable, Equatable {
         return high
     }
 
-    /// The fewest answers with `wrong` of them wrong that can still earn the certificate.
     public static func fewestAnswers(wrong: Int) -> Int {
         var answers = wrong + 1
         while upperBound(wrong: wrong, of: answers) > allowedWrong { answers += 1 }

@@ -6,7 +6,6 @@ import Testing
 
 private let today = WorkDay(containing: t0)
 
-/// Scope 1 is Asha (ids 1 and 2 on a fresh store), scope 2 is Raj (id 3): people sort by name.
 private let reply = #"""
     {"summaries":[
     {"scope":1,"short":{"text":"Asha shipped the OTA and waits on a key.","cites":[1,2]},"details":[
@@ -36,7 +35,6 @@ private struct Fixture {
         (try? store.writer.read { try Int.fetchOne($0, sql: "SELECT COUNT(*) FROM summary") }) ?? -1
     }
 
-    /// Adds one item of `person`, found in `source`.
     func plant(_ person: String, _ text: String, in source: SourceKind = .whatsapp, line: Int64) throws {
         let run = try store.beginRun(task: "probe", model: "m", prompt: "p", input: text, kinds: [source])
         let item = Item(

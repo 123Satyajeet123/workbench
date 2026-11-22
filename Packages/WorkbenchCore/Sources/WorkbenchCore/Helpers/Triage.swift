@@ -6,39 +6,30 @@ public enum Rating: String, Codable, Sendable, CaseIterable {
 
 public enum Verdict: String, Sendable {
     case pass, fail
-    /// The words gave no answer, or the model's quote was not in them. Never counted as a fail.
     case unknown
 }
 
-/// What one rule said about one deal, with the words it rests on.
 public struct RuleResult: Sendable, Equatable, Identifiable {
     public var rule: Rule
     public var verdict: Verdict
-    /// The number found, for a number rule.
     public var number: Double?
     public var quote: String?
-    /// The model's reason, for a want or avoid rule.
     public var reason: String?
-    /// False when no reading answered this rule yet, such as a rule added after the deal was read.
     public var isRead: Bool
 
     public var id: String { rule.id }
 }
 
-/// The call on one deal and the steps that led to it, so the investor can check each one.
 public struct Triage: Sendable, Equatable {
     public var rating: Rating
     public var results: [RuleResult]
-    /// The rules that decided the rating: the failed hard stops, or else the plus and minus that counted.
     public var decidedBy: [String]
-    /// Why the investor should look at this deal, in words; empty when the call can stand.
     public var review: [String]
 
     public var needsReview: Bool { !review.isEmpty }
 }
 
 extension Criteria {
-    /// The rule that combines the results, in words the investor reads in the editor. `combine` follows it exactly.
     public var table: [String] {
         [
             "1. A deal-breaker fails: cold.",
@@ -50,7 +41,6 @@ extension Criteria {
         ]
     }
 
-    /// The overall call, from rule results only. The model judged each rule; this decides nothing else.
     public func combine(_ results: [RuleResult]) -> Triage {
         let failedBreakers = results.filter { $0.rule.role == .dealBreaker && $0.verdict == .fail }
         let failedMusts = results.filter { $0.rule.role == .must && $0.verdict == .fail }

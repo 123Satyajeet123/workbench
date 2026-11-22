@@ -1,9 +1,6 @@
 import Foundation
 import Testing
 
-/// Runs the extension's Gmail reading and deck code in a headless Chromium against a saved fixture. The fixture was
-/// written to match the Gmail structure in `Extension/mail/selectors.js`; it is UNVERIFIED against a live Gmail tab.
-/// The run uses a throwaway browser profile and opens no network page.
 @Suite(.enabled(if: Chromium.binary != nil, "needs a Chromium: a Playwright headless shell, Chrome or Brave"))
 struct ExtensionReaderTests {
     private func run(fixture: String) throws -> [String: Any] {
@@ -89,7 +86,6 @@ struct ExtensionReaderTests {
     }
 }
 
-/// A Chromium found on this Mac, driven only to print a page's DOM.
 enum Chromium {
     static let binary: URL? = {
         let home = FileManager.default.homeDirectoryForCurrentUser
@@ -104,7 +100,6 @@ enum Chromium {
         return (shells + apps).first { FileManager.default.isExecutableFile(atPath: $0.path) }
     }()
 
-    /// The page's DOM after its scripts ran, from a browser with a throwaway profile.
     static func dump(_ page: URL, profile: URL) throws -> String {
         let process = Process()
         process.executableURL = binary

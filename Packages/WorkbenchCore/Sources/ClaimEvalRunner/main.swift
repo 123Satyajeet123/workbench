@@ -2,8 +2,6 @@ import CryptoKit
 import Foundation
 import WorkbenchCore
 
-// Offline claim eval over the dev set. Usage: claim-eval <dev folder holding claims.json and cache/>.
-// No network, no model. Every number is dev, never held-out.
 guard CommandLine.arguments.count == 2 else {
     print("usage: claim-eval <dev folder>")
     exit(2)
@@ -11,7 +9,6 @@ guard CommandLine.arguments.count == 2 else {
 let folder = URL(filePath: CommandLine.arguments[1])
 let claims = try JSONDecoder().decode([DevClaim].self, from: Data(contentsOf: folder.appending(path: "claims.json")))
 
-/// The cached page of the truth source when the fixture holds it, else the truth quote alone.
 func pageText(_ claim: DevClaim) -> (text: String, whole: Bool) {
     let name = Insecure.SHA1.hash(data: Data(claim.truthSourceUrl.utf8)).map { String(format: "%02x", $0) }.joined()
     guard let data = try? Data(contentsOf: folder.appending(path: "cache/\(name).txt")),

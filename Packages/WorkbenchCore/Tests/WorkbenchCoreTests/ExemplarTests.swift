@@ -16,7 +16,6 @@ import Testing
         return item
     }
 
-    /// The day being read is the newest training day, so only the rule, not age, can keep its item out.
     private var marked: [Item] {
         [
             item("same day", .confirmed, on: devDays[0]), item("right new", .confirmed, on: devDays[1]),

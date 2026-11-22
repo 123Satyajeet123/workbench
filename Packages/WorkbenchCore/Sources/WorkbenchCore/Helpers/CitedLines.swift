@@ -1,6 +1,5 @@
 import Foundation
 
-/// One item and the machine that found it, as a model reads it.
 public struct CitedSource: Sendable {
     public var machine: String
     public var fields: [String]
@@ -12,8 +11,6 @@ public struct CitedSource: Sendable {
         self.item = item
     }
 
-    /// The item as one input line: `[id] machine · field=value … — "quote" — mark`, and how it closed when it did.
-    /// Nil for an item with no id, which nothing could cite.
     var line: String? {
         guard let id = item.id else { return nil }
         let values = fields.map { "\($0)=\(item[$0])" }.filter { !$0.hasSuffix("=") }
@@ -28,7 +25,6 @@ public struct CitedSource: Sendable {
     }
 }
 
-/// The one guard on every line a model writes over items: it must cite, and only items it was given.
 enum Cites {
     static func hold(_ cites: [Int64], within given: Set<Int64>) -> Bool {
         !cites.isEmpty && Set(cites).isSubset(of: given)

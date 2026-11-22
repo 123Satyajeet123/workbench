@@ -1,30 +1,23 @@
 import Foundation
 import GRDB
 
-/// Who may receive what a machine read: the disclosure rule from YC's qm (MIT, `src/memory/disclosure.ts`), ported.
-/// A share goes to the team only when every recipient can already read its source. An unknown audience refuses all.
 public enum Audience {
-    /// The recipients who cannot read the source. `readers` is nil when the source's audience is unknown.
     public static func missing(recipients: [Team.Person], readers: Set<Int64>?) -> [Team.Person] {
         guard let readers else { return recipients }
         return recipients.filter { $0.id.map(readers.contains) != true }
     }
 
-    /// Teammates who can read a WhatsApp group: linked to a WhatsApp id that is a member of the group now.
     public static func readers(links: [Int64: String], group: Set<String>) -> Set<Int64> {
         Set(links.filter { group.contains($0.value) }.keys)
     }
 }
 
-/// One machine's items of one day, shared with the people who could already read their source. It carries each item's
-/// fields, quote and its author's mark; never the source's other lines.
 public struct SharedDay: TeamFile, Equatable, Identifiable {
     public struct Entry: Codable, Sendable, Equatable {
         public var fields: [String: String]
         public var quote: String
         public var start: Date
         public var end: Date
-        /// The author's mark: confirmed, or proposed (not yet reviewed). Rejected items are never shared.
         public var state: Mark
     }
 
@@ -34,9 +27,7 @@ public struct SharedDay: TeamFile, Equatable, Identifiable {
     public var machine: String
     public var task: String
     public var day: String
-    /// Field names in the order the machine's spec lists them.
     public var columns: [String]
-    /// Everyone the author shared with, by name, the author first.
     public var audience: [String]
     public var sharedAt: Date
     public var entries: [Entry]
@@ -60,11 +51,9 @@ public struct SharedDay: TeamFile, Equatable, Identifiable {
     public var owner: String { author }
     public var fileParts: [String] { [task, day] }
 
-    /// The receiving Mac checks again: a day shows only to a person in its audience.
     public func isVisible(to person: String) -> Bool { audience.contains(person) }
 }
 
-/// An act that left the founder's store, as logged.
 public struct Action: Sendable, Equatable {
     public var at: Date
     public var kind: String
@@ -73,7 +62,6 @@ public struct Action: Sendable, Equatable {
 }
 
 extension Store {
-    /// The founder says who a teammate is in WhatsApp. The latest link wins.
     public func link(_ person: Team.Person, whatsapp jid: String) throws {
         guard let id = person.id, let jid = jid.cleaned else { return }
         try writer.write { db in
@@ -94,7 +82,6 @@ extension Store {
 }
 
 extension Queries {
-    /// Each teammate's latest WhatsApp id, by member id.
     public func whatsappLinks() throws -> [Int64: String] {
         let links = try reader.read { db in
             try db.fetch(
@@ -108,7 +95,6 @@ extension Queries {
         return Dictionary(links.map { ($0.member, $0.handle) }, uniquingKeysWith: { a, _ in a })
     }
 
-    /// Every logged act, oldest first.
     public func actions() throws -> [Action] {
         try reader.read { db in
             try db.fetch("action", "SELECT id, at, kind, target, detail FROM action ORDER BY id") { row in

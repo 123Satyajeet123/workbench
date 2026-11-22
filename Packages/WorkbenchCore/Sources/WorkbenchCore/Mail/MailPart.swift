@@ -1,20 +1,15 @@
 import Foundation
 
-/// One piece of a Gmail thread the person opened: a message, or one page of a deck attached to a message. Every
-/// part is kept once per message, and only for a label the person named.
 public struct MailPart: Equatable, Sendable {
     public enum Kind: String, Sendable {
         case message, deck
     }
 
-    /// Set when read from the store.
     public var id: Int64?
     public var threadID: String
     public var messageID: String
     public var kind: Kind
-    /// The attached file of a deck page; empty for a message.
     public var name: String
-    /// Counts from 1 for a deck page; 0 for a message.
     public var page: Int
     public var label: String
     public var sender: String
@@ -42,7 +37,6 @@ public struct MailPart: Equatable, Sendable {
     }
 }
 
-/// Parts the policy allowed to keep, with the thread they belong to. Only this module can make one.
 public struct MailBatch: Sendable, Equatable {
     public let parts: [MailPart]
     public let threadID: String

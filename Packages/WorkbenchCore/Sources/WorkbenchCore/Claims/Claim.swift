@@ -1,7 +1,5 @@
 import Foundation
 
-/// What a claim in a deck is about. It decides which source can settle it: a market size needs the named report, a
-/// funding claim a dated news report, a customer claim the customer's own page.
 public enum ClaimType: String, Codable, CaseIterable, Sendable {
     case marketSize = "market_size"
     case revenueOrTraction = "revenue_or_traction"
@@ -11,19 +9,13 @@ public enum ClaimType: String, Codable, CaseIterable, Sendable {
     case other
 }
 
-/// One thing a deck says that can be checked: its words, its type, the value it states, and where in the deck it said
-/// so. The founder chooses which claims to check.
 public struct Claim: Sendable, Equatable, Identifiable {
-    /// Set when read from the store.
     public var id: Int64?
     public var deal: String
     public var text: String
     public var type: ClaimType
-    /// The number, name or date the claim states, such as "$11 million".
     public var value: String
-    /// Words copied from the deck line the claim came from.
     public var quote: String
-    /// The mail part the quote is in.
     public var line: Int64
 
     public init(
@@ -42,13 +34,11 @@ public struct Claim: Sendable, Equatable, Identifiable {
     static let dealField = "deal"
 }
 
-/// What a check found. "Not found" is no evidence either way: it is never "contradicted".
 public enum ClaimVerdict: String, Codable, CaseIterable, Sendable {
     case supported, contradicted
     case notFound = "not_found"
     case unclear
 
-    /// The verdicts that must rest on a quote from a fetched page.
     var needsQuote: Bool { self == .supported || self == .contradicted }
 
     public var title: String {
@@ -61,21 +51,16 @@ public enum ClaimVerdict: String, Codable, CaseIterable, Sendable {
     }
 }
 
-/// The result of checking one claim, as kept.
 public struct ClaimCheck: Sendable, Equatable, Identifiable {
-    /// Set when read from the store.
     public var id: Int64?
     public var claim: Int64
     public var deal: String
     public var claimText: String
     public var verdict: ClaimVerdict
-    /// Words found verbatim in the page at `url`; empty when the verdict rests on none.
     public var quote: String
     public var url: String
     public var checkedAt: Date
-    /// The founder's mark: is the verdict right.
     public var verdictMark: Mark = .proposed
-    /// The founder's mark: is the quote right.
     public var quoteMark: Mark = .proposed
 
     public init(

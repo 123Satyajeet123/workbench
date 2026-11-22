@@ -1,9 +1,6 @@
 import Foundation
 
-/// The day's summaries of one machine's items, one per value of a field (a person or a project). Kept in the store and
-/// written again only for a scope whose items changed: a new reading, a mark or a close.
 public struct Summaries: Sendable {
-    /// A scope with what a kept summary of it must match to stay current.
     private struct Group {
         var scope: SummaryScope
         var fingerprint: String
@@ -24,9 +21,6 @@ public struct Summaries: Sendable {
         summarizer = Summarizer(model: model)
     }
 
-    /// The summaries of `day`, one per value of `field` among the items of machine `task`, in order of name: the kept
-    /// ones, and one model call for all the scopes that have none or changed. Items marked wrong are left out; an item
-    /// with no value in `field` belongs to no scope.
     public func summaries(for day: WorkDay, groupedBy field: String, of task: String) async throws -> [Summary] {
         guard let machine = try store.queries.machines().first(where: { $0.task == task }) else { return [] }
         let groups = try groups(of: machine, on: day, by: field)
@@ -42,7 +36,6 @@ public struct Summaries: Sendable {
         return current.map(\.summary)
     }
 
-    /// Whether `summaries` would ask the model: some scope of `day` has no kept summary, or its items changed since.
     public func isMissing(for day: WorkDay, groupedBy field: String, of task: String) throws -> Bool {
         guard let machine = try store.queries.machines().first(where: { $0.task == task }) else { return false }
         let kept = try store.queries.storedSummaries(day: day, task: task, field: field)
@@ -53,7 +46,6 @@ public struct Summaries: Sendable {
         groups.filter { kept[$0.name]?.fingerprint != $0.fingerprint }
     }
 
-    /// Brings the day's summaries up to date after a reading, for the next time a page asks.
     public func refresh(for day: WorkDay, groupedBy field: String, of task: String) async throws {
         _ = try await summaries(for: day, groupedBy: field, of: task)
     }
@@ -76,18 +68,14 @@ public struct Summaries: Sendable {
 }
 
 extension HelperSpec {
-    /// The first field that names a member (a person).
     public var memberField: String? {
         fields.first { if case .member = $0.kind { true } else { false } }?.name
     }
 
-    /// The first field that names a label (a project).
     public var labelField: String? {
         fields.first { if case .label = $0.kind { true } else { false } }?.name
     }
 
-    /// The fields a day's summaries group by: every field that names a member or a label (a person, a project), in the
-    /// spec's order. None when the machine has neither.
     public var summaryFields: [String] {
         fields.compactMap { field in
             switch field.kind {

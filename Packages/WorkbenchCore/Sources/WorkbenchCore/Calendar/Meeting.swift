@@ -1,11 +1,9 @@
 import Foundation
 
-/// One calendar event of the day, with only what Today needs. The notes are never kept, only their length.
 public struct Meeting: Sendable, Equatable, Identifiable {
     public struct Attendee: Sendable, Equatable {
         public var name: String
         public var email: String
-        /// The person who owns this Mac's calendar.
         public var isMe: Bool
 
         public init(name: String, email: String, isMe: Bool = false) {
@@ -36,11 +34,9 @@ public struct Meeting: Sendable, Equatable, Identifiable {
         self.notesLength = notesLength
     }
 
-    /// The attendees other than the owner of the calendar.
     public var guests: [Attendee] { attendees.filter { !$0.isMe } }
 }
 
-/// A calendar the person may choose to read.
 public struct CalendarInfo: Sendable, Equatable, Identifiable {
     public var id: String
     public var title: String

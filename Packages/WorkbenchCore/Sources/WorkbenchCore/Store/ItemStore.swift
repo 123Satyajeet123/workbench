@@ -2,15 +2,8 @@ import Foundation
 import GRDB
 
 extension Store {
-    /// How long a finding of facts counts as told: a repeat of the same choices and facts inside this many days is not
-    /// added.
     static let toldBeforeDays = 14
 
-    /// Stores one reading of a day by one helper. A whole reading replaces the items the founder has not marked; a
-    /// reading of only new lines (`replacing: false`) keeps them. A marked item stays, and a new item that repeats it
-    /// is not added; so is a finding of facts that was told before (`toldBeforeDays`). Of the new items, the app picks one at random to ask the founder
-    /// about, and keeps the chance it had. The grant is asked after the model ran, so consent withdrawn meanwhile
-    /// stops the write.
     public func saveReading(
         _ result: HelperReader.Result, of spec: HelperSpec, day: WorkDay, scope: String, grant: CaptureGrant,
         replacing: Bool = true, pick: (Int) -> Int = { Int.random(in: 0..<$0) }
@@ -60,8 +53,6 @@ extension Store {
         }
     }
 
-    /// The founder closes an open item by hand, or reopens a closed one: a new event, so the model's close and its
-    /// reversal both stay on record.
     public func close(item id: Int64, as outcome: String) throws {
         try writer.write { db in try addEvent(db, item: id, kind: "close", outcome: outcome, at: clock(), by: nil) }
     }
@@ -85,8 +76,6 @@ extension Store {
             ])
     }
 
-    /// Marks are history: each one is a new row, and the latest is the item's state. Taking a mark back is a mark. A
-    /// mark on an item the app picked is an audit mark, with the chance the item had.
     public func mark(item id: Int64, as mark: Mark) throws {
         try writer.write { db in try addMark(db, item: id, mark) }
     }
@@ -106,15 +95,11 @@ extension Queries {
         id, task, day, scope, source, cite_first, cite_last, start_at, end_at, fields, quote, state, run_id, asked_with,
         status_kind, status_outcome, status_quote, status_at, hiding_kind, hiding_until
         """
-    /// Items with their mark, their latest close or reopen, and their latest hide, snooze or unhide.
     static let itemRows = """
         item_mark LEFT JOIN item_status ON item_status.item_id = item_mark.id
             LEFT JOIN item_hiding ON item_hiding.item_id = item_mark.id
         """
 
-    /// The items of a machine still open: of a value its lifecycle keeps open, not rejected, and not closed since.
-    /// The newest `limit`, oldest first. With `day`, the items as they stood on that day: opened by the day's end and
-    /// not closed, by the time of the closing line, before the day started.
     public func openItems(
         of task: String, lifecycle: HelperSpec.Lifecycle, asOf day: WorkDay? = nil, limit: Int = 300
     ) throws -> [Item] {
@@ -145,8 +130,6 @@ extension Queries {
         }
     }
 
-    /// The open items a machine's reader sees: its own, or, when it has no lifecycle, those of the machine it
-    /// follows and the actions deals wait for; as of `day` when given. None when it follows no machine that exists.
     public func openItems(readBy spec: HelperSpec, asOf day: WorkDay? = nil) throws -> [Item] {
         if let lifecycle = spec.lifecycle { return try openItems(of: spec.task, lifecycle: lifecycle, asOf: day) }
         guard let follows = spec.follows,
@@ -155,7 +138,6 @@ extension Queries {
         return try openItems(of: follows, lifecycle: lifecycle, asOf: day) + openDealActions(asOf: day)
     }
 
-    /// A machine's items closed between two times, by the time of the closing line, oldest first.
     public func closedItems(of task: String, from: Date, to: Date) throws -> [Item] {
         try reader.read { db in
             try db.fetch(
@@ -167,12 +149,10 @@ extension Queries {
         }
     }
 
-    /// One helper's items on one day, in time order.
     public func items(of task: String, day: WorkDay, scope: String) throws -> [Item] {
         try reader.read { db in try Self.items(db, of: task, day: day, scope: scope) }
     }
 
-    /// The same read inside a transaction already open on `db`.
     static func items(_ db: Database, of task: String, day: WorkDay, scope: String) throws -> [Item] {
         try db.fetch(
             "item",
@@ -180,7 +160,6 @@ extension Queries {
             [task, day.description, scope], as: Item.init(row:))
     }
 
-    /// One machine's items on one day, in every chat scope, in time order.
     public func items(of task: String, on day: WorkDay) throws -> [Item] {
         try reader.read { db in
             try db.fetch(
@@ -190,7 +169,6 @@ extension Queries {
         }
     }
 
-    /// One machine's items since `day`, oldest first, in every scope.
     public func items(of task: String, since day: WorkDay) throws -> [Item] {
         try reader.read { db in try Self.items(db, of: task, since: day) }
     }
@@ -202,7 +180,6 @@ extension Queries {
             [task, day.description], as: Item.init(row:))
     }
 
-    /// Every machine's items still waiting for a mark since `day`: the app's random picks first, then the newest days.
     public func waitingItems(since day: WorkDay) throws -> [Item] {
         try reader.read { db in
             try db.fetch(

@@ -1,10 +1,8 @@
 import Foundation
 
-/// What a reader asks before it reads. `label` is a chat, a sender or a domain.
 public struct CaptureRequest: Sendable {
     public var kind: SourceKind
     public var label: String?
-    /// A live recording of a call, as opposed to reading text that already exists.
     public var liveSession: Bool
 
     public init(kind: SourceKind, label: String? = nil, liveSession: Bool = false) {
@@ -14,7 +12,6 @@ public struct CaptureRequest: Sendable {
     }
 }
 
-/// Permission to read once. Only `CapturePolicy` can make one, so a reader cannot skip the check.
 public struct CaptureGrant: Sendable, Equatable {
     public let kind: SourceKind
     public let label: String?
@@ -31,7 +28,6 @@ public enum DenyReason: Sendable, Equatable {
     case captureOff, paused, privateMode, sourceSwitchedOff, labelDenied, labelNotAllowed
 }
 
-/// A live recording while private mode is on. The founder must say yes; only then does a grant exist.
 public struct PendingConfirmation: Sendable {
     public let why: String
     let kind: SourceKind
@@ -51,7 +47,6 @@ public enum CaptureDecision: Sendable {
     public var grant: CaptureGrant? { if case .allow(let grant) = self { grant } else { nil } }
 }
 
-/// The one capture setting. The settings screen, the menu bar and every reader read this value.
 public struct CapturePolicy: Codable, Sendable, Equatable {
     public enum Mode: Codable, Sendable, Equatable {
         case on
@@ -63,10 +58,8 @@ public struct CapturePolicy: Codable, Sendable, Equatable {
     public static let grantLifetime: TimeInterval = 300
 
     public var mode: Mode
-    /// A missing entry means off.
     public var switches: [SourceKind: Bool]
     public var denyList: [SourceKind: Set<String>]
-    /// The labels a source may read. Nil means every label, except for a source that needs a list.
     public var allowList: [SourceKind: Set<String>]
 
     public init(
@@ -79,7 +72,6 @@ public struct CapturePolicy: Codable, Sendable, Equatable {
         self.allowList = allowList
     }
 
-    /// Sources that read other people's words read only the labels listed: one chat or one mail label, never all of them.
     public static let needsAllowList: Set<SourceKind> = [.whatsapp, .mail]
 
     public func isEnabled(_ kind: SourceKind) -> Bool { switches[kind] ?? false }
@@ -122,7 +114,6 @@ public enum CaptureStatus: Sendable, Equatable {
 }
 
 extension CapturePolicy {
-    /// What the menu bar shows: whether the clock, the switches and the Mac's permission let capture run now.
     public func status(accessibilityGranted: Bool, at now: Date) -> CaptureStatus {
         switch mode {
         case .off: return .off
@@ -135,7 +126,6 @@ extension CapturePolicy {
     }
 }
 
-/// A reader's `init` takes one of these, with no default. The store keeps the policy as the latest consent event.
 public protocol CapturePolicyProvider: Sendable {
     func currentPolicy() async throws -> CapturePolicy
 }

@@ -1,20 +1,13 @@
 import Foundation
 
-/// Turns what the sensors see into the activity worth keeping. Pure: the policy decides every item.
 public struct CaptureEngine: Sendable {
     public enum FileChange: String, Sendable { case create, modify, rename }
     public enum SystemEvent: Sendable { case sleep, wake }
 
     public var idleAfter: TimeInterval
-    /// While the place stays the same, its text is kept again only when it changed and this much time passed.
     public var textInterval: TimeInterval
-    /// One row per file per this many seconds.
     public var fileWindow: TimeInterval
-    /// At most this many file rows per window. A person edits a few files a minute; a clone, an unzip or a build
-    /// writes thousands, and none of those is the person's work. 60 is a placeholder until real days measure it.
     public var filesPerWindow = 60
-    /// While the place stays the same, a changed title is kept again after this much time. A terminal or editor shows
-    /// its current task in the title.
     public var titleInterval: TimeInterval
 
     private var lastPlace: String?
@@ -37,14 +30,11 @@ public struct CaptureEngine: Sendable {
         self.titleInterval = titleInterval
     }
 
-    /// The text walk costs the watched app work, so it runs only for a window the policy keeps, on a new place or once
-    /// per interval.
     public func wantsText(for snapshot: ScreenSnapshot, policy: CapturePolicy, at now: Date) -> Bool {
         guard policy.isEnabled(.screenText), case .keep = policy.verdict(for: snapshot, at: now) else { return false }
         return snapshot.place != lastPlace || now.timeIntervalSince(lastTextAt) >= textInterval
     }
 
-    /// Nil when capture is off, paused, private or the screen source is switched off: then nothing is kept at all.
     public mutating func observe(
         _ snapshot: ScreenSnapshot, idleSeconds: TimeInterval, policy: CapturePolicy, at now: Date
     ) -> ActivityBatch? {
@@ -112,7 +102,6 @@ public struct CaptureEngine: Sendable {
             grant: grant)
     }
 
-    /// Sleep and wake bound a gap in the record. After either, the next window is written again.
     public mutating func system(_ event: SystemEvent, policy: CapturePolicy, at now: Date) -> ActivityBatch? {
         resetScreen()
         guard let grant = policy.authorize(CaptureRequest(kind: .screen), at: now).grant else { return nil }
@@ -128,12 +117,10 @@ public struct CaptureEngine: Sendable {
         idle = false
     }
 
-    /// The letters and digits of a title: a spinner or a counter glyph in front of the same words is the same title.
     static func titleLetters(_ title: String) -> String {
         String(String.UnicodeScalarView(title.lowercased().unicodeScalars.filter(CharacterSet.alphanumerics.contains)))
     }
 
-    /// The address without its query and fragment, which carry tokens and magic links. Nil when the app has none.
     static func address(_ document: String) -> String? {
         let kept = String(document.prefix { $0 != "?" && $0 != "#" })
         return kept.isEmpty ? nil : kept

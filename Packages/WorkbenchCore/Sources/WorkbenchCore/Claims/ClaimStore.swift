@@ -1,12 +1,9 @@
 import Foundation
 import GRDB
 
-/// Claims and their checks are items, so marks, privacy deletes and the retention treat them like every other fact: a
-/// claim is read from the deck (source `mail`), a check rests on web pages (source `web`).
 extension Store {
     static let checkTask = "vc.claim-checks"
 
-    /// Keeps the claims a model read from a deck. The grant is the mail consent the reading needed.
     @discardableResult
     public func saveClaims(_ claims: [Claim], run: RunID, grant: CaptureGrant) throws -> [Int64] {
         try check(grant, kind: .mail)
@@ -23,7 +20,6 @@ extension Store {
         }
     }
 
-    /// Keeps one check. The session proves the web consent was on when the pages were fetched.
     @discardableResult
     public func saveCheck(_ result: ClaimCheck, claimQuote: String, run: RunID, session: WebSession) throws -> Int64 {
         try check(session.grant, kind: .web)
@@ -55,12 +51,10 @@ extension Store {
         return db.lastInsertedRowID
     }
 
-    /// The claims of a deal the founder chose to check. Choosing again replaces the choice.
     public func choose(claims ids: [Int64], deal: String) throws {
         try saveState(try Coding.json(ids), forKey: Self.chosenKey(deal))
     }
 
-    /// The second mark of a check: is its quote right.
     public func markQuote(of item: Int64, as mark: Mark) throws {
         try writer.write { db in
             try db.execute(
@@ -95,7 +89,6 @@ extension Queries {
         try state(forKey: Store.chosenKey(deal)).flatMap { try? Coding.value([Int64].self, from: $0) } ?? []
     }
 
-    /// The latest check of each claim of a deal, oldest claim first.
     public func claimChecks(of deal: String) throws -> [ClaimCheck] {
         let all = try reader.read { db in
             try db.fetch(

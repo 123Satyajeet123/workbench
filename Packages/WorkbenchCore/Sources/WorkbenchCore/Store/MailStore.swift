@@ -2,9 +2,6 @@ import Foundation
 import GRDB
 
 extension Store {
-    /// Keeps the parts of a batch that are new: a part whose message id (and file and page) is stored already is left
-    /// out, so opening a thread twice adds nothing. The thread counts as opened on today's work day. Returns how many
-    /// parts were new.
     @discardableResult
     public func record(_ batch: MailBatch) throws -> Int {
         try check(batch.grant, kind: .mail, label: batch.label)
@@ -32,7 +29,6 @@ extension Store {
 }
 
 extension Queries {
-    /// Parts first seen in `start..<end`, oldest first.
     public func mailParts(from start: Date, to end: Date) throws -> [MailPart] {
         try reader.read { db in
             try db.fetch(
@@ -44,7 +40,6 @@ extension Queries {
         }
     }
 
-    /// The stored message with this id, not a deck page.
     public func mailMessage(id messageID: String) throws -> MailPart? {
         try reader.read { db in
             try db.fetch(
@@ -57,8 +52,6 @@ extension Queries {
         }
     }
 
-    /// Every stored part of the thread a mail item cites, in order: the messages and the deck pages the model read. Empty
-    /// when the item is not a mail item or its part was deleted.
     public func threadParts(ofItem id: Int64) throws -> [MailPart] {
         try reader.read { db in
             try db.fetch(
@@ -72,7 +65,6 @@ extension Queries {
         }
     }
 
-    /// The names of the decks stored for a message.
     public func deckNames(ofMessage messageID: String) throws -> Set<String> {
         try reader.read { db in
             Set(
@@ -82,8 +74,6 @@ extension Queries {
         }
     }
 
-    /// How many threads of `label` were opened on each work day. Only threads opened in the browser are counted; the
-    /// threads in the label that were never opened cannot be known from the page.
     public func mailThreadsOpened(inLabel label: String) throws -> [WorkDay: Int] {
         try reader.read { db in
             let rows = try Row.fetchAll(

@@ -1,11 +1,8 @@
 import Foundation
 
-/// A work day. Night updates sent after midnight still belong to the day before, so a day runs from 05:00 local
-/// time to 05:00 the next day.
 public struct WorkDay: Sendable, Hashable, Comparable, CustomStringConvertible {
     public static let startHour = 5
 
-    /// yyyy-MM-dd
     public let description: String
     public let start: Date
     public let end: Date

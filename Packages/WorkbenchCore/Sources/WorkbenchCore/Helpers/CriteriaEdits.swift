@@ -13,8 +13,6 @@ extension Criteria {
         return next
     }
 
-    /// The criteria with one rule edited. When the edit changes what the model judges, the rule gets a new id, so the
-    /// readings made for the old words are never taken as answers to the new ones.
     public func replacing(_ id: String, with edited: Rule) -> Criteria {
         guard let old = rule(id) else { return self }
         var rule = edited
@@ -24,7 +22,6 @@ extension Criteria {
         return next
     }
 
-    /// What the founder must fix before the criteria can be saved, in plain words; nil when they are sound.
     public var problem: String? {
         for rule in rules {
             switch rule.test {

@@ -1,14 +1,11 @@
 import Foundation
 
-/// How rules reach the model and come back: one group of fields per rule in the reply, named by the rule id, kept in
-/// the item's fields, and read again by code into rule results.
 extension Rule {
     public var quoteKey: String { id + "_quote" }
     public var reasonKey: String { id + "_reason" }
 
     static let yes = "yes", no = "no", unclear = "unclear"
 
-    /// The reply fields for this rule. Every property is required, so an answer with no words gives an empty string.
     var properties: [JSONSchema.Property] {
         switch test {
         case .number: [.init(id, .string), .init(quoteKey, .string)]
@@ -20,7 +17,6 @@ extension Rule {
         }
     }
 
-    /// What the model is told to give for this rule. It never sees a limit, a role or a want against an avoid.
     var instruction: String {
         let quote = "exact words from the page text that show it, copied character for character, or empty"
         switch test {
@@ -40,7 +36,6 @@ extension Rule {
 }
 
 extension Criteria {
-    /// The prompt block for the rules; empty when there are none.
     var instructions: String {
         guard !rules.isEmpty else { return "" }
         return """
@@ -55,9 +50,6 @@ extension Criteria {
 
     var properties: [JSONSchema.Property] { rules.flatMap(\.properties) }
 
-    /// The fields to keep for one item of a reply. A rule whose answer is not a number, or whose quote is not in the
-    /// page text, is kept as unknown with no quote: its result is never a guess. A rule the reply does not mention
-    /// keeps nothing, so it reads as not yet read.
     func readings(_ raw: [String: JSONValue], evidence: EvidenceSet) -> [String: String] {
         var kept: [String: String] = [:]
         for rule in rules where raw[rule.id] != nil {
@@ -79,19 +71,16 @@ extension Criteria {
         return kept
     }
 
-    /// The fields of a reading that found nothing to judge: every rule read, none answered.
     var unanswered: [String: String] {
         readings(
             Dictionary(uniqueKeysWithValues: rules.map { ($0.id, JSONValue.string("")) }),
             evidence: EvidenceSet(lines: []))
     }
 
-    /// A number as models write it: digits with a point, possibly with thousands commas. Nothing else counts.
     static func number(_ text: String) -> Double? {
         Double(text.replacingOccurrences(of: ",", with: "").trimmingCharacters(in: .whitespaces))
     }
 
-    /// What each rule says about an item's kept fields, in the order of the rules.
     public func results(from fields: [String: String]) -> [RuleResult] {
         rules.map { rule in
             let answer = fields[rule.id]

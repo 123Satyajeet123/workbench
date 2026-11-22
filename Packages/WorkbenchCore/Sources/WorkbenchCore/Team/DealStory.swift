@@ -1,7 +1,5 @@
 import Foundation
 
-/// What happened to one deal, in time order, from rows the store already holds: where it was captured, how the
-/// criteria rated it, what the person marked, how it moved, and the actions opened and closed. It calls no model.
 public struct DealStory: Equatable, Sendable {
     public struct Entry: Equatable, Sendable, Identifiable {
         public enum Kind: String, Sendable {
@@ -11,18 +9,14 @@ public struct DealStory: Equatable, Sendable {
         public var id: String
         public var at: Date
         public var kind: Kind
-        /// The person, or the machine for a rating.
         public var actor: String
         public var isMachine: Bool
         public var text: String
     }
 
-    /// The counts the ribbon shows.
     public struct Ribbon: Equatable, Sendable {
-        /// Where its items were captured from, once each, in the order they came.
         public var sources: [String]
         public var rating: Rating?
-        /// The person's latest mark on the item that was rated; nil when none was made.
         public var mark: Mark?
         public var moves: Int
         public var actionsOpened: Int
@@ -40,7 +34,6 @@ public struct DealStory: Equatable, Sendable {
         }
     }
 
-    /// A mark of one item and when it was made.
     public struct Marked: Equatable, Sendable {
         public var state: Mark
         public var at: Date
@@ -54,8 +47,6 @@ public struct DealStory: Equatable, Sendable {
     public var entries: [Entry]
     public var ribbon: Ribbon
 
-    /// The story of `deal`. `ratings` and `marks` are keyed by the id of the event that linked the item; `actions`
-    /// are the deal's action facts.
     public static func make(
         deal: WorkObject, ratings: [String: Rating], marks: [String: [Marked]], actions: [Item]
     ) -> DealStory {
@@ -141,7 +132,6 @@ public struct DealStory: Equatable, Sendable {
 }
 
 extension SourceKind {
-    /// Where an item came from, for a person.
     public var capturedFrom: String {
         switch self {
         case .whatsapp: "WhatsApp"
@@ -154,7 +144,6 @@ extension SourceKind {
 }
 
 extension Queries {
-    /// The marks on an item, oldest first.
     public func marks(ofItem id: Int64) throws -> [DealStory.Marked] {
         try reader.read { db in
             try db.fetch("mark", "SELECT state, ts FROM mark WHERE item_id = ? ORDER BY id", [id]) { row in

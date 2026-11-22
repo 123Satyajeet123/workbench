@@ -2,11 +2,9 @@ import Foundation
 import GRDB
 
 extension Date {
-    /// The text a date is stored as: ISO 8601 with a Z suffix. Such text sorts in time order, so queries compare it.
     var stored: String { ISO8601Format() }
 }
 
-/// A column of a row, named or counted from zero.
 protocol ColumnKey: CustomStringConvertible {
     func decode<T: DatabaseValueConvertible>(_ type: T.Type, from row: Row) throws -> T
 }
@@ -23,7 +21,6 @@ extension Int: ColumnKey {
     }
 }
 
-/// A value that is stored but not valid for its type: a date that is not ISO 8601, or an unknown case.
 struct StoredValueError: Error, CustomStringConvertible {
     let column: String
 
@@ -33,12 +30,10 @@ struct StoredValueError: Error, CustomStringConvertible {
 }
 
 extension Row {
-    /// A column that must hold a value of type `T`. A NULL or a value of another type throws.
     func value<T: DatabaseValueConvertible>(_ column: some ColumnKey) throws -> T {
         try column.decode(T.self, from: self)
     }
 
-    /// A column that is NULL or holds a value of type `T`. A value of another type throws.
     func optionalValue<T: DatabaseValueConvertible>(_ column: some ColumnKey) throws -> T? {
         try column.decode(T?.self, from: self)
     }
@@ -61,12 +56,10 @@ extension Row {
         return value
     }
 
-    /// A text column that holds JSON for `T`.
     func json<T: Decodable>(_ column: some ColumnKey, as type: T.Type = T.self) throws -> T {
         try Coding.value(type, from: try value(column))
     }
 
-    /// Reads this row with `make`. A failure names the table and the row id, so a bad row is never skipped.
     func decoded<T>(from table: String, _ make: (Row) throws -> T) throws -> T {
         do {
             return try make(self)
@@ -83,7 +76,6 @@ extension Row {
 }
 
 extension Database {
-    /// Every row of a query, each read by `make`. One unreadable row throws; none is skipped.
     func fetch<T>(
         _ table: String, _ sql: String, _ arguments: StatementArguments = StatementArguments(),
         as make: (Row) throws -> T

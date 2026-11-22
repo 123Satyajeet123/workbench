@@ -20,7 +20,6 @@ private func deal(_ company: String, call: Rating, india: String? = nil, tractio
         reading: india.map { reading(india: $0, traction: traction) })
 }
 
-/// Eight read deals and one not read. The criteria rate them hot, hot, cold, warm, hot, cold, warm, cold.
 private let fixture = [
     deal("A", call: .hot, india: "yes"), deal("B", call: .hot, india: "yes"), deal("C", call: .hot, india: "no"),
     deal("D", call: .warm, india: "yes", traction: "no"), deal("E", call: .warm, india: "yes"),

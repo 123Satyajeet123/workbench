@@ -1,7 +1,5 @@
 import Foundation
 
-/// A machine Mochi proposes: what it would do, from which template, and the blocks of the founder's days that show the
-/// job repeats.
 public struct Proposal: Sendable, Equatable, Identifiable {
     public enum Decision: String, Sendable, CaseIterable {
         case waiting, accepted, rejected, later
@@ -13,9 +11,7 @@ public struct Proposal: Sendable, Equatable, Identifiable {
     public var template: String
     public var brief: String
     public var why: String
-    /// The view the machine shows its items in: a name from its template's `views`.
     public var view: String
-    /// Timeline item ids that show the job, from at least `Mochi.minimumDays` different days.
     public var evidence: [Int64]
     public var decision: Decision
 
@@ -35,22 +31,16 @@ public struct Proposal: Sendable, Equatable, Identifiable {
     }
 }
 
-/// Mochi, the master helper: reads the founder's work blocks of past training days and proposes machines for jobs
-/// that repeat. One model call. The model decides every proposal; code keeps one only when its template is in the
-/// catalog and its evidence names blocks Mochi was given, on at least three different days.
 public struct Mochi: Sendable {
     public struct Result: Sendable, Equatable {
         public var proposals: [Proposal]
         public var dropped: Int
-        /// Nil when there were too few days to read, so no model ran.
         public var run: RunID?
     }
 
-    /// A template Mochi may build from: its id (a spec task) and what it does.
     public struct Template: Sendable {
         public var id: String
         public var does: String
-        /// The views a machine from this template can show.
         public var views: [String]
 
         public init(id: String, does: String, views: [String]) {
@@ -116,7 +106,6 @@ public struct Mochi: Sendable {
         self.model = model
     }
 
-    /// Distinct days among `blocks`.
     public static func days(in blocks: [Item]) -> Int { Set(blocks.map(\.day)).count }
 
     public func propose(

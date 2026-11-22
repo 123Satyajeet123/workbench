@@ -1,16 +1,12 @@
 import Foundation
 
-/// Mochi's morning brief: what happened on a day, what is stuck, and what to do first, written from the items every
-/// machine found that day. Each line cites the items it rests on, so it can be traced to the words they came from.
 public struct MorningBrief: Codable, Sendable, Equatable {
     public struct Line: Codable, Sendable, Equatable {
         public enum Kind: String, Codable, Sendable, CaseIterable {
-            /// Someone waits on the founder: a decision, a reply, an approval.
             case ask
             case stuck, happened, next
         }
 
-        /// Seen: a quote says it. Inferred: the model put it together from several items.
         public enum Basis: String, Codable, Sendable, CaseIterable {
             case seen, inferred
         }
@@ -21,22 +17,16 @@ public struct MorningBrief: Codable, Sendable, Equatable {
         public var cites: [Int64]
     }
 
-    /// The day the brief covers.
     public var day: String
-    /// One sentence: the single thing that most needs the founder today, or that nothing does.
     public var headline: String
     public var lines: [Line]
-    /// Machines that found nothing that day, so the founder knows what the brief did not see.
     public var unseen: [String]
     public var run: RunID?
     public var dropped: Int
 
-    /// A quiet day asks nothing of the founder and has nothing stuck: the brief is kept, but no one is alerted.
     public var isQuiet: Bool { !lines.contains { $0.kind == .ask || $0.kind == .stuck } }
 }
 
-/// Writes the brief: one model call over the day's items, the model decides what matters; code keeps a line only when
-/// it cites items it was given.
 public struct Briefer: Sendable {
     struct Reply: Decodable, Sendable {
         struct Raw: Decodable, Sendable {
@@ -92,8 +82,6 @@ public struct Briefer: Sendable {
         self.model = model
     }
 
-    /// Nil when the day has no items: there is nothing to brief, and no call is made. `unseen` names the machines
-    /// that found nothing that day.
     public func brief(_ sources: [Source], day: WorkDay, unseen: [String] = []) async throws -> MorningBrief? {
         guard !sources.isEmpty else { return nil }
         let (reply, run) = try await model.generate(
@@ -108,7 +96,6 @@ public struct Briefer: Sendable {
             else { continue }
             kept.append(MorningBrief.Line(kind: kind, basis: basis, text: text, cites: raw.cites))
         }
-        // Asks first: the only lines the founder can act on in one step.
         let ordered = kept.filter { $0.kind == .ask } + kept.filter { $0.kind != .ask }
         return MorningBrief(
             day: day.description, headline: reply.headline.cleaned ?? "", lines: ordered, unseen: unseen, run: run,

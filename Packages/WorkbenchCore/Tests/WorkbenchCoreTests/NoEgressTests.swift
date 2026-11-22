@@ -20,13 +20,8 @@ enum EgressScan {
         networkSymbolPatterns.filter { text.range(of: $0, options: .regularExpression) != nil }
     }
 
-    /// Hosts the shipped sources may name: Gmail, the one page the extension reads and the one origin its attachment
-    /// fetch may use; and the two search providers, which only the consent kind `web` may reach (`WebSession`). The
-    /// pages a search returns are fetched from hosts the provider names, never from a host written in the source.
     static let allowedHosts: Set<String> = ["mail.google.com", "api.search.brave.com", "api.exa.ai"]
 
-    /// The one folder whose code may open a connection, and the one file in it that does. Every request passes
-    /// `WebTransport.send`, which refuses a grant that is not a live one of the kind `web`.
     static let webFolder = "/Sources/WebResearch/"
     static let webTransportFile = "WebTransport.swift"
     static let webGuards = ["grant.kind == .web", "grant.expiresAt > Date()"]
@@ -81,8 +76,6 @@ struct NoEgressTests {
         #expect(findings.isEmpty, "\(findings.joined(separator: "\n"))")
     }
 
-    /// The extension's only way out is the native host on this Mac: no web request API, no host permission. The one
-    /// request it makes is the same-origin fetch of a Gmail attachment, in `mail/deck.js` only.
     @Test func theBrowserExtensionSendsOnlyToTheLocalHost() throws {
         let folder = Self.repo.appending(path: "Extension")
         let manifest = try JSONSerialization.jsonObject(with: Data(contentsOf: folder.appending(path: "manifest.json")))

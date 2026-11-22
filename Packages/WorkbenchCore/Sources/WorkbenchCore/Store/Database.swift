@@ -7,8 +7,6 @@ public enum SchemaError: Error, Equatable, LocalizedError {
     public var errorDescription: String? { "This store was made by a newer Workbench. Install the newer version." }
 }
 
-/// Opens `workbench.sqlite` as a WAL pool: one writer, many readers. Two processes may open the same file. The open
-/// runs under a file coordinator, and a write waits up to `busyTimeout` for the other process before it fails.
 enum StoreDatabase {
     static func open(at url: URL, busyTimeout: TimeInterval) throws -> DatabasePool {
         let coordinator = NSFileCoordinator(filePresenter: nil)

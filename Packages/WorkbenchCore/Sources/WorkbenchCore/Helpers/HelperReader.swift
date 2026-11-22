@@ -1,17 +1,10 @@
 import Foundation
 
-/// Runs one helper over one day: one model call, then the checks its spec implies. The model decides every item;
-/// code keeps an item only when its cited lines exist, its quote is in them, its fields fit their kinds, and, for a
-/// range, it does not overlap an item kept before it. A finding that cites open facts keeps an item only when every
-/// handle is a known open item, every line is new, and the quote is in a cited fact or a cited line.
 public struct HelperReader: Sendable {
     public struct Result: Sendable, Equatable {
         public var items: [Item]
-        /// Open items that a new line closed.
         public var closes: [Close]
-        /// Items and closes the model gave that failed a check.
         public var dropped: Int
-        /// Nil when the day had no evidence, so no model ran.
         public var run: RunID?
 
         public init(items: [Item], closes: [Close] = [], dropped: Int, run: RunID?) {
@@ -22,13 +15,11 @@ public struct HelperReader: Sendable {
         }
     }
 
-    /// A new line that closes an open item, as the model read it and code checked it.
     public struct Close: Sendable, Equatable {
         public var item: Int64
         public var outcome: String
         public var line: Int64
         public var quote: String
-        /// When the closing line was said.
         public var at: Date
     }
 
@@ -45,12 +36,6 @@ public struct HelperReader: Sendable {
         self.model = model
     }
 
-    /// `marked` may hold any of the machine's items; only those the leave-one-day-out rule allows become examples.
-    /// `open` are the items still open from earlier readings: the machine's own, or those of the machine it follows.
-    /// The model sees them by handle (F1, F2, …), never by their store ids, so it cannot name an item that does not
-    /// exist. It may close its own; it may cite those it follows. A day with no lines runs no model, except for a
-    /// machine that follows another while the followed machine has open items: it still sees the date and the facts,
-    /// because a commitment can fall due on a day nobody wrote.
     public func read(
         day: WorkDay, scope: String, evidence: EvidenceSet, marked: [Item] = [], open: [Item] = []
     ) async throws -> Result {
@@ -84,7 +69,6 @@ public struct HelperReader: Sendable {
             run: run)
     }
 
-    /// The brief, then the rules every helper of this shape follows.
     public var instructions: String {
         let fieldRules = spec.fields.compactMap { field -> String? in
             switch field.kind {
@@ -232,7 +216,6 @@ public struct HelperReader: Sendable {
             + ["", "New since the last reading; give items only from these lines:"] + new).joined(separator: "\n")
     }
 
-    /// The span and words a kept item rests on, and the store ids of the facts it cites.
     private struct Cited {
         var first: Int64
         var last: Int64
@@ -278,8 +261,6 @@ public struct HelperReader: Sendable {
         return Cited(first: firstID, last: lastID, start: first.start, end: last.end ?? last.start, quote: quote)
     }
 
-    /// Every handle must name an open item and every line must exist and be new. The span runs over the cited lines;
-    /// with none, it is 0 to 0 at the time of the latest line, or at the start of the day when it has no line.
     private func facts(_ raw: [String: JSONValue], day: WorkDay, evidence: EvidenceSet, open: [Item]) -> Cited? {
         guard let handles = raw["facts"]?.array, !handles.isEmpty, let given = raw["lines"]?.array,
             let quote = raw["quote"]?.string
@@ -298,7 +279,6 @@ public struct HelperReader: Sendable {
             facts: Set(facts.compactMap(\.id)).sorted())
     }
 
-    /// The open item a handle such as "F2" names.
     private func fact(_ handle: String, open: [Item]) -> Item? {
         guard handle.first == "F", let index = Int(handle.dropFirst()), open.indices.contains(index - 1),
             open[index - 1].id != nil
@@ -306,8 +286,6 @@ public struct HelperReader: Sendable {
         return open[index - 1]
     }
 
-    /// A close is kept only when its handle names an open item, its line is new and not older than the item, its
-    /// quote is in that line, and its outcome is one the spec allows.
     private func close(_ raw: [String: JSONValue], open: [Item], evidence: EvidenceSet) -> Close? {
         guard let handle = raw["handle"]?.string, let item = fact(handle, open: open), let id = item.id,
             let outcome = raw["outcome"]?.string,

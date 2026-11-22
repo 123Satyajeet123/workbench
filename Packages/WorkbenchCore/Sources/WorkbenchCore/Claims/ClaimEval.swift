@@ -1,6 +1,5 @@
 import Foundation
 
-/// One planted claim of the dev set (`data/vc/dev/claims.json`). Every number made from it is dev, never held-out.
 public struct DevClaim: Decodable, Sendable {
     public var id: String
     public var company: String
@@ -21,7 +20,6 @@ public struct DevClaim: Decodable, Sendable {
         case truthQuote = "truth_quote"
     }
 
-    /// The claim type the dev set's own type belongs to.
     var type: ClaimType {
         switch claimType {
         case "round_size", "lead_investor": .funding
@@ -31,8 +29,6 @@ public struct DevClaim: Decodable, Sendable {
     }
 }
 
-/// An offline check of the claim pipeline over the dev set: no network and no model. The planted claim states a wrong
-/// value and should come out `contradicted`; the same claim with the true value should come out `supported`.
 public enum ClaimEval {
     public struct Case: Sendable {
         public var id: String
@@ -47,15 +43,12 @@ public enum ClaimEval {
         public var plantedSupported = 0
         public var trueClaims = 0
         public var trueSupported = 0
-        /// A true claim called `contradicted`: the false alarm.
         public var trueContradicted = 0
         public var skipped: [String] = []
     }
 
     public typealias Judge = @Sendable (Claim, [FetchedPage]) -> (verdict: ClaimVerdict, page: Int, quote: String)
 
-    /// The cases the dev set gives, and a line for each claim or variant that could not be built. `pageText` finds the
-    /// truth source's text; a claim with none is skipped.
     public static func cases(from claims: [DevClaim], pageText: (DevClaim) -> String?) -> (
         cases: [Case], skipped: [String]
     ) {

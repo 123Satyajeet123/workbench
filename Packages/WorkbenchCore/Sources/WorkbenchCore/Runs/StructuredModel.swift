@@ -1,7 +1,6 @@
 import CryptoKit
 import Foundation
 
-/// A JSON schema in the small subset the models are held to. Every object property is required.
 public indirect enum JSONSchema: Sendable, Equatable {
     public struct Property: Sendable, Equatable {
         public var name: String
@@ -21,14 +20,11 @@ public indirect enum JSONSchema: Sendable, Equatable {
     case number
     case enumeration([String])
 
-    /// The schema of a string-valued enum: one of its raw values.
     public static func choice<E: CaseIterable & RawRepresentable>(_ type: E.Type) -> JSONSchema
     where E.RawValue == String {
         .enumeration(type.allCases.map(\.rawValue))
     }
 
-    /// Whether JSON text fits this schema as the CLIs enforce it: every property present, no other, each of the
-    /// right type. Code checks every reply with it, whatever the model promised (OWASP LLM01: validate output).
     public func accepts(json text: String) -> Bool {
         guard let value = try? JSONSerialization.jsonObject(with: Data(text.utf8)) else { return false }
         return accepts(value)
@@ -53,7 +49,6 @@ public indirect enum JSONSchema: Sendable, Equatable {
         }
     }
 
-    /// The schema as JSON text in the strict form the CLI accepts: every property required, no extras.
     public var jsonText: String {
         get throws {
             let data = try JSONSerialization.data(
@@ -81,13 +76,11 @@ public indirect enum JSONSchema: Sendable, Equatable {
     }
 }
 
-/// What one model call cost, as the model reported it.
 public struct Usage: Codable, Sendable, Equatable {
     public var inputTokens: Int
     public var cacheReadTokens: Int
     public var cacheWriteTokens: Int
     public var outputTokens: Int
-    /// At list price. On a subscription this is what the call would have cost, not what was billed.
     public var costUSD: Double
 
     public init(
@@ -113,10 +106,8 @@ public struct Usage: Codable, Sendable, Equatable {
 
 public struct ModelAnswer<Value: Sendable>: Sendable {
     public var value: Value
-    /// The model that answered, as it named itself.
     public var model: String
     public var usage: Usage
-    /// The reply as the model gave it: JSON text.
     public var reply: String
 
     public init(value: Value, model: String, usage: Usage, reply: String) {
@@ -127,17 +118,13 @@ public struct ModelAnswer<Value: Sendable>: Sendable {
     }
 }
 
-/// The seam to any model that can return a value of a schema. An adapter throws on a reply that does not decode; it
-/// never repairs one.
 public protocol StructuredModel: Sendable {
-    /// The model asked for, such as "opus".
     var name: String { get }
     func generate<T: Decodable & Sendable>(_ type: T.Type, schema: JSONSchema, instructions: String, input: String)
         async throws -> ModelAnswer<T>
 }
 
 public enum StructuredModelError: Error, Equatable {
-    /// The reply did not decode into the schema.
     case invalidReply(String)
     case unavailable(String)
 }
@@ -151,7 +138,6 @@ extension StructuredModelError: LocalizedError {
     }
 }
 
-/// Any JSON value, for a reply whose shape is data rather than a Swift type.
 public enum JSONValue: Decodable, Sendable, Equatable {
     case string(String)
     case number(Double)
@@ -179,7 +165,6 @@ public enum JSONValue: Decodable, Sendable, Equatable {
 
     public var string: String? { if case .string(let value) = self { value } else { nil } }
     public var array: [JSONValue]? { if case .array(let value) = self { value } else { nil } }
-    /// A whole number, as models write ids.
     public var integer: Int64? {
         if case .number(let value) = self, value == value.rounded(), abs(value) < 1e15 { Int64(value) } else { nil }
     }

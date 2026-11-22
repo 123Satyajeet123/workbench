@@ -1,7 +1,5 @@
 import Foundation
 
-/// One scope's day in a few cited lines: a person's or a project's. Each line cites the items it rests on, so it can be
-/// traced to the words they came from.
 public struct Summary: Codable, Sendable, Equatable {
     public struct Line: Codable, Sendable, Equatable {
         public var text: String
@@ -18,15 +16,12 @@ public struct Summary: Codable, Sendable, Equatable {
         public var cites: [Int64]
     }
 
-    /// What the items were grouped by, for example "person: Asha".
     public var scope: String
-    /// Done, next and blocked in one sentence. Nil when the model gave none that cites its items.
     public var short: Line?
     public var details: [Detail]
     public var run: RunID
 }
 
-/// A scope and the day's items in it.
 public struct SummaryScope: Sendable {
     public var name: String
     public var sources: [CitedSource]
@@ -37,8 +32,6 @@ public struct SummaryScope: Sendable {
     }
 }
 
-/// Summarizes many scopes in one model call. The model decides what each scope did; code keeps a line only when it
-/// cites items of its own scope.
 public struct Summarizer: Sendable {
     struct Reply: Decodable, Sendable {
         struct Cited: Decodable, Sendable {
@@ -102,8 +95,6 @@ public struct Summarizer: Sendable {
         self.model = model
     }
 
-    /// The summaries of the scopes that have items, in the order given; no call when none has. A scope the model did
-    /// not answer, or answered twice, is left out.
     public func summarize(_ scopes: [SummaryScope], day: WorkDay) async throws -> [Summary] {
         let asked = scopes.filter { !$0.sources.isEmpty }
         guard !asked.isEmpty else { return [] }

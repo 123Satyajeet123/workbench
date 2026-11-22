@@ -33,8 +33,6 @@ import Testing
         try store.queries.mailParts(from: .distantPast, to: .distantFuture)
     }
 
-    // MARK: consent
-
     @Test func mailNeedsItsSwitchAndANamedLabel() {
         let ask = CaptureRequest(kind: .mail, label: "Deals")
         #expect(CapturePolicy().authorize(ask, at: t0).denial == .sourceSwitchedOff)
@@ -60,8 +58,6 @@ import Testing
         #expect(pageText.authorize(CaptureRequest(kind: .mail, label: "Deals"), at: t0).denial == .sourceSwitchedOff)
         #expect(named.authorize(CaptureRequest(kind: .screenText), at: t0).denial == .sourceSwitchedOff)
     }
-
-    // MARK: the host keeps or drops
 
     @Test func aMessageInTheNamedLabelIsKeptWithItsFields() throws {
         let store = try store(policy: named)
@@ -154,8 +150,6 @@ import Testing
         #expect(PageHost.answer(Data(#"{"type":"nope"}"#.utf8), store: try store(policy: named)).error != nil)
     }
 
-    // MARK: decks
-
     @Test func aDeckInChunksReassemblesAndItsPagesAreStoredUnderTheMessage() throws {
         let store = try store(policy: named)
         _ = try send(message(), to: store)
@@ -236,8 +230,6 @@ import Testing
         #expect(ImageText.recognize(picture(of: "Build 4.1.11 passed")).contains("Build 4.1.11 passed"))
     }
 
-    // MARK: reading
-
     @Test func theMachineReadsOneLinePerMessageAndOnePerDeckPage() throws {
         let store = try store(policy: named)
         _ = try send(message(), to: store)
@@ -270,8 +262,6 @@ import Testing
         #expect(tight.parts.map(\.id) == [1, 4] && tight.leftOut == 1)
         #expect(MailPart.reading(parts, labels: []).parts.isEmpty)
     }
-
-    // MARK: deletion
 
     @Test func deletingTheMailKindRemovesItsPartsAndOpens() throws {
         let store = try store(policy: named)

@@ -1,7 +1,6 @@
 import Foundation
 import GRDB
 
-/// Why web research stopped before any network call. Each case is said to the founder in plain words.
 public enum WebBlock: Error, Equatable {
     case consentOff
     case noKey
@@ -20,8 +19,6 @@ extension WebBlock: LocalizedError {
     }
 }
 
-/// The one door to the network for web research. Only a session opened here can search or fetch, and every search
-/// counts against the monthly cap before it is sent.
 public struct WebSession: Sendable {
     let grant: CaptureGrant
     let cap: Int
@@ -29,8 +26,6 @@ public struct WebSession: Sendable {
     let provider: any SearchProvider
     let pages: any PageFetching
 
-    /// Opens a session when the consent is on, a key exists, and this month's cap is not reached. The provider and
-    /// the fetcher are built only after these checks pass, from the grant.
     public static func open(
         store: Store, key: (SearchProviderKind) -> String?,
         make: (SearchProviderKind, String, CaptureGrant) -> (any SearchProvider, any PageFetching)
@@ -73,7 +68,6 @@ extension Store {
 
     static func webQueryKey(_ date: Date) -> String { "web.queries." + String(date.stored.prefix(7)) }
 
-    /// Counts one query when the month's cap allows it, in one transaction. False when the cap is reached.
     func reserveWebQuery(cap: Int) throws -> Bool {
         let now = clock()
         return try writer.write { db in
@@ -98,7 +92,6 @@ extension Queries {
             ?? WebSettings()
     }
 
-    /// The queries sent in the calendar month of `date`.
     public func webQueriesSent(inMonthOf date: Date) throws -> Int {
         try state(forKey: Store.webQueryKey(date)).flatMap { Int($0) } ?? 0
     }

@@ -6,16 +6,11 @@ public enum StoreError: Error, Equatable {
     case grantForOtherKind(granted: SourceKind, requested: SourceKind)
     case grantForOtherLabel(granted: String?, requested: String?)
     case fileNotRemoved(String)
-    /// A row that cannot be read as its type: the table, the row's id and the reason.
     case unreadableRow(table: String, id: Int64?, reason: String)
-    /// A SQLite setting the store needs did not take effect.
     case settingNotApplied(String)
-    /// The write-ahead log still holds rows after a checkpoint: another connection is reading it.
     case logNotTruncated
 }
 
-/// The one store: `workbench.sqlite` and the recordings folder beside it. One writer and many readers share the
-/// file, so the store is safe to share between threads and between processes.
 public final class Store: Sendable {
     public let directory: URL
     public let queries: Queries
@@ -38,7 +33,6 @@ public final class Store: Sendable {
         queries = Queries(reader: writer, directory: directory)
     }
 
-    /// Creates the file at mode 0600 unless it exists. A file another process already made is never truncated.
     private static func createPrivateFile(_ url: URL) throws {
         let descriptor = Darwin.open(url.path, O_WRONLY | O_CREAT | O_EXCL, 0o600)
         if descriptor >= 0 {
@@ -52,7 +46,6 @@ public final class Store: Sendable {
         try FileManager.default.setAttributes([.posixPermissions: mode], ofItemAtPath: url.path)
     }
 
-    /// Every write of personal data passes here first: the grant must be live and name this kind and label.
     func check(_ grant: CaptureGrant, kind: SourceKind, label: String? = nil) throws {
         guard grant.expiresAt > clock() else { throw StoreError.grantExpired }
         guard grant.kind == kind else { throw StoreError.grantForOtherKind(granted: grant.kind, requested: kind) }
@@ -75,7 +68,6 @@ public final class Store: Sendable {
         }
     }
 
-    /// A small setting: the last value saved for a key.
     public func saveState(_ value: String, forKey key: String) throws {
         try writer.write { db in
             try db.execute(
@@ -85,7 +77,6 @@ public final class Store: Sendable {
         }
     }
 
-    /// The policy is the latest consent row. Every change adds one.
     public func savePolicy(_ policy: CapturePolicy) throws {
         let json = try Coding.json(policy)
         try writer.write { db in
@@ -98,7 +89,6 @@ extension Store: CapturePolicyProvider {
     public func currentPolicy() throws -> CapturePolicy { try queries.policy() }
 }
 
-/// JSON in and out of text columns: one encoder, one decoder, stable key order.
 enum Coding {
     static func json<T: Encodable>(_ value: T) throws -> String {
         let encoder = JSONEncoder()

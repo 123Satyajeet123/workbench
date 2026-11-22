@@ -1,7 +1,6 @@
 import Foundation
 import GRDB
 
-/// One decision on a machine's brief, as logged: never updated. A trial started, a switch, a rejection, a rollback.
 public struct Decision: Sendable, Equatable {
     public enum Kind: String, Sendable {
         case trial, promote, reject, rollback
@@ -15,7 +14,6 @@ public struct Decision: Sendable, Equatable {
     public var task: String
     public var kind: Kind
     public var by: By
-    /// The brief the decision is about, and the brief it came from.
     public var brief: String
     public var parentBrief: String
     public var detail: [String: String]
@@ -33,10 +31,6 @@ public struct Decision: Sendable, Equatable {
     }
 }
 
-/// The proposer: one model call reads the items the person marked on training days and drafts at most one small edit
-/// to the machine's brief (research 20 §2.3: small typed edits; a rewrite collapses). The edit is only a challenger:
-/// it starts a trial, and the person's marks decide. Code keeps an edit only when it cites marked items it was given,
-/// removes text the brief has, and keeps the brief within the growth cap.
 public struct Improver: Sendable {
     public struct Edit: Sendable, Equatable {
         public enum Kind: String, Sendable, CaseIterable {
@@ -66,10 +60,7 @@ public struct Improver: Sendable {
     }
 
     public static let task = "machine.improve"
-    /// No call until this many items on training days are marked wrong: with fewer, an edit has nothing to fix.
-    /// A placeholder; research 20 suggests about 30 wrong of 100 marks for a reflective proposer to pay.
     public static let minimumWrong = 3
-    /// Characters one edit may add (research 20 §2.3, rule 4: the Willison run grew the prompt 3.7 times).
     public static let growthCap = 400
 
     public static let instructions = """
@@ -96,8 +87,6 @@ public struct Improver: Sendable {
         self.model = model
     }
 
-    /// Nil when there is too little to learn from (no call) or the model's edit fails a check. Items on held-out days
-    /// are dropped here, before the model sees anything: they judge versions and never shape them.
     public func propose(spec: HelperSpec, marked: [Item]) async throws -> (edit: Edit?, run: RunID?) {
         let training = marked.filter { EvalSplit($0.day) == .dev && $0.state != .proposed && $0.id != nil }
         guard training.filter({ $0.state == .rejected }).count >= Self.minimumWrong else { return (nil, nil) }
@@ -158,7 +147,6 @@ extension Store {
 }
 
 extension Queries {
-    /// A machine's decisions, newest first.
     public func decisions(of task: String) throws -> [Decision] {
         try reader.read { db in
             try db.fetch(
@@ -176,7 +164,6 @@ extension Queries {
         }
     }
 
-    /// Each item's latest mark id: the order the marks were given.
     public func markOrder(of items: [Int64]) throws -> [Int64: Int64] {
         guard !items.isEmpty else { return [:] }
         let orders = try reader.read { db in
@@ -188,7 +175,6 @@ extension Queries {
         return Dictionary(orders.map { ($0.item, $0.mark) }, uniquingKeysWith: { a, _ in a })
     }
 
-    /// Days on which the founder marked at least one of the task's items, newest first.
     public func markedDays(of task: String) throws -> [WorkDay] {
         try reader.read { db in
             try db.fetch(
@@ -199,10 +185,6 @@ extension Queries {
         }
     }
 
-    /// The latest answer to each random audit pick among items the task produced in runs started after `since`, in
-    /// the order given:
-    /// true where the item was wrong, with the item's day. Items an earlier brief produced never count against a
-    /// later one.
     public func auditAnswers(of task: String, since: Date) throws -> [(day: WorkDay, wrong: Bool)] {
         try reader.read { db in
             try db.fetch(

@@ -1,13 +1,10 @@
 import Foundation
 import GRDB
 
-/// Which use a day's marks may serve. Dev marks may shape a prompt; held-out marks only judge one. The date alone
-/// decides, so no later choice can move a day from one set to the other.
 public enum EvalSplit: String, Sendable, CaseIterable {
     case dev
     case heldOut = "held_out"
 
-    /// Out of ten days, this many are held out.
     public static let heldOutTenths = 3
 
     public init(_ day: WorkDay) {
@@ -16,7 +13,6 @@ public enum EvalSplit: String, Sendable, CaseIterable {
     }
 }
 
-/// The founder's marks on one set of days.
 public struct Tally: Sendable, Equatable {
     public var confirmed = 0
     public var rejected = 0
@@ -27,12 +23,9 @@ public struct Tally: Sendable, Equatable {
     }
 
     public var marked: Int { confirmed + rejected }
-    /// Confirmed over marked. Nil while nothing is marked.
     public var precision: Double? { marked == 0 ? nil : Double(confirmed) / Double(marked) }
 }
 
-/// A helper's precision from audit marks only: answers on items the app picked at random. Each answer weighs one
-/// over the chance its item had, so it stands for every item of its reading; voluntary marks never count here.
 public struct AuditEstimate: Sendable, Equatable {
     public var marks = 0
     public var rightWeight = 0.0
@@ -44,11 +37,9 @@ public struct AuditEstimate: Sendable, Equatable {
         self.weight = weight
     }
 
-    /// Nil while no picked item is answered.
     public var precision: Double? { weight == 0 ? nil : rightWeight / weight }
 }
 
-/// One version of a task's instructions, named by its hash and numbered in the order it was first used.
 public struct PromptVersion: Sendable, Equatable {
     public var hash: String
     public var task: String
@@ -57,13 +48,10 @@ public struct PromptVersion: Sendable, Equatable {
     public var firstUsed: Date
 }
 
-/// How well one prompt version on one model did at one task: what it proposed and what the founder marked, with dev
-/// and held-out days apart.
 public struct Quality: Sendable, Equatable, Identifiable {
     public var task: String
     public var model: String
     public var prompt: String
-    /// Nil for runs made before prompts were kept.
     public var version: Int?
     public var runs: Int
     public var kept: Int
@@ -71,20 +59,17 @@ public struct Quality: Sendable, Equatable, Identifiable {
     public var dev: Tally
     public var heldOut: Tally
     public var audited: AuditEstimate
-    /// Audit answers on held-out days only: what the certificate is computed from.
     public var heldOutAudit: Certificate
     public var usage: Usage
 
     public var id: String { "\(task)|\(model)|\(prompt)" }
 
-    /// Dev and held-out together: what the founder sees as "right so far". Never a basis to keep a prompt.
     public var all: Tally {
         Tally(confirmed: dev.confirmed + heldOut.confirmed, rejected: dev.rejected + heldOut.rejected)
     }
 }
 
 extension Store {
-    /// Keeps the text of a prompt version the first time it is used.
     func keepPrompt(hash: String, task: String, instructions: String, schema: String) throws {
         try writer.write { db in
             try db.execute(
@@ -95,7 +80,6 @@ extension Store {
 }
 
 extension Queries {
-    /// The versions of one task's prompt, oldest first.
     public func prompts(task: String) throws -> [PromptVersion] {
         try reader.read { db in
             try db.fetch(
@@ -114,8 +98,6 @@ extension Queries {
         }
     }
 
-    /// One row per task, model and prompt, newest first. Each mark counts toward the split of the day it belongs to.
-    /// All its statements read one snapshot.
     public func quality() throws -> [Quality] {
         try reader.read { db in
             let tallies = try Self.tallies(db)
@@ -206,7 +188,6 @@ extension Queries {
         return (audits, certificates)
     }
 
-    /// Each prompt's number: its place among its task's prompts, oldest first.
     private static func promptNumbers(_ db: Database) throws -> [String: Int] {
         let numbers = try db.fetch(
             "prompt",

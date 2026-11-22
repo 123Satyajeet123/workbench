@@ -3,9 +3,7 @@ import Testing
 
 @testable import WorkbenchCore
 
-/// A machine made from an older built-in can take the newer design and keep its own items, marks and settings.
 @Suite struct MachineUpdateTests {
-    /// Pip as it shipped before it became the fact machine.
     private var oldPip: HelperSpec {
         var spec = HelperSpec.team
         spec.fields = spec.fields.filter { ["person", "kind", "text", "eta"].contains($0.name) }

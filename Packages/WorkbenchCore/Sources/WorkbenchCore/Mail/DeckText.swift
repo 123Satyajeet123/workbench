@@ -2,13 +2,9 @@ import CoreGraphics
 import Foundation
 import PDFKit
 
-/// The text of a PDF deck, page by page, read on this Mac: the page's own text, else the text Vision recognizes in the
-/// rendered page.
 public enum DeckText {
-    /// Pixels per point when a page is rendered for recognition (about 150 dpi).
     static let renderScale: CGFloat = 2
 
-    /// One entry per page that holds text, with its page number from 1.
     public static func pages(in pdf: Data) -> [(page: Int, text: String)] {
         guard let document = PDFDocument(data: pdf) else { return [] }
         return (0..<document.pageCount).compactMap { index in

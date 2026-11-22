@@ -2,7 +2,6 @@ import Foundation
 import GRDB
 
 extension Store {
-    /// Adds each built-in machine the store has never held. A machine the founder deleted is not added again.
     public func seedMachines(_ builtIns: [(spec: HelperSpec, name: String)]) throws {
         try writer.write { db in
             for (spec, name) in builtIns
@@ -12,9 +11,6 @@ extension Store {
         }
     }
 
-    /// A new machine from a template, with its own task so its items, settings and trust are its own. The task is the
-    /// template's with a dash, never a dot, so no machine's settings key starts with another machine's task.
-    /// `template` names the template the spec came from; it defaults to the spec's own task, for a template itself.
     @discardableResult
     public func createMachine(from spec: HelperSpec, template: String? = nil, name: String) throws -> Machine {
         let template = template ?? spec.task
@@ -23,9 +19,6 @@ extension Store {
         return try writer.write { db in try addMachine(db, spec: spec, template: template, name: name) }
     }
 
-    /// Moves a machine to a newer built-in design: the built-in's brief, fields, lifecycle and checks, with the
-    /// machine's own task (so its items, marks and settings stay), model, example policy, what it follows, and its
-    /// view when the new design can still fill it. A new design is a new prompt version, so trust is earned again.
     public func upgrade(_ machine: Machine, to builtIn: HelperSpec) throws {
         var spec = builtIn
         spec.task = machine.spec.task
@@ -42,12 +35,10 @@ extension Store {
         try change(machine, name: name, spec: machine.spec, state: machine.state)
     }
 
-    /// A new brief is a new prompt version: the earlier versions' marks and trust stay with them.
     public func edit(_ machine: Machine, brief: String) throws {
         try revise(machine, brief: brief, examples: machine.spec.examples, runner: machine.spec.runner)
     }
 
-    /// A new brief, example policy or model is a new version of the machine.
     public func revise(_ machine: Machine, brief: String, examples: Int?, runner: String?) throws {
         guard let brief = brief.cleaned else { return }
         var spec = machine.spec
@@ -57,7 +48,6 @@ extension Store {
         try change(machine, name: machine.name, spec: spec, state: machine.state)
     }
 
-    /// Shows the machine's items in another view its spec can fill; a view it cannot fill is refused.
     public func show(_ machine: Machine, as view: String) throws {
         guard let chosen = machine.spec.views[view] else { return }
         var spec = machine.spec
@@ -70,7 +60,6 @@ extension Store {
         try change(machine, name: machine.name, spec: machine.spec, state: state)
     }
 
-    /// The team and its people. Saving replaces the people list; a removed person keeps a removal date.
     public func saveTeam(_ team: Team) throws {
         guard let name = team.name.cleaned else { return }
         try writer.write { db in
@@ -125,7 +114,6 @@ extension Store {
 }
 
 extension Queries {
-    /// Every machine not deleted, oldest first.
     public func machines() throws -> [Machine] {
         try reader.read { db in
             try db.fetch(
@@ -151,7 +139,6 @@ extension Queries {
 }
 
 extension Machine {
-    /// A row of `machine_now`.
     init(row: Row) throws {
         self.init(
             id: try row.value("id"), name: try row.value("name"), template: try row.value("template"),

@@ -1,7 +1,5 @@
 import Foundation
 
-/// A machine a person owns: a helper spec with a name, made from a template. The spec's task names its runs and items,
-/// so a rename keeps them and their trust; a changed brief is a new prompt version that earns trust again.
 public struct Machine: Sendable, Equatable, Identifiable {
     public enum State: String, Sendable, CaseIterable {
         case active, paused, deleted
@@ -24,7 +22,6 @@ public struct Machine: Sendable, Equatable, Identifiable {
     }
 }
 
-/// The team the founder works with, and its people.
 public struct Team: Sendable, Equatable {
     public struct Person: Sendable, Equatable, Identifiable {
         public var id: Int64?

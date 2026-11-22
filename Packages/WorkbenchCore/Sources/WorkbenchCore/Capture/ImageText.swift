@@ -7,7 +7,6 @@ import Vision
 /// The text in an image, recognized on this Mac by Apple's Vision. Nothing leaves the Mac. Teams post screenshots of
 /// builds, logs and devices as updates (measured on the founder's group: 20 of 20 photos in a day held text).
 public enum ImageText {
-    /// Recognized text past this length is cut: a screenshot of a long log says little more per line.
     public static let maximumCharacters = 2000
 
     /// The text in the image at `url`, recognized once per version of the file: every machine that reads the same
@@ -18,8 +17,6 @@ public enum ImageText {
 
     private static let shared = Memo(recognize: recognize)
 
-    /// Recognized texts by file identity (path, size, modification time), at most `capacity` of them, oldest out
-    /// first. It lives in memory only, so nothing new is kept on disk.
     final class Memo: Sendable {
         struct Key: Hashable {
             let path: String
@@ -65,7 +62,6 @@ public enum ImageText {
         }
     }
 
-    /// Empty when the file is not an image or holds no text.
     public static func recognize(_ url: URL) -> String {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
             let image = CGImageSourceCreateImageAtIndex(source, 0, nil)
@@ -73,7 +69,6 @@ public enum ImageText {
         return recognize(image)
     }
 
-    /// Empty when the image holds no text.
     public static func recognize(_ image: CGImage) -> String {
         let request = VNRecognizeTextRequest()
         request.recognitionLevel = .accurate

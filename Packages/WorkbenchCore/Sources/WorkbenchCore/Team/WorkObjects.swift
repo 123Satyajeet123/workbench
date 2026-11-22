@@ -1,8 +1,6 @@
 import Foundation
 import GRDB
 
-/// One act on a shared work object, such as a deal, by one person. Events are never edited: each person appends to
-/// their own log, every Mac keeps the union by id, and the object is a fold over them (research 26 §8–§9).
 public struct WorkEvent: Codable, Sendable, Equatable, Identifiable {
     public enum Kind: String, Codable, Sendable {
         case create, title, stage, note, link, claim, release, archive
@@ -11,16 +9,11 @@ public struct WorkEvent: Codable, Sendable, Equatable, Identifiable {
     public var id: String
     public var object: String
     public var author: String
-    /// Lamport clock: higher than every event the author had seen when writing it. Orders history across Macs.
     public var clock: Int
     public var at: Date
     public var kind: Kind
-    /// The title, the stage, the note, or the object's kind (for create).
     public var text: String
-    /// For a stage: the stage events this one replaces, as the author saw them. Two stage events that do not
-    /// replace each other are concurrent, and both stay until someone replaces both.
     public var replaces: [String]
-    /// For a link: the item, as it was when linked.
     public var item: LinkedItem?
 
     public init(
@@ -39,7 +32,6 @@ public struct WorkEvent: Codable, Sendable, Equatable, Identifiable {
     }
 }
 
-/// An item as linked to a work object: its fields, quote and its author's mark, and who may read it.
 public struct LinkedItem: Codable, Sendable, Equatable {
     public var machine: String
     public var day: String
@@ -47,12 +39,8 @@ public struct LinkedItem: Codable, Sendable, Equatable {
     public var fields: [String: String]
     public var quote: String
     public var state: Mark
-    /// The consent kind of the item's source. Nil in an event written before the field existed: unknown.
     public var source: SourceKind?
-    /// Everyone who could already read the item's source when it was linked, by name.
     public var audience: [String]
-    /// The machine's task and the item's id in its author's store. Nil in an event written before the fields
-    /// existed. The id means something only on the author's Mac.
     public var task: String?
     public var itemID: Int64?
 
@@ -72,20 +60,15 @@ public struct LinkedItem: Codable, Sendable, Equatable {
     public func isVisible(to person: String) -> Bool { audience.contains(person) }
 }
 
-/// A work object as one viewer sees it, folded from everyone's events.
 public struct WorkObject: Sendable, Equatable, Identifiable {
     public var id: String
     public var kind: String
     public var title: String
-    /// The current stage; more than one when people moved it at the same time without seeing each other's move.
     public var stages: [String]
-    /// The stage events still standing: a new move replaces all of them.
     public var stageHeads: [String]
-    /// Who holds it (the earliest open claim), and others who claimed it too.
     public var holder: String?
     public var alsoClaimed: [String]
     public var notes: [WorkEvent]
-    /// Linked items the viewer may read, with the event that linked each.
     public var items: [(event: WorkEvent, item: LinkedItem)]
     public var history: [WorkEvent]
     public var archived: Bool
@@ -95,7 +78,6 @@ public struct WorkObject: Sendable, Equatable, Identifiable {
             && lhs.history == rhs.history && lhs.archived == rhs.archived
     }
 
-    /// Every object in `events`, as `viewer` may see it. Events are taken in Lamport order, ties by author and id.
     public static func fold(_ events: [WorkEvent], viewer: String) -> [WorkObject] {
         let ordered = events.sorted { ($0.clock, $0.author, $0.id) < ($1.clock, $1.author, $1.id) }
         return Dictionary(grouping: ordered, by: \.object).compactMap { id, events in
@@ -130,8 +112,6 @@ public struct WorkObject: Sendable, Equatable, Identifiable {
 }
 
 extension WorkObject {
-    /// A deal's stages (Hustle Fund's, research 27 §1.1, with the three a VC analyst asked for). Stages are data:
-    /// a team may use its own, and the board still shows a deal in a stage that is not listed.
     public static let dealStages = [
         "Inbox", "Screen", "In conversation", "Action required", "Founder meeting", "Diligence", "Decision",
         "Invested", "Rejected",
@@ -140,8 +120,6 @@ extension WorkObject {
     public static let afterAction = "In conversation"
 }
 
-/// Each person's events on work objects, one file per person in the team folder, one JSON event per line. A person
-/// rewrites only their own file; every Mac reads all of them.
 public enum WorkLog {
     public static let subfolder = "events"
 
@@ -156,7 +134,6 @@ public enum WorkLog {
             to: folder.appending(path: fileName(author: author)), options: .atomic)
     }
 
-    /// Every event in every person's file, and the files with a line that could not be read.
     public static func read(from team: URL) -> (events: [WorkEvent], unreadable: [String]) {
         let folder = team.appending(path: subfolder)
         let files = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? []
@@ -174,7 +151,6 @@ public enum WorkLog {
 }
 
 extension Store {
-    /// Keeps an event once, whoever wrote it. Importing the same log again changes nothing.
     public func append(_ events: [WorkEvent]) throws {
         try writer.write { db in
             for event in events {
@@ -201,7 +177,6 @@ extension Queries {
         }
     }
 
-    /// The clock a new event takes: one more than any event this Mac has seen.
     public func nextClock() throws -> Int {
         try reader.read { db in try Int.fetchOne(db, sql: "SELECT COALESCE(MAX(clock), 0) FROM work_event") ?? 0 } + 1
     }

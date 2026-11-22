@@ -1,8 +1,6 @@
 import Foundation
 import WorkbenchCore
 
-// The native messaging host the Workbench browser extension calls. The browser starts it, writes framed messages to
-// stdin and reads one framed reply per message from stdout, keeping stdin open until it has each reply. WORKBENCH_STORE names another store folder, for tests.
 let folder =
     ProcessInfo.processInfo.environment["WORKBENCH_STORE"].map { URL(filePath: $0) }
     ?? URL.applicationSupportDirectory.appending(path: "Workbench")

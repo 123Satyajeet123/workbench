@@ -1,7 +1,6 @@
 import Foundation
 import Testing
 
-/// The shipped extension's scripts, by path inside the Extension folder.
 enum ExtensionFiles {
     static let folder = NoEgressTests.repo.appending(path: "Extension")
 
@@ -14,8 +13,6 @@ enum ExtensionFiles {
         return scripts
     }
 
-    /// Calls and assignments that click, type, focus, scroll, dispatch an event or change the page, or reach another
-    /// tab or the page's own scripts. Comment lines are skipped. Only the background script may post to its host.
     static func drivingCalls(in code: String, file: String) -> [String] {
         let banned =
             [
@@ -33,7 +30,6 @@ enum ExtensionFiles {
     }
 }
 
-/// What the extension is allowed to touch: only mail.google.com for mail, and the page is never driven.
 @Suite struct ExtensionPolicyTests {
     private func contentScripts() throws -> [[String: Any]] {
         let data = try Data(contentsOf: ExtensionFiles.folder.appending(path: "manifest.json"))

@@ -1,7 +1,4 @@
-/// The helpers that ship with Workbench. Each is data over the catalog; none has code of its own.
 extension HelperSpec {
-    /// Pip, the fact machine: what each person plans, did and is stuck on, and what is decided or asked, by project,
-    /// from the chats the founder chose. Open facts stay open until a later line closes them (research 32).
     public static let team = HelperSpec(
         task: "team.ledger", source: .whatsappChat,
         brief: """
@@ -52,7 +49,6 @@ extension HelperSpec {
             field: "kind", open: ["plan", "blocker", "commitment", "question", "decision"],
             outcomes: ["kept", "answered", "resolved", "reversed", "dropped"]))
 
-    /// The day timeline: the founder's screen sessions joined into blocks of work.
     public static let timeline = HelperSpec(
         task: "day.timeline", source: .screenSessions,
         brief: """
@@ -70,7 +66,6 @@ extension HelperSpec {
         citation: .range, view: .timeline, title: "task", badges: ["project"], tones: [:], itemsNoun: "blocks",
         nudge: nil)
 
-    /// A page reader: what matters in the pages the founder saw on sites they name. Its brief says what to list.
     public static let pages = HelperSpec(
         task: "page.reader", source: .pageText,
         brief: """
@@ -89,9 +84,6 @@ extension HelperSpec {
         ],
         citation: .one, view: .table, title: "title", badges: ["who"], tones: [:], itemsNoun: "items", nudge: nil)
 
-    /// VC pack: inbound deals from the investor's mail pages, judged against the investor's own criteria. The model
-    /// judges each rule with a quote; code makes the hot, warm or cold call from the rule results. The starter rules
-    /// only mirror the old placeholder: the investor edits them into their own thesis.
     public static let dealIntake = HelperSpec(
         task: "vc.deals", source: .mail,
         brief: """
@@ -121,7 +113,6 @@ extension HelperSpec {
                 test: .text(TextTest(says: "The startup shows revenue or strong traction.", wants: true))),
         ]))
 
-    /// VC pack: what a founder's profile page says, to check against what the pitch claims.
     public static let founderCheck = HelperSpec(
         task: "vc.founders", source: .pageText,
         brief: """
@@ -137,7 +128,6 @@ extension HelperSpec {
         citation: .one, view: .table, title: "fact", badges: ["person", "kind"], tones: [:], itemsNoun: "facts",
         nudge: nil)
 
-    /// VC pack: news about portfolio and passed companies from the pages the investor reads.
     public static let companySignals = HelperSpec(
         task: "vc.signals", source: .pageText,
         brief: """
@@ -154,8 +144,6 @@ extension HelperSpec {
         citation: .one, view: .table, title: "text", badges: ["company", "signal"],
         tones: ["funding": .good, "launch": .good, "risk": .bad, "departure": .bad], itemsNoun: "signals", nudge: nil)
 
-    /// The derailment watch: what is going off track, from the open facts of the first machine with a lifecycle (Pip)
-    /// and the new lines of a chat (research 31). Its `follows` is set when a person makes the machine.
     public static let derailment = HelperSpec(
         task: "work.derailment", source: .whatsappChat,
         brief: """

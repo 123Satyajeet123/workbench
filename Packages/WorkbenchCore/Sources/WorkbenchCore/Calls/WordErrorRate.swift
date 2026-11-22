@@ -1,8 +1,5 @@
 import Foundation
 
-/// Word error rate, the standard measure of a transcript against a reference: the fewest word substitutions,
-/// deletions and insertions that turn the transcript into the reference, over the reference's word count. Case and
-/// punctuation are ignored; an apostrophe inside a word is kept.
 public struct WordErrorRate: Sendable, Equatable {
     public var errors: Int
     public var referenceWords: Int
@@ -28,7 +25,6 @@ public struct WordErrorRate: Sendable, Equatable {
         self.init(errors: previous[heard.count], referenceWords: truth.count)
     }
 
-    /// Several transcripts pooled: total errors over total reference words, as WER is reported across a test set.
     public static func pooled(_ parts: [WordErrorRate]) -> WordErrorRate {
         WordErrorRate(
             errors: parts.map(\.errors).reduce(0, +), referenceWords: parts.map(\.referenceWords).reduce(0, +))

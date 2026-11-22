@@ -1,10 +1,7 @@
 import Foundation
 
-/// Writes a short message the founder may send about one item a machine found. One model call. The founder reads,
-/// edits and sends it; Workbench never sends anything.
 public struct Drafter: Sendable {
     public struct Draft: Decodable, Sendable, Equatable {
-        /// Who the message is for, as the item names them; empty when the item names no one.
         public var to: String
         public var text: String
     }

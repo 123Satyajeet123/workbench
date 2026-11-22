@@ -4,7 +4,6 @@ import Testing
 @testable import WorkbenchCore
 
 @Suite struct CertificateTests {
-    /// Reference values from an independent bisection on the binomial CDF (Python, exact integer binomials).
     @Test(arguments: [
         (0, 22, 0.099372), (0, 21, 0.103849), (1, 38, 0.098547), (3, 60, 0.107965), (5, 50, 0.177618), (0, 1, 0.9),
     ])

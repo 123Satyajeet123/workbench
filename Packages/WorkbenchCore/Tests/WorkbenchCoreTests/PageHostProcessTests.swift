@@ -4,8 +4,6 @@ import Testing
 
 @testable import WorkbenchCore
 
-/// Runs the built `workbench-pages` host as the browser does: framed messages on stdin, framed replies on stdout.
-/// `scripts/pages-e2e.sh` builds it first.
 @Suite struct PageHostProcessTests {
     private let host = URL(filePath: #filePath).deletingLastPathComponent()
         .appending(path: "../../.build/debug/workbench-pages").standardized

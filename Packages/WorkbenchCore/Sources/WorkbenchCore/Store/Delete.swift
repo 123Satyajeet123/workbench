@@ -2,31 +2,15 @@ import Foundation
 import GRDB
 
 public enum DeleteSelector: Sendable {
-    /// Screen and file activity that matches every field the filter names, and the screen items over its time. Also
-    /// the text of model runs that hold screen, screen-text or file content and started in the filter's time range
-    /// (all of them when it has none). A run's input does not say which window it came from, so this is coarse: it may
-    /// remove text of other windows, and that is the safe direction.
     case activities(ActivityFilter)
-    /// What one kind of source produced before the cutoff (all of it when nil): its activity, its recordings, the
-    /// items helpers read from it, the summaries built from it, and the text of model runs that hold the kind, or hold
-    /// a kind that is unknown, and started before the cutoff. A call still being recorded stays. The kind `typed`
-    /// is not captured: this removes nothing of it.
     case kind(SourceKind, before: Date?)
-    /// One machine: its items and their marks, its summaries, its saved settings, the text of its runs and of every
-    /// summary run (their input does not say which machine it came from), and a deleted state. Its trial's items and
-    /// run text go too. Its run rows stay in the meter.
     case machine(String)
-    /// Every captured kind, and all run text before the cutoff. What the person typed goes too, when no cutoff is
-    /// given; with a cutoff (the retention) only the typed facts that are closed and older than it go, so an open
-    /// action stays until the person closes it. The consent history and the run rows (the meter) hold no captured
-    /// content, and stay.
     case everything(before: Date?)
 }
 
 public struct ActivityFilter: Sendable {
     public var id: Int64?
     public var bundleID: String?
-    /// A site and its subdomains.
     public var domain: String?
     public var from: Date?
     public var to: Date?
@@ -69,11 +53,8 @@ public struct ActivityFilter: Sendable {
 }
 
 extension Store {
-    /// How often the log is checkpointed when a reader still holds it, before the delete reports failure.
     static let checkpointAttempts = 3
 
-    /// The one way captured data leaves the store: rows in one transaction, then their files, then the log. The
-    /// delete succeeds only when the write-ahead log no longer holds the deleted text.
     public func delete(_ selector: DeleteSelector) throws {
         let folders = try writer.write { db in
             switch selector {
@@ -115,8 +96,6 @@ extension Store {
         try truncateLog()
     }
 
-    /// Empties the write-ahead log. A reader that still holds it makes SQLite report busy. The delete waits, tries
-    /// again, then throws, because the deleted text would still be on disk.
     private func truncateLog() throws {
         for _ in 0..<Self.checkpointAttempts {
             do {
@@ -129,8 +108,6 @@ extension Store {
         throw StoreError.logNotTruncated
     }
 
-    /// What the person typed, with the copies of it in run text and summaries. Without a cutoff all of it goes; with
-    /// one, only the facts that are closed and started before it.
     private func removeTyped(_ db: Database, before cutoff: Date?) throws {
         let closed = cutoff == nil ? "" : "AND status_kind = 'close'"
         try db.execute(
@@ -169,8 +146,6 @@ extension Store {
         return []
     }
 
-    /// Run text that meets every condition given: holds any of `kinds` or an unknown kind, belongs to a run of one of
-    /// `tasks`, and belongs to a run started in `from` up to `before`.
     private func removeRunText(
         _ db: Database, holding kinds: [SourceKind]? = nil, tasks: [String]? = nil, from: Date? = nil,
         before: Date? = nil

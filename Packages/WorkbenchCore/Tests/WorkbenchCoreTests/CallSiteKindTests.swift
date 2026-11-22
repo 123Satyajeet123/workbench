@@ -3,7 +3,6 @@ import Testing
 
 @testable import WorkbenchCore
 
-/// Each caller says honestly which consent kinds its input holds.
 struct CallSiteKindTests {
     private let today = WorkDay(containing: t0)
 

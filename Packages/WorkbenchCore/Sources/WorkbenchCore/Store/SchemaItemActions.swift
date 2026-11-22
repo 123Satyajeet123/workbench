@@ -1,9 +1,6 @@
 import Foundation
 
 extension Schema {
-    /// The founder's actions on an item as events: hide it, snooze it until a time, or bring it back. They sit beside
-    /// the model's and the founder's closes in `item_event`, rebuilt for the new kinds and `until`; a close never
-    /// hides, and a hide never closes, so each has its own latest-event view. A model only ever closes.
     static let itemActions = [
         "DROP VIEW item_status",
         """

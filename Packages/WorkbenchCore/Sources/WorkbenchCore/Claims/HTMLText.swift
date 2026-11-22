@@ -1,6 +1,5 @@
 import Foundation
 
-/// The visible text of an HTML page: no scripts, styles or tags, entities decoded, white space made single spaces.
 public enum HTMLText {
     nonisolated(unsafe) private static let hidden =
         #/(?is)<(script|style|noscript|svg|template)\b.*?</\1\s*>|<!--.*?-->/#
