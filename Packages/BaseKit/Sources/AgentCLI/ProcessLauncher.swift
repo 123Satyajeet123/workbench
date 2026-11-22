@@ -6,7 +6,6 @@ public struct ProcessOutput: Sendable, Equatable {
     public var stdout: String
     public var stderr: String
     public var status: Int32
-    /// The text of the plan's answer file, when it has one and the run wrote it.
     public var answerFile: String?
 
     public init(stdout: String, stderr: String = "", status: Int32 = 0, answerFile: String? = nil) {
@@ -21,7 +20,6 @@ public protocol ProcessLauncher: Sendable {
     func launch(_ plan: ProcessPlan, timeout: Duration) async throws -> ProcessOutput
 }
 
-/// Every child the launcher has started and not yet seen end.
 public enum RunningChildren {
     private static let killGrace: Duration = .seconds(5)
     private static let pids = Mutex<Set<Int32>>([])
@@ -34,14 +32,12 @@ public enum RunningChildren {
 
     private static func isRunning(_ pid: Int32) -> Bool { pids.withLock { $0.contains(pid) } }
 
-    /// SIGTERM now, and SIGKILL after the grace if the child is still there.
     static func terminate(_ pid: Int32, grace: Duration = killGrace) async {
         kill(pid, SIGTERM)
         try? await Task.sleep(for: grace, clock: ContinuousClock())
         if isRunning(pid) { kill(pid, SIGKILL) }
     }
 
-    /// For app quit: ends every running child before it returns, or after the grace at most.
     public static func terminateAll(grace: Duration = .seconds(2)) {
         let running = pids.withLock { $0 }
         for pid in running { kill(pid, SIGTERM) }

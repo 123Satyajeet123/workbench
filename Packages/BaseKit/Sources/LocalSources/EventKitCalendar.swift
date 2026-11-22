@@ -2,7 +2,6 @@ import EventKit
 import Foundation
 import WorkbenchCore
 
-/// The real calendar, through EventKit with full read access. It never saves an event.
 public final class EventKitCalendar: CalendarEvents, @unchecked Sendable {
     private let store = EKEventStore()
 

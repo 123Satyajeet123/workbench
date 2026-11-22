@@ -10,7 +10,6 @@ public enum ReadError: Error, Equatable {
 }
 
 extension CapturePolicyProvider {
-    /// Asks the current policy for a grant, and throws the reason when it says no.
     public func grant(for kind: SourceKind, label: String? = nil, at now: Date) async throws -> CaptureGrant {
         switch try await currentPolicy().authorize(CaptureRequest(kind: kind, label: label), at: now) {
         case .allow(let grant): grant

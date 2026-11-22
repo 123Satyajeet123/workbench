@@ -9,7 +9,6 @@ struct Verdict: Decodable, Sendable, Equatable {
     static var schema: JSONSchema { .object([.init("label", .string)]) }
 }
 
-/// Returns one fixed output and remembers each plan it was asked to run.
 final class FakeLauncher: ProcessLauncher, Sendable {
     let output: ProcessOutput
     private let launched = Mutex<[ProcessPlan]>([])
@@ -41,5 +40,4 @@ func makePlan(_ call: AgentCall = sampleCall, kind: AgentCLIKind = .claude) -> P
         workDirectory: URL(fileURLWithPath: "/tmp/work"))
 }
 
-/// Where the tests pretend the CLI is installed.
 func tool(_ kind: AgentCLIKind) -> URL { URL(fileURLWithPath: "/opt/tools/\(kind.rawValue)") }

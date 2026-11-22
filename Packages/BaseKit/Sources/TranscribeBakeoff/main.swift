@@ -2,9 +2,6 @@ import Foundation
 import LocalSources
 import WorkbenchCore
 
-// Research 05's bake-off: every engine on every call in a folder, scored by word error rate against the founder's
-// reference transcript beside it (call.m4a + call.txt). Usage: transcribe-bakeoff <folder> [--install]
-// --install lets Apple download a missing on-device model; without it nothing is downloaded.
 @available(macOS 26, *)
 func bakeoff() async throws {
     let arguments = CommandLine.arguments.dropFirst()

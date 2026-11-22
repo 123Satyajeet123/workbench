@@ -28,8 +28,6 @@ struct SQLiteRow {
     }
 }
 
-/// A private copy of a database that another app holds open. The copy is transactionally consistent
-/// while the owner writes its WAL, and SQLite deletes it on close.
 final class SQLiteSnapshot {
     private static let copyDeadline: TimeInterval = 8
     private var handle: OpaquePointer?

@@ -4,7 +4,6 @@ import WorkbenchCore
 
 @testable import WebResearch
 
-/// The request shapes follow the providers' documentation. No test sends anything.
 @Suite struct WebResearchTests {
     @Test func braveAsksForQueryAndCountWithTheKeyInItsHeader() throws {
         let request = BraveSearch.request(query: "Acme seed $11 Mn", count: 5, key: "k1")

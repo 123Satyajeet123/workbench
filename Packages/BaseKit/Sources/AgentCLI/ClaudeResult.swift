@@ -1,14 +1,11 @@
 import Foundation
 import WorkbenchCore
 
-/// The `result` event that ends a claude run.
 public struct ClaudeResult: Sendable, Equatable {
     public let isError: Bool
     public let text: String?
     public let structuredAnswer: String?
-    /// Summed over every model the run used; the cost is the run's total at list price.
     public let usage: Usage
-    /// The model that cost the most in the run, as claude names it.
     public let model: String?
 
     public init?(line: String) {
@@ -27,7 +24,6 @@ public struct ClaudeResult: Sendable, Equatable {
             costUSD: Self.number(object["total_cost_usd"]))
     }
 
-    /// The last result event in the output of one run, if any.
     public static func last(in stdout: String) -> ClaudeResult? {
         stdout.split(separator: "\n").reversed().lazy.compactMap { ClaudeResult(line: String($0)) }.first
     }

@@ -15,8 +15,6 @@ struct FixedPolicy: CapturePolicyProvider {
 let whatsappOn = FixedPolicy(
     policy: CapturePolicy(switches: [.whatsapp: true], allowList: [.whatsapp: [selfJID, groupJID]]))
 
-/// A container folder with a `ChatStorage.sqlite` that has the columns the reader uses. Chats: 1 the founder's own,
-/// 2 a friend, 3 the founder's status feed (same ID), 4 the team group, 5 another group.
 struct WhatsAppFixture {
     let container: URL
 
@@ -43,7 +41,6 @@ struct WhatsAppFixture {
             """)
     }
 
-    /// `member` is a ZWAGROUPMEMBER row; nil means the founder sent it.
     func message(
         chat: Int, type: Int, text: String?, mediaPath: String? = nil, title: String? = nil, member: Int? = nil,
         date: Double = 1000
@@ -63,7 +60,6 @@ struct WhatsAppFixture {
         try run(sql)
     }
 
-    /// WhatsApp's copy of the founder's address book: (member ID, full name) rows.
     func contacts(_ rows: [(lid: String, name: String)]) throws {
         let values = rows.map { "('\($0.lid)', NULL, '\($0.name)')" }.joined(separator: ", ")
         try run(

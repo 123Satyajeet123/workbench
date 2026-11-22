@@ -3,21 +3,15 @@ import LocalSources
 import Observation
 import WorkbenchCore
 
-/// The one capture service. It reads the sensors, asks the policy about everything it sees, and writes what the
-/// engine keeps. The UI starts it, stops it and shows its state.
 @MainActor @Observable
 public final class CaptureService {
     public static let interval: Duration = .seconds(2)
-    /// Captured data older than this is deleted: activity, recordings and team entries alike.
     public static let retention: TimeInterval = 30 * 86_400
 
     public private(set) var policy: CapturePolicy
     public private(set) var status: CaptureStatus
-    /// The call being recorded now, if any.
     public private(set) var call: Recording?
-    /// Apps playing sound now, refreshed every tick: the calls that can be recorded.
     public private(set) var playingApps: [AudioApp] = []
-    /// The last write or delete that failed in the background, in plain words. Nil after the next one succeeds.
     public private(set) var problem: String?
 
     @ObservationIgnored private let store: Store
@@ -58,7 +52,6 @@ public final class CaptureService {
         setFileWatcher(on: false)
     }
 
-    /// The new policy is saved as one consent event, then used by the next reading.
     public func update(_ change: (inout CapturePolicy) -> Void) throws {
         var changed = policy
         change(&changed)
@@ -74,7 +67,6 @@ public final class CaptureService {
         return Array(shown.suffix(limit).reversed())
     }
 
-    /// Recordings that started on or after `start`, newest first.
     public func recordings(since start: Date) throws -> [Recording] {
         try store.queries.recordings().filter { $0.startedAt >= start }
     }
@@ -84,8 +76,6 @@ public final class CaptureService {
         try store.delete(.activities(ActivityFilter(id: id)))
     }
 
-    /// Records a call in the app the founder chose, or in person (nil: the microphone only). The policy decides; in
-    /// private mode the founder confirms first.
     public func startCall(in app: AudioApp?, confirmed: Bool = false) async throws {
         guard call == nil else { return }
         let now = store.clock()
@@ -111,7 +101,6 @@ public final class CaptureService {
         call = recording
     }
 
-    /// The recording is saved only when every track closed with sound in it; otherwise it is kept as failed, with why.
     public func stopCall() throws {
         guard let call, let recorder else { return }
         self.call = nil
@@ -127,7 +116,6 @@ public final class CaptureService {
 
     static let inPerson = "in-person"
 
-    /// Deletes every kind of captured data older than the retention, at most once an hour.
     func pruneIfDue(at now: Date) async {
         guard now.timeIntervalSince(lastPrune) >= 3600 else { return }
         lastPrune = now
@@ -204,8 +192,6 @@ extension CallStartError: LocalizedError {
     public var needsCallSwitch: Bool { self == .denied(.sourceSwitchedOff) }
 }
 
-/// The engine, the reader and the store writes, on one actor: the accessibility reads never run on the main thread.
-/// Each step returns its failure in plain words, or nil.
 actor CaptureLoop {
     private let store: Store
     private let reader = ScreenReader()

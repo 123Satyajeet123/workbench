@@ -77,7 +77,6 @@ import WorkbenchCore
         #expect(try await reader(fixture, chat: groupJID).members().map(\.name) == ["Asha", "Bharat", "Tattwa"])
     }
 
-    /// The founder's rule (2026-11-19): every group with "Brave" in its name, and direct chats with people in them.
     @Test func aSelectionTakesMatchingGroupsAndDirectChatsWithTheirMembersOnly() throws {
         let fixture = try WhatsAppFixture()
         try fixture.run(

@@ -5,7 +5,6 @@ import WorkbenchCore
 
 @testable import LocalSources
 
-/// A PNG with `text` drawn large, black on white.
 func writeTextImage(_ text: String, to url: URL) throws {
     let image = NSImage(size: NSSize(width: 900, height: 160))
     image.lockFocus()

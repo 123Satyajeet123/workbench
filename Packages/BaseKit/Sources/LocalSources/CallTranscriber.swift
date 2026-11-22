@@ -2,22 +2,16 @@ import AVFoundation
 import Foundation
 import Speech
 
-/// Turns one call track into text, on this Mac. Engines are compared by word error rate on the founder's own calls
-/// before one is used (research 05's bake-off).
 public protocol CallTranscriber: Sendable {
     var name: String { get }
     func transcribe(_ audio: URL) async throws -> String
 }
 
 public enum TranscriberError: Error, Equatable {
-    /// The engine does not support the locale at all.
     case unsupported(String)
-    /// The locale is supported but its on-device model is not installed. Installing downloads it from Apple.
     case notInstalled(String)
 }
 
-/// Apple's on-device speech engines (macOS 26): SpeechTranscriber (en-IN and 29 other locales) and DictationTranscriber
-/// (hi-IN among others). Neither mixes Hindi and English in one session (research 05), which the bake-off measures.
 @available(macOS 26, *)
 public struct AppleTranscriber: CallTranscriber {
     public enum Engine: Sendable {
@@ -41,7 +35,6 @@ public struct AppleTranscriber: CallTranscriber {
         }
     }
 
-    /// Whether the model is on this Mac. Never downloads: installing is the founder's act (`install()`).
     public func status() async -> AssetInventory.Status {
         await AssetInventory.status(forModules: [module()])
     }
@@ -68,7 +61,6 @@ public struct AppleTranscriber: CallTranscriber {
         }
     }
 
-    /// Feeds the whole file to the analyzer and joins the module's final results.
     private static func run<Results: AsyncSequence & Sendable>(
         _ file: AVAudioFile, module: any SpeechModule, results: Results,
         text: @escaping @Sendable (Results.Element) -> String

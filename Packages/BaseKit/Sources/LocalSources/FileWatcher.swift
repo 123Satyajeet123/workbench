@@ -2,7 +2,6 @@ import CoreServices
 import Foundation
 import WorkbenchCore
 
-/// File creations, changes and renames under the given folders, from FSEvents. Delivered on the main queue.
 @MainActor
 public final class FileWatcher {
     public typealias Handler = @MainActor (CaptureEngine.FileChange, String) -> Void

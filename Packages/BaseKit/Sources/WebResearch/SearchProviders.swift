@@ -1,8 +1,6 @@
 import Foundation
 import WorkbenchCore
 
-/// Brave Search API: GET /res/v1/web/search?q=&count=, key in `X-Subscription-Token`, results in `web.results`
-/// (Brave documentation, Web Search, Get started).
 public struct BraveSearch: SearchProvider {
     let transport: WebTransport
     let key: String
@@ -45,8 +43,6 @@ public struct BraveSearch: SearchProvider {
     }
 }
 
-/// Exa Search API: POST /search with `{query, numResults, type}`, key in `x-api-key`, results in `results`
-/// (Exa documentation, API reference, Search). No `contents` is asked for: pages are fetched by Workbench itself.
 public struct ExaSearch: SearchProvider {
     let transport: WebTransport
     let key: String
@@ -84,7 +80,6 @@ public struct ExaSearch: SearchProvider {
     }
 }
 
-/// Fetches a page and returns its text. Only https pages on named hosts; only HTML and plain text; at most 1.5 MB.
 public struct WebPageFetcher: PageFetching {
     static let byteLimit = 1_500_000
     let transport: WebTransport
@@ -104,7 +99,6 @@ public struct WebPageFetcher: PageFetching {
     }
 }
 
-/// The provider and the fetcher for a session, built from a grant the consent gate gave.
 public func makeWebSession(
     provider: SearchProviderKind, key: String, grant: CaptureGrant
 ) -> (any SearchProvider, any PageFetching) {

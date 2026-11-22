@@ -1,7 +1,6 @@
 import Foundation
 import WorkbenchCore
 
-/// What the JSON event stream of one `codex exec --json` run says about usage and failure.
 struct CodexEvents: Sendable, Equatable {
     private(set) var usage = Usage()
     private(set) var completed = false
@@ -31,7 +30,6 @@ struct CodexEvents: Sendable, Equatable {
         var message: String?
     }
 
-    /// Cached input is part of the input count, so it is moved out of it. Codex reports no cost.
     init(stdout: String) {
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase

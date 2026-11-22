@@ -1,8 +1,6 @@
 import Foundation
 import WorkbenchCore
 
-/// The only place Workbench opens a connection for web research. A request needs a live grant of the kind `web`, so
-/// code that has no consent cannot send. No cookies, no cache, no credentials of the Mac.
 struct WebTransport: Sendable {
     struct Failure: LocalizedError {
         let status: Int
@@ -11,7 +9,6 @@ struct WebTransport: Sendable {
 
     let grant: CaptureGrant
 
-    /// The body of a successful reply, cut at `limit` bytes, and its content type.
     func send(_ request: URLRequest, limit: Int) async throws -> (body: Data, contentType: String) {
         guard grant.kind == .web, grant.expiresAt > Date() else { throw WebBlock.grantExpired }
         let session = URLSession(configuration: .ephemeral, delegate: HTTPSRedirects(), delegateQueue: nil)
@@ -37,7 +34,6 @@ struct WebTransport: Sendable {
     }
 }
 
-/// A redirect is followed only to another https address that names a host, not a machine on this network.
 private final class HTTPSRedirects: NSObject, URLSessionTaskDelegate {
     func urlSession(
         _ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
@@ -48,7 +44,6 @@ private final class HTTPSRedirects: NSObject, URLSessionTaskDelegate {
 }
 
 enum PageAddress {
-    /// Whether a page may be fetched: https, a named public host. Not an IP address, `localhost` or a `.local` name.
     static func isFetchable(_ url: URL) -> Bool {
         guard url.scheme == "https", let host = url.host()?.lowercased(), host.contains("."),
             url.user() == nil

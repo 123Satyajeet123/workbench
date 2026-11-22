@@ -1,11 +1,8 @@
 import Foundation
 
-/// The command-line agents Workbench can run a model through. Each uses the founder's own plan and login.
 public enum AgentCLIKind: String, Sendable, CaseIterable, Codable {
     case claude, codex
 
-    /// The installed CLI: the first match on the PATH, then in the folders the installers use. An app opened from the
-    /// Dock gets a short PATH, so the folders matter.
     public func installed(
         environment: [String: String] = ProcessInfo.processInfo.environment, home: URL = .homeDirectory,
         isExecutable: (String) -> Bool = FileManager.default.isExecutableFile(atPath:)
@@ -18,7 +15,6 @@ public enum AgentCLIKind: String, Sendable, CaseIterable, Codable {
     }
 }
 
-/// One call to an agent CLI: a prompt, the schema its answer must fit, no tools, no settings, no session.
 public struct AgentCall: Sendable {
     public var prompt: String
     public var instructions: String
@@ -42,7 +38,6 @@ public struct AgentCall: Sendable {
     /// injections": keep instructions apart from untrusted data and say where the data came from).
     public var systemPrompt: String { instructions.isEmpty ? Self.dataRule : "\(instructions)\n\n\(Self.dataRule)" }
 
-    /// The input inside data tags. A closing tag inside the input cannot end the data early.
     public var data: String {
         "<data>\n\(prompt.replacingOccurrences(of: "</data>", with: "</ data>"))\n</data>"
     }
@@ -55,7 +50,6 @@ public struct AgentCall: Sendable {
 
 public enum AgentCLIError: Error, Equatable {
     case notInstalled(AgentCLIKind)
-    /// Billing is set to the founder's own API key, and none is saved.
     case noAPIKey
     case unsafePlan(String)
     case timedOut

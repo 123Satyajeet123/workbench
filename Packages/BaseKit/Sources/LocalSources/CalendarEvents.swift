@@ -1,20 +1,15 @@
 import Foundation
 import WorkbenchCore
 
-/// The Mac's calendar, behind a seam so a test can use a fake. It only reads.
 public protocol CalendarEvents: Sendable {
-    /// Asks macOS once when it has not asked before; otherwise reports what the person chose.
     func requestAccess() async -> CalendarAccess
     func calendars() -> [CalendarInfo]
-    /// The events that start in `interval`, in the calendars with these ids.
     func meetings(during interval: DateInterval, in calendarIDs: [String]) -> [Meeting]
 }
 
 public enum CalendarAccess: Sendable, Equatable {
     case allowed
-    /// The person said no, now or before; only System Settings can change it.
     case blocked
-    /// macOS refused with an error, in its words.
     case failed(String)
 }
 
@@ -22,7 +17,6 @@ public enum CalendarError: Error, Equatable {
     case accessRefused(CalendarAccess)
 }
 
-/// What one read found: every calendar the person could choose, and today's meetings in the chosen ones.
 public struct CalendarDay: Sendable, Equatable {
     public var calendars: [CalendarInfo]
     public var meetings: [Meeting]
@@ -35,8 +29,6 @@ public struct CalendarDay: Sendable, Equatable {
     }
 }
 
-/// Reads today's meetings. It asks the capture policy for each calendar before it reads that calendar, and asks macOS
-/// for access only after the policy allows the kind.
 public struct MeetingReader: Sendable {
     let calendar: any CalendarEvents
     let policy: any CapturePolicyProvider

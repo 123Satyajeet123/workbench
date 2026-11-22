@@ -1,7 +1,6 @@
 import AppKit
 import WorkbenchCore
 
-/// Sleep and wake of the Mac, delivered on the main queue until the value is released.
 @MainActor
 public final class PowerEvents {
     private var observers: [NSObjectProtocol] = []

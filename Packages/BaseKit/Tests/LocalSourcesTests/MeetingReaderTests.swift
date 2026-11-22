@@ -4,7 +4,6 @@ import WorkbenchCore
 
 @testable import LocalSources
 
-/// A calendar of fixed events that counts every ask, so a test can see that nothing was read.
 final class FakeCalendar: CalendarEvents, @unchecked Sendable {
     var access = CalendarAccess.allowed
     var events: [Meeting]

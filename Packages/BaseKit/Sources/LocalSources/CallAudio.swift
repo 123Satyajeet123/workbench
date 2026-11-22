@@ -13,7 +13,6 @@ public enum CallAudioError: Error, Equatable {
     case missingAudioCaptureUsage
 }
 
-/// An app that is playing sound, with every audio process it owns: a browser call plays through helper processes.
 public struct AudioApp: Sendable, Hashable, Identifiable {
     public var bundleID: String
     public var name: String
@@ -35,7 +34,6 @@ public struct AudioProcess: Sendable, Equatable {
 }
 
 public enum AudioApps {
-    /// Apps with at least one process producing sound now, Workbench excluded.
     @MainActor
     public static func playing() -> [AudioApp] {
         let names = Dictionary(
@@ -46,7 +44,6 @@ public enum AudioApps {
         return group(processes().filter { !$0.bundleID.hasPrefix(own) || own.isEmpty }, apps: names)
     }
 
-    /// Each process belongs to the running app whose bundle ID is its own or a dotted prefix of it.
     public static func group(_ processes: [AudioProcess], apps: [String: String]) -> [AudioApp] {
         var owned: [String: [AudioProcess]] = [:]
         for process in processes {
@@ -72,9 +69,6 @@ public enum AudioApps {
     }
 }
 
-/// Records one call: the `me` track from the microphone and, for an online call, the `them` track from a process tap
-/// on the call app. In person (no app) the microphone hears everyone. Nothing starts on its own; the owner calls
-/// `start` and `stop`.
 @MainActor
 public final class CallAudioRecorder {
     public let folder: URL
@@ -114,7 +108,6 @@ public final class CallAudioRecorder {
         }
     }
 
-    /// Stops both tracks and closes their files. Throws the first write error, or when a track kept no sound frame.
     @discardableResult
     public func stop() throws -> [URL] {
         let them = try tap?.stop()
@@ -140,13 +133,11 @@ public final class CallAudioRecorder {
         try engine.start()
     }
 
-    /// The tap block runs on an audio thread, so it must not be made in a main-actor context.
     private nonisolated static func installTap(on input: AVAudioInputNode, format: AVAudioFormat, sink: AudioFileSink) {
         input.installTap(onBus: 0, bufferSize: 4096, format: format) { buffer, _ in sink.write(buffer) }
     }
 }
 
-/// A private, unmuted tap on given processes, read through a private aggregate device.
 final class ProcessTap {
     private var tapID = AudioObjectID(kAudioObjectUnknown)
     private var deviceID = AudioObjectID(kAudioObjectUnknown)
@@ -180,7 +171,6 @@ final class ProcessTap {
         }
     }
 
-    /// Stops the tap, then closes its files.
     func stop() throws -> [URL] {
         stopDevice()
         defer { sink = nil }
@@ -225,8 +215,6 @@ final class ProcessTap {
     }
 }
 
-/// One track as AAC files of at most `segment` each: a crash loses only the open file. The first write error stops
-/// the track and is kept for `finish`.
 final class AudioFileSink: @unchecked Sendable {
     private struct State {
         var file: AVAudioFile?
@@ -277,7 +265,6 @@ final class AudioFileSink: @unchecked Sendable {
         write(buffer)
     }
 
-    /// Closes the open file. Returns every file of the track, or the first failure.
     func finish() throws -> [URL] {
         let (files, failure) = state.withLock { state in
             state.finished = true

@@ -1,6 +1,5 @@
 import Foundation
 
-/// The exact process a call becomes. `validate` refuses any plan that could act, persist or read settings.
 public struct ProcessPlan: Sendable, Equatable {
     public var kind: AgentCLIKind
     public var executable: URL
@@ -8,9 +7,7 @@ public struct ProcessPlan: Sendable, Equatable {
     public var environment: [String: String]
     public var stdin: String
     public var workDirectory: URL
-    /// Files written into the work directory before the run: name and content.
     public var inputFiles: [String: String]
-    /// A file in the work directory that holds the answer after the run.
     public var answerFile: String?
     /// The founder's own Anthropic API key, chosen in Workbench, so the call is billed to it: the route Anthropic
     /// documents for programs (code.claude.com/docs/en/legal-and-compliance). In `-p` mode the CLI always uses a
@@ -52,8 +49,6 @@ extension ProcessPlan {
 
     static let apiKeyVariable = "ANTHROPIC_API_KEY"
 
-    /// A credential from the founder's shell never reaches the CLI. The one exception is the key the founder chose
-    /// in Workbench, for the Claude CLI, exactly as chosen.
     public func validate() throws {
         if let name = environment.keys.sorted().first(where: { name in
             Self.isForbidden(variable: name)

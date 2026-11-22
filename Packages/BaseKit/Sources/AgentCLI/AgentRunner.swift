@@ -1,17 +1,13 @@
 import Foundation
 import WorkbenchCore
 
-/// A model behind an agent CLI, run as a child process with no tools.
 public struct AgentRunner: StructuredModel {
     public let kind: AgentCLIKind
-    /// Nil when the CLI is not installed; a call then fails with `notInstalled`.
     public var executable: URL?
     public var model: String
     public var effort: String
     public var timeout: Duration
-    /// The founder's own Anthropic API key when billing is set to it; see `ProcessPlan.apiKey`.
     public var apiKey: String?
-    /// Billing is set to an API key, so a missing key stops the call instead of falling back to the sign-in.
     public var requiresAPIKey: Bool
     private let launcher: any ProcessLauncher
     private let inheritedEnvironment: [String: String]

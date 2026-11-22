@@ -5,7 +5,6 @@ import Testing
 
 @testable import LocalSources
 
-/// Readers watch; they never act on another app. Each pattern would set state, act, type or move focus.
 enum ActingScan {
     static let patterns = [
         #"\bAXUIElementSetAttributeValue\b"#, #"\bAXUIElementPerformAction\b"#, #"\bAXUIElementPostKeyboardEvent\b"#,

@@ -2,7 +2,6 @@ import AppKit
 import ApplicationServices
 import WorkbenchCore
 
-/// The frontmost app, as NSWorkspace reports it. Read on the main thread; cheap.
 public struct FrontApp: Sendable, Equatable {
     public var pid: pid_t
     public var name: String
@@ -15,8 +14,6 @@ public struct FrontApp: Sendable, Equatable {
     }
 }
 
-/// Reads the front window through the accessibility tree. Read only, with a short timeout on every call. Not thread
-/// safe: one owner calls it.
 public final class ScreenReader {
     public struct Limits: Sendable {
         public var nodes = 3000
@@ -38,12 +35,10 @@ public final class ScreenReader {
 
     public static var isTrusted: Bool { AXIsProcessTrusted() }
 
-    /// Shows the system prompt that opens Privacy & Security › Accessibility.
     public static func requestTrust() {
         AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
     }
 
-    /// A few calls for title, document and focus; the text walk only when `withText` is true.
     public func read(_ app: FrontApp, withText: Bool) -> ScreenSnapshot {
         let element = AXUIElementCreateApplication(app.pid)
         AXUIElementSetMessagingTimeout(element, limits.callTimeout)
@@ -59,7 +54,6 @@ public final class ScreenReader {
             text: withText && !secure ? window.map(text(of:)) ?? "" : "", secureFocus: secure)
     }
 
-    /// A read that fails, or an address bar the user is editing, says nothing new: the last known document stays.
     private func document(of window: AXUIElement, id: Int, browser: Bool, focused: AXUIElement?) -> String {
         if knownDocuments.count > 256 { knownDocuments.removeAll() }
         switch read(window, kAXDocumentAttribute) as Read<String> {
@@ -86,7 +80,6 @@ public final class ScreenReader {
         return document
     }
 
-    /// The first text field whose value reads as a web address.
     private func findAddressBar(in window: AXUIElement) -> AXUIElement? {
         var queue = [window]
         var next = 0
@@ -125,7 +118,6 @@ public final class ScreenReader {
         return String(parts.joined(separator: "\n").prefix(limits.characters))
     }
 
-    /// For a text area, only the characters on screen (a terminal's scrollback stays out).
     private func visibleText(of element: AXUIElement) -> String? {
         guard let role: String = attribute(element, kAXRoleAttribute), Self.textRoles.contains(role),
             attribute(element, kAXSubroleAttribute) as String? != "AXSecureTextField"
@@ -149,7 +141,6 @@ public final class ScreenReader {
         case absent, unknown
     }
 
-    /// No value and an unsupported attribute mean absent; a timeout or any other error means unknown.
     private func read<T>(_ element: AXUIElement, _ name: String) -> Read<T> {
         var value: CFTypeRef?
         switch AXUIElementCopyAttributeValue(element, name as CFString, &value) {
@@ -166,7 +157,6 @@ public final class ScreenReader {
 }
 
 public enum Presence {
-    /// Seconds since the last key, click or mouse move; infinite while the screen is locked.
     public static func idleSeconds() -> TimeInterval {
         let session = CGSessionCopyCurrentDictionary() as? [String: Any]
         if session?["CGSSessionScreenIsLocked"] as? Bool == true { return .infinity }

@@ -8,7 +8,6 @@ public enum WhatsAppMedia: Sendable, Equatable {
 
 public enum WhatsAppSender: Sendable, Equatable {
     case me
-    /// A group member: their WhatsApp ID and the name this Mac knows them by.
     case member(jid: String, name: String)
 }
 
@@ -16,12 +15,10 @@ public struct WhatsAppEntry: Sendable, Equatable {
     public enum Kind: Sendable, Equatable { case text, photo, document, voiceNote }
 
     public var id: Int64
-    /// The chat it was sent in: a group or a direct chat.
     public var chat: String
     public var date: Date
     public var kind: Kind
     public var sender: WhatsAppSender
-    /// The message text, or the caption of a document.
     public var text: String
     public var title: String?
     public var media: WhatsAppMedia?
@@ -31,12 +28,9 @@ public struct WhatsAppChat: Codable, Sendable, Equatable, Identifiable, Hashable
     public var jid: String
     public var name: String
     public var id: String { jid }
-    /// WhatsApp names groups `…@g.us`; a direct chat is the other person's id.
     public var isGroup: Bool { jid.hasSuffix("@g.us") }
 }
 
-/// Which chats a several-chat machine reads, as the founder put it: groups whose name holds some words, and the direct
-/// chats with people in those groups.
 public struct ChatSelection: Codable, Sendable, Equatable {
     public var nameContains: String
     public var directWithMembers: Bool
@@ -50,7 +44,6 @@ public struct ChatSelection: Codable, Sendable, Equatable {
 public struct WhatsAppMember: Codable, Sendable, Equatable {
     public var jid: String
     public var name: String
-    /// The IDs of the chosen chats the person is in now; nil for a person stored before this was kept.
     public var chats: [String]?
 
     public init(jid: String, name: String, chats: [String]? = nil) {
@@ -60,8 +53,6 @@ public struct WhatsAppMember: Codable, Sendable, Equatable {
     }
 }
 
-/// Reads one chat, named by its WhatsApp ID: the founder's own chat or one group. The policy must allow that ID; no
-/// other chat is ever queried.
 public struct WhatsAppChatReader: Sendable {
     private enum MessageType {
         static let text = 0
@@ -81,7 +72,6 @@ public struct WhatsAppChatReader: Sendable {
     }
 
     private let container: URL
-    /// The chats this reader may read; the policy must allow each one.
     public let chatJIDs: [String]
     private let policy: any CapturePolicyProvider
 
@@ -95,8 +85,6 @@ public struct WhatsAppChatReader: Sendable {
         self.init(container: container, chatJIDs: [chatJID], policy: policy)
     }
 
-    /// The chats that match a selection: groups whose name holds its words, and, when asked, direct chats with people
-    /// in those groups. Only names and IDs, and only while the WhatsApp source is on.
     public static func chats(
         matching selection: ChatSelection, container: URL = defaultContainer, policy: CapturePolicy
     ) throws -> [WhatsAppChat] {
@@ -126,8 +114,6 @@ public struct WhatsAppChatReader: Sendable {
         return groups + direct
     }
 
-    /// The groups on this Mac, by name, so the founder can choose one. Only names and IDs, and only while the WhatsApp
-    /// source is on.
     public static func groups(container: URL = defaultContainer, policy: CapturePolicy) throws -> [WhatsAppChat] {
         guard policy.mode != .off else { throw ReadError.denied(.captureOff) }
         guard policy.isEnabled(.whatsapp) else { throw ReadError.denied(.sourceSwitchedOff) }
@@ -138,20 +124,16 @@ public struct WhatsAppChatReader: Sendable {
         ).compactMap { row in row.text(0).map { WhatsAppChat(jid: $0, name: row.text(1) ?? $0) } }
     }
 
-    /// Messages of the chats in [start, end), oldest first.
     public func entries(from start: Date = .distantPast, to end: Date = .distantFuture, now: Date = .now)
         async throws -> [WhatsAppEntry]
     {
         try await read(from: start, to: end, now: now).entries
     }
 
-    /// The people in the chats now: the groups' members and the other person of each direct chat.
     public func members(now: Date = .now) async throws -> [WhatsAppMember] {
         try await read(from: .distantFuture, to: .distantFuture, now: now).members
     }
 
-    /// The messages of the chats in [start, end) and the people in them, from one copy of WhatsApp's database: a copy
-    /// per chat would copy the whole database dozens of times for a several-chat machine.
     public func read(from start: Date, to end: Date, now: Date = .now) async throws -> (
         entries: [WhatsAppEntry], members: [WhatsAppMember]
     ) {
@@ -185,9 +167,6 @@ public struct WhatsAppChatReader: Sendable {
         return (rows.compactMap { entry($0, names: names) }, members)
     }
 
-    /// The name of everyone in the chats, by ID, the IDs of those in them now, and the chats each of those is in now:
-    /// every member a group ever had, and the other person of each direct chat. Names come from the founder's address book as WhatsApp keeps it, then
-    /// the name a person chose, then WhatsApp's contact name; see `MemberNames`.
     private func memberNames(_ snapshot: SQLiteSnapshot) throws -> (
         names: [String: String], active: [String], chats: [String: [String]]
     ) {
@@ -208,7 +187,6 @@ public struct WhatsAppChatReader: Sendable {
             WHERE s.ZCONTACTJID IN (\(marks)) AND s.ZSESSIONTYPE = ?
             """,
             binding: chatJIDs.map { .text($0) } + [.integer(Int64(SessionType.person))])
-        // One person per ID, in whichever chats: in a chat now if in any of them now.
         var byID: [String: (jid: String, contactName: String?, pushName: String?, active: Bool)] = [:]
         var order: [String] = []
         var chats: [String: [String]] = [:]
@@ -234,8 +212,6 @@ public struct WhatsAppChatReader: Sendable {
         return (names, members.filter(\.active).map(\.jid), chats)
     }
 
-    /// Names from the founder's address book, by member ID, as WhatsApp keeps them in `ContactsV2.sqlite`. Empty
-    /// when WhatsApp keeps none or changed the layout: then push names stand in.
     private static func addressBook(_ container: URL, for jids: [String]) -> [String: String] {
         guard !jids.isEmpty,
             let snapshot = try? SQLiteSnapshot(copying: container.appending(path: "ContactsV2.sqlite").path),
@@ -279,7 +255,6 @@ public struct WhatsAppChatReader: Sendable {
         case MessageType.document: kind = .document
         default: return nil
         }
-        // In a direct chat a received message has no group member: it is from the other person of the chat.
         let chat = row.text(8) ?? ""
         let jid = row.text(7) ?? (Int(row.integer(9)) == SessionType.person ? chat : "")
         let sender: WhatsAppSender =
@@ -291,7 +266,6 @@ public struct WhatsAppChatReader: Sendable {
             media: kind == .text ? nil : media(atRelativePath: row.text(4)))
     }
 
-    /// A path counts only when the file exists inside the container's `Message` folder.
     private func media(atRelativePath path: String?) -> WhatsAppMedia {
         guard let path, !path.isEmpty else { return .notDownloaded }
         let root = container.appending(path: "Message").resolvingSymlinksInPath()
@@ -303,12 +277,7 @@ public struct WhatsAppChatReader: Sendable {
     }
 }
 
-/// How a member is named to the founder. WhatsApp now keeps many members by a privacy ID (`…@lid`) with empty
-/// contact names, so an empty string counts as no name, and the first-name column, which can hold encoded data, is
-/// never used. Two members with one name get the end of their ID, so a board never merges two people.
 enum MemberNames {
-    /// The first candidate that holds a letter or a digit, in order, for each member: a name such as "." or "🙂"
-    /// names nobody, so it falls back like an empty one.
     static func resolve(_ members: [(jid: String, candidates: [String?])]) -> [String: String] {
         let named = members.map { member in
             let name = member.candidates.compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -323,7 +292,6 @@ enum MemberNames {
 
     static func fallback(for jid: String) -> String { "Member ·\(tail(jid))" }
 
-    /// `@` followed by a member's ID number, as WhatsApp writes a mention, becomes `@` and their name.
     static func mentions(in text: String, names: [String: String]) -> String {
         text.replacing(#/@(\d{5,})/#) { match in
             let number = String(match.output.1)
