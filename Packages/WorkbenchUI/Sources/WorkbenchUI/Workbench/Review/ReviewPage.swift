@@ -58,8 +58,7 @@ private struct ReviewRow: View {
                 HStack(spacing: Space.s) {
                     Text(title).fontWeight(.medium)
                     if item.askedWith != nil {
-                        Text("Picked at random").textStyle(.caption).padding(.horizontal, Space.s).padding(.vertical, 2)
-                            .background(Tone.attention.color.opacity(0.2), in: .capsule)
+                        Text("Picked at random").pill(Tone.attention.color.opacity(0.2))
                     }
                 }
                 Text("“\(item.quote)”").textStyle(.callout).foregroundStyle(.supporting).textSelection(.enabled)

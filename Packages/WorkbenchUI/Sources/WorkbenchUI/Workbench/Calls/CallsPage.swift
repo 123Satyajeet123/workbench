@@ -13,13 +13,7 @@ struct CallsPage: View {
             subtitle: "Calls recorded on this Mac. Start and stop a recording from the menu bar.",
             look: SidebarSelection.calls.look
         ) {
-            if let call = capture.call {
-                Label(
-                    "Recording \(call.app) since \(call.startedAt.formatted(date: .omitted, time: .shortened))",
-                    systemImage: "record.circle"
-                )
-                .foregroundStyle(Tone.bad.color)
-            }
+            if let call = capture.call { RecordingNowLabel(call: call) }
             let recordings = capture.recordings(
                 since: Calendar.current.date(byAdding: .day, value: -Self.days, to: .now)!
             )
@@ -66,5 +60,17 @@ private struct RecordingRow: View {
         guard let end = recording.endedAt else { return start }
         let minutes = Int(end.timeIntervalSince(recording.startedAt) / 60)
         return "\(start) · \(minutes) min"
+    }
+}
+
+struct RecordingNowLabel: View {
+    let call: Recording
+
+    var body: some View {
+        Label(
+            "Recording \(call.app) since \(call.startedAt.formatted(date: .omitted, time: .shortened))",
+            systemImage: "record.circle"
+        )
+        .foregroundStyle(Tone.bad.color)
     }
 }

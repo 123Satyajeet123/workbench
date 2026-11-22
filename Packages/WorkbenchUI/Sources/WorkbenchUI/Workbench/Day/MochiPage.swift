@@ -12,7 +12,7 @@ struct MochiPage: View {
     var body: some View {
         Page(
             intro: .mochi,
-            title: greeting, subtitle: Date.now.formatted(date: .complete, time: .omitted),
+            title: identity.identity.greeting(), subtitle: Date.now.formatted(date: .complete, time: .omitted),
             look: SidebarSelection.day.look
         ) {
             BriefCard()
@@ -44,20 +44,8 @@ struct MochiPage: View {
         }
     }
 
-    private var greeting: String {
-        let hour = Calendar.current.component(.hour, from: .now)
-        let part = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening"
-        return identity.identity.hasName ? "\(part), \(identity.identity.name)" : part
-    }
-
     @ViewBuilder private var echoStatus: some View {
-        if let call = capture.call {
-            Label(
-                "Recording \(call.app) since \(call.startedAt.formatted(date: .omitted, time: .shortened))",
-                systemImage: "record.circle"
-            )
-            .foregroundStyle(Tone.bad.color)
-        }
+        if let call = capture.call { RecordingNowLabel(call: call) }
         let finished = capture.recordings(since: Calendar.current.startOfDay(for: .now)).filter {
             $0.state != .recording
         }
