@@ -24,6 +24,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         if case .ready(let session) = launch { island = IslandPanel(session: session) }
+        DispatchQueue.main.async(execute: Self.comeToFront)
+    }
+
+    private static func comeToFront() {
+        NSApp.activate()
+        for window in NSApp.windows where window.isVisible && window.canBecomeMain {
+            window.makeKeyAndOrderFront(nil)
+        }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
