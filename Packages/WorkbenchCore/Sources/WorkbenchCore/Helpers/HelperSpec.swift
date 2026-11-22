@@ -180,3 +180,9 @@ extension HelperSpec {
         return changes.isEmpty ? nil : changes
     }
 }
+
+extension HelperSpec {
+    func shownValues(of item: Item) -> String {
+        fields.filter { !$0.kind.isComputed }.map { "\($0.name)=\(item[$0.name])" }.joined(separator: " ")
+    }
+}

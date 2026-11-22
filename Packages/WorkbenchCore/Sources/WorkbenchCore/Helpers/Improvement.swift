@@ -111,8 +111,7 @@ public struct Improver: ModelTask {
         let fields = shown.map { "- \($0.name): \($0.meaning)" }
         let lines = marked.compactMap { item -> String? in
             guard let id = item.id else { return nil }
-            let values = shown.map { "\($0.name)=\(item[$0.name])" }.joined(separator: " ")
-            return "[\(id)] \(item.state == .confirmed ? "right" : "wrong") \(values) — \"\(item.quote)\""
+            return "[\(id)] \(item.state.word) \(spec.shownValues(of: item)) — \"\(item.quote)\""
         }
         return """
             Brief:

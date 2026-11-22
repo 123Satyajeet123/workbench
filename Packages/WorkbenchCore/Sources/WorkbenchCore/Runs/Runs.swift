@@ -173,4 +173,12 @@ extension RunText {
 public enum Mark: String, Codable, CaseIterable, Sendable {
     case proposed
     case confirmed, rejected
+
+    var word: String {
+        switch self {
+        case .confirmed: "right"
+        case .rejected: "wrong"
+        case .proposed: "unmarked"
+        }
+    }
 }

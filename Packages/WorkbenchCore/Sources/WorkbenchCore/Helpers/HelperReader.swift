@@ -149,7 +149,7 @@ public struct HelperReader: Sendable {
     static func examples(_ examples: [Item], spec: HelperSpec) -> String {
         guard !examples.isEmpty else { return "" }
         let lines = examples.map { item in
-            "- \(item.state == .confirmed ? "right" : "wrong"): \(values(of: item, spec: spec)) — \"\(item.quote)\""
+            "- \(item.state.word): \(spec.shownValues(of: item)) — \"\(item.quote)\""
         }
         return "Examples the founder marked on other days:\n" + lines.joined(separator: "\n") + "\n\n"
     }
@@ -159,17 +159,13 @@ public struct HelperReader: Sendable {
         let lines = open.enumerated().map { handle, item in
             let line = "F\(handle + 1) (\(item.day)) "
             return spec.lifecycle == nil
-                ? line + followedValues(of: item) + " — \"\(item.quote)\"" : line + values(of: item, spec: spec)
+                ? line + followedValues(of: item) + " — \"\(item.quote)\"" : line + spec.shownValues(of: item)
         }
         return "Still open from earlier days:\n" + lines.joined(separator: "\n") + "\n\n"
     }
 
     private static func followedValues(of item: Item) -> String {
         item.fields.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }.joined(separator: " ")
-    }
-
-    private static func values(of item: Item, spec: HelperSpec) -> String {
-        spec.fields.filter { !$0.kind.isComputed }.map { "\($0.name)=\(item[$0.name])" }.joined(separator: " ")
     }
 
     public var schema: JSONSchema {

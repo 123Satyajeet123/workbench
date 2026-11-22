@@ -14,14 +14,8 @@ public struct CitedSource: Sendable {
     var line: String? {
         guard let id = item.id else { return nil }
         let values = fields.map { "\($0)=\(item[$0])" }.filter { !$0.hasSuffix("=") }
-        let mark: String =
-            switch item.state {
-            case .confirmed: "right"
-            case .rejected: "wrong"
-            case .proposed: "unmarked"
-            }
         let closed = item.closed.map { " — closed: \($0.outcome)" } ?? ""
-        return "[\(id)] \(machine) · \(values.joined(separator: " ")) — \"\(item.quote)\" — \(mark)\(closed)"
+        return "[\(id)] \(machine) · \(values.joined(separator: " ")) — \"\(item.quote)\" — \(item.state.word)\(closed)"
     }
 }
 
