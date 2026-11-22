@@ -3,8 +3,6 @@ import Observation
 import WebResearch
 import WorkbenchCore
 
-/// The founder's choices for web research: the search provider, its key and the monthly cap. The switch is the
-/// consent kind `web` in the capture policy. The key lives in the Keychain only; the store holds the provider and the cap.
 @Observable
 final class WebResearchSettings {
     static let capChoices = [25, 50, 100, 250, 500]
@@ -52,8 +50,6 @@ final class WebResearchSettings {
         queriesThisMonth = (try? store.queries.webQueriesSent(inMonthOf: store.clock())) ?? 0
     }
 
-    /// A session for one check, opened through the consent gate: it throws a `WebBlock` and sends nothing when the
-    /// consent is off, the key is missing or the cap is reached.
     func openSession() throws -> WebSession {
         defer { refreshUsage() }
         return try WebSession.open(

@@ -4,8 +4,6 @@ import Testing
 
 @testable import WorkbenchUI
 
-/// The palette stays readable in light and dark (WCAG AA): text at least 4.5:1, body text at least 7:1 and symbols at
-/// least 3:1, on every surface they sit on, including a hovered or selected sidebar row.
 struct ContrastTests {
     private typealias RGB = (r: Double, g: Double, b: Double)
 
@@ -25,7 +23,6 @@ struct ContrastTests {
         return 0.2126 * linear(c.r) + 0.7152 * linear(c.g) + 0.0722 * linear(c.b)
     }
 
-    /// `top` laid over `base`, at `top`'s alpha times `opacity`.
     private static func blend(_ top: NSColor, opacity: Double = 1, over base: RGB, _ name: NSAppearance.Name) -> RGB {
         let fg = resolve(top, name)
         let a = fg.alpha * opacity
@@ -41,7 +38,6 @@ struct ContrastTests {
 
     private static let appearances: [NSAppearance.Name] = [.aqua, .darkAqua]
 
-    /// The surfaces text sits on, by name: the plain ones, and the sidebar under a hovered or selected row.
     private static func surfaces(_ name: NSAppearance.Name) -> [(String, RGB)] {
         let sidebar = resolve(Palette.sidebar, name).rgb
         return [

@@ -11,7 +11,6 @@ import WorkbenchCore
                   {"task":"Team chat","project":"","first":2,"last":2,"quote":"Staff"}]}
         """#
 
-    /// A crew whose timeline reads one morning of screen sessions with a scripted model.
     private func crew() throws -> (Crew, ReviewModel, Store) {
         let start = Date.now.addingTimeInterval(-3 * 3600)
         let clock = TestClock(start)

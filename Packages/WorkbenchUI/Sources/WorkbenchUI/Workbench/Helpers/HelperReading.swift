@@ -2,8 +2,6 @@ import Foundation
 import Observation
 import WorkbenchCore
 
-/// Reads a day of the machine's source with the chosen model, and keeps where the last reading stopped so no line is
-/// read twice.
 @Observable
 final class HelperReading {
     private(set) var phase = ReadPhase.idle
@@ -12,11 +10,8 @@ final class HelperReading {
 
     init(context: MachineContext) { self.context = context }
 
-    /// Shows no result of a reading, as when another day is shown.
     func forgetResult() { phase = .idle }
 
-    /// The source must allow the read before the evidence is gathered and still allow it when the items are written.
-    /// Returns whether the day was read or was already up to date.
     @discardableResult
     func read(_ day: WorkDay) async -> Bool {
         guard context.source.isReady, !context.isPaused, phase != .reading else { return false }
@@ -27,15 +22,11 @@ final class HelperReading {
         do {
             _ = try await context.grant()
             let full = try await context.source.evidence(on: day)
-            // A reading starts where the last one stopped: earlier lines go along as context only, so nothing is
-            // read twice and nothing comes back reworded.
             let lastLineKey = MachineKey.lastLine(spec.task, scope: scope, day: day)
             let last = try lastLineKey.load(from: store)
             var evidence = full.after(last)
             for (set, names) in try recentLabels() { evidence.context[set] = names }
             let open = try store.queries.openItems(readBy: spec, asOf: day == context.today ? nil : day)
-            // A machine that follows another reads each day once even when nobody wrote, while there are facts to
-            // watch: a commitment can fall due on a quiet day.
             let followedKey = MachineKey.followedRead(spec.task)
             let followsOpenFacts = spec.follows != nil && !open.isEmpty
             let isCaughtUp = followsOpenFacts ? try followedKey.load(from: store) == day : last != nil
@@ -65,7 +56,6 @@ final class HelperReading {
         }
     }
 
-    /// Whether the facts of `day` have summaries that are missing or out of date. Asks no model.
     func hasMissingSummaries(on day: WorkDay) -> Bool {
         guard let summaries = try? summaries() else { return false }
         return context.spec.summaryFields.contains {
@@ -73,8 +63,6 @@ final class HelperReading {
         }
     }
 
-    /// Writes the summaries `day` lacks, as when a page opens on facts no reading summarized. Returns whether every
-    /// set is current.
     func summarize(_ day: WorkDay) async -> Bool {
         do {
             return await refreshSummaries(day, with: try summaries())
@@ -88,8 +76,6 @@ final class HelperReading {
         Summaries(store: context.store, model: context.makeModel(try context.runner(for: .init(context.spec))))
     }
 
-    /// Brings the day's summaries up to date, one set for each field the machine groups by (people, projects), then
-    /// tells the pages that read them. A failure here does not undo a reading.
     @discardableResult
     private func refreshSummaries(_ day: WorkDay, with summaries: Summaries) async -> Bool {
         var isCurrent = true
@@ -105,8 +91,6 @@ final class HelperReading {
         return isCurrent
     }
 
-    /// For each label field, the values this machine gave in the last 30 days, most used first, so a project keeps
-    /// one name across days; the model may still start a new one.
     private func recentLabels() throws -> [String: [String]] {
         let spec = context.spec
         let fields = spec.fields.compactMap { field -> (name: String, set: String)? in

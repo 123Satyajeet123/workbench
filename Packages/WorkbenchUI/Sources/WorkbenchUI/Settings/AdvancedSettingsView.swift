@@ -1,8 +1,6 @@
 import SwiftUI
 import WorkbenchCore
 
-/// The loop made visible: what each model call cost, and how often the founder marked its entries right. The words
-/// of the trust method (prompt versions, held-out days, audits) live here and nowhere else.
 struct AdvancedSettingsView: View {
     @Environment(Crew.self) private var crew
     @Environment(RunsModel.self) private var model

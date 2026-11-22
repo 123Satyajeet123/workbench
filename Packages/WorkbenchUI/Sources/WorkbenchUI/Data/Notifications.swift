@@ -2,9 +2,6 @@ import Foundation
 import Observation
 import os
 
-/// Whether macOS lets Workbench notify: one answer for the whole app. Every feature that notifies asks here, and the
-/// answer is checked again whenever the app becomes active, so allowing in System Settings takes effect at once and
-/// what waited for it turns on.
 @Observable
 final class Notifications {
     private(set) var blocked = false
@@ -19,7 +16,6 @@ final class Notifications {
         self.notifier = notifier
     }
 
-    /// Runs `turnOn` when macOS allows notifications: now, or once the founder allows them in System Settings.
     func whenAllowed(_ turnOn: @escaping () -> Void) async {
         switch await notifier.authorize() {
         case .allowed:
@@ -34,7 +30,6 @@ final class Notifications {
         }
     }
 
-    /// Asks macOS again; once the founder has answered, macOS shows no prompt.
     func recheck() async {
         guard blocked, case .allowed = await notifier.authorize() else { return }
         blocked = false
@@ -47,7 +42,6 @@ final class Notifications {
         try await notifier.post(title: title, body: body, page: page)
     }
 
-    /// Posts without waiting, for a caller that has no page to show a failure on. A failure goes to the log.
     func announce(title: String, body: String, page: SidebarSelection) {
         Task {
             do {

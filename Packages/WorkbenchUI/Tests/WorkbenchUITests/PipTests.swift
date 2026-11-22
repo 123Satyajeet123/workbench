@@ -223,8 +223,6 @@ import WorkbenchCore
         #expect(capture.policy.authorize(CaptureRequest(kind: .whatsapp, label: teamJID), at: noon).grant != nil)
     }
 
-    /// Pip over the Team group (Asha, Bharat) and the Family group (Dev), read as several chats. Asha wrote today.
-    /// `team` is the Team setup: its people, and `linked` the WhatsApp ID each of them is linked to.
     private func severalChats(
         team: [String] = [], linked: [String: String] = [:]
     ) async throws -> (HelperModel, FakeNotifier, WhatsAppSource) {
@@ -286,8 +284,6 @@ import WorkbenchCore
         #expect(team.context["members"] == ["Asha", "Bharat"])
     }
 
-    /// The founder's rule: several chats at once. Each line names its chat, every chat must be allowed, and a day from
-    /// chats with different people is not shared (its audience is not known per item yet).
     @Test func aSeveralChatSourceNamesEachLineSChatAndItsDayIsNotShared() async throws {
         let now = noon
         let store = try scratchStore(clock: { now })

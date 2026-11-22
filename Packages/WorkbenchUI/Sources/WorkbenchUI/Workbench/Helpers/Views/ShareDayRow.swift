@@ -1,8 +1,6 @@
 import SwiftUI
 import WorkbenchCore
 
-/// Shares the shown day's items with the team: only the items, their quotes and the founder's marks, and only to
-/// teammates who can already read the source.
 struct ShareDayRow: View {
     let model: HelperModel
     @Environment(TeamCatalogModel.self) private var catalog
@@ -29,7 +27,6 @@ struct ShareDayRow: View {
     }
 }
 
-/// Why a share was held back, and for a group, a way to say who each teammate is in it.
 struct RefusalCard: View {
     let model: HelperModel
     let refusal: TeamCatalogModel.Refusal

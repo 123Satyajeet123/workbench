@@ -1,7 +1,5 @@
 import SwiftUI
 
-/// A newer built-in design is ready for this machine. Taking it is the founder's act: the brief and checks change,
-/// the items and marks stay, and trust is earned again on the new version.
 struct UpdateBanner: View {
     let name: String
     let changes: [String]

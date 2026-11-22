@@ -2,13 +2,11 @@ import Foundation
 import LocalSources
 import Observation
 
-/// The one problem a page shows. Work that fails reports here. A task the app cancelled is not a problem.
 @Observable
 final class ProblemSlot {
     private(set) var text: String?
     private(set) var settingsPane: String?
 
-    /// Runs `work` and shows "Could not <step>" when it fails. With `clearing`, success takes the old problem away.
     func attempt(_ step: String, clearing: Bool = false, _ work: () throws -> Void) {
         do {
             try work()
@@ -34,7 +32,6 @@ final class ProblemSlot {
         settingsPane = nil
     }
 
-    /// A cancelled task may fail with its own error on the way out; the cancel is what happened.
     static func isCancellation(_ error: any Error) -> Bool {
         error is CancellationError || Task.isCancelled
     }

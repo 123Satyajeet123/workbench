@@ -2,10 +2,8 @@ import Foundation
 import Observation
 import WorkbenchCore
 
-/// Asking the team's memory: the founder's machines' items and the deals' notes and items they may read.
 @Observable
 final class MemoryModel {
-    /// How far back a machine's items are searched.
     static let days = 90
 
     private(set) var answer: Asker.Answer?
@@ -24,7 +22,6 @@ final class MemoryModel {
         self.makeModel = makeModel ?? { $0.model(store: store) }
     }
 
-    /// Everything the founder may ask about. Items they marked wrong are left out.
     func entries() throws -> [MemoryEntry] {
         let since = WorkDay(containing: store.clock()).adding(days: -Self.days)
         var entries: [MemoryEntry] = []

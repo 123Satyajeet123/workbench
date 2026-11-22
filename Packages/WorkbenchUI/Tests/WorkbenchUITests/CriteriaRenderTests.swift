@@ -7,8 +7,6 @@ import WorkbenchCore
 
 @testable import WorkbenchUI
 
-/// The why card, the criteria editor and the agreement report drawn to PNGs for a person to look at. The folder comes
-/// from `VC_PREVIEW_DIR`, else the temporary folder.
 @Suite struct CriteriaRenderTests {
     private func triage(_ fields: [String: String]) -> Triage { VCFixture.thesis.triage(fields) }
 

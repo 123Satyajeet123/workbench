@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// The team's name and people. Used in setup and in Settings; the caller decides when to save.
 struct TeamEditor: View {
     @Environment(TeamModel.self) private var model
 
@@ -29,7 +28,6 @@ struct TeamEditor: View {
     }
 }
 
-/// Settings › Team: the same editor with a save button.
 struct TeamSettingsView: View {
     @Environment(TeamModel.self) private var model
 

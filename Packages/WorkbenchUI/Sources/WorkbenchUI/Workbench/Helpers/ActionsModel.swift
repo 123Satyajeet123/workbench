@@ -3,8 +3,6 @@ import Foundation
 import Observation
 import WorkbenchCore
 
-/// What the founder can do with an item, drafts first: a message the model drafts and the founder copies and sends
-/// themselves, or a reminder in their Reminders app. Each act happens only on the founder's click and is logged.
 @Observable
 final class ActionsModel {
     struct Draft: Identifiable, Equatable {
@@ -42,7 +40,6 @@ final class ActionsModel {
             }
     }
 
-    /// The model drafts; nothing leaves until the founder copies it.
     func draft(_ item: Item, from machine: Machine) async {
         guard let id = item.id else { return }
         drafting = id
@@ -57,7 +54,6 @@ final class ActionsModel {
         }
     }
 
-    /// The founder's click: the edited draft goes to the clipboard, for the founder to paste and send.
     func copy(_ draft: Draft) {
         pasteboard(draft.text)
         attempt("log the copy") {
@@ -68,7 +64,6 @@ final class ActionsModel {
         self.draft = nil
     }
 
-    /// The founder's click: the item becomes a reminder, with its quote in the notes.
     func remind(_ item: Item, from machine: Machine, title: String) async {
         guard let id = item.id else { return }
         switch await reminders.authorize() {

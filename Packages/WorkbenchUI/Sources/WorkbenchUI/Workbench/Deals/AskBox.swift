@@ -1,7 +1,6 @@
 import SwiftUI
 import WorkbenchCore
 
-/// A question to the team's memory, answered only with citations the founder can open.
 struct AskBox: View {
     @Environment(MemoryModel.self) private var memory
     @State private var question = ""

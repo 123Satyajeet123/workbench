@@ -93,8 +93,6 @@ import WorkbenchCore
     }
 }
 
-/// The timeline is Mochi's view of the day, so it reads through the day like a chat: a window keeps its id, and the
-/// window still open waits until it closes.
 @Suite struct TimelineReadingTests {
     @Test func theTimelineReadsNewWindowsAndHoldsTheOpenOneUntilItCloses() async throws {
         let start = Calendar.current.date(bySettingHour: 10, minute: 0, second: 0, of: .now)!

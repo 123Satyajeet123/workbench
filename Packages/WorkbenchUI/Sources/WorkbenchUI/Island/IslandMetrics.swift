@@ -1,6 +1,5 @@
 import AppKit
 
-/// The island's size on one screen. A screen without a notch gets a black notch shape of the default size.
 struct IslandMetrics: Equatable {
     static let earWidth: CGFloat = 64
     static let defaultNotch = CGSize(width: 221, height: 38)
@@ -13,10 +12,8 @@ struct IslandMetrics: Equatable {
 
     var notchWidth: CGFloat { notch.width }
     var notchHeight: CGFloat { notch.height }
-    /// The clear panel that holds the island; clicks on its clear part go to the app below.
     var panelSize: CGSize { CGSize(width: notchWidth + 2 * Self.earWidth + 40, height: notchHeight) }
 
-    /// The screen the island sits on: the one with a notch, else the main screen.
     static var screen: NSScreen? { NSScreen.screens.first { $0.notchSize != nil } ?? NSScreen.main }
 }
 

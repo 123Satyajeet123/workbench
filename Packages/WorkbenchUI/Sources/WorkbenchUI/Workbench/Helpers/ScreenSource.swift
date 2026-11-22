@@ -2,17 +2,12 @@ import Foundation
 import Observation
 import WorkbenchCore
 
-/// The founder's screen sessions, from the activity the capture service kept.
 @Observable
 final class ScreenSource: MachineSource {
-    /// Activity this long before the day starts tells which window was open at its start.
     private static let lookBack: TimeInterval = 6 * 3600
 
-    /// The window in front now is still growing: it waits until it closes, so a block never stops mid-task and a
-    /// later reading never finds its line already read.
     static let stillOpen: TimeInterval = 60
 
-    /// The sessions of the day last refreshed.
     private(set) var sessions: [ScreenSession] = []
 
     @ObservationIgnored private let store: Store

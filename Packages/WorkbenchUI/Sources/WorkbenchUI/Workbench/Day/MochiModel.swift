@@ -3,18 +3,14 @@ import LocalSources
 import Observation
 import WorkbenchCore
 
-/// Mochi as the master helper: reads the timeline of past training days, proposes machines for work that repeats, and
-/// builds the ones the founder accepts. Held-out days are never read here, so they stay fit to judge a machine later.
 @Observable
 final class MochiModel {
-    /// How far back Mochi reads.
     static let days = 14
 
     private(set) var proposals: [Proposal] = []
     private(set) var trainingDays = 0
     private(set) var phase = ReadPhase.idle
     private(set) var problem: String?
-    /// The latest morning brief.
     private(set) var brief: MorningBrief?
     private(set) var briefPhase = ReadPhase.idle
     private static let briefKey = StateKey<MorningBrief>.json("mochi.brief")
@@ -33,7 +29,6 @@ final class MochiModel {
     var waiting: [Proposal] { proposals.filter { $0.decision == .waiting } }
     var canDiscover: Bool { trainingDays >= Mochi.minimumDays && phase != .reading }
 
-    /// Accepted over decided: how often Mochi's proposals are worth building.
     var acceptance: (accepted: Int, decided: Int) {
         let decided = proposals.filter { $0.decision == .accepted || $0.decision == .rejected }
         return (decided.filter { $0.decision == .accepted }.count, decided.count)
@@ -49,7 +44,6 @@ final class MochiModel {
         }
     }
 
-    /// Writes the brief of `day` from every machine's items that day. Nil when the day had none: no call is made.
     @discardableResult
     func writeBrief(for day: WorkDay) async -> MorningBrief? {
         let sources = crew.machines.flatMap { helper in
@@ -76,7 +70,6 @@ final class MochiModel {
         }
     }
 
-    /// The blocks a proposal cites, for its evidence chips.
     func evidence(_ proposal: Proposal) -> [Item] {
         let cited = Set(proposal.evidence)
         return ((try? blocks()) ?? []).filter { $0.id.map(cited.contains) == true }
@@ -104,7 +97,6 @@ final class MochiModel {
         refresh()
     }
 
-    /// Builds the machine from its template with Mochi's brief, then records the decision.
     @discardableResult
     func accept(_ proposal: Proposal) -> Int64? {
         guard let template = MachineTemplate.all.first(where: { $0.spec.task == proposal.template }),

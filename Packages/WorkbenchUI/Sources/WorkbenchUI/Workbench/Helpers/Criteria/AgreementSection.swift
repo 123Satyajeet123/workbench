@@ -1,8 +1,6 @@
 import SwiftUI
 import WorkbenchCore
 
-/// The held-out deals: past deals with the investor's own call. They only judge the criteria. No example, brief edit
-/// or improver ever sees them.
 struct AgreementSection: View {
     let agreement: HelperAgreement
     @State private var isOpen = false

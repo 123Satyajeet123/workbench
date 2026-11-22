@@ -1,8 +1,6 @@
 import AppKit
 import SwiftUI
 
-/// The app's colours, after Notion's Mac app: neutral surfaces, warm dark text, one blue. Each resolves per appearance
-/// wherever it is drawn, so AppKit views and `ContrastTests` see the same values as SwiftUI.
 enum Palette {
     static let page = dynamic("page", light: rgb(0xFFFFFF), dark: rgb(0x191919))
     static let sidebar = dynamic("sidebar", light: rgb(0xF7F7F5), dark: rgb(0x202020))
@@ -18,12 +16,8 @@ enum Palette {
     static let sidebarIcon = dynamic("sidebarIcon", light: rgb(0x6E6D69), dark: rgb(0xADA9A4))
     static let sidebarLabel = dynamic("sidebarLabel", light: rgb(0x6B6A66), dark: rgb(0x96938E))
     static let divider = dynamic("divider", light: rgb(0x37352F, alpha: 0.09), dark: .white.withAlphaComponent(0.094))
-    /// Symbols beside text: non-text contrast, at least 3:1.
     static let icon = dynamic("icon", light: rgb(0x37352F, alpha: 0.6), dark: .white.withAlphaComponent(0.5))
-    /// Darker than Notion's #2383E2, which gives white text only 3.9:1. Light mode goes one step further, so a link on
-    /// a callout still reads 4.5:1.
     static let accent = dynamic("accent", light: rgb(0x1C6BC0), dark: rgb(0x1E70C9))
-    /// Link text. The accent reads only 3.5:1 on dark surfaces, so dark mode takes Notion's dark-mode blue.
     static let link = dynamic("link", light: rgb(0x1C6BC0), dark: rgb(0x529CCA))
 
     private static func rgb(_ hex: Int, alpha: CGFloat = 1) -> NSColor {

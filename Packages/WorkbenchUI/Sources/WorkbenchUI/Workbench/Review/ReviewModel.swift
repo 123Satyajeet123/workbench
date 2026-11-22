@@ -2,11 +2,8 @@ import Foundation
 import Observation
 import WorkbenchCore
 
-/// Everything the crew proposed that still waits for the founder's mark, from every machine, in one list. The app's
-/// random picks come first, because their answers are the fair measure of each machine.
 @Observable
 final class ReviewModel {
-    /// How far back the queue reaches.
     static let days = 7
 
     private(set) var items: [Item] = []
@@ -48,14 +45,12 @@ final class ReviewModel {
     func next() { select(selected + 1) }
     func previous() { select(selected - 1) }
 
-    /// Marks the selected item and moves to the next one waiting.
     func mark(_ mark: Mark) {
         guard let item = current, let id = item.id else { return }
         save(mark, on: item)
         undoStack.append((id, item.state, item.task))
     }
 
-    /// Takes the last mark back, so the item waits again.
     func undo() {
         guard let last = undoStack.popLast() else { return }
         do {
@@ -77,8 +72,6 @@ final class ReviewModel {
         changed(helper(for: item))
     }
 
-    /// A mark changes the machine's items: it reloads, and its own change hook refreshes this queue and re-checks
-    /// the machine's rollback alarm.
     private func changed(_ helper: HelperModel?) {
         refresh()
         guard let helper else { return }

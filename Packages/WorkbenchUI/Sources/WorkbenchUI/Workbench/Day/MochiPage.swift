@@ -1,7 +1,6 @@
 import SwiftUI
 import WorkbenchCore
 
-/// Mochi's page: the brief, the timeline, and short cards for the team, calls, model use and capture.
 struct MochiPage: View {
     let open: (SidebarSelection) -> Void
 
@@ -72,7 +71,6 @@ struct MochiPage: View {
     }
 }
 
-/// The team on Mochi's page: its name and people, with a way to edit them.
 private struct TeamCard: View {
     @Environment(TeamModel.self) private var team
 
@@ -90,7 +88,6 @@ private struct TeamCard: View {
     }
 }
 
-/// The day timeline on Mochi's page: a heading with the day, then the helper's content.
 private struct TimelineSection: View {
     let model: HelperModel
 
@@ -106,7 +103,6 @@ private struct TimelineSection: View {
     }
 }
 
-/// Mochi's brief: what happened, what is stuck, what to do first, each line resting on items the machines found.
 private struct BriefCard: View {
     @Environment(MochiModel.self) private var mochi
 

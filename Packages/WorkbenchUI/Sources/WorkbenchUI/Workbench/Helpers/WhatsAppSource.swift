@@ -4,17 +4,12 @@ import LocalSources
 import Observation
 import WorkbenchCore
 
-/// The WhatsApp chats a machine reads: one group the founder chose, or several chats chosen by a rule (groups whose
-/// name holds some words, and direct chats with their members). Choosing is the consent: these chats, and no other,
-/// may be read.
 @Observable
 final class WhatsAppSource: MachineSource {
     private(set) var chats: [WhatsAppChat] = []
     private(set) var groups: [WhatsAppChat] = []
-    /// The chats a rule would choose, shown before the founder confirms.
     private(set) var matching: [WhatsAppChat] = []
     private(set) var members: [WhatsAppMember] = []
-    /// The WhatsApp IDs of the teammates the founder set up and linked, as of the last read.
     private(set) var teamHandles: Set<String> = []
 
     @ObservationIgnored private let store: Store
@@ -39,15 +34,11 @@ final class WhatsAppSource: MachineSource {
         try loadTeamHandles()
     }
 
-    /// The one chosen group, for a machine that reads one.
     var chat: WhatsAppChat? { chats.count == 1 ? chats.first : nil }
     var isSeveral: Bool { chats.count > 1 }
 
-    /// One chat is the machine's scope; several chats are one scope for the machine.
     var scope: String { chat?.jid ?? "" }
     var isReady: Bool { !chats.isEmpty }
-    /// The people the founder expects to hear from. One chat: everyone in it. Several chats: the teammates the
-    /// founder set up in Team setup, when any is linked to a WhatsApp ID; else the people in the first chosen group.
     var expectedPeople: [WhatsAppMember] {
         guard isSeveral else { return members }
         let team = members.filter { teamHandles.contains($0.jid) }
@@ -57,16 +48,13 @@ final class WhatsAppSource: MachineSource {
     }
 
     var context: [String: [String]] { ["members": expectedPeople.map(\.name)] }
-    /// With several chats, each one of them must be allowed.
     var grantLabels: [String?] { isSeveral ? chats.map(\.jid) : [scope.isEmpty ? nil : scope] }
 
-    /// Group names to choose from. Listing names needs the WhatsApp switch on; no chat is readable until one is chosen.
     func loadGroups() throws {
         try switchOn()
         groups = try WhatsAppChatReader.groups(container: container, policy: capture.policy)
     }
 
-    /// The chats a rule chooses, to show before the founder confirms.
     func preview(_ selection: ChatSelection) throws {
         try switchOn()
         matching = try WhatsAppChatReader.chats(matching: selection, container: container, policy: capture.policy)
@@ -74,7 +62,6 @@ final class WhatsAppSource: MachineSource {
 
     func choose(_ group: WhatsAppChat) throws { try choose([group]) }
 
-    /// Choosing adds the chats to those WhatsApp may be read for; it never takes another machine's chat away.
     func choose(_ chosen: [WhatsAppChat]) throws {
         try capture.update {
             $0.switches[.whatsapp] = true
@@ -93,7 +80,6 @@ final class WhatsAppSource: MachineSource {
         try remember(try await reader().members())
     }
 
-    /// The members as of the last read, for showing a page; WhatsApp is read only when none are known yet.
     func showMembers() async throws {
         if members.isEmpty { try await loadMembers() }
     }
@@ -113,8 +99,6 @@ final class WhatsAppSource: MachineSource {
         teamHandles = Set(try store.queries.whatsappLinks().filter { people.contains($0.key) }.values)
     }
 
-    /// The day's messages of every chosen chat, each a numbered line, and the people in them, from one read. With
-    /// several chats each line names its chat.
     func evidence(on day: WorkDay) async throws -> EvidenceSet {
         guard !chats.isEmpty else { return EvidenceSet(lines: []) }
         let (entries, people) = try await reader().read(from: day.start, to: day.end)
@@ -136,7 +120,6 @@ final class WhatsAppSource: MachineSource {
         WhatsAppChatReader(container: container, chatJIDs: chats.map(\.jid), policy: store)
     }
 
-    /// A message as one numbered line. A photo's line is the text in it, read on this Mac, and its caption.
     private func line(_ entry: WhatsAppEntry, photos: [URL: String]) -> Evidence? {
         var parts = [entry.title, entry.text].compactMap { $0 }.filter { !$0.isEmpty }
         if let url = entry.photo, let seen = photos[url], !seen.isEmpty { parts.insert("[photo] \(seen)", at: 0) }

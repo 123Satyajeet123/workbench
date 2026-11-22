@@ -2,7 +2,6 @@ import LocalSources
 import SwiftUI
 import WorkbenchCore
 
-/// The one place a capture source is switched on or off, with what macOS must allow for it.
 struct SourceToggles: View {
     @Environment(CaptureSettings.self) private var capture
     @Environment(TodayModel.self) private var today: TodayModel?

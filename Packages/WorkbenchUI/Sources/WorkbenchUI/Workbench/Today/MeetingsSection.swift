@@ -1,7 +1,6 @@
 import SwiftUI
 import WorkbenchCore
 
-/// The "Meetings" section of Today: one row per meeting, with a prep card where the meeting matched a person or deal.
 struct MeetingsSection: View {
     let model: TodayModel
 
@@ -12,7 +11,6 @@ struct MeetingsSection: View {
     }
 }
 
-/// A meeting's time, title and guests, and under it the prep card when the meeting matched a person or a deal.
 struct MeetingRow: View {
     let card: MeetingCard
     let model: TodayModel
@@ -42,7 +40,6 @@ struct MeetingRow: View {
     }
 }
 
-/// What Workbench knows about one person or deal in a meeting. Each fact opens to the message it came from.
 private struct PrepView: View {
     let prep: Prep
     let model: TodayModel
@@ -63,7 +60,6 @@ private struct PrepView: View {
     }
 }
 
-/// Asks once, in context, whether Today may show the day's meetings.
 struct MeetingsOffer: View {
     let model: TodayModel
     @Environment(CaptureSettings.self) private var capture

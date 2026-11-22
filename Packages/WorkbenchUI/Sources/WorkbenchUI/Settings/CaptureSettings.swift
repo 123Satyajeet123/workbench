@@ -29,13 +29,11 @@ final class CaptureSettings {
 
     func set(_ kind: SourceKind, on: Bool) { change { $0.switches[kind] = on } }
 
-    /// The calendars among `all` that Today reads: every one until the person chooses.
     func calendarChoices(among all: [CalendarInfo]) -> [CalendarChoice] {
         let chosen = service.policy.allowList[.calendar]
         return all.map { CalendarChoice(id: $0.id, title: $0.title, isRead: chosen?.contains($0.id) ?? true) }
     }
 
-    /// Reads or stops reading one calendar. Choosing every calendar again clears the choice.
     func toggle(_ calendar: CalendarChoice, among all: [CalendarInfo]) {
         var read = Set(calendarChoices(among: all).filter(\.isRead).map(\.id))
         if calendar.isRead { read.remove(calendar.id) } else { read.insert(calendar.id) }
@@ -48,7 +46,6 @@ final class CaptureSettings {
         ([Self.alwaysPrivate] + denyList.map(\.name)).formatted(.list(type: .and))
     }
 
-    /// An installed app's name or a website. False when the text is neither.
     func deny(_ text: String) -> Bool {
         guard let place = DeniedPlace(typed: text) else { return false }
         change { $0.denyList[.screen, default: []].insert(place.label) }
@@ -64,7 +61,6 @@ final class CaptureSettings {
 
     var call: Recording? { service.call }
 
-    /// A background write or delete that failed, in plain words.
     var backgroundProblem: String? { service.problem }
 
     func recordings(since start: Date) -> [Recording] {
@@ -170,7 +166,6 @@ enum CaptureMode: CaseIterable, Identifiable {
     }
 }
 
-/// A source the founder switches on in Settings. WhatsApp is switched on by choosing a group in the team helper, and Mail by naming a label in the deal helper.
 struct CaptureSource: Identifiable {
     let source: SourceKind
     let name: String
@@ -201,7 +196,6 @@ struct CaptureSource: Identifiable {
     ]
 }
 
-/// An app (by bundle ID) or a website (by domain) that screen capture never keeps.
 struct DeniedPlace: Identifiable, Equatable {
     let label: String
     let name: String
@@ -232,7 +226,6 @@ struct DeniedPlace: Identifiable, Equatable {
     }
 }
 
-/// One kept window or file change from today, as the founder sees it.
 struct CaptureLogEntry: Identifiable, Equatable {
     let activity: Activity
     let id: Int64

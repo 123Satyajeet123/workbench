@@ -1,10 +1,7 @@
 import Foundation
 import WorkbenchCore
 
-/// A scratch store filled with a made-up day: facts of three people, a finding of the watch, and the summaries over
-/// them. For previews and for the test that renders Today. It never touches the founder's store.
 enum TodaySample {
-    /// A model that gives one fixed reply, so the sample needs no real model.
     private nonisolated struct FixedModel: StructuredModel {
         let name = "sample"
         let reply: String
@@ -22,7 +19,6 @@ enum TodaySample {
 
     static let defaultScope = "sample"
 
-    /// A fact: person, project, kind, text, due day offset from today, and who it asks.
     private struct Fact {
         let person: String
         let project: String
@@ -56,7 +52,6 @@ enum TodaySample {
         Fact(person: "Asha", project: "Login", kind: "done", text: "Shipped OTA 4.1.11", quote: "OTA 4.1.11 installed"),
     ]
 
-    /// Scope numbers follow the order of names: Asha, Meera, Raj and Hiring, Login, Payments. Facts are 1 to 7.
     nonisolated static let peopleReply = #"""
         {"summaries":[
         {"scope":1,"short":{"text":"Shipped OTA 4.1.11; the login API is due tonight and waits on the signing key.","cites":[1,2,7]},"details":[]},
@@ -71,7 +66,6 @@ enum TodaySample {
         {"scope":3,"short":{"text":"Webhook done; the vendor currency is undecided.","cites":[3,4]},"details":[]}]}
         """#
 
-    /// Fills the store. Without summaries the day is as a reading that wrote none leaves it.
     static func populate(
         store: Store, crew: Crew, withSummaries: Bool = true, scope: String = defaultScope
     ) async throws {

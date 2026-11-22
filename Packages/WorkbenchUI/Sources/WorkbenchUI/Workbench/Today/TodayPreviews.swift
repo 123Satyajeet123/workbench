@@ -1,7 +1,6 @@
 import SwiftUI
 import WorkbenchCore
 
-/// Today as a column on a page: a heading, then the sections. The previews and the render test show this.
 struct TodayFrame: View {
     let model: TodayModel
     var brief: MorningBrief?

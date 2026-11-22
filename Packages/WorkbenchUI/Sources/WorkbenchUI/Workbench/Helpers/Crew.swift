@@ -3,8 +3,6 @@ import Foundation
 import Observation
 import WorkbenchCore
 
-/// The machines of this Mac, one model each, built from the store's machine records. The founder adds, renames,
-/// edits, pauses and deletes them here; Mochi's page holds the built-in timeline.
 @Observable
 final class Crew {
     private(set) var machines: [HelperModel] = []
@@ -41,18 +39,14 @@ final class Crew {
         reload()
     }
 
-    /// Calls `listener` when any machine's items change. Each machine also re-checks its rollback alarm then.
     func onItemsChanged(_ listener: @escaping () -> Void) { itemListeners.append(listener) }
 
-    /// Mochi's timeline: the built-in timeline machine, while it exists.
     var timeline: HelperModel? { machines.first { $0.spec.task == HelperSpec.timeline.task } }
 
     var team: HelperModel? { machines.first { $0.machine.template == HelperSpec.team.task } }
 
-    /// The machines in the sidebar's crew: every machine but Mochi's timeline.
     var crew: [HelperModel] { machines.filter { $0 !== timeline } }
 
-    /// The machine a new machine that follows another would follow: the first with a lifecycle.
     var followable: HelperModel? { machines.first { $0.spec.lifecycle != nil } }
 
     static let nothingToFollow =
@@ -60,7 +54,6 @@ final class Crew {
 
     func helper(id: Int64) -> HelperModel? { machines.first { $0.machine.id == id } }
 
-    /// The shown name of the machine that runs a task; the task itself for one no machine runs.
     func name(ofTask task: String) -> String {
         guard let name = machines.first(where: { $0.spec.task == Trial.machineTask(of: task) })?.name else {
             return task
@@ -68,8 +61,6 @@ final class Crew {
         return Trial.isTrial(task) ? "\(name) · new brief" : name
     }
 
-    /// Makes the tried brief the machine's own, and ends the trial. From now on its held-out audit answers are
-    /// watched; see `watch`.
     func switchToTrial(_ helper: HelperModel) {
         guard let trial = helper.trial else { return }
         let parent = HelperModel.Version(helper.spec)
@@ -114,7 +105,6 @@ final class Crew {
         create(spec: template.spec, template: template.spec.task, name: name.cleaned ?? template.name)
     }
 
-    /// A machine from a whole spec, such as a teammate's: its fields, view and brief come with it.
     @discardableResult
     func create(spec: HelperSpec, template: String, name: String) -> Int64? {
         var spec = spec
@@ -133,7 +123,6 @@ final class Crew {
         return id
     }
 
-    /// The built-in this machine came from, when its design has moved on, and what the update changes.
     func update(for helper: HelperModel) -> (template: MachineTemplate, changes: [String])? {
         guard let template = MachineTemplate.all.first(where: { $0.spec.task == helper.machine.template }),
             let changes = helper.spec.update(toward: template.spec)
@@ -141,7 +130,6 @@ final class Crew {
         return (template, changes)
     }
 
-    /// The founder's choice to take the newer built-in design.
     func upgrade(_ helper: HelperModel) {
         guard let template = update(for: helper)?.template else { return }
         problems.attempt("update \(helper.name)") { try store.upgrade(helper.machine, to: template.spec) }
@@ -166,7 +154,6 @@ final class Crew {
         reload()
     }
 
-    /// New criteria are a new prompt version, as a new brief is.
     func setCriteria(_ helper: HelperModel, _ criteria: Criteria) {
         problems.attempt("save \(helper.name)'s criteria") { try store.setCriteria(helper.machine, criteria) }
         reload()
@@ -182,7 +169,6 @@ final class Crew {
         reload()
     }
 
-    /// Deletes the machine, its items and marks, and its saved settings. Its runs stay in the meter.
     func delete(_ helper: HelperModel) {
         problems.attempt("delete \(helper.name)") { try store.setState(helper.machine, .deleted) }
         reload()

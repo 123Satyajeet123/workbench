@@ -4,8 +4,6 @@ import WorkbenchCore
 
 @testable import WorkbenchUI
 
-/// A deal's claim verdicts and the web research section of Settings, drawn to PNGs. The folder comes from
-/// `VC_PREVIEW_DIR`, else the temporary folder.
 @MainActor
 @Suite struct ClaimsRenderTests {
     private func dealWithVerdicts() async throws -> (DealFixture, WorkObject, ClaimsModel) {

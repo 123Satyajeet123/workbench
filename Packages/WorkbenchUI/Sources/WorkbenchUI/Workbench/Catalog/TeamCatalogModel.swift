@@ -3,21 +3,14 @@ import LocalSources
 import Observation
 import WorkbenchCore
 
-/// The team folder the team syncs (iCloud Drive, Syncthing). Each person writes only their own files. A machine file
-/// holds a spec and its record in counts; adopting one makes it the founder's own, starting at zero trust. A day file
-/// holds one machine's items of a day, and goes only to teammates who could already read the items' source.
 @Observable
 final class TeamCatalogModel {
-    /// A share held back: the teammates who cannot read the source, and the group members they might be.
     struct Refusal: Equatable {
         let task: String
         let missing: [Team.Person]
-        /// Empty when no link can widen the audience, as for the founder's own screen.
         let group: [WhatsAppMember]
     }
 
-    /// Where a machine is shared: the team's folder, or a public one anyone may read (such as a clone of a public git
-    /// repository; pushing it is the person's own act).
     enum Place: Hashable {
         case team, everyone
     }
@@ -50,10 +43,8 @@ final class TeamCatalogModel {
 
     var me: String { author().cleaned ?? "Me" }
     var teammates: [SharedMachine] { shared.filter { $0.author != me } }
-    /// Days teammates shared with this person. The receiving side checks the audience again.
     var teammatesDays: [SharedDay] { days.filter { $0.author != me && $0.isVisible(to: me) } }
 
-    /// Other people's machines in the public folder.
     var publicMachines: [SharedMachine] { published.filter { $0.author != me } }
 
     func folder(for place: Place) -> URL? { place == .team ? folder : publicFolder }
@@ -63,12 +54,10 @@ final class TeamCatalogModel {
         machines(in: place).contains { $0.author == me && $0.spec.task == helper.spec.task }
     }
 
-    /// People other than its author who approved the version shared now.
     func approvers(of machine: SharedMachine, in place: Place) -> [String] {
         machine.approvers(in: reviews[place] ?? [])
     }
 
-    /// This person's review of the shared version, if any.
     func myReview(of machine: SharedMachine, in place: Place) -> MachineReview? {
         (reviews[place] ?? []).first {
             $0.reviewer == me && $0.author == machine.author && $0.task == machine.spec.task
@@ -122,8 +111,6 @@ final class TeamCatalogModel {
         days.contains { $0.author == me && $0.task == helper.spec.task && $0.day == helper.day.description }
     }
 
-    /// Shares the machine's items of the shown day, when every teammate can already read their source. Otherwise it
-    /// holds the share back and names who cannot.
     func share(day helper: HelperModel) async {
         guard let folder else {
             problem = "Choose a team folder in Settings › Team first."
@@ -161,7 +148,6 @@ final class TeamCatalogModel {
         refresh()
     }
 
-    /// The founder says which group member a teammate is; the held-back share is checked again, not sent.
     func link(_ person: Team.Person, to member: WhatsAppMember, for helper: HelperModel) async {
         do {
             try store.link(person, whatsapp: member.jid)
@@ -171,7 +157,6 @@ final class TeamCatalogModel {
         }
     }
 
-    /// The teammates a share would go to, and those among them who cannot read the source. Sets the refusal.
     private func audience(of helper: HelperModel) async throws -> (recipients: [Team.Person], missing: [Team.Person]) {
         let found = try await readers(of: helper)
         refusal =
@@ -179,8 +164,6 @@ final class TeamCatalogModel {
         return (found.recipients, found.missing)
     }
 
-    /// Who can already read the machine's source, by the audience rule: a group's linked members; for the founder's
-    /// screen and pages, nobody else.
     func readers(of helper: HelperModel) async throws -> (
         recipients: [Team.Person], missing: [Team.Person], group: [WhatsAppMember]
     ) {
@@ -188,8 +171,6 @@ final class TeamCatalogModel {
         var readers: Set<Int64> = []
         var group: [WhatsAppMember] = []
         if let source = helper.source as? WhatsAppSource, source.isSeveral {
-            // Items come from chats with different people: who may read all of them is not known per item yet, so
-            // the audience is unknown and the share is refused (fail closed).
             return (recipients, recipients, [])
         }
         if let source = helper.source as? WhatsAppSource {
@@ -200,7 +181,6 @@ final class TeamCatalogModel {
         return (recipients, Audience.missing(recipients: recipients, readers: readers), group)
     }
 
-    /// Writes the machine's spec and its record in counts, never what it read, to the team or the public folder.
     func share(_ helper: HelperModel, to place: Place = .team) {
         guard let folder = folder(for: place) else {
             problem =
@@ -223,7 +203,6 @@ final class TeamCatalogModel {
         refresh()
     }
 
-    /// The teammate's machine becomes the founder's own: the same spec (brief, fields, view), a new task, zero trust.
     @discardableResult
     func adopt(_ machine: SharedMachine) -> Int64? {
         guard MachineTemplate.all.contains(where: { $0.spec.task == machine.template }) else {

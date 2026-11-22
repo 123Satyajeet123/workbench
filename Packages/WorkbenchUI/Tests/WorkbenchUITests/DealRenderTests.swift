@@ -5,8 +5,6 @@ import WorkbenchCore
 
 @testable import WorkbenchUI
 
-/// The deals board, a card with its ribbon and a deal's timeline drawn to PNGs for a person to look at. The folder
-/// comes from `VC_PREVIEW_DIR`, else the temporary folder.
 @Suite struct DealRenderTests {
     private func fixture() async throws -> (DealFixture, RunsModel, WorkObject) {
         let fixture = try DealFixture()

@@ -1,8 +1,6 @@
 import Foundation
 import WorkbenchCore
 
-/// One machine that touched a deal, in plain words: its last run, its next run, how right it was by the person's
-/// marks, and the rule that rated the deal.
 struct AutomationRow: Equatable, Identifiable {
     var id: Int64
     var name: String
@@ -13,7 +11,6 @@ struct AutomationRow: Equatable, Identifiable {
     var rule: String?
 }
 
-/// The rows of a deal's automation strip. Counts and events only: it calls no model.
 enum AutomationStrip {
     static func rows(for digest: DealDigest, runs: [Run], quality: [Quality], now: Date) -> [AutomationRow] {
         digest.machines.map { touching in

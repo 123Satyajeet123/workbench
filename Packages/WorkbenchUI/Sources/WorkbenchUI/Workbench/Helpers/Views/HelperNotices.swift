@@ -1,7 +1,6 @@
 import SwiftUI
 import WorkbenchCore
 
-/// One line about a change the app made by itself.
 struct NoticeRow: View {
     let text: String
     let dismiss: () -> Void
@@ -14,7 +13,6 @@ struct NoticeRow: View {
     }
 }
 
-/// A paused machine reads and nudges nothing until the founder resumes it.
 struct PausedNote: View {
     let model: HelperModel
     @Environment(Crew.self) private var crew
@@ -28,7 +26,6 @@ struct PausedNote: View {
     }
 }
 
-/// The result of the last act, or why it could not happen.
 struct ActionNotice: View {
     @Environment(ActionsModel.self) private var actions
 

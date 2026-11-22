@@ -8,8 +8,6 @@ import WorkbenchCore
 
 @testable import WorkbenchUI
 
-/// Today with meetings drawn through an NSHostingView to a PNG. The folder comes from `TODAY_PREVIEW_DIR`, else the
-/// temporary folder.
 @MainActor
 @Suite struct MeetingsRenderTests {
     private func folder() -> URL {

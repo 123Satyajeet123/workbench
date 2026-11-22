@@ -1,7 +1,6 @@
 import SwiftUI
 import WorkbenchCore
 
-/// The team's deals as a board, one column per stage. A deal opens beside the board.
 struct DealsPage: View {
     @Environment(DealsModel.self) private var deals
     @State private var open: String?
@@ -38,7 +37,6 @@ struct DealsPage: View {
         "\(deals.deals.count) deals. Your moves and notes go to your team's folder; items only to people who can already read them."
     }
 
-    /// "Action required" asks what is needed first; every other stage is a plain move.
     private func move(_ deal: WorkObject, to stage: String) {
         if stage == WorkObject.actionRequired {
             asking = deal

@@ -1,8 +1,6 @@
 import SwiftUI
 import WorkbenchCore
 
-/// The one item the app picked from the last reading. Answering it measures the helper without your choice of what
-/// to check.
 struct HelperQuestion: View {
     let model: HelperModel
     let item: Item
@@ -20,7 +18,6 @@ struct HelperQuestion: View {
     }
 }
 
-/// Progress toward trust: the exact binomial bound from audit answers on held-out days.
 struct TrustLine: View {
     let name: String
     let status: Certificate.Status

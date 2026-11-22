@@ -5,7 +5,6 @@ import WorkbenchCore
 
 @testable import WorkbenchUI
 
-/// Two Macs share one team folder: Kabir's shares a day; Asha's and Bharat's read it.
 @Suite struct TeamMemoryTests {
     private let noon: Date = {
         Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: Date(timeIntervalSince1970: 1_790_000_000))!
@@ -14,7 +13,6 @@ import WorkbenchCore
         {"items":[{"person":"Asha","project":"Login","kind":"done","text":"Login API","eta":"","asks":"team","stance":"said","cite":11,"quote":"login API done"}],"closes":[]}
         """#
 
-    /// Kabir's Mac: his team, Pip reading the team group's day, and the team folder.
     private func kabir(teammates: [String], folder: URL) async throws -> (TeamCatalogModel, HelperModel, Store) {
         let now = noon
         let store = try scratchStore(clock: { now })
@@ -41,7 +39,6 @@ import WorkbenchCore
         return (catalog, pip, store)
     }
 
-    /// A teammate's Mac reading the same folder.
     private func mac(of person: String, folder: URL) throws -> TeamCatalogModel {
         let store = try scratchStore()
         let crew = Crew(

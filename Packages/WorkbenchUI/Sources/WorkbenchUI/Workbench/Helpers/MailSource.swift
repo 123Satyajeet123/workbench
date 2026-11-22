@@ -3,15 +3,11 @@ import Foundation
 import Observation
 import WorkbenchCore
 
-/// The Gmail threads the investor opened inside the label they named. Naming the label is the consent: mail in no
-/// other label is kept or read. The text comes from the browser extension, and the decks' text from their PDFs.
 @Observable
 final class MailSource: MachineSource {
     static let defaultLabel = "Deals"
 
-    /// The day's parts of the named labels, and how many were past the budget, as last refreshed.
     private(set) var mailReading: (parts: [MailPart], leftOut: Int) = ([], 0)
-    /// Threads of the named labels opened on the day, as last refreshed. Threads never opened cannot be known.
     private(set) var threadsOpened = 0
 
     @ObservationIgnored private let store: Store
@@ -24,13 +20,10 @@ final class MailSource: MachineSource {
 
     let scope = ""
 
-    /// The labels mail may be read in; empty while mail is off.
     var labels: [String] { capture.policy.isEnabled(.mail) ? (capture.policy.allowList[.mail] ?? []).sorted() : [] }
     var isReady: Bool { !labels.isEmpty }
     var grantLabels: [String?] { labels }
 
-    /// Switches mail on for one label, as typed in Gmail. An empty name is the default label. The one label replaces
-    /// any earlier one.
     func choose(_ typed: String) throws {
         let name = typed.trimmingCharacters(in: .whitespacesAndNewlines)
         try capture.update {

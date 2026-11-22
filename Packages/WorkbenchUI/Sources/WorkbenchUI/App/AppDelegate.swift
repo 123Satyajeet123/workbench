@@ -4,7 +4,6 @@ import Foundation
 import UserNotifications
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    /// Opened when the app first asks for it, so making a delegate opens no store.
     lazy var launch = AppLaunch.start(storeFolder: storeFolder)
     private let storeFolder: URL
     private var island: IslandPanel?
@@ -35,8 +34,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
-/// A click on a Workbench notification opens the page it is about; one shown while Workbench is in front still
-/// appears.
 extension AppDelegate: UNUserNotificationCenterDelegate {
     func userNotificationCenter(
         _ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse

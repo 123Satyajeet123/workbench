@@ -3,20 +3,17 @@ import LocalSources
 import Observation
 import WorkbenchCore
 
-/// What the founder can do with a fact line. A summary line acts on the facts it cites.
 enum FactChoice: Equatable {
     case done, notRelevant, wrong
     case snooze(until: WorkDay)
 }
 
-/// A line of the chat a fact came from.
 struct ChatLine: Identifiable, Equatable {
     var id: Int64
     var time: Date
     var text: String
     var isCited: Bool
 
-    /// The lines an item cites and `reach` lines before and after each.
     static func around(_ item: Item, in lines: [Evidence], reach: Int64) -> [ChatLine] {
         let cited = item.citeFirst...item.citeLast
         return lines.filter { ($0.id - reach...$0.id + reach).overlaps(cited) }.map {
@@ -25,7 +22,6 @@ struct ChatLine: Identifiable, Equatable {
     }
 }
 
-/// One summary line with the facts it cites that are still listed.
 struct SummaryRow: Identifiable {
     var summary: Summary
     var line: Summary.Line
@@ -36,12 +32,8 @@ struct SummaryRow: Identifiable {
     var subject: String { summary.subject }
 }
 
-/// What Today, People and Projects show: the facts of the last seven days, the day's summaries, and what needs the
-/// founder. It reads the store; the one model call it may start is the day's missing summaries. An action is a mark
-/// or an event, and can be taken back.
 @Observable
 final class TodayModel {
-    /// How many days People and Projects reach back.
     static let days = 7
 
     struct Undo: Equatable {
@@ -52,7 +44,6 @@ final class TodayModel {
     private(set) var today: WorkDay
     private(set) var needs: [Need] = []
     private(set) var team: [SummaryRow] = []
-    /// Today's facts of the people with no summary line, so a day with facts never looks empty.
     private(set) var unsummarized: [FactGroup] = []
     private(set) var isSummarizing = false
     private(set) var projects: [SummaryRow] = []
@@ -61,7 +52,6 @@ final class TodayModel {
     private(set) var meetingCards: [MeetingCard] = []
     private(set) var undoable: Undo?
     private(set) var problem: String?
-    /// Counts each load, so a view can animate what changed between two loads.
     private(set) var revision = 0
 
     @ObservationIgnored private let store: Store
@@ -70,7 +60,6 @@ final class TodayModel {
     @ObservationIgnored let meetings: MeetingsModel
     @ObservationIgnored private var daysAsked: Set<WorkDay> = []
 
-    /// With no `calendar`, Today shows no meetings and never offers them.
     init(
         store: Store, crew: Crew, calendar: (any CalendarEvents)? = nil, deals: @escaping () -> [WorkObject] = { [] },
         defaults: UserDefaults = .standard
@@ -104,7 +93,6 @@ final class TodayModel {
         revision += 1
     }
 
-    /// Reads today's meetings when the calendar consent is on, then matches them to what Today knows.
     func refreshMeetings() async {
         await meetings.refresh()
         buildMeetingCards()
@@ -149,7 +137,6 @@ final class TodayModel {
         projectGroups = []
     }
 
-    /// The facts of the window and every fact still open, however old.
     private func recentFacts(of machine: Machine, lifecycle: HelperSpec.Lifecycle, since day: WorkDay) throws -> [Item]
     {
         let recent = try store.queries.items(of: machine.task, since: day)
@@ -164,7 +151,6 @@ final class TodayModel {
         field.map { FactGroups.make(facts, by: $0, lifecycle: lifecycle, now: now) } ?? []
     }
 
-    /// One row per scope that has a short line with a fact still listed.
     private func rows(
         _ field: String?, of machine: Machine, day: WorkDay, listed: [Item], groups: [FactGroup]
     ) throws -> [SummaryRow] {
@@ -185,8 +171,6 @@ final class TodayModel {
             facts, by: field, lifecycle: lifecycle, summarized: Set(team.map(\.subject)), now: now)
     }
 
-    /// Writes today's summaries when the fact machine has facts for today that lack them. Asks at most once for each
-    /// day, so a failing model is not retried at every visit. A reading writes its own summaries.
     func summarizeIfMissing() async {
         guard !isSummarizing, !daysAsked.contains(today), let helper = factHelper, !helper.isPaused,
             helper.hasMissingSummaries(on: today)
@@ -224,7 +208,6 @@ final class TodayModel {
         }
     }
 
-    /// The line a fact or finding shows: the title field of the machine that found it.
     func title(of item: Item) -> String {
         let field = crew.machines.first { $0.spec.task == item.task }?.spec.title
         return field.map { item[$0] } ?? item.quote
@@ -243,8 +226,6 @@ final class TodayModel {
         }
     }
 
-    /// A fact closes with its lifecycle's outcome, a deal's action as done; a finding, which has no lifecycle, is
-    /// handled.
     private func closing(_ items: [Item]) -> [ItemAction: [Int64]] {
         let task = factMachine?.task
         var plan = factMachine?.spec.lifecycle?.closing(items.filter { $0.task == task }) ?? [:]
@@ -255,8 +236,6 @@ final class TodayModel {
         return plan
     }
 
-    /// The chat lines around the ones a fact cites, as its source has them now. Empty when the fact cites no line or
-    /// its machine is gone.
     func chatLines(around item: Item, reach: Int64 = 2) async throws -> [ChatLine] {
         guard item.citeFirst > 0, let helper = crew.machines.first(where: { $0.spec.task == item.task }) else {
             return []
@@ -264,7 +243,6 @@ final class TodayModel {
         return ChatLine.around(item, in: try await helper.source.evidence(on: item.day).lines, reach: reach)
     }
 
-    /// The machines' own pages read the same rows, so they follow an action too.
     private func reloadMachines() {
         for helper in crew.machines { helper.reload() }
         crew.machines.first?.itemsChanged()

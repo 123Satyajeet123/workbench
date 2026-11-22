@@ -1,8 +1,6 @@
 import SwiftUI
 import WorkbenchCore
 
-/// One deal: its stage, owner, class and why, open action, capture ribbon, automation strip, items, notes and
-/// timeline.
 struct DealDetail: View {
     let deal: WorkObject
     let move: (WorkObject, String) -> Void
@@ -113,7 +111,6 @@ struct DealDetail: View {
     }
 }
 
-/// Asks what a deal waits for and by when, before it moves to "Action required".
 struct ActionRequiredForm: View {
     let deal: WorkObject
     let cancel: () -> Void

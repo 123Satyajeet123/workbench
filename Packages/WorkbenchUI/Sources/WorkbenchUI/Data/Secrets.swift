@@ -1,14 +1,12 @@
 import Foundation
 import Security
 
-/// Where Workbench keeps a secret the founder typed: the founder's own Anthropic API key. Never the store, never a log.
 protocol SecretStore: Sendable {
     func read(_ name: String) -> String?
     func save(_ value: String, as name: String) throws
     func remove(_ name: String) throws
 }
 
-/// The macOS Keychain, as a generic password of this app.
 struct KeychainSecrets: SecretStore {
     struct Failure: LocalizedError {
         let status: OSStatus
@@ -37,7 +35,6 @@ struct KeychainSecrets: SecretStore {
         return String(data: data, encoding: .utf8)
     }
 
-    /// Updates the item in place, or adds it: the old key stays until the new one is stored.
     func save(_ value: String, as name: String) throws {
         let data = Data(value.utf8)
         var status = SecItemUpdate(query(name) as CFDictionary, [kSecValueData as String: data] as CFDictionary)

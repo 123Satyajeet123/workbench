@@ -13,7 +13,6 @@ import WorkbenchCore
         Calendar.current.date(byAdding: .day, value: days, to: monday)!.addingTimeInterval(Double(hour - 8) * 3600)
     }
 
-    /// A store with timeline blocks waiting on `count` training days before `monday`, and the models over it.
     private func setup(trainingDays count: Int, proposals: String = #"{"proposals":[]}"#) async throws -> (
         Reminders, FakeNotifier, TestClock, ScriptedModel
     ) {

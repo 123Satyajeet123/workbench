@@ -2,7 +2,6 @@ import SwiftUI
 import WorkbenchCore
 
 extension DealStory.Ribbon {
-    /// The ribbon in words: where it was captured, how it was rated and marked, and what moved.
     var words: [String] {
         [
             sources.isEmpty ? "Made by hand" : "From \(sources.formatted(.list(type: .and)))",
@@ -14,7 +13,6 @@ extension DealStory.Ribbon {
     }
 }
 
-/// The capture ribbon of one deal, on one line: it shows that Workbench is following the work. It reads the store only.
 struct CaptureRibbon: View {
     let ribbon: DealStory.Ribbon
 
@@ -25,7 +23,6 @@ struct CaptureRibbon: View {
     }
 }
 
-/// The deal's events in time order. A row made by a machine has a gear; a row made by a person has their initial.
 struct DealTimeline: View {
     let entries: [DealStory.Entry]
 
@@ -53,8 +50,6 @@ struct DealTimeline: View {
     }
 }
 
-/// The machines that touched a deal, each with its last and next run, its precision by your marks, and the rule that
-/// rated the deal.
 struct AutomationStripView: View {
     let rows: [AutomationRow]
 

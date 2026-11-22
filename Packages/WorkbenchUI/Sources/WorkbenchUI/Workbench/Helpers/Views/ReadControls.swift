@@ -1,7 +1,6 @@
 import SwiftUI
 import WorkbenchCore
 
-/// One small line above a machine's items: the read button, what the last reading did, and the view picker.
 struct ReadBar: View {
     let model: HelperModel
 
@@ -15,7 +14,6 @@ struct ReadBar: View {
         }
     }
 
-    /// A screen or page machine has nothing to read on a day without activity; a chat machine always may try.
     private var hasNothingToRead: Bool {
         if let screen = model.source as? ScreenSource { return screen.sessions.isEmpty }
         if let pages = model.source as? PageSource { return pages.pageReading.pages.isEmpty }
@@ -24,7 +22,6 @@ struct ReadBar: View {
     }
 }
 
-/// What the day's source holds and what reading sends, with the switches the source needs.
 struct ReadNote: View {
     let model: HelperModel
     @Environment(ModelSettings.self) private var models

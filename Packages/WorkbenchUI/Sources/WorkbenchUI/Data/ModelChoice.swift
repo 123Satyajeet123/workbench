@@ -3,7 +3,6 @@ import Foundation
 import Observation
 import WorkbenchCore
 
-/// Which agent CLI and model reads for Workbench. The founder picks it; the Runs page compares the picks.
 struct ModelChoice: Codable, Hashable, Identifiable {
     var kind: AgentCLIKind
     var model: String
@@ -30,8 +29,6 @@ struct ModelChoice: Codable, Hashable, Identifiable {
 
     func save(to store: Store) throws { try Self.stateKey.save(self, to: store) }
 
-    /// The runner for this choice, billed as the founder chose: their Claude sign-in, or their own API key. A key goes
-    /// only to the Claude CLI; with billing set to a key and none saved, calls stop rather than use the sign-in.
     func model(store: Store, secrets: SecretStore = KeychainSecrets()) -> RecordedModel {
         let byKey = kind == .claude && Billing.saved(in: store) == .apiKey
         let runner = AgentRunner(
@@ -63,7 +60,6 @@ enum Billing: String, CaseIterable, Identifiable {
     func save(to store: Store) throws { try Self.stateKey.save(self, to: store) }
 }
 
-/// The founder's model pick, shared by every helper. The store holds it; a helper reads it when it starts a read.
 @Observable
 final class ModelSettings {
     var choice: ModelChoice {
@@ -99,7 +95,6 @@ final class ModelSettings {
         }
     }
 
-    /// Keeps the key in the Keychain only; the store holds just the billing choice.
     func saveAPIKey(_ key: String) {
         guard let key = key.cleaned else { return }
         problems.attempt("save the key", clearing: true) { try secrets.save(key, as: Billing.keyName) }

@@ -2,8 +2,6 @@ import Foundation
 import Observation
 import WorkbenchCore
 
-/// A deal's claims: read from its deck, chosen by the founder, checked on the web one by one. A check runs only through
-/// `WebResearchSettings.openSession`, so the consent, the key and the cap come first.
 @Observable
 final class ClaimsModel {
     struct DealClaims: Equatable {
@@ -58,7 +56,6 @@ final class ClaimsModel {
         refresh(deal)
     }
 
-    /// Reads the deck's claims with one model call. The mail consent must still allow the thread's label.
     func extract(from deal: WorkObject) async {
         guard busy.insert(deal.id).inserted else { return }
         defer { busy.remove(deal.id) }
@@ -92,7 +89,6 @@ final class ClaimsModel {
         refresh(deal)
     }
 
-    /// Checks each chosen claim. A block (consent off, no key, cap reached) stops at once and says why.
     func checkChosen(in deal: WorkObject) async {
         guard busy.insert(deal.id).inserted else { return }
         defer { busy.remove(deal.id) }

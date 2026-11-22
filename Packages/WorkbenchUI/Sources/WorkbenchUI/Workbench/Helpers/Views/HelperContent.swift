@@ -1,8 +1,6 @@
 import SwiftUI
 import WorkbenchCore
 
-/// Everything a helper shows for one day: its setup until it is ready, then a small read line, the items in the view
-/// its spec names, and its settings folded below. A trial waiting for the founder stays above the items.
 struct HelperContent: View {
     let model: HelperModel
     @Environment(ActionsModel.self) private var actions

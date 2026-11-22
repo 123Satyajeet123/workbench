@@ -1,7 +1,6 @@
 import WorkbenchCore
 
 extension HelperModel {
-    /// What a trial changes: the brief, the example policy and the model, together. Trust is earned per version.
     struct Version: Equatable {
         var brief: String
         var examples: Int?
@@ -15,7 +14,6 @@ extension HelperModel {
 
         init(_ spec: HelperSpec) { self.init(brief: spec.brief, examples: spec.examples, runner: spec.runner) }
 
-        /// The version a decision moved to, and the one it came from.
         init(decision: Decision) {
             self.init(
                 brief: decision.brief, examples: Int(decision.detail["examples", default: ""]),
@@ -36,7 +34,6 @@ extension HelperModel {
             return spec
         }
 
-        /// How a decision records this version and its parent.
         func detail(parent: Version) -> [String: String] {
             [
                 "examples": examples.map(String.init) ?? "", "parentExamples": parent.examples.map(String.init) ?? "",

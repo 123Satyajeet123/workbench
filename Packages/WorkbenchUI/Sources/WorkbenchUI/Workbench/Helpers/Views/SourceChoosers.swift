@@ -2,7 +2,6 @@ import LocalSources
 import SwiftUI
 import WorkbenchCore
 
-/// The setup a machine needs before it can read, by the kind of source it has.
 struct SourceChooser: View {
     let model: HelperModel
 
@@ -17,7 +16,6 @@ struct SourceChooser: View {
     }
 }
 
-/// The Gmail label a mail machine reads. Only threads opened in this label are kept; mail elsewhere stays in Gmail.
 struct LabelChooser: View {
     let model: HelperModel
     let source: MailSource
@@ -41,7 +39,6 @@ struct LabelChooser: View {
     }
 }
 
-/// The sites a page machine reads. Only these sites' text is ever sent; the rest stays on the Mac.
 struct SiteChooser: View {
     let model: HelperModel
     let source: PageSource
@@ -108,8 +105,6 @@ struct GroupChooser: View {
     }
 }
 
-/// Several chats by a rule: groups whose name holds some words, and direct chats with people in them. The founder
-/// sees every chat the rule chooses before any is read.
 struct SeveralChatsChooser: View {
     let model: HelperModel
     let source: WhatsAppSource

@@ -1,7 +1,6 @@
 import SwiftUI
 import WorkbenchCore
 
-/// The agreement report. Every number is on the held-out set, and says so.
 struct AgreementReportView: View {
     let report: AgreementReport
 
@@ -49,7 +48,6 @@ struct AgreementReportView: View {
     }
 }
 
-/// Your call down the side, the machine's call across the top.
 struct ConfusionGrid: View {
     let report: AgreementReport
 

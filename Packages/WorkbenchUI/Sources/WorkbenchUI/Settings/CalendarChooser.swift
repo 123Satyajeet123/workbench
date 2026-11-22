@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// Which calendars Today reads: all of them until the person unticks one.
 struct CalendarChooser: View {
     let calendars: [CalendarChoice]
     let toggle: (CalendarChoice) -> Void
@@ -13,7 +12,6 @@ struct CalendarChooser: View {
     }
 }
 
-/// A calendar and whether Today reads it.
 struct CalendarChoice: Identifiable, Equatable {
     var id: String
     var title: String

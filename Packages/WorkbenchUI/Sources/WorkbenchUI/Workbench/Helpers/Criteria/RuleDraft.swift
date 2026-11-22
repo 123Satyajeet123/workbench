@@ -1,7 +1,6 @@
 import Foundation
 import WorkbenchCore
 
-/// The fields of the rule form, as the founder types them. `rule()` makes a rule only when the fields are sound.
 struct RuleDraft: Equatable {
     enum Kind: String, CaseIterable, Identifiable {
         case number = "Number"
@@ -11,7 +10,6 @@ struct RuleDraft: Equatable {
         var id: String { rawValue }
     }
 
-    /// The rule being edited; nil for a new one.
     var editing: String?
     var kind = Kind.want
     var role = Rule.Role.plus

@@ -1,8 +1,5 @@
 import Foundation
 
-/// What the island shows, from what the app already knows. A call being recorded comes first, so consent is always
-/// visible; then a machine that is reading; then how many items wait for the founder. It never shows watched content:
-/// only a machine's name and a count.
 enum IslandState: Equatable {
     case idle
     case recording(since: Date)
@@ -21,7 +18,6 @@ enum IslandState: Equatable {
         }
     }
 
-    /// Only an island that offers something takes a click; otherwise clicks go to the menu bar below it.
     var takesClicks: Bool {
         if case .waiting = self { true } else { false }
     }

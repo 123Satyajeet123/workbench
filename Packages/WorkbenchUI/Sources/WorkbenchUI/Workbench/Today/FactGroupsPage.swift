@@ -1,8 +1,6 @@
 import SwiftUI
 import WorkbenchCore
 
-/// People or Projects: the facts of the last seven days grouped by person or by project, open ones first, each with
-/// its actions. A fact that closes moves from Open to Earlier within its group.
 struct FactGroupsPage: View {
     enum Lens {
         case people, projects

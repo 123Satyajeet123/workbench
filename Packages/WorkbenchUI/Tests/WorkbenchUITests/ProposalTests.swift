@@ -6,7 +6,6 @@ import WorkbenchCore
 @testable import WorkbenchUI
 
 @Suite struct ProposalTests {
-    /// A store with the built-in machines and one timeline block on each of `count` training days before today.
     private func store(trainingDays count: Int) async throws -> (Store, Crew, [Int64]) {
         let store = try scratchStore()
         try store.savePolicy(CapturePolicy(switches: [.screen: true]))

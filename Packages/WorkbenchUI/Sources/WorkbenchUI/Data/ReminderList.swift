@@ -1,9 +1,7 @@
 import AppKit
 import EventKit
 
-/// The founder's Reminders app. Workbench adds to it only when the founder clicks.
 protocol ReminderList {
-    /// Asks macOS once when it has not asked before; otherwise reports what the founder chose.
     func authorize() async -> SystemAccess
     func add(title: String, notes: String) throws
 }
@@ -38,7 +36,6 @@ struct AppleReminders: ReminderList {
         try store.save(reminder, commit: true)
     }
 
-    /// Workbench's row in System Settings › Privacy & Security › Reminders.
     static func openSettings() {
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Reminders") {
             NSWorkspace.shared.open(url)

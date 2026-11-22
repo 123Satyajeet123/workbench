@@ -3,11 +3,8 @@ import Foundation
 import Observation
 import WorkbenchCore
 
-/// What the parts of one machine's model share: its record, its source, the shown day, the store and the one problem
-/// slot. Reading, improvement and the schedule each take it, so none of them needs another.
 @Observable
 final class MachineContext {
-    /// The record this model shows: its name, spec and state change when the founder renames, edits or pauses it.
     private(set) var machine: Machine
     private(set) var day: WorkDay
     let problems = ProblemSlot()
@@ -16,9 +13,7 @@ final class MachineContext {
     @ObservationIgnored let source: any MachineSource
     @ObservationIgnored let store: Store
     @ObservationIgnored let makeModel: (ModelChoice) -> RecordedModel
-    /// Called after a read or a mark changed this machine's items, so the review queue can follow.
     @ObservationIgnored var itemsChanged: () -> Void = {}
-    /// Called when what the model loaded for the shown day is out of date.
     @ObservationIgnored var reload: () -> Void = {}
 
     init(
@@ -53,24 +48,20 @@ final class MachineContext {
         return found
     }
 
-    /// Names in the nudge's set with no item that day.
     func missing(on day: WorkDay) -> [String] {
         guard let nudge = spec.nudge else { return [] }
         let named = Set(items(on: day).map { $0[nudge.field] })
         return (source.context[nudge.expected] ?? []).filter { !named.contains($0) }
     }
 
-    /// The founder's marked items of the last 60 days: the reader takes examples from them by its own rule.
     func marked() throws -> [Item] {
         try store.queries.items(of: spec.task, since: today.adding(days: -60)).filter { $0.state != .proposed }
     }
 
-    /// The model a version reads with: its own runner, else the founder's choice.
     func runner(for version: HelperModel.Version) throws -> ModelChoice {
         try version.runner.flatMap(ModelChoice.with(id:)) ?? ModelChoice.saved(in: store)
     }
 
-    /// The source must allow the read: for several chats, each one of them.
     func grant() async throws -> CaptureGrant {
         let labels = source.grantLabels
         for label in labels.dropLast() { _ = try await grant(label) }

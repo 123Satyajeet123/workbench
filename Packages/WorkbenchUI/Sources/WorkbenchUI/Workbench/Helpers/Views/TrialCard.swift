@@ -1,7 +1,6 @@
 import SwiftUI
 import WorkbenchCore
 
-/// A new brief on trial: how it compares with the current one on past days, and the choice to switch.
 struct TrialCard: View {
     let model: HelperModel
     @Environment(Crew.self) private var crew
@@ -35,7 +34,6 @@ struct TrialCard: View {
         .background(.calloutFill, in: .rect(cornerRadius: Radius.card))
     }
 
-    /// What the trial changes against the live machine, in one line.
     private func change(_ version: HelperModel.Version) -> String {
         var parts: [String] = []
         if version.brief != model.spec.brief { parts.append("New brief: “\(version.brief)”") }

@@ -2,8 +2,6 @@ import Foundation
 import Observation
 import WorkbenchCore
 
-/// When a machine reads by itself and tells the founder: the reading hours with their alerts, and the once-a-day
-/// nudge. It owns the one loop that checks both while the app runs.
 @Observable
 final class HelperSchedule {
     var nudge = NudgeSchedule() {
@@ -13,7 +11,6 @@ final class HelperSchedule {
             }
         }
     }
-    /// Reading new lines by itself through the day, for a source whose lines keep their numbers.
     var watch = WatchSchedule() {
         didSet {
             context.problems.attempt("save the reading hours") {
@@ -37,7 +34,6 @@ final class HelperSchedule {
         }
     }
 
-    /// Checks once a minute while the app runs, until this schedule is stopped or released.
     func start() {
         ticker.start { [weak self] in
             await self?.readIfDue()
@@ -47,8 +43,6 @@ final class HelperSchedule {
 
     func stop() { ticker.stop() }
 
-    /// Turning the nudge on asks macOS for permission the first time; while macOS blocks it, it waits and turns on
-    /// once the founder allows notifications.
     func setNudge(on: Bool) async {
         guard on else {
             nudge.isOn = false
@@ -57,7 +51,6 @@ final class HelperSchedule {
         await context.notifications.whenAllowed { [weak self] in self?.nudge.isOn = true }
     }
 
-    /// Reading through the day alerts the founder, so it needs notifications as the nudge does.
     func setWatch(on: Bool) async {
         guard on else {
             watch.isOn = false
@@ -66,8 +59,6 @@ final class HelperSchedule {
         await context.notifications.whenAllowed { [weak self] in self?.watch.isOn = true }
     }
 
-    /// Reads the lines that are new since the last reading, when the reading hours say so, and tells the founder
-    /// about new items whose value the spec marks bad (a blocker, for the team machine).
     func readIfDue() async {
         let now = context.store.clock()
         let spec = context.spec
@@ -90,7 +81,6 @@ final class HelperSchedule {
         await post(lines.joined(separator: "\n"), failure: "show the alert")
     }
 
-    /// Reads today and names who has no item. The day is marked first, so a failure nudges once, not every minute.
     func nudgeIfDue() async {
         let now = context.store.clock()
         let spec = context.spec

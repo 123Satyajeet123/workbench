@@ -3,7 +3,6 @@ import Testing
 
 @testable import WorkbenchUI
 
-/// The island shows one thing at a time: a recording first, then a reading machine, then waiting items.
 @Suite struct IslandStateTests {
     private let since = Date(timeIntervalSince1970: 1_790_000_000)
 

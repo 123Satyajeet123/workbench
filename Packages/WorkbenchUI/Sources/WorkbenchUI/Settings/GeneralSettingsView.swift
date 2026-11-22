@@ -49,7 +49,6 @@ struct GeneralSettingsView: View {
     }
 }
 
-/// The founder's own Anthropic API key: typed once, kept in the Keychain, never shown again.
 private struct APIKeyField: View {
     @Environment(ModelSettings.self) private var models
     @State private var typed = ""

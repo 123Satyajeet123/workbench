@@ -1,8 +1,5 @@
 import SwiftUI
 
-/// The notch grows ears only when there is something to show: a red dot and the running time while a call records, the
-/// name of a machine while it reads, or how many items wait for the founder. Otherwise nothing. It changes only when a
-/// recording or a reading starts or ends, and only the recording dot moves.
 struct IslandView: View {
     let state: IslandState
     var metrics = IslandMetrics(screen: nil)

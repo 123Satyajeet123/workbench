@@ -1,14 +1,11 @@
 import SwiftUI
 
-/// The app's quiet button, after Notion's: no fill at rest, a soft grey fill under the pointer, a darker one while
-/// pressed.
 struct GhostButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         GhostButton(configuration: configuration)
     }
 }
 
-/// The one button a view leads with: the accent fill and a white label.
 struct PrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         PrimaryButton(configuration: configuration)

@@ -1,8 +1,6 @@
 import SwiftUI
 import WorkbenchCore
 
-/// What is still open, from every day, one section per value of a field; below, what a line closed on this day. The
-/// founder can close an item by hand or reopen one closed by mistake.
 struct ItemChecklist: View {
     let model: HelperModel
     let field: String
@@ -36,7 +34,6 @@ struct ItemChecklist: View {
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: model.open.map(\.id))
     }
 
-    /// Sections with most open items first.
     private var sections: [String] {
         Dictionary(model.open.map { ($0[field], 1) }, uniquingKeysWith: +)
             .sorted { ($0.value, $1.key) > ($1.value, $0.key) }.map(\.key)

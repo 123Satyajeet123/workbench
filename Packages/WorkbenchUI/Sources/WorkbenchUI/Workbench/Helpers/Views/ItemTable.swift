@@ -1,7 +1,6 @@
 import SwiftUI
 import WorkbenchCore
 
-/// One row per item: a column per field, then the quote it came from and the marks.
 struct ItemTable: View {
     let model: HelperModel
 

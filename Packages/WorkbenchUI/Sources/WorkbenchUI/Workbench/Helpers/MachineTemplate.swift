@@ -1,10 +1,8 @@
 import WorkbenchCore
 
-/// A machine a person can make: a built-in spec with a default name and a line on what it does.
 struct MachineTemplate: Identifiable, Hashable {
     let spec: HelperSpec
     let name: String
-    /// What kind of machine it is, under its name.
     let role: String
     let detail: String
 
@@ -38,7 +36,6 @@ struct MachineTemplate: Identifiable, Hashable {
             "Follows the open commitments, questions and decisions of Pip and tells you what is overdue, quiet, blocked or drifting."
     )
     static let all = [team, timeline, pages, derailment, dealIntake, founderCheck, companySignals]
-    /// The machines every store starts with; the others are made on request or from Mochi's proposals.
     static let seeded = [team, timeline]
 
     static func == (lhs: Self, rhs: Self) -> Bool { lhs.id == rhs.id }

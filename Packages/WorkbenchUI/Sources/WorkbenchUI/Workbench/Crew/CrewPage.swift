@@ -1,7 +1,6 @@
 import SwiftUI
 import WorkbenchCore
 
-/// The crew in plain words: one card per machine, the items waiting for a check, and Mochi's suggestions.
 struct CrewPage: View {
     let open: (SidebarSelection) -> Void
     @Environment(RunsModel.self) private var runs
@@ -17,7 +16,6 @@ struct CrewPage: View {
     }
 }
 
-/// The cards of the Crew page, without the page around them.
 struct CrewBody: View {
     let open: (SidebarSelection) -> Void
     @Environment(Crew.self) private var crew
@@ -51,7 +49,6 @@ struct CrewBody: View {
     }
 }
 
-/// One machine: what it reads, its last reading, how right it is, what it cost, and the choice to pause or open it.
 private struct MachineCard: View {
     let helper: HelperModel
     let facts: CrewCardFacts

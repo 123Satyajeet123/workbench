@@ -5,7 +5,6 @@ import WorkbenchCore
 
 @testable import WorkbenchUI
 
-/// Runs `during` while it answers, as a model call that takes time would let the founder act.
 private final class ActingModel: StructuredModel, Sendable {
     let name = "acting"
     private let inner: ScriptedModel
@@ -26,7 +25,6 @@ private final class ActingModel: StructuredModel, Sendable {
     }
 }
 
-/// Starts a call that never ends by itself, as a slow model does, and fails the way its own error says.
 private final class StallingModel: StructuredModel, Sendable {
     let name = "stalling"
     let started = Mutex(false)
@@ -55,7 +53,6 @@ private final class StallingModel: StructuredModel, Sendable {
         Calendar.current.date(bySettingHour: hour, minute: minute, second: 0, of: noon)!
     }
 
-    /// A store with a morning of screen activity: a terminal, a pull request with its page text, then idle.
     private func morning() throws -> Store {
         let clock = TestClock(at(hour: 9))
         let store = try scratchStore(clock: { clock.now })

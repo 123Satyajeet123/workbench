@@ -2,7 +2,6 @@ import CaptureService
 import LocalSources
 import SwiftUI
 
-/// Start and stop a call recording. Only apps playing sound are offered; nothing starts on its own.
 struct CallMenu: View {
     @Environment(CaptureSettings.self) private var capture
 

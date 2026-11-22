@@ -1,7 +1,6 @@
 import SwiftUI
 import WorkbenchCore
 
-/// A machine's page: its face and name, the day, and the machine's content.
 struct HelperPage: View {
     let model: HelperModel
 
@@ -19,7 +18,6 @@ struct HelperPage: View {
 }
 
 extension HelperModel {
-    /// The chats or sites the founder chose, in words. Nil for the screen and for a source with nothing chosen.
     var chosenSource: String? {
         if let source = source as? WhatsAppSource {
             return source.isSeveral ? "\(source.chats.count) chats" : source.chat?.name
@@ -31,7 +29,6 @@ extension HelperModel {
         return nil
     }
 
-    /// What the machine reads, for a card that says it in one line.
     var reads: String {
         chosenSource ?? (source is ScreenSource ? "Your screen windows" : "Nothing chosen yet")
     }

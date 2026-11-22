@@ -1,7 +1,6 @@
 import SwiftUI
 import WorkbenchCore
 
-/// The proposer: Mochi reads the founder's marks on training days and puts one clear fix on trial.
 struct ImproveRow: View {
     let model: HelperModel
     @State private var asking = false
@@ -41,7 +40,6 @@ struct ImproveRow: View {
     }
 }
 
-/// The machine's last decisions: trials, switches, rejections, rollbacks.
 struct DecisionHistory: View {
     let model: HelperModel
 
@@ -72,6 +70,5 @@ struct DecisionHistory: View {
 }
 
 extension Decision {
-    /// A decision is logged once and never changed, so when it was made and what it was names it.
     var logKey: String { "\(at.timeIntervalSinceReferenceDate) \(kind.rawValue) \(by.rawValue)" }
 }

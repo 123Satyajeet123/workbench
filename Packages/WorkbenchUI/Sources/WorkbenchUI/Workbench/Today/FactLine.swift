@@ -1,12 +1,9 @@
 import SwiftUI
 import WorkbenchCore
 
-/// One fact or finding as one line, with its actions. Open it to read the message it came from and to see the chat
-/// line.
 struct FactLine: View {
     let item: Item
     let model: TodayModel
-    /// Why the line is here, in a word: "Overdue", "Asks you". Nil on a list that needs no reason.
     var flag: String?
     var flagTone: Tone = .attention
 
@@ -39,7 +36,6 @@ struct FactLine: View {
         .padding(.vertical, Space.xs)
     }
 
-    /// Person, project and due day, in the words a founder uses.
     private var meta: String {
         var parts = [item["person"], item["project"]].filter { !$0.isEmpty }
         if let due = item.dueDay {

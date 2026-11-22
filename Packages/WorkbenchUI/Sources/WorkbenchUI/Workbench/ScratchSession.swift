@@ -1,7 +1,6 @@
 import SwiftUI
 import WorkbenchCore
 
-/// A scratch session, with the sample day when asked. Nothing here touches the founder's store.
 struct ScratchSession<Content: View>: View {
     var sample = true
     var withSummaries = true

@@ -1,11 +1,8 @@
 import SwiftUI
 import WorkbenchCore
 
-/// What the founder can do with a fact, or with the facts a summary line cites: done, and a menu for the rest. Each
-/// one is a mark or an event that Undo takes back.
 struct FactActions: View {
     let items: [Item]
-    /// What the undo bar says after the action: the line, shortened.
     let summary: String
     let model: TodayModel
 

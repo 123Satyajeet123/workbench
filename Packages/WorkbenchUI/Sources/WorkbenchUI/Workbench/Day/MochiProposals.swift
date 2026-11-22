@@ -1,7 +1,6 @@
 import SwiftUI
 import WorkbenchCore
 
-/// Mochi's proposals on Mochi's page: machines for work that repeats, each with the days that show it.
 struct MochiProposals: View {
     let open: (SidebarSelection) -> Void
     @Environment(MochiModel.self) private var mochi

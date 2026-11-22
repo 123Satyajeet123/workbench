@@ -77,7 +77,6 @@ final class OnboardingModel {
         index = max(index - 1, 0)
     }
 
-    /// What the person must read: the setup or the name did not save, or the saved setup was unreadable.
     var problem: String? {
         saveError?.localizedDescription
             ?? identityModel.saveError.map { "Your name was not saved: \($0.localizedDescription)" }

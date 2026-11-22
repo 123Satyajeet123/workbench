@@ -2,8 +2,6 @@ import Testing
 
 @testable import WorkbenchUI
 
-/// The sidebar redrawn after Notion's keeps every page but Deals, in the order it had, with Mochi's face back. Deals
-/// keeps its page and model, to be reworked elsewhere, but has no row.
 struct SidebarLayoutTests {
     private var pages: [SidebarSelection] {
         SidebarLayout.sections.flatMap(\.entries).compactMap { entry in

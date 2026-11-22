@@ -5,7 +5,6 @@ struct ItemRow: View {
     let model: HelperModel
     let item: Item
     let showsSpan: Bool
-    /// A field the section already names, so its badge would repeat it.
     var grouping: String?
 
     var body: some View {
@@ -39,7 +38,6 @@ struct ItemRow: View {
         }
     }
 
-    /// Said on the machine's own page when the founder hid the item or snoozed it: Today and the lists leave it out.
     private var hiddenNote: String? {
         guard item.isHidden(at: .now) else { return nil }
         if case .snoozed(let until) = item.hiding {
@@ -48,12 +46,10 @@ struct ItemRow: View {
         return "Hidden from Today"
     }
 
-    /// The badge fields that have a value here, leaving out the field the section already names.
     private var badgeFields: [String] {
         model.spec.badges.filter { $0 != grouping && !item[$0].isEmpty }
     }
 
-    /// The value of the first field whose values carry a tone, and that tone.
     private var toned: (String, HelperSpec.Tone)? {
         for field in model.spec.fields {
             if let tone = model.spec.tones[item[field.name]] { return (item[field.name], tone) }

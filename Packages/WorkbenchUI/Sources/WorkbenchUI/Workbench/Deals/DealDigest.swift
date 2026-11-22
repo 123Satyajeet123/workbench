@@ -1,25 +1,19 @@
 import Foundation
 import WorkbenchCore
 
-/// A machine that touched a deal, with what the strip needs to say about it.
 struct StripMachine: Equatable {
     var machine: Machine
     var watch: WatchSchedule
-    /// The rules that decided the rating, in words; nil for a machine that rated nothing.
     var rule: String?
 }
 
-/// What a deal's card, ribbon, timeline and strip show. Read once per refresh from rows the store already holds;
-/// no model is called.
 struct DealDigest: Equatable {
     var triage: Triage?
-    /// The action the deal waits for, while it is open.
     var action: Item?
     var story: DealStory
     var machines: [StripMachine]
 }
 
-/// Builds the digest of a deal for one person.
 struct DealDigestReader {
     let store: Store
     let me: String
@@ -51,7 +45,6 @@ struct DealDigestReader {
             story: DealStory.make(deal: deal, ratings: ratings, marks: marks, actions: own), machines: touching)
     }
 
-    /// The marks on a linked item. The item's id means something only on the Mac of the person who linked it.
     private func linkedMarks(of event: WorkEvent, _ linked: LinkedItem) throws -> [DealStory.Marked] {
         if event.author == me, let id = linked.itemID { return try store.queries.marks(ofItem: id) }
         return linked.state == .proposed ? [] : [.init(state: linked.state, at: event.at)]

@@ -1,8 +1,5 @@
 import SwiftUI
 
-/// A helper's face: a soft body, two eyes, cheeks, a mouth and one thing it wears. Drawn, so it is sharp at every size.
-/// Its mood shows what the helper is doing; the face moves once when the mood changes, never in a loop, and not at all
-/// with Reduce Motion on.
 struct Mascot: View {
     enum Mood: Hashable {
         case calm, working, asking, trouble
@@ -128,7 +125,6 @@ struct Mascot: View {
 }
 
 extension Mascot {
-    /// A small sign for the moods that need the founder: a question, a problem.
     fileprivate var badge: (String, Color)? {
         switch mood {
         case .asking: ("?", Tone.attention.color)

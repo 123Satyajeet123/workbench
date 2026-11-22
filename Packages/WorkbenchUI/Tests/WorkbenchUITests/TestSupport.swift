@@ -21,7 +21,6 @@ func captureSettings(over store: Store? = nil) throws -> CaptureSettings {
     CaptureSettings(service: try CaptureService(store: try store ?? scratchStore()))
 }
 
-/// Answers with one JSON reply and remembers each input.
 final class ScriptedModel: StructuredModel, Sendable {
     let name = "scripted"
     private let reply: String
@@ -49,7 +48,6 @@ extension OnboardingModel {
     }
 }
 
-/// Records each notification instead of showing it.
 final class FakeNotifier: Notifier {
     var access = SystemAccess.allowed
     var posted: [(title: String, body: String, page: SidebarSelection)] = []
@@ -58,7 +56,6 @@ final class FakeNotifier: Notifier {
     func post(title: String, body: String, page: SidebarSelection) async throws { posted.append((title, body, page)) }
 }
 
-/// A clock a test can move.
 nonisolated final class TestClock: Sendable {
     private let value: Mutex<Date>
     init(_ start: Date) { value = Mutex(start) }
@@ -67,7 +64,6 @@ nonisolated final class TestClock: Sendable {
 }
 
 extension Machine {
-    /// A machine record for a model under test, as the store would hand it out.
     static func test(_ spec: HelperSpec, _ name: String, id: Int64 = 0) -> Machine {
         Machine(id: id, name: name, template: spec.task, spec: spec, state: .active)
     }
@@ -76,7 +72,6 @@ extension Machine {
 let teamJID = "120300000000000001@g.us"
 let familyJID = "120300000000000002@g.us"
 
-/// A WhatsApp container with a team group (Asha, Bharat) and a family group, and three team messages at `at`.
 func whatsApp(at date: Date) throws -> URL {
     let folder = FileManager.default.temporaryDirectory.appending(path: "wa-ui-\(UUID().uuidString)")
     try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -104,12 +99,8 @@ func whatsApp(at date: Date) throws -> URL {
     return folder
 }
 
-/// A reply type for model calls whose content a test does not read.
 nonisolated struct Nothing: Decodable, Sendable {}
 
-/// Answers with the reply whose key its instructions contain, so each brief or task reads differently. Replies can be
-/// set after items exist, for replies that cite their ids. A summary call is answered with no summaries and is not
-/// counted in `calls` or `inputs`, so a test of readings counts readings.
 final class KeyedModel: StructuredModel, Sendable {
     let name = "keyed"
     let replies: Mutex<[String: String]>
@@ -138,8 +129,6 @@ final class KeyedModel: StructuredModel, Sendable {
             value: try JSONDecoder().decode(T.self, from: Data(cited.utf8)), model: "m", usage: Usage(), reply: cited)
     }
 
-    /// `@Open PR@` in a reply becomes the number of the input line that holds "Open PR", as a model cites a line by
-    /// what it says; lines keep their ids across days and readings, so a reply cannot hard-code them.
     static func cite(_ reply: String, in input: String) -> String {
         reply.replacing(#/@([^@"]+)@/#) { match in
             let words = String(match.output.1)
@@ -149,7 +138,6 @@ final class KeyedModel: StructuredModel, Sendable {
     }
 }
 
-/// Adds a photo message from Asha with `text` drawn in it to a fixture container; returns its message id.
 func addPhoto(_ text: String, to container: URL, at date: Date) throws -> Int64 {
     let image = NSImage(size: NSSize(width: 900, height: 160))
     image.lockFocus()
@@ -175,8 +163,6 @@ func addPhoto(_ text: String, to container: URL, at date: Date) throws -> Int64 
     return 20
 }
 
-/// Adds a text message from Asha (or the founder when `member` is nil) to a fixture container.
-/// Adds an active member to a group of the fixture container; `chat` is the group's session number.
 func addGroupMember(_ id: Int64, chat: Int, jid: String, name: String, to container: URL) throws {
     let sql = "INSERT INTO ZWAGROUPMEMBER VALUES (\(id), \(chat), '\(jid)', '\(name)', NULL, 1);"
     var db: OpaquePointer?
@@ -199,8 +185,6 @@ func addMessage(_ id: Int64, _ text: String, member: Int? = 1, at date: Date, to
     else { throw CocoaError(.fileWriteUnknown) }
 }
 
-/// Draws a view in a window as a person sees it (native controls included) and writes it to a PNG in the folder of
-/// `VC_PREVIEW_DIR`, else the temporary folder.
 func renderPNG(_ view: some View, named name: String, width: CGFloat = 640) throws {
     let framed = view.padding(Space.l).frame(width: width, alignment: .topLeading)
         .background(Color(nsColor: .textBackgroundColor)).environment(\.colorScheme, .light)

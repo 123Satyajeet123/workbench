@@ -1,7 +1,6 @@
 import SwiftUI
 import WorkbenchCore
 
-/// The form for one rule: its kind, its role, and the words or the number it tests.
 struct RuleForm: View {
     @Binding var draft: RuleDraft
     let commit: () -> Void

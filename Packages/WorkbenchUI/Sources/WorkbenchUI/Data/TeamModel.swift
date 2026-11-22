@@ -2,7 +2,6 @@ import Foundation
 import Observation
 import WorkbenchCore
 
-/// The founder's team and its people, edited in setup and in Settings, saved when the founder commits.
 @Observable
 final class TeamModel {
     var team: Team
@@ -18,7 +17,6 @@ final class TeamModel {
         reload()
     }
 
-    /// The founder first, from their name, then the people they added.
     func reload() {
         do {
             team = try store?.queries.team() ?? Team(name: "", people: [])

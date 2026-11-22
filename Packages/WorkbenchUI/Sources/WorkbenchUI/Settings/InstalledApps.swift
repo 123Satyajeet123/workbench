@@ -1,6 +1,5 @@
 import AppKit
 
-/// Installed apps by name and bundle ID, from the standard app folders and Launch Services.
 enum InstalledApps {
     static var folders: [URL] {
         [

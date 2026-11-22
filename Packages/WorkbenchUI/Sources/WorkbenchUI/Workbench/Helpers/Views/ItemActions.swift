@@ -1,7 +1,6 @@
 import SwiftUI
 import WorkbenchCore
 
-/// What the founder can do with one item. Each choice is the founder's click; nothing is sent.
 struct ItemActions: View {
     let model: HelperModel
     let item: Item
@@ -23,7 +22,6 @@ struct ItemActions: View {
     }
 }
 
-/// The drafted message, editable. Copy is the only way out; the founder sends it themselves.
 struct DraftSheet: View {
     @State var draft: ActionsModel.Draft
     @Environment(ActionsModel.self) private var actions

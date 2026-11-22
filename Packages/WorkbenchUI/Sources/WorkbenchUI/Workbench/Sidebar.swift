@@ -1,14 +1,10 @@
 import SwiftUI
 import WorkbenchCore
 
-/// The sidebar's entries, top to bottom: the one place to reorder, add or drop one.
 enum SidebarLayout {
     enum Entry: Equatable {
-        /// A tool page, beside its symbol.
         case page(SidebarSelection, symbol: String)
-        /// A fixed helper's page, with its face and role.
         case helper(SidebarSelection)
-        /// One row for each machine of the crew.
         case machines
     }
 
@@ -17,7 +13,6 @@ enum SidebarLayout {
         var entries: [Entry]
     }
 
-    /// Deals and Team are not listed: their pages, models and readers stay, to be reworked into another place.
     static let sections = [
         Section(entries: [
             .page(.day, symbol: "sun.max"), .page(.people, symbol: "person.2"),
@@ -31,7 +26,6 @@ enum SidebarLayout {
             ]),
     ]
 
-    /// Whether the sidebar has a row for a page: a machine's page always does, through the crew's rows.
     static func lists(_ page: SidebarSelection) -> Bool {
         if case .machine = page { return true }
         return sections.flatMap(\.entries).contains { entry in
@@ -43,14 +37,9 @@ enum SidebarLayout {
     }
 }
 
-/// The sidebar, drawn after Notion's: grey symbols, compact rows whose titles all start at one place, small grey
-/// section labels, and a soft grey fill under the pointer and on the open page. Its top row sits in the window's
-/// title bar, beside the window's buttons, and holds the toggle that hides it.
 struct Sidebar: View {
     @Binding var selection: SidebarSelection
-    /// The height of the window's title bar.
     let titleBar: CGFloat
-    /// Where the toggle starts: just right of the window's buttons.
     let toggleLeading: CGFloat
     let hide: () -> Void
     @Environment(IdentityModel.self) private var identity
@@ -76,8 +65,6 @@ struct Sidebar: View {
         }
         .padding(.top, titleBar)
         .background(.sidebarFill)
-        // An overlay, not the first row: the list's scroll view reaches up into the title bar's safe area, which is
-        // taller than this row once the window has a toolbar, and as a row the toggle sat under it and took no clicks.
         .overlay(alignment: .top) { topRow }
         .sheet(item: $editing) { edit in
             MachineSheet(edit: edit) { id in if let id { selection = .machine(id) } }
@@ -98,8 +85,6 @@ struct Sidebar: View {
         }
     }
 
-    /// The strip in the title bar: it moves the window and holds the toggle, just right of the window's buttons. Its
-    /// fill hides rows scrolled up beneath it.
     private var topRow: some View {
         HStack {
             SidebarToggle(isShown: true, toggle: hide).padding(.leading, toggleLeading)
@@ -111,7 +96,6 @@ struct Sidebar: View {
         .gesture(WindowDragGesture())
     }
 
-    /// A section with a title stands apart, as Notion's Favorites and Shared do; one without runs on from the one above.
     private func section(_ section: SidebarLayout.Section) -> some View {
         VStack(alignment: .leading, spacing: 1) {
             if let title = section.title { label(title, addsMachine: section.entries.contains(.machines)) }
@@ -134,8 +118,6 @@ struct Sidebar: View {
         .padding(.bottom, Space.xs)
     }
 
-    /// Every row is one line, as in Notion. A helper's role shows under the pointer and to VoiceOver; a paused machine
-    /// says so where a count would be.
     @ViewBuilder private func entry(_ entry: SidebarLayout.Entry) -> some View {
         switch entry {
         case .page(let page, let symbol):
@@ -211,14 +193,12 @@ struct Sidebar: View {
         .help("Settings (⌘,)")
     }
 
-    /// Mochi shows the most urgent mood of the crew.
     private var mochiMood: Mascot.Mood {
         let moods = crew.machines.map(\.mood)
         return [.working, .trouble, .asking].first(where: moods.contains) ?? .calm
     }
 }
 
-/// Shows and hides the sidebar: a plain grey symbol with a soft fill under the pointer and no glass, as in Notion.
 struct SidebarToggle: View {
     let isShown: Bool
     let toggle: () -> Void
@@ -234,8 +214,6 @@ struct SidebarToggle: View {
     }
 }
 
-/// One sidebar row. Every icon, a symbol or a helper's face, fills the same square, so every title starts at the same
-/// place whatever the icon. One line, as in Notion; a page with things waiting shows how many at the trailing edge.
 private struct SidebarRow: View {
     enum Icon {
         case symbol(String)
@@ -250,10 +228,8 @@ private struct SidebarRow: View {
 
     let title: String
     let icon: Icon
-    /// Grey words at the trailing edge: how many wait, or that a machine is paused.
     var detail: String?
     let isSelected: Bool
-    /// A paused machine's face is dimmed; its words keep their colour, so they stay readable.
     var dimsIcon = false
     @Environment(\.uiScale) private var scale
 
@@ -263,7 +239,6 @@ private struct SidebarRow: View {
             Group {
                 switch icon {
                 case .symbol(let name):
-                    // Drawn at a point size, not scaled to fit, so its strokes keep the medium weight.
                     Image(systemName: name).font(.system(size: Self.symbolSize * scale, weight: .medium))
                         .foregroundStyle(isSelected ? Color.sidebarSelectedText : .sidebarIcon)
                 case .face(let look, let mood): Mascot(look: look, size: side, mood: mood)
@@ -283,8 +258,6 @@ private struct SidebarRow: View {
     }
 }
 
-/// A sidebar row's fill: the selected page and a pressed row in the selected grey, a row under the pointer in the
-/// hover grey.
 private struct SidebarRowStyle: ButtonStyle {
     let isSelected: Bool
 
@@ -310,7 +283,6 @@ private struct SidebarRowBody: View {
         return isHovered ? .hoverFill : .clear
     }
 }
-/// What the machine sheet is for: a new machine, a new name, or a new brief.
 enum MachineEdit: Identifiable {
     case new
     case rename(HelperModel)
@@ -376,7 +348,6 @@ private struct MachineSheet: View {
         .onAppear(perform: fill)
     }
 
-    /// A new machine that follows another has nothing to follow until a machine with a lifecycle (Pip) exists.
     private var lacksFollowable: Bool {
         guard case .new = edit else { return false }
         return template.spec.needsFollowed && crew.followable == nil
@@ -421,7 +392,6 @@ private struct MachineSheet: View {
 }
 
 extension View {
-    /// A sidebar title as Notion sets it: 14 pt medium in the sidebar's warm grey, brighter on the open page.
     fileprivate func sidebarTitle(isSelected: Bool) -> some View {
         modifier(SidebarTitle(isSelected: isSelected))
     }

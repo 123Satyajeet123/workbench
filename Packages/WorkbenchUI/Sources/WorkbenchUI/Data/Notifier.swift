@@ -1,20 +1,14 @@
 import AppKit
 import UserNotifications
 
-/// Whether macOS lets Workbench use something the founder controls (notifications, Reminders), and why not.
 enum SystemAccess: Equatable {
     case allowed
-    /// The founder said no, now or before; only System Settings can change it.
     case blocked
-    /// macOS refused with an error, in its words.
     case failed(String)
 }
 
-/// Shows a message to the founder outside the window. Silent: no notification plays a sound.
 protocol Notifier {
-    /// Asks macOS once when it has not asked before; otherwise reports what the founder chose.
     func authorize() async -> SystemAccess
-    /// `page` is what a click on the notification opens.
     func post(title: String, body: String, page: SidebarSelection) async throws
 }
 
@@ -46,12 +40,10 @@ struct SystemNotifier: Notifier {
 
     static let pageKey = "page"
 
-    /// The page a clicked notification asks for.
     static func page(of response: UNNotificationResponse) -> URL? {
         (response.notification.request.content.userInfo[pageKey] as? String).flatMap(URL.init(string:))
     }
 
-    /// Workbench's own page in System Settings › Notifications.
     static func openSettings() {
         let id = Bundle.main.bundleIdentifier ?? ""
         if let url = URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension?id=\(id)") {

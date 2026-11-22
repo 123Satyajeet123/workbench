@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// A person as a coloured initial. The colour comes from the name, so it never changes.
 struct Monogram: View {
     let name: String
     var size: CGFloat = 28

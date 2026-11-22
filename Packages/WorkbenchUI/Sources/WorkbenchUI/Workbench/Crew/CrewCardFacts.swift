@@ -1,7 +1,6 @@
 import Foundation
 import WorkbenchCore
 
-/// What the Crew page says about one machine, in plain words, from its runs and its quality row.
 struct CrewCardFacts: Equatable {
     var lastReading: String
     var health: String
@@ -26,7 +25,6 @@ struct CrewCardFacts: Equatable {
             trust: row?.heldOutAudit.status ?? Certificate(answers: 0, wrong: 0).status)
     }
 
-    /// How right the machine was by the founder's marks, and what is left before it runs on its own.
     static func health(right: Int, of marked: Int, trust: Certificate.Status) -> String {
         let trusted =
             switch trust {

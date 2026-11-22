@@ -2,7 +2,6 @@ import Foundation
 import Observation
 import WorkbenchCore
 
-/// What a trial keeps in the store between launches.
 struct SavedTrial: Codable {
     var brief: String
     var days: [String]
@@ -12,7 +11,6 @@ struct SavedTrial: Codable {
     var runner: String?
 }
 
-/// A new version being tried on past days, and how it compares with the current one.
 struct TrialRun {
     let version: HelperModel.Version
     let days: [WorkDay]
@@ -21,49 +19,34 @@ struct TrialRun {
     let result: Trial
 }
 
-/// How a machine gets better: a new version is tried on past days beside the current one, and the founder decides.
-/// The proposer and "learn from my marks" only start trials; nothing live changes until the founder switches.
 @Observable
 final class HelperImprovement {
-    /// Most past days a trial reads: each is one model call.
     static let trialDays = 30
-    /// Without marked training days, a trial reads this many recent ones.
     static let unmarkedTrialDays = 5
-    /// Challengers tried within this window share the test's error budget.
     static let budgetWindow: TimeInterval = 90 * 86_400
-    /// Research 20 §9.2 starts at three right and two wrong examples.
     static let exampleCount = 5
 
     private(set) var trial: TrialRun?
     private(set) var trialPhase = ReadPhase.idle
-    /// The machine's decisions, newest first.
     private(set) var decisions: [Decision] = []
-    /// Why nothing changed after the founder asked the proposer, or nil.
     private(set) var improveNote: String?
-    /// A change the app made by itself, such as a rollback, said once on the page.
     var notice: String?
 
     @ObservationIgnored private let context: MachineContext
 
     init(context: MachineContext) { self.context = context }
 
-    /// Loads the trial and the decisions of the machine.
     func reload() throws {
         trial = try loadTrial()
         decisions = try context.store.queries.decisions(of: context.spec.task)
     }
 
-    /// Replays `brief` on stored evidence beside the current version; the example policy and model stay as they are.
     func startTrial(brief: String, by: Decision.By = .person, why: String = "") async {
         var version = HelperModel.Version(context.spec)
         version.brief = brief
         await startTrial(version, by: by, why: why)
     }
 
-    /// Replays a new version (brief, example policy and model) on stored evidence beside the current one (research
-    /// 20 §4): every training day the founder marked, newest first, so old marks carry over to the items both versions
-    /// give; or, with no marks yet, recent training days. Held-out days are never read. Each day's reader gets the
-    /// open items as of that day, and the closes it gives are not stored: nothing live changes.
     func startTrial(_ version: HelperModel.Version, by: Decision.By, why: String) async {
         let spec = context.spec
         let store = context.store
@@ -114,22 +97,18 @@ final class HelperImprovement {
         }
     }
 
-    /// Another model on trial: the same brief and examples, read by `choice` on past days. The days' evidence goes to
-    /// that model's vendor, so this runs only on the founder's click.
     func tryModel(_ choice: ModelChoice) async {
         var version = HelperModel.Version(context.spec)
         version.runner = choice.id
         await startTrial(version, by: .person, why: "Try \(choice.title)")
     }
 
-    /// Learning from marks is a trial like any change: the same brief with marked examples, judged on past days.
     func learnFromMarks() async {
         var version = HelperModel.Version(context.spec)
         version.examples = Self.exampleCount
         await startTrial(version, by: .person, why: "Learn from my marked examples")
     }
 
-    /// The proposer reads the founder's marks on training days and, when it finds one clear fix, starts a trial of it.
     func improve() async {
         guard trial == nil, trialPhase != .reading else { return }
         improveNote = nil
@@ -151,7 +130,6 @@ final class HelperImprovement {
         }
     }
 
-    /// The founder keeps the current brief: the trial's items go, and the decision is logged.
     func keepCurrent() {
         if let trial {
             let spec = context.spec
@@ -165,7 +143,6 @@ final class HelperImprovement {
         endTrial()
     }
 
-    /// Removes the trial's items and its record; the current version stays as it is.
     func endTrial() {
         let task = context.spec.task
         context.problems.attempt("end the trial") { try context.store.delete(.machine(Trial.task(of: task))) }
@@ -181,7 +158,6 @@ final class HelperImprovement {
         ]
     }
 
-    /// The trial with its marked differences in the order the founder gave the marks.
     private func loadTrial() throws -> TrialRun? {
         let spec = context.spec
         let store = context.store

@@ -2,9 +2,6 @@ import Foundation
 import Observation
 import WorkbenchCore
 
-/// A machine's held-out past deals: entered with the investor's own call, read by the machine's reader, and scored by
-/// code against that call. They live in their own store key and are never items, so no example, no brief edit and no
-/// improver can see them.
 @Observable
 final class HelperAgreement {
     private(set) var deals: [PastDeal] = []
@@ -17,10 +14,8 @@ final class HelperAgreement {
         load()
     }
 
-    /// The held-out agreement under the criteria as saved now.
     var report: AgreementReport { AgreementReport(deals: deals, criteria: context.spec.criteria ?? Criteria()) }
 
-    /// Deals with no reading, or read before a rule changed: what "Read" will send to the model.
     var waiting: [PastDeal] {
         let stale = Set(report.rows.filter(\.needsReading).map(\.id))
         return deals.filter { $0.reading == nil || stale.contains($0.id) }
@@ -37,7 +32,6 @@ final class HelperAgreement {
         save()
     }
 
-    /// Reads each waiting deal with the chosen model; each reading is kept as it arrives.
     func read() async {
         guard !isReading, !waiting.isEmpty else { return }
         isReading = true

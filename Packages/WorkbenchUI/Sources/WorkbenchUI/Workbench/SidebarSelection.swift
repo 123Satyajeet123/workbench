@@ -2,9 +2,6 @@ import CaptureService
 import Foundation
 import WorkbenchCore
 
-/// The pages of the main window: Today (the home), People, Projects, Echo (calls), Mochi, Crew, and one page per
-/// machine. A fixed page's name, role and face live here, the one place to rename it; a machine's come from its record.
-/// `advanced` is not a page of the window: it names Settings › Advanced, so an old `runs` link still opens it.
 enum SidebarSelection: Hashable, Identifiable, RawRepresentable {
     case day, people, projects, mochi, crew, review, calls, deals, catalog, advanced
     case machine(Int64)
@@ -49,8 +46,6 @@ enum SidebarSelection: Hashable, Identifiable, RawRepresentable {
 
     var id: String { rawValue }
 
-    /// The link that opens this page from outside the window: a notification, the island. macOS hands it to the
-    /// app, which shows the window on this page.
     var url: URL {
         var components = URLComponents()
         components.scheme = Self.scheme
@@ -102,7 +97,6 @@ enum SidebarSelection: Hashable, Identifiable, RawRepresentable {
         }
     }
 
-    /// What a sidebar page is for, shown under its title until the person closes it. Nil for what is not a sidebar page.
     var intro: String? {
         switch self {
         case .day:
@@ -127,8 +121,6 @@ enum SidebarSelection: Hashable, Identifiable, RawRepresentable {
         }
     }
 
-    /// The face of a fixed helper. The other pages are tools, not helpers, so they have none. Today is Mochi's brief of
-    /// the day, so it wears Mochi's face.
     var look: Mascot.Look? {
         switch self {
         case .day, .mochi: .mochi
@@ -143,7 +135,6 @@ extension Mascot.Look {
     static let pip = Mascot.Look(hue: 0.55, wear: .antenna)
     static let echo = Mascot.Look(hue: 0.76, wear: .headphones)
 
-    /// A machine's face: the built-in team machine keeps Pip's blue; every other machine gets a hue of its own.
     static func of(_ machine: Machine) -> Mascot.Look {
         machine.task == HelperSpec.team.task
             ? .pip : Mascot.Look(hue: Double((machine.id &* 47) % 100) / 100, wear: .antenna)

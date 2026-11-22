@@ -5,8 +5,6 @@ import WorkbenchCore
 
 @testable import WorkbenchUI
 
-/// A founder with a deal-intake machine that rates by `VCFixture.thesis`, Pip, Sentinel and a deals model, all over
-/// one scratch store. Items are saved as a reading would save them; no model is called.
 @MainActor
 final class DealFixture {
     let store: Store
@@ -32,7 +30,6 @@ final class DealFixture {
         sentinel = try store.createMachine(from: watch, template: HelperSpec.derailment.task, name: "Sentinel")
     }
 
-    /// A claims model over this store with no real model, search or deck: the tests give each one.
     func makeClaims(
         model: (any StructuredModel)? = nil, openSession: (() throws -> WebSession)? = nil,
         deckParts: @escaping (WorkObject) throws -> [MailPart] = { _ in [] }
@@ -44,7 +41,6 @@ final class DealFixture {
             makeModel: { _ in RecordedModel(scripted, store: store) }, openSession: openSession, deckParts: deckParts)
     }
 
-    /// A deal made from an intake item the criteria rate from `reading`, captured from `source`.
     @discardableResult
     func deal(
         _ company: String, reading: [String: String], source: SourceKind = .screenText, mark: Mark? = nil

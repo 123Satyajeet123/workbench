@@ -3,9 +3,6 @@ import Foundation
 import Observation
 import WorkbenchCore
 
-/// One helper on screen: its spec, its source, the day shown and its items. Every helper uses this model; what
-/// differs between helpers is data in the spec and the source it reads. Reading, improvement and the schedule each
-/// have their own type; this model composes them for the views.
 @Observable
 final class HelperModel {
     let reading: HelperReading
@@ -14,11 +11,8 @@ final class HelperModel {
     let agreement: HelperAgreement
 
     private(set) var items: [Item] = []
-    /// Items still open from every day, for a machine whose items open and close.
     private(set) var open: [Item] = []
-    /// Items closed on the shown day.
     private(set) var closed: [Item] = []
-    /// How close the helper's latest prompt and model are to earning trust, from audit answers on held-out days.
     private(set) var trust: Certificate.Status?
 
     @ObservationIgnored private let shared: MachineContext
@@ -60,7 +54,6 @@ final class HelperModel {
     var context: [String: [String]] { source.context }
     var notifications: Notifications { shared.notifications }
 
-    /// Called after a read or a mark changed this machine's items, so the review queue can follow.
     var itemsChanged: () -> Void {
         get { shared.itemsChanged }
         set { shared.itemsChanged = newValue }
@@ -86,19 +79,16 @@ final class HelperModel {
         set { schedule.watch = newValue }
     }
 
-    /// What the helper's face shows.
     var mood: Mascot.Mood {
         if phase == .reading { return .working }
         if problem != nil { return .trouble }
         return question != nil ? .asking : .calm
     }
 
-    /// The item the app picked to ask about, while it is unanswered. Its answer is evidence of the helper's error rate.
     var question: Item? { items.first { $0.askedWith != nil && $0.state == .proposed } }
 
     func items(on day: WorkDay) -> [Item] { shared.items(on: day) }
 
-    /// The machine's items of the last `days` days, as read: no call is set from the criteria.
     func items(since days: Int) -> [Item] {
         var found: [Item] = []
         attempt("read the deals") {
@@ -109,7 +99,6 @@ final class HelperModel {
 
     func missing(on day: WorkDay) -> [String] { shared.missing(on: day) }
 
-    /// The record after a rename, an edit or a pause. The source stays, so a chosen chat stays chosen.
     func update(_ machine: Machine) {
         shared.use(machine)
         reload()
@@ -134,13 +123,11 @@ final class HelperModel {
         }
     }
 
-    /// Sends the shown day to the chosen model and stores the items that pass the checks.
     func read() async { await reading.read(day) }
 
     func hasMissingSummaries(on day: WorkDay) -> Bool { reading.hasMissingSummaries(on: day) }
     func summarize(_ day: WorkDay) async -> Bool { await reading.summarize(day) }
 
-    /// The founder closes an open item by hand, or reopens one a line closed by mistake.
     func close(_ item: Item, as outcome: String) {
         guard let id = item.id else { return }
         attempt("close the item") { try shared.store.close(item: id, as: outcome) }
@@ -153,7 +140,6 @@ final class HelperModel {
         itemsWereChanged()
     }
 
-    /// Marking an item the same way again takes the mark back.
     func mark(_ item: Item, as mark: Mark) {
         guard let id = item.id else { return }
         attempt("save the mark") { try shared.store.mark(item: id, as: item.state == mark ? .proposed : mark) }
@@ -162,7 +148,6 @@ final class HelperModel {
 
     func dismissProblem() { shared.problems.dismiss() }
 
-    /// Runs `work` and shows what fails.
     func attempt(_ step: String, _ work: () throws -> Void) { shared.problems.attempt(step, work) }
 
     private func itemsWereChanged() {

@@ -1,7 +1,6 @@
 import SwiftUI
 import WorkbenchCore
 
-/// The one switch for web research, with what leaves the Mac in plain words. Off by default.
 struct WebResearchSection: View {
     @Environment(CaptureSettings.self) private var capture
     @Environment(WebResearchSettings.self) private var web

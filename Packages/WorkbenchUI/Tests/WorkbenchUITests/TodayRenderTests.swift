@@ -8,8 +8,6 @@ import WorkbenchCore
 
 @testable import WorkbenchUI
 
-/// Today, People and Projects drawn over a scratch store with the sample day, to a PNG for a person to look at. The
-/// folder comes from `TODAY_PREVIEW_DIR`, else the temporary folder.
 @Suite struct TodayRenderTests {
     private func brief() throws -> MorningBrief {
         let json = """

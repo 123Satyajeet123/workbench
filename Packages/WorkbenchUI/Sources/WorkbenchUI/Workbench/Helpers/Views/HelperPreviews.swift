@@ -1,7 +1,6 @@
 import SwiftUI
 import WorkbenchCore
 
-/// A machine's page over a scratch store, as the tests build one. Nothing here touches the founder's store.
 private struct MachinePagePreview: View {
     let machine: (Crew) -> HelperModel?
     private let launch = AppLaunch.start(

@@ -2,9 +2,6 @@ import Foundation
 import Observation
 import WorkbenchCore
 
-/// Deals as shared work objects. Every act is an event by the founder, kept in the store and written to the
-/// founder's own log in the team folder; teammates' logs are read back, so each Mac folds the same deals. An item
-/// linked to a deal leaves the Mac only when every teammate can already read its source.
 @Observable
 final class DealsModel {
     private(set) var deals: [WorkObject] = []
@@ -28,7 +25,6 @@ final class DealsModel {
     func deals(in stage: String) -> [WorkObject] { deals.filter { $0.stages.contains(stage) } }
     func deal(_ id: String) -> WorkObject? { deals.first { $0.id == id } }
 
-    /// Reads teammates' logs into the store, then folds every event as the founder sees it.
     func refresh() {
         attempt("read the deals") {
             if let folder = catalog.folder {
@@ -50,7 +46,6 @@ final class DealsModel {
         settleActions()
     }
 
-    /// A deal whose action was done moves on: the stage move is an event like any other.
     private func settleActions() {
         guard let actions = try? store.queries.dealActions() else { return }
         let settled = DealAction.settled(deals, actions: actions)
@@ -68,22 +63,18 @@ final class DealsModel {
         return id
     }
 
-    /// A new stage replaces every standing one, so a move also settles a conflict. "Action required" has its own
-    /// move, which asks what is needed. Leaving it by hand drops the open action.
     func move(_ deal: WorkObject, to stage: String) {
         guard stage != WorkObject.actionRequired else { return }
         attempt("drop the action") { try store.dropActions(of: deal.id) }
         add([.init(object: deal.id, kind: .stage, text: stage, replaces: deal.stageHeads)])
     }
 
-    /// Moves the deal to "Action required" and opens the one dated fact it waits for, owned by the founder.
     func requireAction(_ deal: WorkObject, what: String, due: WorkDay) {
         guard what.cleaned != nil else { return }
         attempt("save the action") { try store.requireAction(of: deal, what: what, due: due, owner: me) }
         add([.init(object: deal.id, kind: .stage, text: WorkObject.actionRequired, replaces: deal.stageHeads)])
     }
 
-    /// Done on the deal's open action, the close Today gives it; the deal then moves on.
     func finishAction(of deal: WorkObject) {
         guard let action = digests[deal.id]?.action else { return }
         attempt("finish the action") { try store.apply(DealAction.lifecycle.closing([action])) }
@@ -104,7 +95,6 @@ final class DealsModel {
     func release(_ deal: WorkObject) { add([.init(object: deal.id, kind: .release)]) }
     func archive(_ deal: WorkObject) { add([.init(object: deal.id, kind: .archive)]) }
 
-    /// Links a machine's item, with the audience of its source as it is now.
     func link(_ item: Item, from helper: HelperModel, to deal: String) async {
         do {
             let found = try await catalog.readers(of: helper)
@@ -120,7 +110,6 @@ final class DealsModel {
         }
     }
 
-    /// A deal named after the item's title field, with the item linked.
     @discardableResult
     func newDeal(from item: Item, of helper: HelperModel) async -> String? {
         guard let id = create(title: item[helper.spec.title].cleaned ?? item.quote) else { return nil }
@@ -130,7 +119,6 @@ final class DealsModel {
 
     func dismissProblem() { problem = nil }
 
-    /// What the founder's events look like before the store gives them an id and a clock.
     struct Draft {
         var object: String
         var kind: WorkEvent.Kind
@@ -154,8 +142,6 @@ final class DealsModel {
         refresh()
     }
 
-    /// Rewrites the founder's log in the team folder. A link goes only when every current teammate is in its item's
-    /// audience; otherwise it stays on this Mac.
     private func publish() throws {
         guard let folder = catalog.folder else { return }
         let teammates = Set((try store.queries.team()?.people ?? []).filter { !$0.isMe }.map(\.name))

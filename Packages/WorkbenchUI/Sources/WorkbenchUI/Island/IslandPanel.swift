@@ -1,8 +1,6 @@
 import AppKit
 import SwiftUI
 
-/// Shows the island above every window, on the screen with the notch, and moves it when screens change. It never
-/// takes the keyboard, and takes a click only when it offers the review queue; a click opens Workbench on Review.
 final class IslandPanel: NSPanel {
     private let session: AppSession
     private var screenChanges: Task<Void, Never>?

@@ -3,8 +3,6 @@ import LocalSources
 import Observation
 import WorkbenchCore
 
-/// Today's meetings from the Mac's calendar. It reads only while the calendar consent is on, keeps nothing on disk,
-/// and drops what it read as soon as the consent goes off. A model with no calendar never reads and never offers.
 @Observable
 final class MeetingsModel {
     static let offerDeclinedKey = "calendarOfferDeclined"
@@ -12,7 +10,6 @@ final class MeetingsModel {
     private(set) var day = CalendarDay.empty
     private(set) var isOn = false
     private(set) var offerDeclined: Bool
-    /// One line saying why the calendar cannot be read, while macOS refuses it.
     private(set) var refusal: String?
 
     @ObservationIgnored private let store: Store
@@ -29,7 +26,6 @@ final class MeetingsModel {
     var meetings: [Meeting] { day.meetings }
     var calendars: [CalendarInfo] { day.calendars }
 
-    /// Whether Today may ask once to show the meetings: the calendar is off and the person has not said no.
     var offersMeetings: Bool { reader != nil && !isOn && !offerDeclined }
 
     func declineOffer() {

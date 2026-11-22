@@ -5,7 +5,6 @@ import WorkbenchCore
 
 @testable import WorkbenchUI
 
-/// Two Macs, one team folder: Kabir's and Asha's. Each writes only its own log.
 @Suite struct DealSyncTests {
     private let noon: Date = {
         Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: Date(timeIntervalSince1970: 1_790_000_000))!
@@ -28,7 +27,6 @@ import WorkbenchCore
         let (kabir, kabirCatalog, kabirStore) = try mac("Kabir", teammate: "Asha", folder: folder)
         let (asha, _, ashaStore) = try mac("Asha", teammate: "Kabir", folder: folder)
 
-        // Pip on Kabir's Mac reads the team group, where Asha is linked as a member; the timeline reads his screen.
         let capture = try CaptureService(store: kabirStore)
         let source = try WhatsAppSource(
             store: kabirStore, capture: capture, task: HelperSpec.team.task, founder: { "Kabir" },

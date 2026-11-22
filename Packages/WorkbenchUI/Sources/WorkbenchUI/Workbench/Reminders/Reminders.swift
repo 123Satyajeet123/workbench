@@ -2,29 +2,23 @@ import Foundation
 import Observation
 import WorkbenchCore
 
-/// The founder's reminders: a silent digest of what waits in Review at set times, and Mochi's weekly look for
-/// repeated work. Both are off until the founder turns them on. Each runs at most once per slot, and a Mac that sleeps
-/// through a slot catches up when it wakes, until the next slot.
 @Observable
 final class Reminders {
     struct Settings: Codable, Equatable {
         var digest = false
         var weeklyMochi = false
-        /// Hours of the digest, in the founder's day. Two a day: batching helped where hourly did not (research 23).
         var digestHours = [9, 15]
     }
 
     private static let settingsKey = StateKey<Settings>.json("reminders")
     private static let digestKey = StateKey<String>.text("reminders.digest.sent")
     private static let mochiKey = StateKey<Date>.moment("reminders.mochi.ran")
-    /// Mochi runs once a week, in the evening.
     static let mochiHour = 18
     static let week: TimeInterval = 7 * 86_400
 
     var settings = Settings() {
         didSet { problems.attempt("save the reminders") { try Self.settingsKey.save(settings, to: store) } }
     }
-    /// Mochi's brief of the day before, each morning from `briefHour`. Its own key, so older saved settings still read.
     var morningBrief = false {
         didSet { problems.attempt("save the reminders") { try Self.briefSettingKey.save(morningBrief, to: store) } }
     }
@@ -53,7 +47,6 @@ final class Reminders {
         morningBrief = state(Self.briefSettingKey) ?? false
     }
 
-    /// Turning the digest on asks macOS for permission the first time.
     func setDigest(on: Bool) async {
         guard on else {
             settings.digest = false
@@ -62,14 +55,12 @@ final class Reminders {
         await notifications.whenAllowed { [weak self] in self?.settings.digest = true }
     }
 
-    /// Checks once a minute while the app runs, until the reminders are stopped or released.
     func start() {
         ticker.start { [weak self] in await self?.tick() }
     }
 
     func stop() { ticker.stop() }
 
-    /// The latest digest slot at or before `now`, as a key: the day and the hour.
     static func slot(at now: Date, hours: [Int], calendar: Calendar = .current) -> String? {
         let hour = calendar.component(.hour, from: now)
         guard let due = hours.filter({ $0 <= hour }).max() else { return nil }
@@ -77,7 +68,6 @@ final class Reminders {
         return String(format: "%04d-%02d-%02d %02d", day.year!, day.month!, day.day!, due)
     }
 
-    /// The brief notifies, so it needs notifications; while macOS blocks them it waits and turns on once allowed.
     func setMorningBrief(on: Bool) async {
         guard on else {
             morningBrief = false
@@ -93,8 +83,6 @@ final class Reminders {
             state(Self.briefDayKey) != today
         {
             problems.attempt("save the reminders") { try Self.briefDayKey.save(today, to: store) }
-            // A quiet day is kept on Mochi's page without an alert: alerts that rarely matter teach people to ignore
-            // them (research: clinical alert override rates).
             if let brief = await mochi.writeBrief(for: today.adding(days: -1)), !brief.isQuiet {
                 await post("Mochi's brief", brief.headline, page: .day)
             }

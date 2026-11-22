@@ -3,12 +3,9 @@ import LocalSources
 import Observation
 import WorkbenchCore
 
-/// Pages the founder saw on the sites a machine's owner named. Naming the sites is the consent: no other site's text
-/// is read. The text comes from the browser extension, kept only under the Screen text switch.
 @Observable
 final class PageSource: MachineSource {
     private(set) var sites: [String]
-    /// The day's page texts on the sites, and how many were past the budget, as last refreshed.
     private(set) var pageReading: (pages: [Activity], leftOut: Int) = ([], 0)
 
     @ObservationIgnored private let store: Store
@@ -23,7 +20,6 @@ final class PageSource: MachineSource {
     let scope = ""
     var isReady: Bool { !sites.isEmpty }
 
-    /// Sites as the founder typed them, separated by commas or spaces. Anything that is not a site is left out.
     func choose(_ typed: String) throws {
         let chosen = Array(
             Set(typed.split(whereSeparator: { $0 == "," || $0.isWhitespace }).compactMap { WebPage.site(String($0)) })

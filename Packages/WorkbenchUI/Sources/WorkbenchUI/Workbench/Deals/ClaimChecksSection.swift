@@ -2,7 +2,6 @@ import SwiftUI
 import WorkbenchCore
 
 extension ClaimVerdict {
-    /// "No public evidence" is grey, never red: most true claims of a private startup have no page.
     var tone: Tone {
         switch self {
         case .supported: .good
@@ -13,8 +12,6 @@ extension ClaimVerdict {
     }
 }
 
-/// A deal's claims, under the why card: pick the claims to check, then each verdict with the words and the link it
-/// rests on, and two marks: is the quote right, is the verdict right.
 struct ClaimChecksSection: View {
     let deal: WorkObject
     @Environment(ClaimsModel.self) private var claims

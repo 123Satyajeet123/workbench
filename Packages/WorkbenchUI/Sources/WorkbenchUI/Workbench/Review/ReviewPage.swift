@@ -1,7 +1,6 @@
 import SwiftUI
 import WorkbenchCore
 
-/// The one place to check what the crew found. Y marks right, N wrong, J and K move, U takes the last mark back.
 struct ReviewPage: View {
     @Environment(ReviewModel.self) private var review
     @FocusState private var focused: Bool
