@@ -5,7 +5,7 @@ import Testing
 @testable import WorkbenchUI
 
 @MainActor private final class FoldState: ObservableObject {
-    @Published var isOpen = false
+    @Published var shown = 0
     @Published var innerTaps = 0
 }
 
@@ -13,8 +13,8 @@ private struct FoldWithButton: View {
     @ObservedObject var state: FoldState
 
     var body: some View {
-        DisclosureGroup(isExpanded: $state.isOpen) {
-            Text("Inside")
+        Fold {
+            Text("Inside").onAppear { state.shown += 1 }
         } label: {
             HStack {
                 Text("Settings")
@@ -22,12 +22,11 @@ private struct FoldWithButton: View {
                 Button("Inner") { state.innerTaps += 1 }.buttonStyle(.plain)
             }
         }
-        .disclosureGroupStyle(.fold)
         .frame(width: 300, height: 60, alignment: .topLeading)
     }
 }
 
-@MainActor struct FoldStyleTests {
+@MainActor struct FoldTests {
     @Test func theTitleOpensAndClosesTheFoldWhileAButtonInItKeepsItsOwnClick() async throws {
         let state = FoldState()
         let window = NSWindow(
@@ -51,10 +50,11 @@ private struct FoldWithButton: View {
         }
 
         try await click(x: 40)
-        #expect(state.isOpen)
+        #expect(state.shown == 1)
         try await click(x: 5)
-        #expect(!state.isOpen)
+        try await click(x: 5)
+        #expect(state.shown == 2)
         try await click(x: 285)
-        #expect(state.innerTaps == 1 && !state.isOpen)
+        #expect(state.innerTaps == 1 && state.shown == 2)
     }
 }

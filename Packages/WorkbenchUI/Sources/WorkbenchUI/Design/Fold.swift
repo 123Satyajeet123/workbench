@@ -1,17 +1,9 @@
 import SwiftUI
 
-struct FoldStyle: DisclosureGroupStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        Fold(configuration: configuration)
-    }
-}
-
-extension DisclosureGroupStyle where Self == FoldStyle {
-    static var fold: FoldStyle { FoldStyle() }
-}
-
-private struct Fold: View {
-    let configuration: DisclosureGroupStyleConfiguration
+struct Fold<Label: View, Content: View>: View {
+    @ViewBuilder let content: Content
+    @ViewBuilder let label: Label
+    @State private var isOpen = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -21,17 +13,17 @@ private struct Fold: View {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 10, weight: .bold))
                         .foregroundStyle(.iconTint)
-                        .rotationEffect(.degrees(configuration.isExpanded ? 90 : 0))
+                        .rotationEffect(.degrees(isOpen ? 90 : 0))
                         .frame(width: 12)
-                    configuration.label
+                    label
                     Spacer(minLength: 0)
                 }
                 .contentShape(.rect)
             }
             .buttonStyle(.plain)
-            .accessibilityValue(configuration.isExpanded ? "Expanded" : "Collapsed")
-            if configuration.isExpanded {
-                configuration.content
+            .accessibilityValue(isOpen ? "Expanded" : "Collapsed")
+            if isOpen {
+                content
                     .padding(.leading, 12 + Space.s)
                     .transition(.opacity)
             }
@@ -39,6 +31,12 @@ private struct Fold: View {
     }
 
     private func toggle() {
-        withAnimation(Motion.settle(reduceMotion: reduceMotion)) { configuration.isExpanded.toggle() }
+        withAnimation(Motion.settle(reduceMotion: reduceMotion)) { isOpen.toggle() }
+    }
+}
+
+extension Fold where Label == Text {
+    init(_ title: String, @ViewBuilder content: () -> Content) {
+        self.init(content: content, label: { Text(title) })
     }
 }

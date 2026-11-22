@@ -44,7 +44,7 @@ struct FactGroupsBody: View {
                 TodaySection(group.name, count: group.open.isEmpty ? nil : group.open.count) {
                     ForEach(group.open) { line($0) }
                     if !group.rest.isEmpty {
-                        DisclosureGroup("Earlier · \(group.rest.count)") {
+                        Fold("Earlier · \(group.rest.count)") {
                             ForEach(group.rest) { line($0) }
                         }
                         .foregroundStyle(.supporting)

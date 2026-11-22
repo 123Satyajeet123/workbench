@@ -121,7 +121,7 @@ struct SummaryLineRow: View {
     let showsOpenCount: Bool
 
     var body: some View {
-        DisclosureGroup {
+        Fold {
             VStack(alignment: .leading, spacing: Space.xs) {
                 ForEach(row.facts) { FactLine(item: $0, model: model).transition(.opacity) }
             }
@@ -176,7 +176,7 @@ private struct YesterdayBrief: View {
     let brief: MorningBrief
 
     var body: some View {
-        DisclosureGroup("Yesterday's brief · \(brief.day)") {
+        Fold("Yesterday's brief · \(brief.day)") {
             VStack(alignment: .leading, spacing: Space.s) {
                 if !brief.headline.isEmpty { Text(brief.headline).textStyle(.headline) }
                 ForEach(Array(brief.lines.enumerated()), id: \.offset) { _, line in

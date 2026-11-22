@@ -2,10 +2,9 @@ import SwiftUI
 
 struct MachineSettings: View {
     let model: HelperModel
-    @State private var isOpen = false
 
     var body: some View {
-        DisclosureGroup("Settings", isExpanded: $isOpen) {
+        Fold("Settings") {
             VStack(alignment: .leading, spacing: Space.l) {
                 ReadNote(model: model)
                 if !model.isTrying { ImproveRow(model: model) }

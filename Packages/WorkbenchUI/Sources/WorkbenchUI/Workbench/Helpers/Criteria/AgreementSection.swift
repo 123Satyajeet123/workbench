@@ -3,12 +3,9 @@ import WorkbenchCore
 
 struct AgreementSection: View {
     let agreement: HelperAgreement
-    @State private var isOpen = false
 
     var body: some View {
-        DisclosureGroup(
-            "Held-out deals · \(agreement.deals.count)", isExpanded: $isOpen
-        ) {
+        Fold("Held-out deals · \(agreement.deals.count)") {
             AgreementBody(agreement: agreement).padding(.top, Space.m)
         }
         .textStyle(.headline)
