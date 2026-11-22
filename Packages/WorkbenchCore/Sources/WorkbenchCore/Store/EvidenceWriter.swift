@@ -21,6 +21,8 @@ public struct IngestReport: Sendable {
     public var tombstones = 0
     /// Text lines erased because their message was revoked.
     public var erasedLines = 0
+    /// Items that cite a revoked message: each lost its quote and was flagged.
+    public var flaggedItems = 0
     /// Text lines the store refused because their message was already revoked.
     public var refusedAfterRevoke = 0
     /// Rows of each source type seen, by the source's type code.
@@ -39,6 +41,7 @@ public struct IngestReport: Sendable {
         seenAgain += other.seenAgain
         tombstones += other.tombstones
         erasedLines += other.erasedLines
+        flaggedItems += other.flaggedItems
         refusedAfterRevoke += other.refusedAfterRevoke
         unkeyed += other.unkeyed
         census.merge(other.census) {
@@ -142,7 +145,7 @@ extension Store {
         }
         report.census = reading.census
         report.unkeyed = reading.unkeyed
-        if report.erasedLines > 0 { try truncateLog() }
+        if report.erasedLines > 0 || report.flaggedItems > 0 { try truncateLog() }
         return report
     }
 
@@ -258,6 +261,9 @@ struct EvidenceStamp {
         }
         for citation in citations where report.refusedAfterRevoke == 0 {
             try LegacyCitations.map(citation, to: lineID, in: db)
+        }
+        if line.isTombstone, report.tombstones == 1 || report.erasedLines > 0 {
+            report.flaggedItems = try Store.eraseCopies(of: .line(lineID), in: db)
         }
         return report
     }

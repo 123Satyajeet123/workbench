@@ -44,6 +44,20 @@ extension Store {
             arguments: StatementArguments([WorkDay(containing: cutoff).description] + kinds.map(\.rawValue)))
     }
 
+    /// Removes the summaries of the day and machine of the items in `itemIDs` (a JSON array of ids) whose scope names a
+    /// value of one of those items: coarse, and in the safe direction. Returns the runs that wrote them.
+    static func removeSummaries(_ db: Database, builtFromItems itemIDs: String) throws -> [Int64] {
+        let built = """
+            FROM summary WHERE EXISTS (
+                SELECT 1 FROM item WHERE item.id IN (SELECT value FROM json_each(?)) AND item.day = summary.day
+                    AND item.task = summary.task AND EXISTS (
+                        SELECT 1 FROM json_each(item.fields) AS field WHERE field.key || ': ' || field.value = summary.scope))
+            """
+        let runs = try Int64.fetchAll(db, sql: "SELECT json_extract(body, '$.run') \(built)", arguments: [itemIDs])
+        try db.execute(sql: "DELETE \(built)", arguments: [itemIDs])
+        return runs
+    }
+
     func removeSummaries(_ db: Database, tasks: [String]) throws {
         let marks = Array(repeating: "?", count: tasks.count).joined(separator: ",")
         try db.execute(sql: "DELETE FROM summary WHERE task IN (\(marks))", arguments: StatementArguments(tasks))

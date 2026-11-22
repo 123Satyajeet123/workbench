@@ -25,8 +25,8 @@ public struct Summaries: Sendable {
     }
 
     /// The summaries of `day`, one per value of `field` among the items of machine `task`, in order of name: the kept
-    /// ones, and one model call for all the scopes that have none or changed. Items marked wrong are left out; an item
-    /// with no value in `field` belongs to no scope.
+    /// ones, and one model call for all the scopes that have none or changed. Items marked wrong, or whose source
+    /// message was deleted, are left out; an item with no value in `field` belongs to no scope.
     public func summaries(for day: WorkDay, groupedBy field: String, of task: String) async throws -> [Summary] {
         guard let machine = try store.queries.machines().first(where: { $0.task == task }) else { return [] }
         let groups = try groups(of: machine, on: day, by: field)
@@ -59,7 +59,9 @@ public struct Summaries: Sendable {
     }
 
     private func groups(of machine: Machine, on day: WorkDay, by field: String) throws -> [Group] {
-        let items = try store.queries.items(of: machine.task, on: day).filter { $0.state != .rejected }
+        let items = try store.queries.items(of: machine.task, on: day).filter {
+            $0.state != .rejected && !$0.isSourceDeleted
+        }
         let named = Dictionary(grouping: items.filter { !$0[field].isEmpty }, by: { $0[field] })
         let fields = machine.spec.fields.map(\.name)
         let version = try Digest.sha256(Summarizer.instructions + "\n" + Summarizer.schema.jsonText)

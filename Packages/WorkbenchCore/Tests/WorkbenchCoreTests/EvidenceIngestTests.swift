@@ -372,7 +372,8 @@ import Testing
             try Self.fact(db, first: 99, last: 99, quote: "never seen")  // no such row
             try Self.fact(db, source: "screen", first: 3, last: 3, quote: "not whatsapp")
         }
-        let before = try world.store.writer.read { try Row.fetchAll($0, sql: "SELECT * FROM item ORDER BY id") }
+        let ids = "SELECT id, cite_first, cite_last FROM item ORDER BY id"
+        let before = try world.store.writer.read { try Row.fetchAll($0, sql: ids) }
         _ = try world.record(
             [
                 try Self.message("We shipped the build today", stanza: "m11", legacy: 11),
@@ -386,7 +387,7 @@ import Testing
                 == LegacyCitationReport(
                     facts: 5, resolved: 4, quoteChecked: 2, quoteNotFound: 1, revoked: 1, unresolved: 1, refs: 5,
                     refsUnresolved: 2))
-        let after = try world.store.writer.read { try Row.fetchAll($0, sql: "SELECT * FROM item ORDER BY id") }
+        let after = try world.store.writer.read { try Row.fetchAll($0, sql: ids) }
         #expect(before == after, "no item id, cite_first or cite_last changed")
         #expect(try world.count("SELECT count(*) FROM item") == 6, "nothing was deleted")
     }

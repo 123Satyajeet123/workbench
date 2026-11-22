@@ -43,9 +43,8 @@ public struct EraseCounts: Sendable, Equatable {
     /// Saved cursors. A cursor goes with its lines, so a new consent reads the chat again from the start; an erasure
     /// by age keeps them.
     public var cursors = 0
-    /// Facts (`item` rows) that cite an erased line through an old citation id. They are not erased here: their copy
-    /// of the words (`quote`, run text, summaries) stays until the fact machinery flags or erases it by lineage
-    /// (research 56, M2 F7).
+    /// Facts (`item` rows) that cite an erased line through an old citation id. They stay, flagged, without their
+    /// quote; the run text and summaries that held the words go with it (`eraseCopies`).
     public var citingFacts = 0
 }
 
@@ -64,7 +63,8 @@ extension Store {
         return counts
     }
 
-    /// Deletes the lines, their dependents and (unless the erasure has an age) their cursors, then optimizes the
+    /// Erases the copies of the lines' words, deletes the lines, their dependents and (unless the erasure has an age)
+    /// their cursors, then optimizes the
     /// search index so no old segment keeps a word. With `secure_delete` on every connection, the caller's
     /// `truncateLog` after the transaction leaves no copy in the file or its log.
     static func eraseEvidence(_ erasure: EvidenceErasure, in db: Database) throws -> EraseCounts {
@@ -72,6 +72,12 @@ extension Store {
         let condition = try condition(of: erasure)
         for key in try cursorKeys(of: erasure, condition, in: db) {
             try db.execute(sql: "DELETE FROM state WHERE key = ?", arguments: [key])
+        }
+        if counts.lines > 0 {
+            try eraseCopies(
+                of: LineSelection(
+                    sql: "SELECT line_id FROM evidence WHERE \(condition.sql)", arguments: condition.arguments),
+                in: db)
         }
         try db.execute(sql: "DELETE FROM evidence WHERE \(condition.sql)", arguments: condition.arguments)
         if counts.lines > 0 { try db.execute(sql: EvidenceStamp.optimizeSearch) }

@@ -1,0 +1,117 @@
+import Foundation
+import GRDB
+import Lines
+
+/// The lines whose words must leave every copy: a statement that selects `line_id` values, with its arguments.
+struct LineSelection {
+    var sql: String
+    var arguments: StatementArguments
+
+    static func line(_ lineID: Data) -> LineSelection {
+        LineSelection(sql: "SELECT line_id FROM evidence WHERE line_id = ?", arguments: [lineID])
+    }
+}
+
+/// A row that cites a line through a run window or an old citation id, found for the one erase of copies.
+private struct Citing: FetchableRecord {
+    var id: Int64
+    var scope: String
+    var container: String
+
+    init(row: Row) {
+        id = row["id"]
+        scope = row["scope"]
+        container = row["container"]
+    }
+
+    /// A fact of one chat cites only lines of that chat: old row numbers are global, so a range holds other chats.
+    var isInItsOwnChat: Bool { scope.isEmpty || WhatsAppJID.canonical(scope) == container }
+}
+
+extension Store {
+    /// The one erase of copies. The model read the words of a line and kept them in the quote of each item that cites
+    /// it, in the text of the runs that read it or made those items, and in the summaries built from those items. They
+    /// all go with the line: the quote is emptied and the item flagged (it keeps its marks and its link to the
+    /// tombstone), the run text is deleted (the run row stays as the meter), and the summaries are removed, so the
+    /// next reading builds them again without the item. Run it before the lines are deleted, because deleting a line
+    /// deletes the rows that link it to its copies, or after a revoke moved those rows to the tombstone. Returns how
+    /// many items were flagged.
+    @discardableResult
+    static func eraseCopies(of lines: LineSelection, in db: Database) throws -> Int {
+        let items = try citingItems(of: lines, in: db)
+        let events = try citingEvents(of: lines, in: db)
+        let itemIDs = try Coding.json(items.map(\.id))
+        let eventIDs = try Coding.json(events.map(\.id))
+        let windowRuns = try Int64.fetchAll(
+            db, sql: "SELECT run_id FROM run_window WHERE line_id IN (\(lines.sql))", arguments: lines.arguments)
+        let itemRuns = try Int64.fetchAll(
+            db, sql: "SELECT run_id FROM item WHERE run_id IS NOT NULL AND id IN (SELECT value FROM json_each(?))",
+            arguments: [itemIDs])
+        let eventRuns = try Int64.fetchAll(
+            db, sql: "SELECT run_id FROM item_event WHERE id IN (SELECT value FROM json_each(?))",
+            arguments: [eventIDs])
+        let summaryRuns = try removeSummaries(db, builtFromItems: itemIDs)
+        try db.execute(
+            sql: "UPDATE item SET quote = '', source_deleted = 1 WHERE id IN (SELECT value FROM json_each(?))",
+            arguments: [itemIDs])
+        try db.execute(
+            sql: "UPDATE item_event SET quote = '' WHERE id IN (SELECT value FROM json_each(?))",
+            arguments: [eventIDs])
+        try db.execute(
+            sql: "DELETE FROM run_text WHERE run_id IN (SELECT value FROM json_each(?))",
+            arguments: [try Coding.json(Set(windowRuns + itemRuns + eventRuns + summaryRuns).sorted())])
+        return items.count
+    }
+
+    /// Items that cite one of the lines: by their cited numbers in the window of their run, or, for an item made
+    /// before runs kept their windows, by the old citation ids of its chat.
+    private static func citingItems(of lines: LineSelection, in db: Database) throws -> [Citing] {
+        let byWindow = try Citing.fetchAll(
+            db,
+            sql: """
+                SELECT item.id, item.scope, '' AS container FROM item
+                JOIN run_window w ON w.run_id = item.run_id AND w.ordinal BETWEEN item.cite_first AND item.cite_last
+                WHERE item.source_deleted = 0 AND w.line_id IN (\(lines.sql))
+                """, arguments: lines.arguments)
+        let byOldID = try Citing.fetchAll(
+            db,
+            sql: """
+                SELECT item.id, item.scope, e.container FROM item
+                JOIN evidence_legacy l ON l.space = ? AND l.ref BETWEEN item.cite_first AND item.cite_last
+                JOIN evidence e ON e.line_id = l.line_id
+                WHERE item.source_deleted = 0 AND item.source = ? AND l.line_id IN (\(lines.sql))
+                    AND NOT EXISTS (SELECT 1 FROM run_window WHERE run_id = item.run_id)
+                """,
+            arguments: StatementArguments([LegacySpace.whatsAppRow.rawValue, SourceKind.whatsapp.rawValue])
+                + lines.arguments)
+        return Self.distinct(byWindow + byOldID.filter(\.isInItsOwnChat))
+    }
+
+    /// Closes the model wrote with the closing words of one of the lines, found the same two ways.
+    private static func citingEvents(of lines: LineSelection, in db: Database) throws -> [Citing] {
+        let byWindow = try Citing.fetchAll(
+            db,
+            sql: """
+                SELECT ev.id, '' AS scope, '' AS container FROM item_event ev
+                JOIN run_window w ON w.run_id = ev.run_id AND w.ordinal = ev.line_id
+                WHERE ev.actor = 'model' AND ev.quote <> '' AND w.line_id IN (\(lines.sql))
+                """, arguments: lines.arguments)
+        let byOldID = try Citing.fetchAll(
+            db,
+            sql: """
+                SELECT ev.id, item.scope, e.container FROM item_event ev JOIN item ON item.id = ev.item_id
+                JOIN evidence_legacy l ON l.space = ? AND l.ref = ev.line_id
+                JOIN evidence e ON e.line_id = l.line_id
+                WHERE ev.actor = 'model' AND ev.quote <> '' AND item.source = ? AND l.line_id IN (\(lines.sql))
+                    AND NOT EXISTS (SELECT 1 FROM run_window WHERE run_id = ev.run_id)
+                """,
+            arguments: StatementArguments([LegacySpace.whatsAppRow.rawValue, SourceKind.whatsapp.rawValue])
+                + lines.arguments)
+        return Self.distinct(byWindow + byOldID.filter(\.isInItsOwnChat))
+    }
+
+    private static func distinct(_ found: [Citing]) -> [Citing] {
+        var seen: Set<Int64> = []
+        return found.filter { seen.insert($0.id).inserted }
+    }
+}

@@ -104,7 +104,7 @@ extension Store {
 extension Queries {
     static let itemColumns = """
         id, task, day, scope, source, cite_first, cite_last, start_at, end_at, fields, quote, state, run_id, asked_with,
-        status_kind, status_outcome, status_quote, status_at, hiding_kind, hiding_until
+        status_kind, status_outcome, status_quote, status_at, hiding_kind, hiding_until, source_deleted
         """
     /// Items with their mark, their latest close or reopen, and their latest hide, snooze or unhide.
     static let itemRows = """
@@ -224,6 +224,7 @@ extension Item {
             citeLast: try row.value("cite_last"), start: try row.date("start_at"), end: try row.date("end_at"),
             fields: try row.json("fields"), quote: try row.value("quote"), state: try row.enumeration("state"),
             run: try row.optionalValue("run_id"), askedWith: try row.optionalValue("asked_with"))
+        isSourceDeleted = try row.value("source_deleted") as Int == 1
         if try row.optionalValue("status_kind") as String? == "close" {
             closed = Closed(
                 outcome: try row.value("status_outcome"), quote: try row.optionalValue("status_quote"),

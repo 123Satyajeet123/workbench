@@ -13,7 +13,10 @@ public struct Item: Sendable, Equatable, Identifiable {
     public var start: Date
     public var end: Date
     public var fields: [String: String]
+    /// Empty when `isSourceDeleted`.
     public var quote: String
+    /// The message this item came from was deleted: its words are gone, and the item stays with its marks.
+    public var isSourceDeleted = false
     public var state: Mark
     /// The model run that read it; nil for a fact the person typed.
     public var run: RunID?
@@ -24,6 +27,9 @@ public struct Item: Sendable, Equatable, Identifiable {
     public var closed: Closed?
     /// Set when the founder hid the item or snoozed it; nil otherwise. See `isHidden(at:)`.
     public var hiding: Hiding?
+
+    /// The quote as a card shows it: in quotation marks, or why there is none.
+    public var quotedWords: String { isSourceDeleted ? "The message this came from was deleted" : "“\(quote)”" }
 
     public enum Hiding: Sendable, Equatable {
         case hidden

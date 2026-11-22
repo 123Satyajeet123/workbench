@@ -71,7 +71,7 @@ struct FactLine: View {
 
     @ViewBuilder private var source: some View {
         VStack(alignment: .leading, spacing: Space.s) {
-            Text("“\(item.quote)” · \(item.start.formatted(date: .abbreviated, time: .shortened))")
+            Text("\(item.quotedWords) · \(item.start.formatted(date: .abbreviated, time: .shortened))")
                 .textStyle(.callout).foregroundStyle(.supporting).textSelection(.enabled)
             if item.citeFirst > 0, item.source != .web { chatLines }
         }

@@ -24,7 +24,7 @@ let package = Package(
             name: "CaptureService",
             dependencies: ["WorkbenchCore", "LocalSources", .product(name: "Kernel", package: "Kernel")]),
         .testTarget(name: "AgentCLITests", dependencies: ["AgentCLI"]),
-        .testTarget(name: "LocalSourcesTests", dependencies: ["LocalSources"]),
+        .testTarget(name: "LocalSourcesTests", dependencies: ["LocalSources", "CaptureService"]),
         .testTarget(name: "WebResearchTests", dependencies: ["WebResearch", "WorkbenchCore"]),
         .testTarget(name: "CaptureServiceTests", dependencies: ["CaptureService"]),
     ]

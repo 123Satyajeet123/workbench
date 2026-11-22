@@ -17,7 +17,7 @@ struct ItemTable: View {
             ForEach(model.items) { item in
                 GridRow {
                     ForEach(model.spec.fields, id: \.name) { Text(item[$0.name]) }
-                    Text("“\(item.quote)”").textStyle(.callout).foregroundStyle(.supporting).textSelection(.enabled)
+                    Text(item.quotedWords).textStyle(.callout).foregroundStyle(.supporting).textSelection(.enabled)
                     HStack(spacing: Space.s) {
                         MarkButtons(state: item.state) { model.mark(item, as: $0) }
                         ItemActions(model: model, item: item)

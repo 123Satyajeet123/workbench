@@ -64,14 +64,17 @@ public final class CaptureService {
         setWhatsAppWatch(on: false)
     }
 
-    /// The new policy is saved as one consent event, then used by the next reading.
+    /// The new policy is saved as one consent event, then used by the next reading. A WhatsApp chat taken off the
+    /// allow-list has its lines, and the copies of their words, erased: the consent is withdrawn.
     public func update(_ change: (inout CapturePolicy) -> Void) throws {
         var changed = policy
         change(&changed)
         guard changed != policy else { return }
+        let withdrawn = policy.withdrawnChats(in: changed)
         try store.savePolicy(changed)
         policy = changed
         refreshStatus()
+        for chat in withdrawn { try store.eraseEvidence(.grant(kind: .whatsapp, label: chat)) }
     }
 
     public func keptToday(limit: Int) throws -> [Activity] {
@@ -88,6 +91,11 @@ public final class CaptureService {
     public func forget(_ activity: Activity) throws {
         guard let id = activity.id else { return }
         try store.delete(.activities(ActivityFilter(id: id)))
+    }
+
+    /// Deletes everything kept of one kind of source, with the copies of its words.
+    public func forgetAll(_ kind: SourceKind) throws {
+        try store.delete(.kind(kind, before: nil))
     }
 
     /// Records a call in the app the founder chose, or in person (nil: the microphone only). The policy decides; in

@@ -63,7 +63,7 @@ private struct ReviewRow: View {
                             .background(Tone.attention.color.opacity(0.2), in: .capsule)
                     }
                 }
-                Text("“\(item.quote)”").textStyle(.callout).foregroundStyle(.supporting).textSelection(.enabled)
+                Text(item.quotedWords).textStyle(.callout).foregroundStyle(.supporting).textSelection(.enabled)
                 Text(origin).textStyle(.caption).foregroundStyle(.supporting)
             }
             Spacer()

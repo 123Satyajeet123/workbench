@@ -136,7 +136,7 @@ import Testing
         #expect(try world.count("SELECT count(*) FROM evidence") == 0 && world.copies(of: new) == 0)
     }
 
-    /// Derived copies of erased words are counted in the preview and left to the fact machinery (M2 F7).
+    /// The facts that cite an erased line are counted in the preview; they stay, flagged, without their quote.
     @Test func thePreviewCountsTheFactsThatCiteAnErasedLine() throws {
         let world = try World()
         try world.store.writer.write { db in
@@ -154,6 +154,7 @@ import Testing
         #expect(try world.store.previewEvidenceErasure(erasure).citingFacts == 2)
         #expect(try world.store.eraseEvidence(erasure).citingFacts == 2)
         #expect(try world.count("SELECT count(*) FROM item") == 4, "the facts themselves stay")
+        #expect(try world.count("SELECT count(*) FROM item WHERE source_deleted = 1") == 2)
     }
 
     // MARK: Read robustness

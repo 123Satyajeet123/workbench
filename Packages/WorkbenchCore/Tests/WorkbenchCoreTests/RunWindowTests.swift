@@ -238,7 +238,7 @@ import Testing
                 as Int?
         }
         #expect(strict == 1)
-        #expect(Schema.steps.last == Schema.runWindow)
+        #expect(Schema.steps.contains(Schema.runWindow))
     }
 }
 

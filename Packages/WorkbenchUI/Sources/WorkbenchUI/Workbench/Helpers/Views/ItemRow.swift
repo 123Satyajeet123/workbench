@@ -24,7 +24,7 @@ struct ItemRow: View {
                             .background(.quaternary, in: .capsule)
                     }
                 }
-                Text(showsSpan ? "“\(item.quote)”" : "“\(item.quote)” · \(time(item.start))")
+                Text(showsSpan ? item.quotedWords : "\(item.quotedWords) · \(time(item.start))")
                     .textStyle(.callout).foregroundStyle(.supporting).textSelection(.enabled)
                 if let triage = model.spec.triage(of: item) { WhyDisclosure(triage: triage) }
                 if let note = hiddenNote {

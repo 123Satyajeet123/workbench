@@ -56,4 +56,7 @@ run "23 a silent call is saved" BaseKit/Sources/LocalSources/CallAudio.swift 's/
 run "24 WhatsApp reads every chat" BaseKit/Sources/LocalSources/WhatsAppChatReader+Evidence.swift 's/WHERE m\.ZCHATSESSION = \?\n/WHERE (m.ZCHATSESSION = ? OR 1)\n/' BaseKit WorkbenchUI
 run "20 API keys passed to the CLI" BaseKit/Sources/AgentCLI/ProcessPlan.swift 's/var environment = \["HOME"/var environment = inherited\n        environment = environment.merging(["HOME"/; s/("PATH": path\.joined\(separator: ":"\)\])/$1) { _, new in new }/; s/forbiddenNames\.contains\(name\) \|\| forbiddenPrefixes\.contains \{ name\.hasPrefix\(\$0\) \}/false/' BaseKit
 run "12 model gets tools, guard removed" BaseKit/Sources/AgentCLI/ProcessPlan.swift 's/"--tools", "",/"--tools", "Bash",/; s/"--tools": "", //' BaseKit
+run "25 a revoke leaves its words in a quote or run text" $C/Store/EvidenceWriter.swift 's/report\.flaggedItems = try Store\.eraseCopies\(of: \.line\(lineID\), in: db\)/report.flaggedItems = 0/' WorkbenchCore
+run "26 Settings WhatsApp delete keeps lines" BaseKit/Sources/CaptureService/CaptureService.swift 's/try store\.delete\(\.kind\(kind, before: nil\)\)/try store.delete(.kind(.typed, before: nil))/' BaseKit WorkbenchUI
+run "27 removing a chat keeps its lines" BaseKit/Sources/CaptureService/CaptureService.swift 's/for chat in withdrawn \{ try store\.eraseEvidence/for chat in [String]() { try store.eraseEvidence/' BaseKit
 echo DONE

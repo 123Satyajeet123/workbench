@@ -99,6 +99,10 @@ final class CaptureSettings {
         refreshLog()
     }
 
+    func deleteAll(_ kind: SourceKind) {
+        attempt { try service.forgetAll(kind) }
+    }
+
     private func change(_ edit: (inout CapturePolicy) -> Void) {
         attempt { try service.update(edit) }
     }
