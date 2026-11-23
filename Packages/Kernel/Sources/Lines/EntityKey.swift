@@ -90,6 +90,12 @@ public struct EntityKey: Hashable, Sendable {
         EntityKey(kind: "whatsapp", [chat] + author.parts + [stanzaID, BigEndian.bytes(occurrence)])
     }
 
+    /// A message in a Telegram chat: the chat's id and the message's id in it. Both are Telegram's own numbers, so a
+    /// message keeps its key through an edit.
+    public static func telegram(chatID: Int64, messageID: Int64) throws(EntityKeyError) -> EntityKey {
+        EntityKey(kind: "telegram", [try field(String(chatID), "chatID"), try field(String(messageID), "messageID")])
+    }
+
     /// A Gmail message, by its Gmail API message id.
     public static func gmail(messageID: String) throws(EntityKeyError) -> EntityKey {
         EntityKey(kind: "gmail", [try field(messageID, "messageID")])

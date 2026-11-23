@@ -82,7 +82,7 @@ public struct TelegramChatReader: EvidenceSource {
     private func observedLine(_ message: TelegramMessage) -> ObservedLine? {
         let text = [message.title, message.text].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " — ")
         guard !text.isEmpty,
-            let key = try? EntityKey.web(site: "telegram", container: String(chat), itemID: String(message.id))
+            let key = try? EntityKey.telegram(chatID: chat, messageID: message.id)
         else { return nil }
         return ObservedLine(
             line: Line(entity: key, text: text, readerVersion: Self.readerVersion), quality: .stable,
