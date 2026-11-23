@@ -17,10 +17,11 @@ struct ChatMessage {
 func whatsAppFolder(_ messages: [ChatMessage]) throws -> URL {
     let folder = try freshFolder()
     var sql = """
+        PRAGMA journal_mode = WAL;
         CREATE TABLE ZWACHATSESSION (Z_PK INTEGER PRIMARY KEY, ZCONTACTJID TEXT, ZSESSIONTYPE INTEGER, ZPARTNERNAME TEXT,
             ZLASTMESSAGEDATE REAL);
         CREATE TABLE ZWAMESSAGE (Z_PK INTEGER PRIMARY KEY, ZCHATSESSION INTEGER, ZMESSAGEDATE REAL, ZMESSAGETYPE INTEGER,
-            ZTEXT TEXT, ZISFROMME INTEGER, ZGROUPMEMBER INTEGER, ZSTANZAID TEXT);
+            ZTEXT TEXT, ZISFROMME INTEGER, ZGROUPMEMBER INTEGER, ZSTANZAID TEXT, ZFLAGS INTEGER);
         CREATE TABLE ZWAMEDIAITEM (Z_PK INTEGER PRIMARY KEY, ZMESSAGE INTEGER, ZMEDIALOCALPATH TEXT, ZTITLE TEXT,
             ZMETADATA BLOB);
         CREATE TABLE Z_METADATA (Z_VERSION INTEGER PRIMARY KEY, Z_UUID TEXT);
@@ -37,7 +38,7 @@ func whatsAppFolder(_ messages: [ChatMessage]) throws -> URL {
         sql += """
 
             INSERT INTO ZWAMESSAGE VALUES (\(10 + index), 1, \(message.at.timeIntervalSinceReferenceDate), 0, '\(words)',
-                \(message.fromMe ? 1 : 0), \(message.fromMe ? "NULL" : "1"), 'S\(10 + index)');
+                \(message.fromMe ? 1 : 0), \(message.fromMe ? "NULL" : "1"), 'S\(10 + index)', 0);
             """
     }
     var db: OpaquePointer?

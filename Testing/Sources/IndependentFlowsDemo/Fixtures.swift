@@ -162,8 +162,8 @@ final class Desk {
     func close() { try? FileManager.default.removeItem(at: folder) }
 }
 
-func require<T>(_ value: T?) throws -> T {
-    guard let value else { throw DemoError("a value the demo needs is missing") }
+func require<T>(_ value: T?, line: Int = #line, file: String = #fileID) throws -> T {
+    guard let value else { throw DemoError("a value the demo needs is missing (\(file):\(line))") }
     return value
 }
 
