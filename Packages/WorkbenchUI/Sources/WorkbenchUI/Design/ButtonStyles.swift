@@ -32,6 +32,7 @@ private struct GhostButton: View {
             .background(fill, in: .rect(cornerRadius: Radius.control))
             .contentShape(.rect(cornerRadius: Radius.control))
             .opacity(isEnabled ? 1 : 0.5)
+            .pointerStyle(isEnabled ? .link : nil)
             .onHover { isHovered = $0 }
     }
 
@@ -54,5 +55,6 @@ private struct PrimaryButton: View {
             .background(isEnabled ? Color.accentFill : .selectedFill, in: .rect(cornerRadius: Radius.control))
             .brightness(configuration.isPressed ? -0.08 : 0)
             .contentShape(.rect(cornerRadius: Radius.control))
+            .pointerStyle(isEnabled ? .link : nil)
     }
 }

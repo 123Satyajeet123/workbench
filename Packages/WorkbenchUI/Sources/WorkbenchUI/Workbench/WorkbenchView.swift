@@ -257,6 +257,7 @@ private struct TabMouse: NSViewRepresentable {
 
         override var mouseDownCanMoveWindow: Bool { false }
         override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+        override func resetCursorRects() { addCursorRect(bounds, cursor: .pointingHand) }
 
         override func mouseDown(with event: NSEvent) {
             start = event.locationInWindow.x

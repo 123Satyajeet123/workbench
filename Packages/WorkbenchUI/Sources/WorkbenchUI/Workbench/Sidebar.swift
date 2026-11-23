@@ -432,6 +432,7 @@ private struct SidebarRowBody: View {
             .environment(\.isSidebarRowHot, isHovered || configuration.isPressed)
             .animation(.easeOut(duration: 0.15), value: isHovered)
             .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
+            .pointerStyle(.link)
             .onHover { isHovered = $0 }
     }
 

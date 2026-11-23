@@ -83,6 +83,7 @@ struct QuickOpenPanel: View {
                 .padding(.horizontal, Space.m).padding(.vertical, Space.s)
                 .background(index == chosen ? Color.selectedFill : .clear, in: .rect(cornerRadius: Radius.control))
                 .contentShape(.rect)
+                .pointerStyle(.link)
                 .onTapGesture { open(entry, NSApp.currentEvent?.modifierFlags.contains(.command) == true) }
                 .onHover { if $0 { chosen = index } }
                 .accessibilityAddTraits(.isButton)
