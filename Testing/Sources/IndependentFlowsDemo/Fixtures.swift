@@ -3,6 +3,7 @@ import CaptureService
 import CoreText
 import Foundation
 import Kernel
+import LocalSources
 import SwiftUI
 import Synchronization
 

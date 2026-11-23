@@ -29,6 +29,7 @@ let package = Package(
             name: "IndependentFlowsDemo",
             dependencies: [
                 "WorkbenchCore", "WorkbenchUI", .product(name: "CaptureService", package: "BaseKit"),
+                .product(name: "LocalSources", package: "BaseKit"),
                 .product(name: "Kernel", package: "Kernel"), .product(name: "Lines", package: "Kernel"),
             ],
             swiftSettings: [.defaultIsolation(MainActor.self)]),
