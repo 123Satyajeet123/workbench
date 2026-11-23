@@ -53,19 +53,16 @@ struct Page<Content: View, Accessory: View>: View {
         ScrollView {
             VStack(alignment: .leading, spacing: Space.l) {
                 VStack(alignment: .leading, spacing: Space.m) {
-                    HStack(alignment: .center, spacing: Space.l) {
-                        if let look { Mascot(look: look, size: 64) }
-                        VStack(alignment: .leading, spacing: Space.xs) {
-                            HStack(alignment: .center, spacing: Space.xs) {
-                                Text(title).textStyle(.largeTitle, weight: .bold)
-                                if let intro, intro.intro != nil, dismissed.contains(intro) {
-                                    PageIntroButton { setDismissed(false, intro) }
-                                }
-                            }
-                            if let subtitle { Text(subtitle).foregroundStyle(.supporting) }
+                    ViewThatFits(in: .horizontal) {
+                        HStack(alignment: .center, spacing: Space.l) {
+                            heading(oneLine: true)
+                            Spacer(minLength: 0)
+                            accessory
                         }
-                        Spacer()
-                        accessory
+                        VStack(alignment: .leading, spacing: Space.m) {
+                            heading(oneLine: false)
+                            accessory
+                        }
                     }
                     if let intro, let text = intro.intro, !dismissed.contains(intro) {
                         PageIntroCallout(text: text) { setDismissed(true, intro) }
@@ -79,6 +76,27 @@ struct Page<Content: View, Accessory: View>: View {
             .frame(maxWidth: .infinity)
         }
         .background(.pageFill)
+    }
+
+    /// The face, the title and the subtitle. Beside the accessory the title keeps one line; when that leaves no room,
+    /// the accessory goes below and the title wraps between words.
+    private func heading(oneLine: Bool) -> some View {
+        HStack(alignment: .center, spacing: Space.l) {
+            if let look { Mascot(look: look, size: 64) }
+            VStack(alignment: .leading, spacing: Space.xs) {
+                HStack(alignment: .center, spacing: Space.xs) {
+                    if oneLine {
+                        Text(title).textStyle(.largeTitle, weight: .bold).fixedSize()
+                    } else {
+                        PageTitle(title: title)
+                    }
+                    if let intro, intro.intro != nil, dismissed.contains(intro) {
+                        PageIntroButton { setDismissed(false, intro) }
+                    }
+                }
+                if let subtitle { Text(subtitle).foregroundStyle(.supporting) }
+            }
+        }
     }
 
     private func setDismissed(_ isDismissed: Bool, _ page: SidebarSelection) {

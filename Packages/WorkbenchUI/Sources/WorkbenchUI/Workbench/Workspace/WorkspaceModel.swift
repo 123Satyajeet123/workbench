@@ -7,7 +7,8 @@ import WorkbenchCore
 /// favourite and recent pages, kept in the store of the profile, so each person and the demo keep their own.
 @Observable
 final class WorkspaceModel {
-    static let recentCount = 8
+    /// Recents lists this many pages, newest first.
+    static let recentCount = 5
     static let privateNote = "Who can read a page follows its sources, not its folder."
     private static let favoritesKey = StateKey<[String]>.json("sidebar.favorites")
     private static let recentsKey = StateKey<[String]>.json("sidebar.recents")
@@ -35,7 +36,7 @@ final class WorkspaceModel {
             try store.seedWorkspace()
             privateSection = try store.privateSection().id
             favorites = try pages(Self.favoritesKey)
-            recents = try pages(Self.recentsKey)
+            recents = Array(try pages(Self.recentsKey).prefix(Self.recentCount))
         }
         refresh()
         expanded = parents.intersection(roots.map(\.id) + privateItems.map(\.id))

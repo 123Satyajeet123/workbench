@@ -28,16 +28,20 @@ struct TimelinePage: View {
     @Environment(Crew.self) private var crew
 
     var body: some View {
-        Page(intro: .timeline, title: SidebarSelection.timeline.title, subtitle: SidebarSelection.timeline.role) {
-            if let timeline = crew.timeline {
-                HStack {
-                    Spacer()
-                    DayStepper(day: timeline.day, today: timeline.today, show: timeline.show)
-                }
-                HelperContent(model: timeline)
-            } else {
-                Text("The timeline reader is missing.").foregroundStyle(.supporting)
-            }
+        Page(
+            intro: .timeline, title: SidebarSelection.timeline.title, subtitle: SidebarSelection.timeline.role,
+            accessory: { stepper }, content: { timeline })
+    }
+
+    @ViewBuilder private var stepper: some View {
+        if let model = crew.timeline { DayStepper(day: model.day, today: model.today, show: model.show) }
+    }
+
+    @ViewBuilder private var timeline: some View {
+        if let model = crew.timeline {
+            HelperContent(model: model)
+        } else {
+            Text("The timeline reader is missing.").foregroundStyle(.supporting)
         }
     }
 }
