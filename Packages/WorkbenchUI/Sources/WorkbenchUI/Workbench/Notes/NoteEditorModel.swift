@@ -6,7 +6,7 @@ import WorkbenchCore
 /// One project note while the person writes it. Every edit goes into the document; a short pause after the last edit
 /// saves what changed. Nothing is typed into a form: there is no Save.
 @Observable
-final class NoteEditorModel {
+final class NoteEditorModel: NoteRunEditing {
     static let pause: Duration = .milliseconds(800)
 
     private(set) var document: NoteDocument
@@ -14,6 +14,9 @@ final class NoteEditorModel {
     private(set) var revision = 0
     private(set) var problem: String?
     var isComposing = false
+    /// Gives the order the person sees, for a page that holds more than this note's paragraphs. It gets the paragraphs
+    /// to save, in order. A plain note has none.
+    var pageOrder: (([BlockID]) -> [PageBlockRef])?
 
     private let store: Store
     private let owner: PersonID
@@ -35,11 +38,16 @@ final class NoteEditorModel {
         scheduleSave()
     }
 
-    func moveBlock(atOffset offset: Int, by distance: Int) {
-        document.move(document.blockID(at: offset), by: distance)
+    /// Moves the paragraph at `offset` and returns where it starts now.
+    func moveBlock(atOffset offset: Int, by distance: Int) -> Int {
+        let block = document.blockID(at: offset)
+        document.move(block, by: distance)
         revision += 1
         scheduleSave()
+        return document.offset(of: block)
     }
+
+    func setComposing(_ isComposing: Bool) { self.isComposing = isComposing }
 
     /// Draws the note again from the store when the person deleted it, or changed it, in another place. What the
     /// person wrote since the last save stays.
@@ -58,7 +66,7 @@ final class NoteEditorModel {
 
     /// Saves before the app quits. The app does not wait for a task, so this waits for the write itself.
     func saveBeforeQuit() {
-        guard let change = document.pendingChange() else { return }
+        guard let change = pendingChange() else { return }
         let (store, owner) = (store, owner)
         let finished = DispatchSemaphore(value: 0)
         Task.detached {
@@ -80,14 +88,16 @@ final class NoteEditorModel {
     /// Saves what is pending. A call while a save runs waits for it, then saves what changed meanwhile.
     private func persist() async {
         while let running = saving { await running.value }
-        let task = Task { await drain() }
+        let task = Task {
+            await drain()
+            saving = nil
+        }
         saving = task
         await task.value
-        saving = nil
     }
 
     private func drain() async {
-        while !isComposing, let change = document.pendingChange() {
+        while !isComposing, let change = pendingChange() {
             do {
                 try await save(change)
                 problem = nil
@@ -97,6 +107,12 @@ final class NoteEditorModel {
                 return
             }
         }
+    }
+
+    private func pendingChange() -> NoteChange? {
+        guard var change = document.pendingChange() else { return nil }
+        change.pageOrder = pageOrder?(change.order)
+        return change
     }
 
     private func save(_ change: NoteChange) async throws {

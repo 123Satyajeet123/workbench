@@ -5,16 +5,17 @@ import SwiftUI
 /// the text before it takes place, so the document never has to guess what changed.
 final class NoteTextView: NSTextView {
     static let minimumHeight: CGFloat = 160
+    var minimumHeight = NoteTextView.minimumHeight
     var moveBlock: ((Int) -> Void)?
 
     /// The note is as tall as its text, and never shorter than a place to click into.
     override var intrinsicContentSize: NSSize {
         guard let layout = textLayoutManager else {
-            return NSSize(width: NSView.noIntrinsicMetric, height: Self.minimumHeight)
+            return NSSize(width: NSView.noIntrinsicMetric, height: minimumHeight)
         }
         layout.ensureLayout(for: layout.documentRange)
         let height = ceil(layout.usageBoundsForTextContainer.height)
-        return NSSize(width: NSView.noIntrinsicMetric, height: max(height, Self.minimumHeight))
+        return NSSize(width: NSView.noIntrinsicMetric, height: max(height, minimumHeight))
     }
 
     override func didChangeText() {
@@ -55,7 +56,8 @@ final class NoteTextView: NSTextView {
 }
 
 struct NoteTextEditor: NSViewRepresentable {
-    let model: NoteEditorModel
+    let model: any NoteRunEditing
+    var minimumHeight = NoteTextView.minimumHeight
     @Environment(\.uiScale) private var scale
 
     func makeCoordinator() -> Coordinator { Coordinator(model: model) }
@@ -75,6 +77,7 @@ struct NoteTextEditor: NSViewRepresentable {
         view.isHorizontallyResizable = false
         view.textContainer?.widthTracksTextView = true
         view.insertionPointColor = Palette.accent
+        view.minimumHeight = minimumHeight
         view.moveBlock = { [weak coordinator = context.coordinator] distance in coordinator?.moveBlock(by: distance) }
         context.coordinator.view = view
         view.textStorage.map(context.coordinator.watch)
@@ -82,18 +85,19 @@ struct NoteTextEditor: NSViewRepresentable {
     }
 
     func updateNSView(_ view: NoteTextView, context: Context) {
+        context.coordinator.model = model
         context.coordinator.draw(scale: scale)
     }
 
     @MainActor
     final class Coordinator: NSObject {
-        let model: NoteEditorModel
+        var model: any NoteRunEditing
         weak var view: NoteTextView?
         private var drawnRevision = -1
         private var drawnScale = 0.0
         private var isDrawing = false
 
-        init(model: NoteEditorModel) { self.model = model }
+        init(model: any NoteRunEditing) { self.model = model }
 
         func watch(_ storage: NSTextStorage) {
             NotificationCenter.default.addObserver(
@@ -135,10 +139,9 @@ struct NoteTextEditor: NSViewRepresentable {
         func moveBlock(by distance: Int) {
             guard let view else { return }
             let caret = view.selectedRange().location
-            model.moveBlock(atOffset: caret, by: distance)
+            let moved = model.moveBlock(atOffset: caret, by: distance)
             draw(scale: drawnScale)
-            let block = model.document.blockID(at: caret)
-            view.setSelectedRange(NSRange(location: model.document.offset(of: block), length: 0))
+            view.setSelectedRange(NSRange(location: moved, length: 0))
         }
 
         /// Every change of the characters, whoever made it: a key, a paste, an undo. The storage says which range was replaced
@@ -151,7 +154,7 @@ struct NoteTextEditor: NSViewRepresentable {
             let replaced = edited.location..<(edited.location + edited.length - storage.changeInLength)
             model.edit(replaced, with: (storage.string as NSString).substring(with: edited))
             storage.addAttributes(Self.attributes(scale: drawnScale), range: edited)
-            model.isComposing = view?.hasMarkedText() ?? false
+            model.setComposing(view?.hasMarkedText() ?? false)
         }
     }
 }

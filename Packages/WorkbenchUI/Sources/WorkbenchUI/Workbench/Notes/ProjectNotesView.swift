@@ -33,16 +33,6 @@ private struct NoteEditorBody: View {
                 }
             if let problem = editor.problem { Text(problem).text(.caption) }
         }
-        .onAppear(perform: editor.reconcile)
-        .onDisappear { Task { await editor.flush() } }
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            editor.reconcile()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.willResignActiveNotification)) { _ in
-            Task { await editor.flush() }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
-            editor.saveBeforeQuit()
-        }
+        .keepsSaved(editor, reconcile: editor.reconcile)
     }
 }

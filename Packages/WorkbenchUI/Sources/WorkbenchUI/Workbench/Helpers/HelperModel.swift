@@ -1,5 +1,6 @@
 import CaptureService
 import Foundation
+import Kernel
 import Observation
 import WorkbenchCore
 
@@ -10,6 +11,8 @@ final class HelperModel {
     let schedule: HelperSchedule
     let agreement: HelperAgreement
 
+    /// The machine's page as a document; nil for a machine with no page, or when the app does not know who owns it.
+    private(set) var pageModel: MachinePageModel?
     private(set) var items: [Item] = []
     private(set) var open: [Item] = []
     private(set) var closed: [Item] = []
@@ -17,30 +20,33 @@ final class HelperModel {
     private(set) var trust: Certificate.Status?
 
     @ObservationIgnored private let shared: MachineContext
+    @ObservationIgnored private let owner: Result<PersonID, any Error>
 
     convenience init(
         machine: Machine, source: any MachineSource, store: Store, makeModel: ((ModelChoice) -> RecordedModel)? = nil,
-        notifier: Notifier = SystemNotifier()
+        notifier: Notifier = SystemNotifier(), owner: Result<PersonID, any Error> = PageHost.noOwner
     ) {
         self.init(
             machine: machine, source: source, store: store, makeModel: makeModel,
-            notifications: Notifications(notifier: notifier))
+            notifications: Notifications(notifier: notifier), owner: owner)
     }
 
     init(
         machine: Machine, source: any MachineSource, store: Store, makeModel: ((ModelChoice) -> RecordedModel)?,
-        notifications: Notifications
+        notifications: Notifications, owner: Result<PersonID, any Error> = PageHost.noOwner
     ) {
         let shared = MachineContext(
             machine: machine, source: source, store: store, makeModel: makeModel, notifications: notifications)
         let reading = HelperReading(context: shared)
         self.shared = shared
+        self.owner = owner
         self.reading = reading
         improvement = HelperImprovement(context: shared)
         schedule = HelperSchedule(context: shared, reading: reading)
         agreement = HelperAgreement(context: shared)
         shared.reload = { [weak self] in self?.reload() }
         reload()
+        openPage()
     }
 
     var machine: Machine { shared.machine }
@@ -116,7 +122,16 @@ final class HelperModel {
     /// The record after a rename, an edit or a pause. The source stays, so a chosen chat stays chosen.
     func update(_ machine: Machine) {
         shared.use(machine)
+        if pageModel == nil { openPage() }
         reload()
+    }
+
+    /// The page is opened once, so the person's unsaved words stay while the machine's page is closed and open again.
+    private func openPage() {
+        guard let page = machine.page, case .success(let owner) = owner else { return }
+        pageModel = try? MachinePageModel(
+            helper: self, page: page, store: shared.store, owner: owner,
+            makeModel: { [shared] in try shared.makeModel.current() })
     }
 
     func show(_ day: WorkDay) {

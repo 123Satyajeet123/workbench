@@ -77,7 +77,7 @@ enum AppLaunch {
             let web = WebResearchSettings(store: store, secrets: secrets, browser: pages)
             let crew = Crew(
                 store: store, capture: service, founder: { identity.identity.name }, makeModel: makeModel,
-                notifications: notifications, openWebSession: { try web.openSession() },
+                notifications: notifications, owner: owner, openWebSession: { try web.openSession() },
                 whatsAppContainer: profile.whatsAppContainer(in: storeFolder),
                 telegram: TelegramAccount(
                     service: TDLibTelegram(folder: store.directory.appending(path: "Telegram")), capture: service,

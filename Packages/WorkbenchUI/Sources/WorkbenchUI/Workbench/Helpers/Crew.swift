@@ -1,5 +1,6 @@
 import CaptureService
 import Foundation
+import Kernel
 import LocalSources
 import Observation
 import TelegramReader
@@ -16,6 +17,7 @@ final class Crew {
     @ObservationIgnored private let capture: CaptureService
     @ObservationIgnored private let founder: () -> String
     @ObservationIgnored private let makeModel: ((ModelChoice) -> RecordedModel)?
+    @ObservationIgnored private let owner: Result<PersonID, any Error>
     @ObservationIgnored let whatsAppContainer: URL
     @ObservationIgnored private let alarm: VersionAlarm
     @ObservationIgnored private let openWebSession: () throws -> WebSession
@@ -25,19 +27,19 @@ final class Crew {
     convenience init(
         store: Store, capture: CaptureService, founder: @escaping () -> String,
         makeModel: ((ModelChoice) -> RecordedModel)? = nil, notifier: Notifier = SystemNotifier(),
-        openWebSession: (() throws -> WebSession)? = nil,
+        owner: Result<PersonID, any Error> = PageHost.noOwner, openWebSession: (() throws -> WebSession)? = nil,
         whatsAppContainer: URL = WhatsAppChatReader.defaultContainer, telegram: TelegramAccount? = nil
     ) {
         self.init(
             store: store, capture: capture, founder: founder, makeModel: makeModel,
-            notifications: Notifications(notifier: notifier), openWebSession: openWebSession,
+            notifications: Notifications(notifier: notifier), owner: owner, openWebSession: openWebSession,
             whatsAppContainer: whatsAppContainer, telegram: telegram)
     }
 
     init(
         store: Store, capture: CaptureService, founder: @escaping () -> String,
         makeModel: ((ModelChoice) -> RecordedModel)?, notifications: Notifications,
-        openWebSession: (() throws -> WebSession)? = nil,
+        owner: Result<PersonID, any Error> = PageHost.noOwner, openWebSession: (() throws -> WebSession)? = nil,
         whatsAppContainer: URL = WhatsAppChatReader.defaultContainer, telegram: TelegramAccount? = nil
     ) {
         self.whatsAppContainer = whatsAppContainer
@@ -47,6 +49,7 @@ final class Crew {
         self.capture = capture
         self.founder = founder
         self.makeModel = makeModel
+        self.owner = owner
         self.notifications = notifications
         self.telegram =
             telegram
@@ -150,7 +153,7 @@ final class Crew {
                 }
                 let model = HelperModel(
                     machine: record, source: try source(for: record), store: store, makeModel: makeModel,
-                    notifications: notifications)
+                    notifications: notifications, owner: owner)
                 model.itemsChanged = { [weak self, weak model] in
                     for listener in self?.itemListeners ?? [] { listener() }
                     if let model { self?.alarm.check(model, revert: { self?.revise($0, to: $1) }) }
