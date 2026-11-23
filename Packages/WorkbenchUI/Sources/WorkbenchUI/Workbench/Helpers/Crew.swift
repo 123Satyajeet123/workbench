@@ -18,7 +18,6 @@ final class Crew {
     @ObservationIgnored private let founder: () -> String
     @ObservationIgnored private let makeModel: ((ModelChoice) -> RecordedModel)?
     @ObservationIgnored private let whatsAppContainer: URL
-    @ObservationIgnored private let webSightings: SightingBoard
     @ObservationIgnored private let alarm: VersionAlarm
     @ObservationIgnored private let openWebSession: () throws -> WebSession
     let notifications: Notifications
@@ -27,24 +26,21 @@ final class Crew {
         store: Store, capture: CaptureService, founder: @escaping () -> String,
         makeModel: ((ModelChoice) -> RecordedModel)? = nil, notifier: Notifier = SystemNotifier(),
         openWebSession: (() throws -> WebSession)? = nil,
-        whatsAppContainer: URL = WhatsAppChatReader.defaultContainer,
-        webSightings: SightingBoard = SightingBoard(descriptor: .whatsAppWeb)
+        whatsAppContainer: URL = WhatsAppChatReader.defaultContainer
     ) {
         self.init(
             store: store, capture: capture, founder: founder, makeModel: makeModel,
             notifications: Notifications(notifier: notifier), openWebSession: openWebSession,
-            whatsAppContainer: whatsAppContainer, webSightings: webSightings)
+            whatsAppContainer: whatsAppContainer)
     }
 
     init(
         store: Store, capture: CaptureService, founder: @escaping () -> String,
         makeModel: ((ModelChoice) -> RecordedModel)?, notifications: Notifications,
         openWebSession: (() throws -> WebSession)? = nil,
-        whatsAppContainer: URL = WhatsAppChatReader.defaultContainer,
-        webSightings: SightingBoard = SightingBoard(descriptor: .whatsAppWeb)
+        whatsAppContainer: URL = WhatsAppChatReader.defaultContainer
     ) {
         self.whatsAppContainer = whatsAppContainer
-        self.webSightings = webSightings
         self.store = store
         self.openWebSession = openWebSession ?? { try WebResearchSettings(store: store).openSession() }
         self.capture = capture
@@ -233,8 +229,7 @@ final class Crew {
             OutboundSource(store: store, capture: capture, task: machine.task, openSession: openWebSession)
         case .whatsappChat:
             try WhatsAppSource(
-                store: store, capture: capture, task: machine.task, founder: founder, container: whatsAppContainer,
-                web: webSightings)
+                store: store, capture: capture, task: machine.task, founder: founder, container: whatsAppContainer)
         }
     }
 }

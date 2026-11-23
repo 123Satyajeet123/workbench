@@ -8,11 +8,11 @@ import Testing
 /// The run uses a throwaway browser profile and opens no network page.
 @Suite(.enabled(if: Chromium.binary != nil, "needs a Chromium: a Playwright headless shell, Chrome or Brave"))
 struct ExtensionReaderTests {
-    private func run(fixture: String, harnessName: String = "harness.html") throws -> [String: Any] {
+    private func run(fixture: String) throws -> [String: Any] {
         let root = NoEgressTests.repo
         let scratch = temporaryDirectory()
         try FileManager.default.createDirectory(at: scratch, withIntermediateDirectories: true)
-        let harness = try String(contentsOf: root.appending(path: "ExtensionTests/\(harnessName)"), encoding: .utf8)
+        let harness = try String(contentsOf: root.appending(path: "ExtensionTests/harness.html"), encoding: .utf8)
         let body = try String(contentsOf: root.appending(path: "ExtensionTests/fixtures/\(fixture)"), encoding: .utf8)
         let page = scratch.appending(path: "page.html")
         try harness.replacingOccurrences(of: "{{ROOT}}", with: root.path)
@@ -81,129 +81,6 @@ struct ExtensionReaderTests {
         #expect(out["fetchesInTheHour"] as? Int == 20, "no more than 20 requests an hour")
         #expect(fetches.filter { $0 }.count == 15, "5 requests were made before the loop, so 15 more pass")
         #expect(out["allowedAfterTheHour"] as? Bool == true)
-    }
-
-    @Test func whatsAppReadsOneVerifiedChatAndShowsDeletedMessagesWithinItsLimits() throws {
-        let out = try run(fixture: "whatsapp-open-chat.html", harnessName: "whatsapp-harness.html")
-        let read = try #require(out["read"] as? [String: Any])
-        #expect(read["status"] as? String == "read" && read["chatId"] as? String == "919800000001@c.us")
-        #expect(read["truncated"] as? Bool == false)
-        let messages = try #require(read["messages"] as? [[String: Any]])
-        #expect(
-            messages.map { $0["id"] as? String } == [
-                "false_919800000001@c.us_FIRST", "true_919800000001@c.us_SECOND", "false_919800000001@c.us_GONE",
-            ], "the repeated row, the hidden row, the other chat and the unsent draft are left out")
-        #expect(messages.map { $0["text"] as? String } == ["Send the deck Friday.", "I will review it Monday.", nil])
-        #expect(messages.map { $0["deleted"] as? Bool } == [nil, nil, true])
-        #expect(messages.map { $0["sent"] as? String } == ["3:45 PM, 11/22/2026", "3:50 PM, 11/22/2026", nil])
-        #expect((out["replay"] as? [String: Any])?["messages"] as? [[String: Any]] != nil)
-
-        let bounded = try #require(out["bounded"] as? [String: Any])
-        #expect(bounded["truncated"] as? Bool == true, "20,001 characters do not fit")
-        #expect((bounded["messages"] as? [[String: Any]])?.count == 3, "the newest messages stay")
-        let many = try #require(out["many"] as? [String: Any])
-        #expect(many["truncated"] as? Bool == true && many["count"] as? Int == 200)
-        #expect(many["last"] as? String == "false_919800000001@c.us_BULK204", "the newest 200 stay")
-        for (key, status) in [
-            ("mixed", "unverified-chat"), ("unrecognized", "unverified-chat"), ("empty", "unverified-chat"),
-            ("noChat", "no-open-chat"),
-        ] {
-            #expect((out[key] as? [String: Any])?["status"] as? String == status, "\(key)")
-        }
-        #expect(
-            out["canonical"] as? [String] == [
-                "919800000001@s.whatsapp.net", "919800000001@s.whatsapp.net", "123@g.us", "77@lid",
-            ])
-    }
-
-    @Test func whatWhatsAppReadsReachesTheStoreAsLinesAndAGroupReachesNothing() throws {
-        let out = try run(fixture: "whatsapp-open-chat.html", harnessName: "whatsapp-harness.html")
-        let world = try EvidenceIngestTests.World(allowing: [])
-        let chat = "919800000001@s.whatsapp.net"
-        try world.store.savePolicy(
-            CapturePolicy(switches: [.whatsapp: true], allowList: [.whatsapp: [chat, "123456789-1600000000@g.us"]]))
-        func send(_ reading: Any?) throws -> PageHost.Reply {
-            var payload = try #require(reading as? [String: Any])
-            payload["type"] = "whatsapp_web"
-            payload["browser"] = "com.brave.Browser"
-            payload["url"] = "https://web.whatsapp.com/"
-            return PageHost.answer(
-                try JSONSerialization.data(withJSONObject: payload), store: world.store,
-                whatsApp: WhatsAppWebTests.intake())
-        }
-        #expect(try send(out["read"]) == PageHost.Reply(kept: true))
-        let stored = try world.store.writer.read {
-            try String.fetchAll($0, sql: "SELECT text || tombstone FROM evidence ORDER BY id")
-        }
-        #expect(stored == ["Send the deck Friday.0", "I will review it Monday.0", "1"])
-        #expect(try send(out["read"]) == PageHost.Reply(kept: false), "a second reading adds nothing")
-        #expect(try send(out["group"]).error == "groupAudienceUnknown")
-        #expect(try world.count("SELECT count(*) FROM evidence") == 3)
-    }
-
-    // MARK: group-info panel and probe
-
-    private func panelRun() throws -> [String: Any] {
-        try run(fixture: "whatsapp-group-open.html", harnessName: "whatsapp-panel-harness.html")
-    }
-
-    private func panel(_ value: Any?) throws -> WebPanel {
-        try JSONDecoder().decode(
-            WebPanel.self, from: JSONSerialization.data(withJSONObject: try #require(value as? [String: Any])))
-    }
-
-    @Test func theGroupInfoPanelGivesMembersOnlyFromAttributesThatHoldAnIdAndOnlyWhenWhole() throws {
-        let out = try panelRun()
-        let identity = try #require(out["identity"] as? [String: Any])
-        #expect(identity["status"] as? String == "read" && identity["chatId"] as? String == "123456789-1600000000@g.us")
-        #expect(identity["title"] as? String == "Team Ops")
-        let whole = try panel(identity["members"])
-        #expect(
-            whole.ids == ["111111111@lid", "919800000002@c.us", "222222222@lid"], "ids from attributes, in row order")
-        #expect(whole.rows == 3 && whole.stated == 3)
-        #expect(whole.membership()?.members.count == 3)
-        #expect((out["read"] as? [String: Any])?["members"] as? [String: Any] != nil, "a reading carries the same list")
-
-        let gap = try panel(out["gap"])
-        #expect(gap.ids.count == 2 && gap.rows == 3 && gap.membership() == nil, "a row with no id leaves a gap")
-        let names = try panel(out["namesOnly"])
-        #expect(names.ids.isEmpty && names.rows == 3 && names.membership() == nil, "names give no ids")
-        let text = try panel(out["textIsNotAnId"])
-        #expect(text.ids.count == 2 && text.membership() == nil, "an id written as text is not read")
-        #expect(try panel(out["noStatedCount"]).membership() == nil, "no stated count, no proof")
-        #expect(out["otherChatsPanel"] is NSNull, "a panel with another title is not this chat's")
-        #expect(out["noPanel"] is NSNull)
-    }
-
-    @Test func theChatIdentityHoldsAnIdATitleAndMembersAndNoMessage() throws {
-        let out = try panelRun()
-        let identity = try #require(out["identity"] as? [String: Any])
-        #expect(Set(identity.keys) == ["status", "chatId", "title", "members"])
-        let encoded = String(decoding: try JSONSerialization.data(withJSONObject: identity), as: UTF8.self)
-        #expect(!encoded.contains("Send the deck") && !encoded.contains("Monday"))
-        let direct = try #require(out["direct"] as? [String: Any])
-        #expect(direct["chatId"] as? String == "919800000002@c.us" && direct["title"] as? String == "Bharat")
-        #expect(direct["members"] is NSNull, "a direct chat has no panel list")
-        #expect((out["noMessages"] as? [String: Any])?["status"] as? String == "unverified-chat")
-    }
-
-    @Test func theProbeReturnsStructureAndNoNameNumberIdOrText() throws {
-        let probe = try #require(try panelRun()["probe"] as? [String: Any])
-        let json = String(decoding: try JSONSerialization.data(withJSONObject: probe), as: UTF8.self)
-        let planted = [
-            "Ana", "Rao", "Bharat", "98000", "919800", "111111111", "222222222", "123456789", "Team Ops",
-            "Send the deck",
-            "Monday", "@", "participants", "9198765432",
-        ]
-        for token in planted { #expect(!json.contains(token), "the probe output holds \(token)") }
-        #expect(json.firstMatch(of: #/\d{4,}/#) == nil, "no long number")
-        for found in [
-            "phone-shaped jid", "lid", "message id with lid sender", "message id with no sender", "data-jid", "data-x",
-        ] {
-            #expect(json.contains(found), "the probe did not report \(found)")
-        }
-        #expect(json.contains("(odd name)"), "a name that holds a number is reported as odd, not as itself")
-        #expect(json.utf8.count < 20_000)
     }
 
     @Test func aLargeDeckIsCutIntoChunksThatJoinBack() throws {

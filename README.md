@@ -62,7 +62,7 @@ Brave and Chrome do not show page text to Accessibility, so a small extension se
 - `Packages/WorkbenchUI`: the app: sidebar, helper pages, settings, menu bar.
 - `Testing/`: code that is not shipped: the offline eval tools (`claim-eval`, `outbound-eval`, `transcribe-bakeoff`) and
   what they use. No shipped target depends on it.
-- `Extension/`: the browser extension (visible page text, Gmail threads and allowed WhatsApp Web chats to the `workbench-pages` host in WorkbenchCore, which passes them to the running app over a local socket; only the app writes the store).
+- `Extension/`: the browser extension (visible page text and Gmail threads to the `workbench-pages` host in WorkbenchCore, which passes them to the running app over a local socket; only the app writes the store).
 
 Test: `swift test` in each package. Tests guard product promises, not code details: a test stays only if it guards a
 promise (consent, privacy, quotes, marks and trust, deletion, upgrades, the main flows) or a bug that happened.

@@ -80,14 +80,13 @@ struct GroupChooser: View {
                 .foregroundStyle(.supporting)
             if !source.chats.isEmpty { ChosenChats(model: model, source: source) }
             Card(title: "One chat", symbol: "person.3") {
-                Text("Your team's WhatsApp group, or the chat that is open in WhatsApp Web.")
+                Text("Your team's WhatsApp group.")
                     .foregroundStyle(.supporting)
                 if source.groups.isEmpty && source.direct.isEmpty {
                     Button("Show my WhatsApp chats") { model.attempt("list your WhatsApp chats", source.loadGroups) }
                         .buttonStyle(.primary)
                     if let problem = source.pullProblem {
-                        Text("\(problem) You can also open the chat in WhatsApp Web, with the Workbench extension on.")
-                            .textStyle(.callout).foregroundStyle(.supporting)
+                        Text(problem).textStyle(.callout).foregroundStyle(.supporting)
                     }
                 } else {
                     TextField("Search your chats", text: $query, prompt: Text("Search your chats"))
@@ -98,19 +97,14 @@ struct GroupChooser: View {
                     }
                     VStack(alignment: .leading, spacing: 0) {
                         ForEach(found) { chat in
-                            VStack(alignment: .leading, spacing: Space.xs) {
-                                HStack {
-                                    Text(chat.name).lineLimit(1)
-                                    Spacer()
-                                    Button("Choose") {
-                                        model.attempt("save the chat") { try source.choose(chat) }
-                                        model.reload()
-                                    }
-                                    .buttonStyle(.ghost).foregroundStyle(.linkText)
+                            HStack {
+                                Text(chat.name).lineLimit(1)
+                                Spacer()
+                                Button("Choose") {
+                                    model.attempt("save the chat") { try source.choose(chat) }
+                                    model.reload()
                                 }
-                                if let hint = source.memberListHint(for: chat) {
-                                    Text(hint).textStyle(.callout).foregroundStyle(.supporting)
-                                }
+                                .buttonStyle(.ghost).foregroundStyle(.linkText)
                             }
                             .padding(.vertical, Space.xs)
                             if chat.id != found.last?.id { Divider() }

@@ -446,7 +446,7 @@ import Testing
                 with: "obtained_by IN ('dom_text','ax_value','ax_title','ax_description','ocr')")
         }
         withKnownIssue(
-            "planted break: the audience rule keys on the reader (draft 2), so a WhatsApp Web line may lack it"
+            "planted break: the audience rule keys on the reader (draft 2), so a line from another reader may lack it"
         ) {
             try Self.onlyAScreenLineMayLackItsAudience(byReader)
         }

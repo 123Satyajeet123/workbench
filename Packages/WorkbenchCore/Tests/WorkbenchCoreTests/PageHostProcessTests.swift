@@ -45,7 +45,7 @@ import Testing
         let store = try Store(directory: temporaryDirectory())
         try store.savePolicy(policy)
         let socket = shortSocketPath()
-        return (store, socket, try PageHostListener(path: socket, store: store, whatsApp: .refusing))
+        return (store, socket, try PageHostListener(path: socket, store: store))
     }
 
     @Test func theHostProcessStoresAnAllowedPageAndNothingFromABrokenFrame() throws {
@@ -147,7 +147,7 @@ import Testing
         }
 
         #expect(try ask().error == PagesRelay.notRunning)
-        var listener: PageHostListener? = try PageHostListener(path: socket, store: store, whatsApp: .refusing)
+        var listener: PageHostListener? = try PageHostListener(path: socket, store: store)
         #expect(try ask() == PageHost.Reply(kept: true))
         listener = nil
         #expect(try ask().error == PagesRelay.notRunning, "the app is gone: nothing is kept")
@@ -159,7 +159,7 @@ import Testing
         let store = try Store(directory: temporaryDirectory())
         try store.savePolicy(CapturePolicy(switches: [.screen: true, .screenText: true]))
         let socket = shortSocketPath()
-        let listener = try PageHostListener(path: socket, store: store, whatsApp: .refusing, user: geteuid() &+ 1)
+        let listener = try PageHostListener(path: socket, store: store, user: geteuid() &+ 1)
         let page = WebPage(browser: "com.brave.Browser", url: "https://site.example/", title: "t", text: "stranger")
         let replies = try replies(in: try run(NativeMessage.frame(try JSONEncoder().encode(page)), socket: socket))
         #expect(replies.map(\.error) == [PagesRelay.notRunning])
@@ -172,7 +172,7 @@ import Testing
         try store.savePolicy(CapturePolicy(switches: [.screen: true, .screenText: true]))
         let stale = shortSocketPath()
         FileManager.default.createFile(atPath: stale, contents: Data("left behind".utf8))
-        let listener = try PageHostListener(path: stale, store: store, whatsApp: .refusing)
+        let listener = try PageHostListener(path: stale, store: store)
         let page = WebPage(browser: "com.brave.Browser", url: "https://site.example/", title: "t", text: "later")
         let frame = NativeMessage.frame(try JSONEncoder().encode(page))
         #expect(try replies(in: try run(frame, socket: stale)) == [PageHost.Reply(kept: true)])

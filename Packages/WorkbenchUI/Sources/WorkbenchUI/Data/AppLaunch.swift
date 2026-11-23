@@ -42,11 +42,6 @@ enum AppLaunch {
         URL.applicationSupportDirectory.appending(path: "Workbench")
     }
 
-    /// The sources that can read their chats now: the WhatsApp store reader, once Full Disk Access is granted.
-    nonisolated private static func readableSources() -> Set<String> {
-        FullDiskAccess.isGranted() ? [SourceDescriptor.whatsAppChat.key] : []
-    }
-
     static func start(storeFolder: URL = defaultStoreFolder) -> AppLaunch {
         do {
             let writerLock = try StoreLock(directory: storeFolder)
@@ -58,11 +53,9 @@ enum AppLaunch {
             let onboarding = OnboardingModel(store: store, identity: identity)
             let notifications = Notifications()
             let web = WebResearchSettings(store: store)
-            let chatsOpenInWhatsAppWeb = SightingBoard(descriptor: .whatsAppWeb)
             let crew = Crew(
                 store: store, capture: service, founder: { identity.identity.name }, makeModel: nil,
-                notifications: notifications, openWebSession: { try web.openSession() },
-                webSightings: chatsOpenInWhatsAppWeb)
+                notifications: notifications, openWebSession: { try web.openSession() })
             let review = ReviewModel(store: store, crew: crew)
             let mochi = MochiModel(store: store, crew: crew)
             let catalog = TeamCatalogModel(store: store, crew: crew, author: { identity.identity.name })
@@ -79,9 +72,7 @@ enum AppLaunch {
                 web: web, claims: ClaimsModel(store: store, me: { catalog.me }, web: web),
                 runs: RunsModel(store: store),
                 pages: try PageHostListener(
-                    path: PagesSocket.path(in: storeFolder), store: store,
-                    whatsApp: WhatsAppWebIntake(
-                        owner: owner, readableSources: Self.readableSources, board: chatsOpenInWhatsAppWeb)),
+                    path: PagesSocket.path(in: storeFolder), store: store),
                 writerLock: writerLock)
             service.start()
             session.reminders.start()

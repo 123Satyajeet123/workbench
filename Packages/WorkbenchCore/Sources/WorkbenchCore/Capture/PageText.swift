@@ -19,11 +19,14 @@ public struct WebPage: Codable, Sendable, Equatable {
         self.text = text
     }
 
+    /// WhatsApp Web text never reaches the store through page capture.
+    static let whatsAppWebHost = "web.whatsapp.com"
+
     /// The batch to keep, or nil when the policy keeps no text of this page. Gmail and WhatsApp Web are never kept as
-    /// pages: their text comes only as mail from the label the person named, and as chat lines from an allowed chat.
+    /// pages: Gmail text comes only as mail from the label the person named.
     public func batch(policy: CapturePolicy, at now: Date) -> ActivityBatch? {
         guard policy.isEnabled(.screenText), CapturePolicy.browserBundleIDs.contains(browser), !text.isEmpty,
-            !CapturePolicy.isSite(url, in: [MailContext.site, WhatsAppWebSnapshot.host])
+            !CapturePolicy.isSite(url, in: [MailContext.site, Self.whatsAppWebHost])
         else { return nil }
         let snapshot = ScreenSnapshot(
             app: browserName, bundleID: browser, windowID: 0, document: url, title: title, text: text)
@@ -82,7 +85,7 @@ extension WebPage {
     }
 }
 
-/// The app's work for one message the native host passed on: keep the page, mail or chat if the policy allows, and
+/// The app's work for one message the native host passed on: keep the page or mail if the policy allows, and
 /// answer whether it was kept.
 public enum PageHost {
     public struct Reply: Codable, Equatable {
@@ -92,21 +95,12 @@ public enum PageHost {
         public var labels: [String]?
         /// The attached files of a mail message whose decks the host still lacks.
         public var wantDecks: [String]?
-        /// The WhatsApp chats the web page may be read for now; answers a "whatsapp_status" message.
-        public var chats: [String]?
-        /// Whether the app asks which chat is open now: the person has the chooser open.
-        public var discover: Bool?
 
-        public init(
-            kept: Bool, error: String? = nil, labels: [String]? = nil, wantDecks: [String]? = nil,
-            chats: [String]? = nil, discover: Bool? = nil
-        ) {
+        public init(kept: Bool, error: String? = nil, labels: [String]? = nil, wantDecks: [String]? = nil) {
             self.kept = kept
             self.error = error
             self.labels = labels
             self.wantDecks = wantDecks
-            self.chats = chats
-            self.discover = discover
         }
 
         public var framed: Data { NativeMessage.frame((try? JSONEncoder().encode(self)) ?? Data()) }
@@ -117,11 +111,10 @@ public enum PageHost {
         var type: String?
     }
 
-    /// Answers one message: keeps the page, mail or chat if the policy allows. `decks` holds the chunks of decks still
+    /// Answers one message: keeps the page or mail if the policy allows. `decks` holds the chunks of decks still
     /// arriving, so one value serves a whole session.
     public static func answer(
-        _ message: Data, store: Store, decks: DeckAssembly = DeckAssembly(),
-        whatsApp: WhatsAppWebIntake = .refusing
+        _ message: Data, store: Store, decks: DeckAssembly = DeckAssembly()
     ) -> Reply {
         do {
             let decoder = JSONDecoder()
@@ -131,11 +124,6 @@ public enum PageHost {
                 let batch = page.batch(policy: try store.currentPolicy(), at: store.clock())
                 if let batch { try store.record(batch) }
                 return Reply(kept: batch != nil)
-            case "whatsapp_status": return try whatsApp.status(store: store)
-            case "whatsapp_chat_seen":
-                return try whatsApp.see(decoder.decode(WhatsAppChatSeen.self, from: message), now: store.clock())
-            case "whatsapp_web":
-                return try whatsApp.keep(decoder.decode(WhatsAppWebSnapshot.self, from: message), store: store)
             case "mail_status": return try MailIntake.status(store: store)
             case "mail": return try MailIntake.keep(try decoder.decode(MailMessage.self, from: message), store: store)
             case "mail_deck":
@@ -152,7 +140,7 @@ public enum PageHost {
     /// pipe open until it has the answer, so the host must never wait for the end of the input before it answers.
     /// A broken or oversize frame is answered and ends the session.
     public static func serve(
-        read: (Int) -> Data, write: (Data) -> Void, store: Store, whatsApp: WhatsAppWebIntake = .refusing
+        read: (Int) -> Data, write: (Data) -> Void, store: Store
     ) {
         let decks = DeckAssembly()
         while true {
@@ -162,13 +150,13 @@ public enum PageHost {
                 write(Reply(kept: false, error: "\(failure)").framed)
                 return
             case .message(let message):
-                write(answer(message, store: store, decks: decks, whatsApp: whatsApp).framed)
+                write(answer(message, store: store, decks: decks).framed)
             }
         }
     }
 
     /// Every message in `input`, each answered by one reply frame.
-    public static func receive(_ input: Data, store: Store, whatsApp: WhatsAppWebIntake = .refusing) -> Data {
+    public static func receive(_ input: Data, store: Store) -> Data {
         var rest = input
         var out = Data()
         serve(
@@ -176,7 +164,7 @@ public enum PageHost {
                 let chunk = rest.prefix(count)
                 rest = rest.dropFirst(chunk.count)
                 return Data(chunk)
-            }, write: { out += $0 }, store: store, whatsApp: whatsApp)
+            }, write: { out += $0 }, store: store)
         return out
     }
 }

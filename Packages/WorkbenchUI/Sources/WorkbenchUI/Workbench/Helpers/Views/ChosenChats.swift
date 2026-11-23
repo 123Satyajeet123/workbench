@@ -18,9 +18,6 @@ struct ChosenChats: View {
                             Spacer()
                             Button("Stop reading") { stopping = chat }.buttonStyle(.ghost).foregroundStyle(.linkText)
                         }
-                        if let words = source.waitingWords(for: chat) {
-                            Text(words).textStyle(.callout).foregroundStyle(.supporting)
-                        }
                     }
                     .padding(.vertical, Space.xs)
                     if chat.id != source.chats.last?.id { Divider() }

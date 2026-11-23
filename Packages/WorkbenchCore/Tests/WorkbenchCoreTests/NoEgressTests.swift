@@ -21,7 +21,8 @@ enum EgressScan {
     }
 
     /// Hosts the shipped sources may name: Gmail, the one page the extension reads and the one origin its attachment
-    /// fetch may use; WhatsApp Web, the one other page it reads; and the two search providers, which only the consent kind `web` may reach (`WebSession`). The
+    /// fetch may use; WhatsApp Web, which page capture only excludes; and the two search providers, which only the
+    /// consent kind `web` may reach (`WebSession`). The
     /// pages a search returns are fetched from hosts the provider names, never from a host written in the source.
     /// The two news feed hosts are named in `NewsFeed.swift` only, and only a `FeedSession` (the consent kind `web`)
     /// may fetch them.

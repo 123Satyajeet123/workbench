@@ -32,4 +32,4 @@ JSON
     echo "Registered for $browser (extension id $id)"
 done
 echo "Next: load $root/Extension in your browser's extensions page (Developer mode › Load unpacked)."
-echo "Already loaded? Press reload on its card: version 0.3.0 adds the WhatsApp Web reader for chats you allow."
+echo "Already loaded? Press reload on its card: version 0.4.0 removes the WhatsApp Web reader."

@@ -1,11 +1,10 @@
-// Passes each page, each Gmail thread and each WhatsApp Web chat from a content script to the Workbench native host,
-// which hands it to the app; the app applies the person's capture policy. Pages go one message per host process; mail
-// and chats go over one open port, because a deck arrives in chunks the host must hold until the last one is in.
+// Passes each page and each Gmail thread from a content script to the Workbench native host, which hands it to the
+// app; the app applies the person's capture policy. Pages go one message per host process; mail goes over one open
+// port, because a deck arrives in chunks the host must hold until the last one is in.
 const host = "com.hizen.workbench.pages";
 const isBrave = (navigator.userAgentData?.brands ?? []).some((entry) => entry.brand === "Brave");
 const browser = isBrave ? "com.brave.Browser" : "com.google.Chrome";
 const gmailOrigin = "https://mail.google.com";
-const whatsAppOrigin = "https://web.whatsapp.com";
 
 let port = null;
 let waiting = [];
@@ -44,11 +43,6 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
     if (!fromTab(sender, gmailOrigin)) return;
     const { context, ...rest } = message.mail;
     askHost({ ...rest, ...(context && { context: { ...context, browser } }) }).then(respond);
-    return true;
-  }
-  if (message.whatsapp) {
-    if (!fromTab(sender, whatsAppOrigin)) return;
-    askHost({ ...message.whatsapp, browser, url: sender.tab.url }).then(respond);
     return true;
   }
   chrome.runtime.sendNativeMessage(host, { browser, url: message.url, title: message.title, text: message.text }, () => {

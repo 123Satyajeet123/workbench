@@ -28,18 +28,14 @@ final class WhatsAppSource: MachineSource {
     @ObservationIgnored private let capture: CaptureService
     @ObservationIgnored private let founder: () -> String
     @ObservationIgnored private let container: URL
-    /// The chat open in WhatsApp Web, while the chooser is open. The extension's end of the app fills it.
-    @ObservationIgnored let web: SightingBoard
     @ObservationIgnored private var pulled: [ContainerSighting] = []
     @ObservationIgnored private let chatsKey: StateKey<[WhatsAppChat]>
     @ObservationIgnored private let membersKey: StateKey<[WhatsAppMember]>
 
     init(
         store: Store, capture: CaptureService, task: String, founder: @escaping () -> String,
-        container: URL = WhatsAppChatReader.defaultContainer,
-        web: SightingBoard = SightingBoard(descriptor: .whatsAppWeb)
+        container: URL = WhatsAppChatReader.defaultContainer
     ) throws {
-        self.web = web
         self.store = store
         self.capture = capture
         self.founder = founder
@@ -72,13 +68,10 @@ final class WhatsAppSource: MachineSource {
     /// With several chats, each one of them must be allowed.
     var grantLabels: [String?] { isSeveral ? chats.map(\.jid) : [scope.isEmpty ? nil : scope] }
 
-    /// Chats to choose from, from every source that sees any: the Mac's WhatsApp data, and the chat open in WhatsApp Web
-    /// while the chooser is open. Listing needs the WhatsApp switch on; no chat is readable until one is chosen, and
-    /// nothing is stored until then.
+    /// Chats to choose from, from every source that sees any: the Mac's WhatsApp data. Listing needs the WhatsApp
+    /// switch on; no chat is readable until one is chosen, and nothing is stored until then.
     func loadGroups() throws {
         try switchOn()
-        web.open()
-        web.onChange { [weak self] in Task { @MainActor in self?.showCandidates() } }
         do {
             pulled = try reader(chatJIDs: []).sightings(policy: capture.policy, now: store.clock())
             pullProblem = nil
@@ -95,30 +88,17 @@ final class WhatsAppSource: MachineSource {
         matching = selection.choose(from: candidates).map(WhatsAppChat.init)
     }
 
-    /// Ends the question the chooser asked: the web page stops telling which chat is open, and what it told is dropped.
+    /// Ends the question the chooser asked: what the sources told is dropped.
     func closeDiscovery() {
-        web.close()
         pulled = []
         showCandidates()
     }
 
     private func showCandidates() {
-        candidates = ContainerCandidates.merge(pulled + web.sightings(policy: capture.policy, now: store.clock()))
+        candidates = ContainerCandidates.merge(pulled)
         groups = candidates.filter { $0.container.kind == .group }.map(WhatsAppChat.init)
         direct = candidates.filter { $0.container.kind == .direct }.map(WhatsAppChat.init)
     }
-
-    /// What the person can do so that Workbench can see who is in this group, or nil when it already can or the group
-    /// is a direct chat.
-    func memberListHint(for chat: WhatsAppChat) -> String? {
-        guard chat.isGroup, let candidate = candidates.first(where: { $0.id == chat.container }),
-            candidate.membership == nil
-        else { return nil }
-        return SourceDescriptor.whatsAppWeb.membershipHowTo
-    }
-
-    /// Why a chosen chat is not being read, in words for the person; nil when nothing waits.
-    func waitingWords(for chat: WhatsAppChat) -> String? { web.waiting(on: chat.container) }
 
     func choose(_ group: WhatsAppChat) throws { try choose([group]) }
 
@@ -149,7 +129,6 @@ final class WhatsAppSource: MachineSource {
     /// drops it. Other chats stay.
     static func stopReading(_ chat: WhatsAppChat, among sources: [WhatsAppSource], capture: CaptureService) throws {
         try capture.update { $0.allowList[.whatsapp]?.remove(chat.jid) }
-        for source in sources { source.web.forget(chat.container) }
         for source in sources where source.chats.contains(where: { $0.id == chat.id }) { try source.drop(chat) }
     }
 

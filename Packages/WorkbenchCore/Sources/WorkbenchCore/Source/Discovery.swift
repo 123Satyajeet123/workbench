@@ -27,8 +27,6 @@ public struct Membership: Sendable, Equatable {
     public enum Proof: String, Sendable {
         /// The source's own store holds the list.
         case sourceTable
-        /// The person opened a panel that shows the list, and every row gave an id.
-        case infoPanel
     }
 
     /// Unique, sorted and never empty.
@@ -66,8 +64,7 @@ public struct ContainerSighting: Sendable, Equatable {
 public protocol ContainerSource: Sendable {
     var descriptor: SourceDescriptor { get }
 
-    /// The containers this source sees now, or why it sees none. Pull sources read their store; push sources give
-    /// what their page sent while the person asked.
+    /// The containers this source sees now, or why it sees none.
     func sightings(policy: CapturePolicy, now: Date) throws -> [ContainerSighting]
 }
 

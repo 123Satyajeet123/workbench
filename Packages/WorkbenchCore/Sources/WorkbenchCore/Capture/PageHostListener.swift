@@ -18,7 +18,7 @@ public final class PageHostListener: Sendable {
     private let sessions = Sessions()
 
     /// Only a process of `user` may connect: the person who runs the app.
-    public init(path: String, store: Store, whatsApp: WhatsAppWebIntake, user: uid_t = geteuid()) throws {
+    public init(path: String, store: Store, user: uid_t = geteuid()) throws {
         unlink(path)
         let descriptor = try Self.listen(on: path)
         self.path = path
@@ -26,7 +26,7 @@ public final class PageHostListener: Sendable {
         source = DispatchSource.makeReadSource(fileDescriptor: descriptor, queue: queue)
         let sessions = sessions
         source.setEventHandler {
-            Self.acceptAll(on: descriptor, user: user, sessions: sessions, store: store, whatsApp: whatsApp)
+            Self.acceptAll(on: descriptor, user: user, sessions: sessions, store: store)
         }
         source.setCancelHandler { close(descriptor) }
         source.resume()
@@ -75,7 +75,7 @@ public final class PageHostListener: Sendable {
     }
 
     private static func acceptAll(
-        on listener: Int32, user: uid_t, sessions: Sessions, store: Store, whatsApp: WhatsAppWebIntake
+        on listener: Int32, user: uid_t, sessions: Sessions, store: Store
     ) {
         while true {
             let client = accept(listener, nil, nil)
@@ -88,7 +88,7 @@ public final class PageHostListener: Sendable {
             Thread.detachNewThread {
                 PageHost.serve(
                     read: { PagesSocket.read(client, count: $0) },
-                    write: { PagesSocket.write(client, $0) }, store: store, whatsApp: whatsApp)
+                    write: { PagesSocket.write(client, $0) }, store: store)
                 sessions.end(client)
             }
         }

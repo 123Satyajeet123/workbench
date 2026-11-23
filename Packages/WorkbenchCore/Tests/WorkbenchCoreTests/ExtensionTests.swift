@@ -58,21 +58,22 @@ enum ExtensionFiles {
         }
     }
 
-    @Test func theWhatsAppScriptsMatchOnlyTheWebClientAndPageTextLeavesIt() throws {
-        let chat = try entry(running: "whatsapp/watch.js")
-        #expect(chat["matches"] as? [String] == ["https://web.whatsapp.com/*"])
-        #expect((chat["js"] as? [String])?.allSatisfy { $0.hasPrefix("whatsapp/") } == true)
+    @Test func pageTextLeavesTheMailAndWhatsAppWebClients() throws {
         let pageText = try entry(running: "content.js")
         let excluded = Set(pageText["exclude_matches"] as? [String] ?? [])
         #expect(excluded == ["https://mail.google.com/*", "https://web.whatsapp.com/*"])
         for other in try contentScripts() where (other["js"] as? [String])?.contains("content.js") != true {
             #expect((other["exclude_matches"] as? [String]) == nil)
         }
+        let runsOnWhatsAppWeb = try contentScripts().contains {
+            ($0["matches"] as? [String])?.contains("https://web.whatsapp.com/*") == true
+        }
+        #expect(!runsOnWhatsAppWeb, "no script runs on WhatsApp Web")
     }
 
     @Test func noShippedScriptDispatchesAnEventOrChangesThePage() throws {
         let scripts = try ExtensionFiles.scripts()
-        let shipped: Set = ["content.js", "mail/watch.js", "whatsapp/reader.js", "whatsapp/watch.js"]
+        let shipped: Set = ["content.js", "mail/watch.js"]
         #expect(Set(scripts.keys).isSuperset(of: shipped))
         for (name, code) in scripts { #expect(ExtensionFiles.drivingCalls(in: code, file: name).isEmpty, "\(name)") }
     }
