@@ -2,7 +2,7 @@ import Foundation
 
 /// Writes a short message the founder may send about one item a machine found. One model call. The founder reads,
 /// edits and sends it; Workbench never sends anything.
-public struct Drafter: ModelTask {
+public struct Drafter: FixedModelTask {
     typealias Reply = Draft
 
     public struct Draft: Decodable, Sendable, Equatable {

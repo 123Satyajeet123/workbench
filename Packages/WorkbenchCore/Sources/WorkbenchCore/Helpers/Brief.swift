@@ -36,7 +36,7 @@ public struct MorningBrief: Codable, Sendable, Equatable {
 
 /// Writes the brief: one model call over the day's items, the model decides what matters; code keeps a line only when
 /// it cites items it was given.
-public struct Briefer: ModelTask {
+public struct Briefer: FixedModelTask {
     struct Reply: Decodable, Sendable {
         struct Raw: Decodable, Sendable {
             var kind: String

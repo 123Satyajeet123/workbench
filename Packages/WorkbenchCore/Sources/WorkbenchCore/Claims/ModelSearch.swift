@@ -3,7 +3,7 @@ import Foundation
 /// Web search through the model's own search tool, with no key: one recorded model call per query. The model returns
 /// result addresses and titles by schema; Workbench's own fetcher reads the pages. A reply that does not fit the
 /// schema gives no hits, and the failed run stays in the store.
-public struct ModelSearch: SearchProvider {
+public struct ModelSearch: SearchProvider, FixedModelTask {
     struct Reply: Decodable, Sendable {
         struct Result: Decodable, Sendable {
             var title: String
@@ -34,9 +34,8 @@ public struct ModelSearch: SearchProvider {
 
     public func search(_ query: String, count: Int) async throws -> [SearchHit] {
         do {
-            let (reply, _) = try await model.generate(
-                Reply.self, schema: Self.schema, task: Self.task, instructions: Self.instructions,
-                input: "Query: \(query)\nMost result pages: \(count)", holding: [.web])
+            let (reply, _) = try await ask(
+                "Query: \(query)\nMost result pages: \(count)", holding: [.web])
             return Self.hits(in: reply, count: count)
         } catch StructuredModelError.invalidReply {
             return []

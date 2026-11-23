@@ -56,6 +56,24 @@ public struct ClaimChecker: Sendable {
         ])
     }
 
+    /// The call that writes the queries.
+    struct QueryWriter: ModelTask {
+        typealias Reply = Queries
+        let model: RecordedModel
+        var task: String { ClaimChecker.queryTask }
+        var instructions: String { ClaimChecker.queryInstructions }
+        var schema: JSONSchema { ClaimChecker.queriesSchema }
+    }
+
+    /// The call that judges the claim against the pages.
+    struct Judge: ModelTask {
+        typealias Reply = RawVerdict
+        let model: RecordedModel
+        var task: String { ClaimChecker.verdictTask }
+        var instructions: String { ClaimChecker.verdictInstructions }
+        var schema: JSONSchema { ClaimChecker.verdictSchema }
+    }
+
     public let model: RecordedModel
     public let session: WebSession
     public let types: [ClaimType]
@@ -71,16 +89,13 @@ public struct ClaimChecker: Sendable {
     public func check(_ claim: Claim, company: String) async throws -> (check: ClaimCheck, run: RunID) {
         guard claim.label != nil else { throw WebBlock.labelUnknown }
         let brief = Self.brief(of: claim, company: company, type: types.first { $0.id == claim.type })
-        let (written, queryRun) = try await model.generate(
-            Queries.self, schema: Self.queriesSchema, task: Self.queryTask, instructions: Self.queryInstructions,
-            input: Self.queryBrief(of: claim, company: company), holding: claim.holding,
-            holdingUnknown: claim.source == nil)
+        let (written, queryRun) = try await QueryWriter(model: model).ask(
+            Self.queryBrief(of: claim, company: company), holding: claim.holding, holdingUnknown: claim.source == nil)
         let pages = try await fetchedPages(for: written.queries)
         guard !pages.isEmpty else { return (result(claim, .notFound, quote: "", url: ""), queryRun) }
-        let (raw, run) = try await model.generate(
-            RawVerdict.self, schema: Self.verdictSchema, task: Self.verdictTask,
-            instructions: Self.verdictInstructions, input: brief + "\n\nPages:\n" + Self.numbered(pages),
-            holding: claim.holding.union([.web]), holdingUnknown: claim.source == nil)
+        let (raw, run) = try await Judge(model: model).ask(
+            brief + "\n\nPages:\n" + Self.numbered(pages), holding: claim.holding.union([.web]),
+            holdingUnknown: claim.source == nil)
         let settled = Self.settle(raw, pages: pages)
         return (result(claim, settled.verdict, quote: settled.quote, url: settled.url), run)
     }

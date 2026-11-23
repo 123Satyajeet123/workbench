@@ -36,7 +36,7 @@ public struct Proposal: Sendable, Equatable, Identifiable {
 /// Mochi, the master helper: reads the founder's work blocks of past training days and proposes machines for jobs
 /// that repeat. One model call. The model decides every proposal; code keeps one only when its template is in the
 /// catalog and its evidence names blocks Mochi was given, on at least three different days.
-public struct Mochi: ModelTask {
+public struct Mochi: FixedModelTask {
     public struct Result: Sendable, Equatable {
         public var proposals: [Proposal]
         public var dropped: Int

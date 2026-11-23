@@ -8,7 +8,7 @@ public struct RuleQuery: Codable, Sendable, Equatable {
 
 /// Writes the search queries for a set of criteria with one model call. The model chooses the words; code keeps a
 /// query only for a rule that exists and wants something (a must or a plus), at most five a rule, with no repeat.
-public struct OutboundQueries: Sendable {
+public struct OutboundQueries: FixedModelTask {
     struct Reply: Decodable, Sendable {
         struct Entry: Decodable, Sendable {
             var rule: String
@@ -17,6 +17,8 @@ public struct OutboundQueries: Sendable {
 
         var criteria: [Entry]
     }
+
+    static let task = Outbound.queryTask
 
     public static let instructions = """
         You write web search queries for a venture investor who looks for new startups. You get their criteria, \
@@ -46,9 +48,8 @@ public struct OutboundQueries: Sendable {
     public func write(for criteria: Criteria) async throws -> (queries: [RuleQuery], run: RunID?) {
         let rules = Self.searchable(criteria)
         guard !rules.isEmpty else { return ([], nil) }
-        let (reply, run) = try await model.generate(
-            Reply.self, schema: Self.schema, task: Outbound.queryTask, instructions: Self.instructions,
-            input: rules.map { "\($0.id) (\($0.role.words)): \($0.summary)" }.joined(separator: "\n"), holding: [])
+        let (reply, run) = try await ask(
+            rules.map { "\($0.id) (\($0.role.words)): \($0.summary)" }.joined(separator: "\n"), holding: [])
         return (Self.kept(reply, rules: rules), run)
     }
 

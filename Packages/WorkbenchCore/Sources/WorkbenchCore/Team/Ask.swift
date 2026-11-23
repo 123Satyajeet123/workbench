@@ -31,7 +31,7 @@ public struct MemoryEntry: Sendable, Equatable, Identifiable {
 /// Questions over the team's memory (research 24, step 10). Full-text search finds the entries; one model call
 /// answers from them alone. Code keeps an answer only when every citation names an entry it was given and quotes
 /// that entry's words exactly. An answer without a citation is never shown.
-public struct Asker: ModelTask {
+public struct Asker: FixedModelTask {
     public struct Answer: Sendable, Equatable {
         /// Nil when the model found no answer it could cite.
         public var text: String?

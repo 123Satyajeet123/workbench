@@ -38,7 +38,7 @@ public struct SummaryScope: Sendable {
 
 /// Summarizes many scopes in one model call. The model decides what each scope did; code keeps a line only when it
 /// cites items of its own scope.
-public struct Summarizer: ModelTask {
+public struct Summarizer: FixedModelTask {
     struct Reply: Decodable, Sendable {
         struct Cited: Decodable, Sendable {
             var text: String

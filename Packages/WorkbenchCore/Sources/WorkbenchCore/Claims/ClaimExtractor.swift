@@ -2,7 +2,7 @@ import Foundation
 
 /// Reads the claims out of a deal's evidence, whatever source its lines came from: one model call. Code keeps a claim only when it cites a line it was
 /// given and its quote is in that line.
-public struct ClaimExtractor: Sendable {
+public struct ClaimExtractor: ModelTask {
     struct Reply: Decodable, Sendable {
         struct Raw: Codable, Sendable {
             var line: Int64
@@ -43,6 +43,9 @@ public struct ClaimExtractor: Sendable {
 
     public let model: RecordedModel
     public let types: [ClaimType]
+    var task: String { Self.task }
+    var instructions: String { Self.instructions(for: types) }
+    var schema: JSONSchema { Self.schema(for: types) }
 
     public init(model: RecordedModel, types: [ClaimType]) {
         self.model = model
@@ -52,10 +55,8 @@ public struct ClaimExtractor: Sendable {
     /// The claims the lines state, and how many the model gave that failed the checks. Nil run when no line was given.
     public func extract(deal: String, lines: [Evidence]) async throws -> (claims: [Claim], dropped: Int, run: RunID?) {
         guard !lines.isEmpty else { return ([], 0, nil) }
-        let (reply, run) = try await model.generate(
-            Reply.self, schema: Self.schema(for: types), task: Self.task,
-            instructions: Self.instructions(for: types),
-            input: lines.map { "[\($0.id)] \($0.line)" }.joined(separator: "\n"),
+        let (reply, run) = try await ask(
+            lines.map { "[\($0.id)] \($0.line)" }.joined(separator: "\n"),
             holding: Set(lines.compactMap { $0.consent?.kind }), holdingUnknown: lines.contains { $0.consent == nil },
             window: lines.compactMap { line in line.lineID.map { WindowLine(number: line.id, lineID: $0) } })
         let verifier = Verifier(window: EvidenceSet(lines: lines), settings: try model.verifierSettings())

@@ -6,7 +6,7 @@ import Foundation
 /// item relates to the open facts it was shown, and code keeps the relation only when its handle names one of them. A
 /// finding that cites open facts keeps an item only when every handle is a known open item, every line is new, and the
 /// quote is in a cited fact or a cited line. Each proposal that fails a check is stored with the rule it broke.
-public struct HelperReader: Sendable {
+public struct HelperReader: ModelTask {
     public struct Result: Sendable, Equatable {
         /// The facts this reading opens.
         public var items: [Item]
@@ -35,6 +35,7 @@ public struct HelperReader: Sendable {
 
     public let spec: HelperSpec
     public let model: RecordedModel
+    var task: String { spec.task }
     /// The owner's time zone: the zone a time in a line is resolved in.
     public let zone: TimeZone
 
@@ -57,10 +58,8 @@ public struct HelperReader: Sendable {
         let followsOpenFacts = spec.follows != nil && !open.isEmpty
         guard !evidence.lines.isEmpty || followsOpenFacts else { return Result(items: [], dropped: 0, run: nil) }
         let examples = Exemplars.pick(marked, for: day, count: spec.examples ?? 0)
-        let (reply, run) = try await model.generate(
-            Reply.self, schema: schema, task: spec.task, instructions: instructions,
-            input: Self.examples(examples, spec: spec) + Self.open(open, spec: spec)
-                + Self.input(day: day, evidence: evidence),
+        let (reply, run) = try await ask(
+            Self.examples(examples, spec: spec) + Self.open(open, spec: spec) + Self.input(day: day, evidence: evidence),
             holding: [spec.source.kind],
             window: evidence.lines.compactMap { line in line.lineID.map { WindowLine(number: line.id, lineID: $0) } })
         let verifier = Verifier(window: evidence, settings: try model.verifierSettings(), zone: zone)

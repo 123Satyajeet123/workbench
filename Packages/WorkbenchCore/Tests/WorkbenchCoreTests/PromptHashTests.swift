@@ -3,7 +3,7 @@ import Testing
 @testable import WorkbenchCore
 
 struct PromptHashTests {
-    private func hash<Task: ModelTask>(_: Task.Type) throws -> String {
+    private func hash<Task: FixedModelTask>(_: Task.Type) throws -> String {
         Digest.sha256(Task.instructions + "\n" + (try Task.schema.jsonText))
     }
 
@@ -13,7 +13,6 @@ struct PromptHashTests {
         #expect(try hash(Drafter.self) == "da7ac701fed90cd1089c38389a992c3ae5ae76b0fe7d718379caa9a7b6cde413")
         #expect(try hash(Mochi.self) == "bc0221fc57dc722fca88dcf5ab86c2f600e92cd75e259dc7028f892416398b82")
         #expect(try hash(Summarizer.self) == "7747c46eb078acf8dbe9ca9578960c98152e31ee7081f56c47319f52bdd8ca43")
-        #expect(try hash(ClaimExtractor.self) == "6533a85784eb280d739c86535ec53c1a75aa75ead4301014b9a8d540bf20441b")
         #expect(try hash(Improver.self) == "5536115ac108de6b7c146b29ef9f7928ccf8c2e1237f0cf86fa0509eb276ed24")
     }
 }

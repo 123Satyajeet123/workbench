@@ -36,7 +36,7 @@ public struct Decision: Sendable, Equatable {
 /// to the machine's brief (research 20 §2.3: small typed edits; a rewrite collapses). The edit is only a challenger:
 /// it starts a trial, and the person's marks decide. Code keeps an edit only when it cites marked items it was given,
 /// removes text the brief has, and keeps the brief within the growth cap.
-public struct Improver: ModelTask {
+public struct Improver: FixedModelTask {
     public struct Edit: Sendable, Equatable {
         public enum Kind: String, Sendable, CaseIterable {
             case add, remove
