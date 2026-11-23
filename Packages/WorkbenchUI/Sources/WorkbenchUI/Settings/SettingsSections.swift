@@ -15,6 +15,7 @@ struct SettingsSectionView: View {
                 you
                 model
             case .appearance: appearance
+            case .notch: NotchSection()
             case .notifications: RemindersSection()
             case .capture:
                 sources
@@ -105,6 +106,46 @@ struct SettingsSectionView: View {
                 } label: {
                     Label(entry.summary, systemImage: entry.symbol)
                     Text(entry.time.formatted(date: .omitted, time: .shortened))
+                }
+            }
+        }
+    }
+}
+
+private struct NotchSection: View {
+    @AppStorage(NotchKey.shown) private var shown = NotchKey.shownByDefault
+    @AppStorage(NotchKey.recording) private var showsRecording = true
+    @AppStorage(NotchKey.reading) private var showsReading = true
+    @AppStorage(NotchKey.review) private var showsReview = true
+    @AppStorage(NotchKey.idle) private var idle = NotchIdle.nothing
+
+    var body: some View {
+        Section {
+            SettingRow(
+                "Show in the notch",
+                "Calls, reading and your review queue appear around the camera, and hovering opens more. Macs without a notch get a small pill. While this is on, it replaces the Island."
+            ) {
+                Toggle("Show in the notch", isOn: $shown).labelsHidden().toggleStyle(.switch)
+            }
+        }
+        if shown {
+            Section("Show") {
+                SettingRow("Recording a call", "A red dot and the time. Hover for Stop.") {
+                    Toggle("Recording a call", isOn: $showsRecording).labelsHidden().toggleStyle(.switch)
+                }
+                SettingRow("A machine reading", "Which machine is reading your chats.") {
+                    Toggle("A machine reading", isOn: $showsReading).labelsHidden().toggleStyle(.switch)
+                }
+                SettingRow("Items to review", "How many items wait for you, and from whom.") {
+                    Toggle("Items to review", isOn: $showsReview).labelsHidden().toggleStyle(.switch)
+                }
+            }
+            Section("Idle") {
+                SettingRow("When nothing is happening", "The ring shows your Claude plan's 5-hour use.") {
+                    Picker("When nothing is happening", selection: $idle) {
+                        ForEach(NotchIdle.allCases) { Text($0.title).tag($0) }
+                    }
+                    .labelsHidden().fixedSize()
                 }
             }
         }
