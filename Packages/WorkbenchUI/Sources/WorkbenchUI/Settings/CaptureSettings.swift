@@ -12,6 +12,7 @@ final class CaptureSettings {
     private let service: CaptureService
     private let staleSites: () -> [String]
     private let installedBrowsers: () -> [InstalledBrowser]
+    private let telegramKeysKnown: () -> Bool
     private(set) var log: [CaptureLogEntry] = []
     private(set) var failure: (any Error)?
     /// What stops each source now, as last refreshed. The one place any page asks.
@@ -19,8 +20,10 @@ final class CaptureSettings {
 
     init(
         service: CaptureService, staleSites: @escaping () -> [String] = { [] },
-        installedBrowsers: @escaping () -> [InstalledBrowser] = BrowserRegistry.installedHere
+        installedBrowsers: @escaping () -> [InstalledBrowser] = BrowserRegistry.installedHere,
+        telegramKeysKnown: @escaping () -> Bool = { TelegramAccount.keysSaved(in: KeychainSecrets()) }
     ) {
+        self.telegramKeysKnown = telegramKeysKnown
         self.service = service
         self.staleSites = staleSites
         self.installedBrowsers = installedBrowsers
@@ -132,6 +135,7 @@ final class CaptureSettings {
             SourceHealthInputs(
                 policy: policy, fullDiskAccess: FullDiskAccess.isGranted(),
                 ownerKnown: (try? service.owner()) != nil, accessibilityGranted: ScreenReader.isTrusted,
+                telegramKeysKnown: telegramKeysKnown(),
                 staleSites: staleSites(), browsers: installedBrowsers().map { policy.health(ofBrowser: $0.browser) }))
     }
 

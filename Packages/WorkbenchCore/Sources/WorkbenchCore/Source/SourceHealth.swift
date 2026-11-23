@@ -6,6 +6,8 @@ public enum SourceProblem: Sendable, Equatable {
     case fullDiskAccessMissing
     case ownerMissing
     case accessibilityMissing
+    /// Telegram signs in only with an app key of the person's own, kept in the keychain.
+    case telegramKeyMissing
     /// The reader for this site found its page changed: the site's record is stale with the site.
     case siteStale(String)
     /// No browser Workbench works in is switched on, or none is known.
@@ -18,6 +20,7 @@ public enum SourceProblem: Sendable, Equatable {
             "macOS has not given Workbench Full Disk Access. Turn it on in System Settings › Privacy & Security, then reopen Workbench."
         case .ownerMissing: "Workbench could not open the name it keeps for you in the Keychain."
         case .accessibilityMissing: "macOS has not given Workbench Accessibility access yet."
+        case .telegramKeyMissing: "Telegram needs its app key; add it on the machine's page."
         case .siteStale(let site): AdapterState.sentence(for: site)
         case .browserNotReady(let reason): reason
         }
@@ -27,11 +30,12 @@ public enum SourceProblem: Sendable, Equatable {
 /// One source and what stops it now. An empty `problems` means ready.
 public struct SourceHealth: Sendable, Equatable, Identifiable {
     public enum Source: String, Sendable, CaseIterable {
-        case whatsapp, mail, pages, screen
+        case whatsapp, telegram, mail, pages, screen
 
         public var name: String {
             switch self {
             case .whatsapp: "WhatsApp"
+            case .telegram: "Telegram"
             case .mail: "Mail"
             case .pages: "Web pages"
             case .screen: "Screen"
@@ -53,6 +57,8 @@ public struct SourceHealthInputs: Sendable {
     public var fullDiskAccess: Bool
     public var ownerKnown: Bool
     public var accessibilityGranted: Bool
+    /// The person's Telegram api_id and api_hash are in the keychain.
+    public var telegramKeysKnown: Bool
     /// The sites whose reader reported a changed page, by name.
     public var staleSites: [String]
     /// The health of each browser on this Mac, from the policy.
@@ -60,12 +66,13 @@ public struct SourceHealthInputs: Sendable {
 
     public init(
         policy: CapturePolicy, fullDiskAccess: Bool, ownerKnown: Bool, accessibilityGranted: Bool,
-        staleSites: [String], browsers: [BrowserHealth]
+        telegramKeysKnown: Bool = true, staleSites: [String], browsers: [BrowserHealth]
     ) {
         self.policy = policy
         self.fullDiskAccess = fullDiskAccess
         self.ownerKnown = ownerKnown
         self.accessibilityGranted = accessibilityGranted
+        self.telegramKeysKnown = telegramKeysKnown
         self.staleSites = staleSites
         self.browsers = browsers
     }
@@ -81,6 +88,8 @@ public enum SourceHealthModel {
         switch source {
         case .whatsapp:
             consent(.whatsapp, inputs) + (inputs.fullDiskAccess ? [] : [.fullDiskAccessMissing]) + owner(inputs)
+        case .telegram:
+            consent(.telegram, inputs) + (inputs.telegramKeysKnown ? [] : [.telegramKeyMissing])
         case .mail:
             consent(.mail, inputs) + owner(inputs) + browser(inputs)
                 + stale(inputs) { $0 == AdapterState.mailSite }

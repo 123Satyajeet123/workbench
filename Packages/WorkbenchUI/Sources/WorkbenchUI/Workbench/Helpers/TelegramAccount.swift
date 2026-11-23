@@ -23,6 +23,11 @@ final class TelegramAccount {
         followCapture()
     }
 
+    /// Whether the person's own api_id and api_hash are saved.
+    static func keysSaved(in secrets: SecretStore) -> Bool {
+        secrets.read(Name.apiID) != nil && secrets.read(Name.apiHash) != nil
+    }
+
     var isReady: Bool { if case .ready = login { true } else { false } }
 
     func connect(apiID: String, apiHash: String) throws {
