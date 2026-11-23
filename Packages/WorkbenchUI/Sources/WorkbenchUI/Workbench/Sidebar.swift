@@ -20,22 +20,25 @@ struct Sidebar: View {
     @State private var editing: MachineEdit?
     @State private var deleting: HelperModel?
     @State private var renaming: WorkObjectID?
-    @SceneStorage("recentsShown") private var recentsShown = false
+    @SceneStorage("recentsShown") private var recentsShown = true
+    @State private var footRowHeight: CGFloat = 20
 
     var body: some View {
         List(selection: listSelection) {
             Section {
                 mochiRow
-                Button(action: search) { Label("Search", systemImage: "magnifyingglass").sidebarRowFont() }
-                    .buttonStyle(.plain).help("Search (⌘K)")
+                Label("Search", systemImage: "magnifyingglass")
+                    .rowAction("Search (⌘K)", perform: search)
             }
-            if !workspace.recents.isEmpty {
+            let recents = workspace.recents.filter(exists)
+            if !recents.isEmpty {
                 Section("Recents", isExpanded: $recentsShown) {
-                    ForEach(workspace.recents) { PageLabel(page: $0).sidebarRowFont().tag($0) }
+                    ForEach(recents) { PageLabel(page: $0).tag($0) }
                 }
             }
-            if !workspace.favorites.isEmpty {
-                Section("Favorites") { ForEach(workspace.favorites) { PageLabel(page: $0).sidebarRowFont().tag($0) } }
+            let favorites = workspace.favorites.filter(exists)
+            if !favorites.isEmpty {
+                Section("Favorites") { ForEach(favorites) { PageLabel(page: $0).tag($0) } }
             }
             Section {
                 tree(workspace.roots, under: nil)
@@ -103,9 +106,8 @@ struct Sidebar: View {
         Label {
             Text(SidebarSelection.mochi.title)
         } icon: {
-            Mascot(look: .mochi, size: SidebarRowFont.iconSize, mood: mochiMood)
+            Mascot(look: .mochi, size: Mascot.sidebarSize, mood: mochiMood)
         }
-        .sidebarRowFont()
         .badge(today.needsCount)
         .help(SidebarSelection.day.role)
         .tag(SidebarSelection.day)
@@ -148,16 +150,38 @@ struct Sidebar: View {
                         .labelStyle(.iconOnly).buttonStyle(.borderless)
                 }
             }
-            HStack {
-                Button("Sources", systemImage: "arrow.left.arrow.right") { navigation.openSettings(.capture) }
-                    .help("What Workbench reads")
-                Spacer()
-                Button("Settings", systemImage: "gearshape") { selection = .settings }.help("Settings (⌘,)")
-            }
-            .buttonStyle(.borderless)
-            .sidebarRowFont()
         }
-        .padding(.horizontal, Space.m).padding(.vertical, Space.s)
+        .padding(.horizontal, Space.m)
+        .safeAreaInset(edge: .bottom, spacing: 0) { fixedFoot }
+    }
+
+    /// Sources and Settings: one row of a sidebar list of their own, fixed at the foot.
+    private var fixedFoot: some View {
+        List {
+            HStack {
+                Label("Sources", systemImage: "arrow.left.arrow.right")
+                    .rowAction("What Workbench reads") { navigation.openSettings(.capture) }
+                Spacer()
+                Label("Settings", systemImage: "gearshape").rowAction("Settings (⌘,)") { selection = .settings }
+            }
+            .onGeometryChange(for: CGFloat.self) {
+                $0.size.height
+            } action: {
+                footRowHeight = $0
+            }
+        }
+        .listStyle(.sidebar)
+        .scrollDisabled(true)
+        .frame(height: footRowHeight + 2 * Space.m)
+    }
+
+    /// Whether a page of Recents or Favorites still opens: its object or machine is still there.
+    private func exists(_ page: SidebarSelection) -> Bool {
+        switch page {
+        case .machine(let id): crew.helper(id: id) != nil
+        case .page(let id): workspace.object(id).map { !$0.archived } ?? false
+        default: true
+        }
     }
 
     @ViewBuilder private func menu(for pages: Set<SidebarSelection>) -> some View {
@@ -308,23 +332,25 @@ private struct TreeRow: View {
             }
         } icon: {
             if let helper {
-                Mascot(look: .of(helper.machine), size: SidebarRowFont.iconSize, mood: helper.mood)
+                Mascot(look: .of(helper.machine), size: Mascot.sidebarSize, mood: helper.mood)
                     .opacity(helper.isPaused ? 0.5 : 1)
             } else {
                 Image(systemName: object.symbol)
             }
         }
-        .sidebarRowFont()
         .help(helper?.role ?? object.type.noun.capitalized)
     }
 }
 
-/// One text size for every row of the sidebar, the fixed ones at the foot too, at the window's zoom. The native list
-/// sets its own size for its rows, so each row states this one.
-enum SidebarRowFont {
-    static let iconSize: CGFloat = 18
+extension Mascot {
+    /// A face in a sidebar row, the size of the row's symbols.
+    static let sidebarSize: CGFloat = 18
 }
 
 extension View {
-    func sidebarRowFont() -> some View { textStyle(.body) }
+    /// A sidebar row that acts rather than opens a page.
+    func rowAction(_ help: String, perform action: @escaping () -> Void) -> some View {
+        contentShape(.rect).onTapGesture(perform: action).help(help)
+            .accessibilityAddTraits(.isButton).accessibilityAction { action() }
+    }
 }

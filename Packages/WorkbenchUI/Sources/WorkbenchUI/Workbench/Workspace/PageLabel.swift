@@ -11,7 +11,7 @@ struct PageLabel: View {
             Text(title)
         } icon: {
             if let look {
-                Mascot(look: look, size: SidebarRowFont.iconSize, mood: mood)
+                Mascot(look: look, size: Mascot.sidebarSize, mood: mood)
             } else {
                 Image(systemName: symbol)
             }

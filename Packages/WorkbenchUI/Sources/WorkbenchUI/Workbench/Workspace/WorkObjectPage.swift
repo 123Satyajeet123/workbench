@@ -78,7 +78,7 @@ private struct FolderPage: View {
                         Text(child.name)
                     } icon: {
                         if let helper = crew.helper(page: child.id) {
-                            Mascot(look: .of(helper.machine), size: SidebarRowFont.iconSize, mood: helper.mood)
+                            Mascot(look: .of(helper.machine), size: Mascot.sidebarSize, mood: helper.mood)
                         } else {
                             Image(systemName: child.symbol)
                         }
