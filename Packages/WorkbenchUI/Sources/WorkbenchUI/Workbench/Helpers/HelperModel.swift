@@ -3,9 +3,6 @@ import Foundation
 import Observation
 import WorkbenchCore
 
-/// One helper on screen: its spec, its source, the day shown and its items. Every helper uses this model; what
-/// differs between helpers is data in the spec and the source it reads. Reading, improvement and the schedule each
-/// have their own type; this model composes them for the views.
 @Observable
 final class HelperModel {
     let reading: HelperReading
@@ -14,9 +11,7 @@ final class HelperModel {
     let agreement: HelperAgreement
 
     private(set) var items: [Item] = []
-    /// Items still open from every day, for a machine whose items open and close.
     private(set) var open: [Item] = []
-    /// Items closed on the shown day.
     private(set) var closed: [Item] = []
     /// How close the helper's latest prompt and model are to earning trust, from audit answers on held-out days.
     private(set) var trust: Certificate.Status?
@@ -92,7 +87,6 @@ final class HelperModel {
         set { schedule.watch = newValue }
     }
 
-    /// What the helper's face shows.
     var mood: Mascot.Mood {
         if phase == .reading { return .working }
         if problem != nil { return .trouble }
@@ -140,13 +134,11 @@ final class HelperModel {
         }
     }
 
-    /// Sends the shown day to the chosen model and stores the items that pass the checks.
     func read() async { await reading.read(day) }
 
     func hasMissingSummaries(on day: WorkDay) -> Bool { reading.hasMissingSummaries(on: day) }
     func summarize(_ day: WorkDay) async -> Bool { await reading.summarize(day) }
 
-    /// The founder closes an open item by hand, or reopens one a line closed by mistake.
     func close(_ item: Item, as outcome: String) {
         guard let id = item.id else { return }
         attempt("close the item") { try shared.store.close(item: id, as: outcome, surface: .machinePage) }
@@ -175,7 +167,6 @@ final class HelperModel {
 
     func dismissProblem() { shared.problems.dismiss() }
 
-    /// Runs `work` and shows what fails.
     func attempt(_ step: String, _ work: () throws -> Void) { shared.problems.attempt(step, work) }
 
     private func itemsWereChanged() {

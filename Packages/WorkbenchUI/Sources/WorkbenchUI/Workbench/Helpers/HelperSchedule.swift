@@ -2,8 +2,6 @@ import Foundation
 import Observation
 import WorkbenchCore
 
-/// When a machine reads by itself and tells the founder: the reading hours with their alerts, and the once-a-day
-/// nudge. It owns the one loop that checks both while the app runs.
 @Observable
 final class HelperSchedule {
     var nudge = NudgeSchedule() {
@@ -13,7 +11,6 @@ final class HelperSchedule {
             }
         }
     }
-    /// Reading new lines by itself through the day, for a source whose lines keep their numbers.
     var watch = WatchSchedule() {
         didSet {
             context.problems.attempt("save the reading hours") {
@@ -47,7 +44,6 @@ final class HelperSchedule {
         }
     }
 
-    /// Checks once a minute while the app runs, until this schedule is stopped or released.
     func start() {
         ticker.start { [weak self] in
             await self?.readIfDue()

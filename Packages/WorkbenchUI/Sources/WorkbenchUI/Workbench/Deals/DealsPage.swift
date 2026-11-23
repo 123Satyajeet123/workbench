@@ -1,7 +1,6 @@
 import SwiftUI
 import WorkbenchCore
 
-/// The team's deals as a board, one column per stage. A deal opens beside the board.
 struct DealsPage: View {
     @Environment(DealsModel.self) private var deals
     @State private var open: String?

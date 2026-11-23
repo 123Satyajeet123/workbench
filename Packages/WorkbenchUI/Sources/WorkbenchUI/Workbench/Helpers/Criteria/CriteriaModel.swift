@@ -12,7 +12,6 @@ final class CriteriaModel {
 
     @ObservationIgnored private let title: String
     @ObservationIgnored private let items: (Int) -> [Item]
-    /// How far back the preview looks for deals already read.
     static let previewDays = 90
 
     init(saved: Criteria, title: String, items: @escaping (Int) -> [Item] = { _ in [] }) {
@@ -28,7 +27,6 @@ final class CriteriaModel {
     }
 
     var isChanged: Bool { draft != saved }
-    /// What stops the draft from being saved, in words; nil when it can be.
     var blocker: String? { draft.problem }
 
     /// The effect of the unsaved edits on the deals already read, worked out in code with no model call.
@@ -41,7 +39,6 @@ final class CriteriaModel {
     func edit(_ rule: Rule) { form = RuleDraft(rule) }
     func cancelForm() { form = nil }
 
-    /// Puts the form's rule in the draft: a new rule at the end, or an edit in place.
     func commitForm() {
         guard let form, let rule = form.rule() else { return }
         draft = form.editing.map { draft.replacing($0, with: rule) } ?? draft.adding(rule)

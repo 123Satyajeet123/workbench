@@ -6,7 +6,6 @@ import WorkbenchCore
 
 @testable import WorkbenchUI
 
-/// A calendar of fixed events that counts every ask.
 final class FakeCalendar: CalendarEvents, @unchecked Sendable {
     var access = CalendarAccess.allowed
     var events: [Meeting]
@@ -30,8 +29,6 @@ final class FakeCalendar: CalendarEvents, @unchecked Sendable {
     }
 }
 
-/// Today with meetings over a scratch store holding the sample day (Asha, Meera and Raj), the Meetings section, and
-/// the way a deal is found.
 @MainActor
 @Suite struct TodayMeetingsTests {
     private let me = Meeting.Attendee(name: "Kabir", email: "kabir@fund.vc", isMe: true)

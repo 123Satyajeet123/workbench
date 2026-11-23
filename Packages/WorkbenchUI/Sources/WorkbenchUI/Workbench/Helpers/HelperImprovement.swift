@@ -2,7 +2,6 @@ import Foundation
 import Observation
 import WorkbenchCore
 
-/// What a trial keeps in the store between launches.
 struct SavedTrial: Codable {
     var brief: String
     var days: [String]
@@ -12,7 +11,6 @@ struct SavedTrial: Codable {
     var runner: String?
 }
 
-/// A new version being tried on past days, and how it compares with the current one.
 struct TrialRun {
     let version: HelperModel.Version
     let days: [WorkDay]
@@ -38,16 +36,13 @@ final class HelperImprovement {
     private(set) var trialPhase = ReadPhase.idle
     /// The machine's decisions, newest first.
     private(set) var decisions: [Decision] = []
-    /// Why nothing changed after the founder asked the proposer, or nil.
     private(set) var improveNote: String?
-    /// A change the app made by itself, such as a rollback, said once on the page.
     var notice: String?
 
     @ObservationIgnored private let context: MachineContext
 
     init(context: MachineContext) { self.context = context }
 
-    /// Loads the trial and the decisions of the machine.
     func reload() throws {
         trial = try loadTrial()
         decisions = try context.store.queries.decisions(of: context.spec.task)
@@ -124,7 +119,6 @@ final class HelperImprovement {
         await startTrial(version, by: .person, why: "Try \(choice.title)")
     }
 
-    /// Learning from marks is a trial like any change: the same brief with marked examples, judged on past days.
     func learnFromMarks() async {
         var version = HelperModel.Version(context.spec)
         version.examples = Self.exampleCount
@@ -153,7 +147,6 @@ final class HelperImprovement {
         }
     }
 
-    /// The founder keeps the current brief: the trial's items go, and the decision is logged.
     func keepCurrent() {
         if let trial {
             let spec = context.spec
@@ -167,7 +160,6 @@ final class HelperImprovement {
         endTrial()
     }
 
-    /// Removes the trial's items and its record; the current version stays as it is.
     func endTrial() {
         let task = context.spec.task
         context.problems.attempt("end the trial") { try context.store.delete(.machine(Trial.task(of: task))) }

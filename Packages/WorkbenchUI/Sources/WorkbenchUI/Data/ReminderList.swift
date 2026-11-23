@@ -38,7 +38,6 @@ struct AppleReminders: ReminderList {
         try store.save(reminder, commit: true)
     }
 
-    /// Workbench's row in System Settings › Privacy & Security › Reminders.
     static func openSettings() {
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Reminders") {
             NSWorkspace.shared.open(url)

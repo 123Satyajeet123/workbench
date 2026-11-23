@@ -8,7 +8,6 @@ import WorkbenchCore
 
 @testable import WorkbenchUI
 
-/// Sentinel, the off-track watch: it follows Pip's open facts and tells the founder what went wrong.
 @Suite struct DerailmentMachineTests {
     private let noon: Date = {
         Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: Date(timeIntervalSince1970: 1_790_000_000))!
@@ -29,7 +28,6 @@ import WorkbenchCore
         let store: Store
     }
 
-    /// Pip read yesterday and holds one open commitment; Sentinel follows it. The clock is then moved to today.
     private func setup() async throws -> Setup {
         let clock = TestClock(noon)
         let store = try scratchStore(clock: { clock.now })

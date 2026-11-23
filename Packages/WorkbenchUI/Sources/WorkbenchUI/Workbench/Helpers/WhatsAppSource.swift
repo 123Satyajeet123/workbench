@@ -14,12 +14,10 @@ final class WhatsAppSource: MachineSource {
     private(set) var candidates: [ContainerCandidate] = []
     private(set) var groups: [WhatsAppChat] = []
     private(set) var direct: [WhatsAppChat] = []
-    /// The chats a rule would choose, shown before the founder confirms.
     private(set) var matching: [WhatsAppChat] = []
     /// Why the Mac's own WhatsApp data could not be listed, in words; nil when it could.
     private(set) var pullProblem: String?
     private(set) var members: [WhatsAppMember] = []
-    /// The WhatsApp IDs of the teammates the founder set up and linked, as of the last read.
     private(set) var teamHandles: Set<String> = []
     /// The name of every person the chats ever had, by WhatsApp ID, as of the last read of the people.
     @ObservationIgnored private var names: [String: String] = [:]
@@ -47,11 +45,9 @@ final class WhatsAppSource: MachineSource {
         try loadTeamHandles()
     }
 
-    /// The one chosen group, for a machine that reads one.
     var chat: WhatsAppChat? { chats.count == 1 ? chats.first : nil }
     var isSeveral: Bool { chats.count > 1 }
 
-    /// One chat is the machine's scope; several chats are one scope for the machine.
     var scope: String { chat?.jid ?? "" }
     var isReady: Bool { !chats.isEmpty }
     /// The people the founder expects to hear from. One chat: everyone in it. Several chats: the teammates the

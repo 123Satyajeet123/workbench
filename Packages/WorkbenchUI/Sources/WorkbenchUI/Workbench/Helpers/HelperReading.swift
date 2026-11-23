@@ -12,7 +12,6 @@ final class HelperReading {
 
     init(context: MachineContext) { self.context = context }
 
-    /// Shows no result of a reading, as when another day is shown.
     func forgetResult() { phase = .idle }
 
     /// The source must allow the read before the evidence is gathered and still allow it when the items are written.

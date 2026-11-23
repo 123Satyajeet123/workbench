@@ -88,7 +88,6 @@ import WorkbenchCore
     }
 }
 
-/// A seeded built-in whose design shipped before the current one offers the update, and loses the offer once taken.
 @Suite struct MachineUpdateOfferTests {
     @Test func theLivePipOfAnEarlierVersionIsOfferedTheUpdateOnceAndKeepsItsTask() throws {
         let store = try scratchStore()

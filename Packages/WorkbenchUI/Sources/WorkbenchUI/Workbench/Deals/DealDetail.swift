@@ -1,8 +1,6 @@
 import SwiftUI
 import WorkbenchCore
 
-/// One deal: its stage, owner, class and why, open action, capture ribbon, automation strip, items, notes and
-/// timeline.
 struct DealDetail: View {
     let deal: WorkObject
     let move: (WorkObject, StageID) -> Void

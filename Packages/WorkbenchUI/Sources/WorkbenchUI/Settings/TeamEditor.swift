@@ -29,7 +29,6 @@ struct TeamEditor: View {
     }
 }
 
-/// Settings › Team: the same editor with a save button.
 struct TeamSettingsView: View {
     @Environment(TeamModel.self) private var model
     @Environment(TeamCatalogModel.self) private var catalog

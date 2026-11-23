@@ -1,12 +1,10 @@
 import SwiftUI
 import WorkbenchCore
 
-/// Where the read of one day stands. Every helper that reads a day with a model shows this.
 enum ReadPhase: Equatable {
     case idle
     case reading
     case read(kept: Int, dropped: Int)
-    /// A reading found no line the last reading had not seen.
     case upToDate
 }
 
@@ -14,7 +12,6 @@ struct ReadPhaseLabel: View {
     let phase: ReadPhase
     /// What a kept item is called: "entries", "blocks".
     let items: String
-    /// Why an item was dropped, in a few words.
     let droppedBecause: String
 
     var body: some View {

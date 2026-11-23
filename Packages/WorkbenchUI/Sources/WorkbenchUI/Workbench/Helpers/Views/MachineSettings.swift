@@ -23,6 +23,5 @@ struct MachineSettings: View {
 }
 
 extension HelperModel {
-    /// A new version is on trial or being read for one.
     var isTrying: Bool { trial != nil || trialPhase == .reading }
 }

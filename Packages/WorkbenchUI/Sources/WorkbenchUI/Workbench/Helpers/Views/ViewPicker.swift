@@ -1,7 +1,6 @@
 import SwiftUI
 import WorkbenchCore
 
-/// The views this machine's spec can fill, as a switch. Hidden when there is only one.
 struct ViewPicker: View {
     let model: HelperModel
     @Environment(Crew.self) private var crew

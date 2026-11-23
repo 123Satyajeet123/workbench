@@ -53,7 +53,6 @@ final class DealsModel {
         settleActions()
     }
 
-    /// A deal whose action was done moves on: the stage move is an event like any other.
     private func settleActions() {
         guard let actions = try? store.queries.dealActions() else { return }
         let settled = DealAction.settled(deals, actions: actions)
@@ -116,7 +115,6 @@ final class DealsModel {
         attempt("move the deal") { add([try stageDraft(deal, to: waiting.id)]) }
     }
 
-    /// Done on the deal's open action, the close Today gives it; the deal then moves on.
     func finishAction(of deal: WorkObject) {
         guard let action = digests[deal.id]?.action else { return }
         attempt("finish the action") { try store.apply(DealAction.lifecycle.closing([action]), surface: .deals) }
@@ -153,7 +151,6 @@ final class DealsModel {
         }
     }
 
-    /// A deal named after the item's title field, with the item linked.
     @discardableResult
     func newDeal(from item: Item, of helper: HelperModel) async -> String? {
         guard let id = create(title: item[helper.spec.title].cleaned ?? item.quote) else { return nil }
@@ -170,7 +167,6 @@ final class DealsModel {
 
     func dismissProblem() { problem = nil }
 
-    /// What the founder's events look like before the store gives them an id and a clock.
     struct Draft {
         var object: String
         var kind: WorkEvent.Kind

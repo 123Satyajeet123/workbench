@@ -6,7 +6,6 @@ import WorkbenchCore
 
 @testable import WorkbenchUI
 
-/// Replies in order, remembering each input.
 final class RepliesInOrder: StructuredModel, Sendable {
     let name = "in-order"
     private let replies: Mutex<[String]>

@@ -8,14 +8,12 @@ protocol MachineSource: AnyObject {
     var scope: String { get }
     /// A machine reads nothing until its source says it has what it needs.
     var isReady: Bool { get }
-    /// The named sets of people or things the source knows now, as far as they are known.
     var context: [String: [String]] { get }
     /// The labels the capture policy must grant before a read; nil is the source as a whole.
     var grantLabels: [String?] { get }
 
     /// Loads what the source can show about `day` without reading it with a model.
     func refresh(on day: WorkDay) throws
-    /// The numbered lines of `day` that a reading sends to the model.
     func evidence(on day: WorkDay) async throws -> EvidenceSet
 }
 

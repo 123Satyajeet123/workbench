@@ -4,7 +4,6 @@ import WorkbenchCore
 /// What Workbench already knows about one person or deal in a meeting, every line from an existing fact, summary or
 /// linked item. Nothing here is new text from a model.
 struct Prep: Identifiable, Equatable {
-    /// A linked item's quote, with where it came from.
     struct Quote: Equatable {
         var text: String
         var source: String
@@ -12,9 +11,7 @@ struct Prep: Identifiable, Equatable {
 
     var subject: MeetingSubject
     var name: String
-    /// The person's latest summary line.
     var line: String?
-    /// The deal's stage.
     var stage: String?
     var facts: [Item]
     var quotes: [Quote]
@@ -37,7 +34,6 @@ struct MeetingCard: Identifiable, Equatable {
     var id: String { meeting.id }
 }
 
-/// Builds the cards from what Today already holds.
 enum MeetingPrep {
     static let quotesShown = 3
 

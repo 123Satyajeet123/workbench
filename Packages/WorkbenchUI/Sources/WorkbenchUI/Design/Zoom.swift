@@ -24,7 +24,6 @@ extension EnvironmentValues {
 }
 
 extension Font.TextStyle {
-    /// The point size macOS gives each text style at the default size.
     var macSize: CGFloat {
         switch self {
         case .largeTitle: 26
@@ -54,7 +53,6 @@ private struct ScaledText: ViewModifier {
 }
 
 extension View {
-    /// A text style scaled by the app's zoom.
     func textStyle(_ style: Font.TextStyle, weight: Font.Weight? = nil, digits: Bool = false) -> some View {
         modifier(ScaledText(style: style, weight: weight, digits: digits))
     }
@@ -67,7 +65,6 @@ extension View {
     }
 }
 
-/// View › Zoom In, Zoom Out, Actual Size.
 struct ZoomCommands: Commands {
     @AppStorage("zoom") private var scale = 1.0
 

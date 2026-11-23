@@ -1,8 +1,6 @@
 import SwiftUI
 import WorkbenchCore
 
-/// Why a deal is hot, warm or cold: each rule with pass, fail or unknown, the number found, the words it rests on, and
-/// the model's reason. A deal that needs the investor's eye says so first.
 struct WhyCard: View {
     let triage: Triage
 
@@ -25,7 +23,6 @@ struct WhyCard: View {
     }
 }
 
-/// The why card folded under a deal's row; a deal that needs review says so on the fold.
 struct WhyDisclosure: View {
     let triage: Triage
     let isOpen: Bool
@@ -75,7 +72,6 @@ private struct RuleResultRow: View {
         }
     }
 
-    /// The number the model found, or why there is none.
     private var found: String? {
         guard case .number(let test) = result.rule.test else { return nil }
         if let number = result.number { return "Found \(number.shown) \(test.unit)" }

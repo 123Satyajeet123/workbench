@@ -291,8 +291,6 @@ import WorkbenchCore
         #expect(team.context["members"] == ["Asha", "Bharat"])
     }
 
-    /// The founder's rule: several chats at once. Each line names its chat, every chat must be allowed, and a day from
-    /// chats with different people is not shared (its audience is not known per item yet).
     @Test func aSeveralChatSourceNamesEachLineSChatAndItsDayIsNotShared() async throws {
         let now = noon
         let store = try scratchStore(clock: { now })

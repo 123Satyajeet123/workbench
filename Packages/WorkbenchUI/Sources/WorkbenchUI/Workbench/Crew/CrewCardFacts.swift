@@ -1,7 +1,6 @@
 import Foundation
 import WorkbenchCore
 
-/// What the Crew page says about one machine, in plain words, from its runs and its quality row.
 struct CrewCardFacts: Equatable {
     var lastReading: String
     var health: String

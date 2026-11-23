@@ -1,8 +1,6 @@
 import Foundation
 import WorkbenchCore
 
-/// One machine that touched a deal, in plain words: its last run, its next run, how right it was by the person's
-/// marks, and the rule that rated the deal.
 struct AutomationRow: Equatable, Identifiable {
     var id: Int64
     var name: String

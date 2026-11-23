@@ -68,7 +68,6 @@ final class ActionsModel {
         self.draft = nil
     }
 
-    /// The founder's click: the item becomes a reminder, with its quote in the notes.
     func remind(_ item: Item, from machine: Machine, title: String) async {
         guard let id = item.id else { return }
         switch await reminders.authorize() {

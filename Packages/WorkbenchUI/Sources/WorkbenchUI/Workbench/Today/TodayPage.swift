@@ -1,7 +1,6 @@
 import SwiftUI
 import WorkbenchCore
 
-/// The home page: what needs you, your team, your projects, and yesterday's brief. Live: it follows every reading.
 struct TodayPage: View {
     @Environment(TodayModel.self) private var today
     @Environment(MochiModel.self) private var mochi
@@ -137,7 +136,6 @@ struct HandledBar: View {
     }
 }
 
-/// A heading and its lines.
 struct TodaySection<Content: View>: View {
     let title: String
     var count: Int?
@@ -192,7 +190,6 @@ struct SummaryLineRow: View {
     }
 }
 
-/// A person's facts of the day, listed plainly while no summary line covers them.
 struct PersonFacts: View {
     let group: FactGroup
     let model: TodayModel
@@ -205,7 +202,6 @@ struct PersonFacts: View {
     }
 }
 
-/// What the last action did, and the way back.
 struct UndoBar: View {
     let undo: TodayModel.Undo
     let model: TodayModel
@@ -221,7 +217,6 @@ struct UndoBar: View {
     }
 }
 
-/// Yesterday's brief, folded.
 private struct YesterdayBrief: View {
     let brief: MorningBrief
 

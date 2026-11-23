@@ -38,7 +38,6 @@ struct ItemChecklist: View {
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: model.open.map(\.id))
     }
 
-    /// Sections with most open items first.
     private var sections: [String] {
         Dictionary(model.open.map { ($0[field], 1) }, uniquingKeysWith: +)
             .sorted { ($0.value, $1.key) > ($1.value, $0.key) }.map(\.key)

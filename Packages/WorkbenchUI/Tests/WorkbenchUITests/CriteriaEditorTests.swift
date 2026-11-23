@@ -5,7 +5,6 @@ import WorkbenchCore
 
 @testable import WorkbenchUI
 
-/// A thesis with a number rule, a must, a deal-breaker, a plus and a minus, and deals read under it.
 enum VCFixture {
     static let employees = Rule(
         id: "r_emp", role: .plus,
@@ -21,8 +20,6 @@ enum VCFixture {
         id: "r_team", role: .plus, test: .text(TextTest(says: "The founders worked in the sector before", wants: true)))
     static let thesis = Criteria(rules: [india, mrr, gambling, employees, team])
 
-    /// What the model's readings of one deal look like in an item: an answer and its quote for each rule given. A
-    /// rule of words also gets a reason.
     static func reading(_ answers: [(rule: Rule, answer: String, quote: String)]) -> [String: String] {
         var fields = ["company": "Acme"]
         for (rule, answer, quote) in answers {
@@ -91,7 +88,6 @@ enum VCFixture {
         return (store, crew, try #require(crew.helper(id: id)))
     }
 
-    /// Stores one deal as a reading of the machine would, under a real run.
     private func read(_ fields: [String: String], by intake: HelperModel, in store: Store) async throws {
         let (_, run) = try await RecordedModel(ScriptedModel("{}"), store: store)
             .generate(

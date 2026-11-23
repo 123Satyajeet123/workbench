@@ -1,8 +1,6 @@
 import SwiftUI
 import WorkbenchCore
 
-/// Reading through the day: new lines once an hour inside the reading hours, and an alert for new items the spec
-/// marks bad.
 struct WatchRow: View {
     let model: HelperModel
     @Environment(ModelSettings.self) private var models
@@ -31,7 +29,6 @@ struct WatchRow: View {
     }
 }
 
-/// The once-a-day nudge: on or off, and its time.
 struct NudgeRow: View {
     let model: HelperModel
     @Environment(ModelSettings.self) private var models

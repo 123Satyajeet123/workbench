@@ -80,7 +80,6 @@ final class CaptureSettings {
 
     var call: Recording? { service.call }
 
-    /// A background write or delete that failed, in plain words.
     var backgroundProblem: String? { service.problem }
 
     func recordings(since start: Date) -> [Recording] {
@@ -233,7 +232,6 @@ struct CaptureSource: Identifiable {
     ]
 }
 
-/// An app (by bundle ID) or a website (by domain) that screen capture never keeps.
 struct DeniedPlace: Identifiable, Equatable {
     let label: String
     let name: String
@@ -264,7 +262,6 @@ struct DeniedPlace: Identifiable, Equatable {
     }
 }
 
-/// One kept window or file change from today, as the founder sees it.
 struct CaptureLogEntry: Identifiable, Equatable {
     let activity: Activity
     let id: Int64

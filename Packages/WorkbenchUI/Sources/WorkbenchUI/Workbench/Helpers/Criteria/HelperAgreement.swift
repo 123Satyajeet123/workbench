@@ -17,7 +17,6 @@ final class HelperAgreement {
         load()
     }
 
-    /// The held-out agreement under the criteria as saved now.
     var report: AgreementReport { AgreementReport(deals: deals, criteria: context.spec.criteria ?? Criteria()) }
 
     /// Deals with no reading, or read before a rule changed: what "Read" will send to the model.
@@ -37,7 +36,6 @@ final class HelperAgreement {
         save()
     }
 
-    /// Reads each waiting deal with the chosen model; each reading is kept as it arrives.
     func read() async {
         guard !isReading, !waiting.isEmpty else { return }
         isReading = true

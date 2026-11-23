@@ -49,7 +49,6 @@ struct AgreementReportView: View {
     }
 }
 
-/// Your call down the side, the machine's call across the top.
 struct ConfusionGrid: View {
     let report: AgreementReport
 

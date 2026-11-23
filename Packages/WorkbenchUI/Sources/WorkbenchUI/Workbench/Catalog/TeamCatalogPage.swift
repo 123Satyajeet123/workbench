@@ -2,7 +2,6 @@ import AppKit
 import SwiftUI
 import WorkbenchCore
 
-/// What teammates shared: their days of items, and their machines with each one's record and a way to make it yours.
 struct TeamCatalogPage: View {
     let open: (SidebarSelection) -> Void
     @Environment(TeamCatalogModel.self) private var catalog
@@ -45,7 +44,6 @@ struct TeamCatalogPage: View {
     }
 }
 
-/// One teammate's day from one machine: each item with its quote and the teammate's mark.
 private struct SharedDayCard: View {
     let day: SharedDay
 
@@ -71,7 +69,6 @@ private struct SharedDayCard: View {
     }
 }
 
-/// Machines anyone shared in the public folder, each with who reviewed its current version.
 private struct PublicSection: View {
     let open: (SidebarSelection) -> Void
     @Environment(TeamCatalogModel.self) private var catalog
@@ -170,7 +167,6 @@ private struct SharedCard: View {
     }
 }
 
-/// Chooses the folder the team syncs.
 struct FolderButton: View {
     @Environment(TeamCatalogModel.self) private var catalog
 

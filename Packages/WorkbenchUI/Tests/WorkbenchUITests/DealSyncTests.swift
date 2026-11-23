@@ -29,7 +29,6 @@ import WorkbenchCore
         let (asha, ashaCatalog, ashaStore) = try mac("Asha", teammate: "Kabir", folder: folder)
         formTeam(founder: kabirCatalog, others: [ashaCatalog])
 
-        // Pip on Kabir's Mac reads the team group, where Asha is linked as a member; the timeline reads his screen.
         let capture = try CaptureService(store: kabirStore)
         let source = try WhatsAppSource(
             store: kabirStore, capture: capture, task: HelperSpec.team.task, founder: { "Kabir" },

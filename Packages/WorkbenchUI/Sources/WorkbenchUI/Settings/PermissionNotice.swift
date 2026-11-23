@@ -1,7 +1,6 @@
 import AppKit
 import SwiftUI
 
-/// One line saying macOS has not allowed something, with a button to the pane that allows it.
 struct PermissionNotice: View {
     let message: String
     /// The pane of Privacy & Security, such as `Privacy_Calendars`.

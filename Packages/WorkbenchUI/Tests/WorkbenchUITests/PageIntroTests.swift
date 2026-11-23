@@ -2,7 +2,6 @@ import Testing
 
 @testable import WorkbenchUI
 
-/// Each sidebar page explains itself until the person closes the note, and the ⓘ brings it back.
 struct PageIntroTests {
     @Test func aClosedNoteStaysClosedAcrossLaunchesAndOpensAgain() throws {
         var dismissed = DismissedIntros()

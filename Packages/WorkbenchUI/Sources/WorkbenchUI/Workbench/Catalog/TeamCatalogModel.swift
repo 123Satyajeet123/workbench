@@ -10,7 +10,6 @@ import WorkbenchCore
 /// plain: anyone may read it.
 @Observable
 final class TeamCatalogModel {
-    /// A share held back: the teammates who cannot read the source, and the group members they might be.
     struct Refusal: Equatable {
         let task: String
         let missing: [Team.Person]
@@ -59,7 +58,6 @@ final class TeamCatalogModel {
     /// Days teammates shared with this person. The receiving side checks the audience again.
     var teammatesDays: [SharedDay] { days.filter { $0.author != me && $0.isVisible(to: me) } }
 
-    /// Other people's machines in the public folder.
     var publicMachines: [SharedMachine] { published.filter { $0.author != me } }
 
     func folder(for place: Place) -> URL? { place == .team ? folder : publicFolder }

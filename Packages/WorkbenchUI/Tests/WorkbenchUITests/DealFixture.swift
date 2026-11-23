@@ -34,7 +34,6 @@ final class DealFixture {
         sentinel = try store.createMachine(from: watch, template: HelperSpec.derailment.task, name: "Sentinel")
     }
 
-    /// A claims model over this store with no real model, search or deck: the tests give each one.
     func makeClaims(
         model: (any StructuredModel)? = nil, openSession: (() throws -> WebSession)? = nil,
         deckParts: @escaping (WorkObject) throws -> [MailPart] = { _ in [] }
@@ -47,7 +46,6 @@ final class DealFixture {
             evidence: { try deckParts($0).compactMap(\.evidence) })
     }
 
-    /// A deal made from an intake item the criteria rate from `reading`, captured from `source`.
     @discardableResult
     func deal(
         _ company: String, reading: [String: String], source: SourceKind = .screenText, mark: Mark? = nil

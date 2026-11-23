@@ -1,7 +1,6 @@
 import Foundation
 import WorkbenchCore
 
-/// When a helper's nudge fires: once a work day, at the founder's time.
 struct NudgeSchedule: Codable, Equatable {
     var isOn = false
     var hour = 21
@@ -22,7 +21,6 @@ struct NudgeSchedule: Codable, Equatable {
     }
 }
 
-/// When a machine reads new lines by itself through the day: every so many minutes, inside the founder's hours.
 struct WatchSchedule: Codable, Equatable {
     var isOn = false
     var everyMinutes = 60

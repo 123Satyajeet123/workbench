@@ -1,8 +1,6 @@
 import SwiftUI
 import WorkbenchCore
 
-/// The investor's thesis: the rules, how they combine into hot, warm or cold, and what an unsaved edit would do to
-/// the deals already read. Saving is a new prompt version, like a brief edit.
 struct CriteriaSection: View {
     let helper: HelperModel
     @Environment(Crew.self) private var crew
@@ -22,7 +20,6 @@ struct CriteriaSection: View {
     }
 }
 
-/// The editor itself, apart from its fold, so a picture can show it open.
 struct CriteriaBody: View {
     let model: CriteriaModel
     let save: () -> Void
@@ -76,7 +73,6 @@ private struct RuleRow: View {
     }
 }
 
-/// The table `Criteria.combine` follows, in words, with the one number the investor sets.
 private struct CombineTable: View {
     let model: CriteriaModel
 
@@ -94,7 +90,6 @@ private struct CombineTable: View {
     }
 }
 
-/// What the unsaved edit changes among the deals already read: counted in code, with no model call.
 struct PreviewNote: View {
     let preview: CriteriaPreview
     let isChanged: Bool

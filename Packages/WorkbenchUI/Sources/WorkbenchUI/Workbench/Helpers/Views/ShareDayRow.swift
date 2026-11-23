@@ -29,7 +29,6 @@ struct ShareDayRow: View {
     }
 }
 
-/// Why a share was held back, and for a group, a way to say who each teammate is in it.
 struct RefusalCard: View {
     let model: HelperModel
     let refusal: TeamCatalogModel.Refusal

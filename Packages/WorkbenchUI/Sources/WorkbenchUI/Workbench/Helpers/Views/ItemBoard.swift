@@ -1,8 +1,6 @@
 import SwiftUI
 import WorkbenchCore
 
-/// One section per value of a field. Every name the helper expects is shown, with a note when it has no item.
-/// The items grouped by person: everyone with items first, then one line naming everyone the day has none from.
 struct ItemBoard: View {
     let model: HelperModel
     let field: String

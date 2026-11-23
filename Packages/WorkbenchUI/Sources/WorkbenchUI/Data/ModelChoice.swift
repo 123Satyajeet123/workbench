@@ -3,7 +3,6 @@ import Foundation
 import Observation
 import WorkbenchCore
 
-/// Which agent CLI and model reads for Workbench. The founder picks it; the Runs page compares the picks.
 struct ModelChoice: Codable, Hashable, Identifiable {
     var kind: AgentCLIKind
     var model: String
@@ -81,7 +80,6 @@ enum Billing: String, CaseIterable, Identifiable {
     func save(to store: Store) throws { try Self.stateKey.save(self, to: store) }
 }
 
-/// The founder's model pick, shared by every helper. The store holds it; a helper reads it when it starts a read.
 @Observable
 final class ModelSettings {
     var choice: ModelChoice {

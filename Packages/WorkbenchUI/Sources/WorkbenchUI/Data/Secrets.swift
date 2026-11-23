@@ -12,7 +12,6 @@ protocol SecretStore: Sendable {
     func remove(_ name: String) throws
 }
 
-/// The macOS Keychain, as a generic password of this app.
 struct KeychainSecrets: SecretStore {
     struct Failure: LocalizedError {
         let status: OSStatus

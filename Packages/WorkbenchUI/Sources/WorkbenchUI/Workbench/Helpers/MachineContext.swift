@@ -3,11 +3,8 @@ import Foundation
 import Observation
 import WorkbenchCore
 
-/// What the parts of one machine's model share: its record, its source, the shown day, the store and the one problem
-/// slot. Reading, improvement and the schedule each take it, so none of them needs another.
 @Observable
 final class MachineContext {
-    /// The record this model shows: its name, spec and state change when the founder renames, edits or pauses it.
     private(set) var machine: Machine
     private(set) var day: WorkDay
     let problems = ProblemSlot()
@@ -18,7 +15,6 @@ final class MachineContext {
     @ObservationIgnored let makeModel: (ModelChoice) -> RecordedModel
     /// Called after a read or a mark changed this machine's items, so the review queue can follow.
     @ObservationIgnored var itemsChanged: () -> Void = {}
-    /// Called when what the model loaded for the shown day is out of date.
     @ObservationIgnored var reload: () -> Void = {}
 
     init(
@@ -53,7 +49,6 @@ final class MachineContext {
         return found
     }
 
-    /// Names in the nudge's set with no item that day.
     func missing(on day: WorkDay) -> [String] {
         guard let nudge = spec.nudge else { return [] }
         let named = Set(items(on: day).map { $0[nudge.field] })

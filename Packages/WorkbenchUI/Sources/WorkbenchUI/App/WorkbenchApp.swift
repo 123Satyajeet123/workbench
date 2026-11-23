@@ -63,7 +63,6 @@ public struct WorkbenchApp: App {
 }
 
 extension View {
-    /// Puts every model of the session in the environment.
     func environment(_ session: AppSession) -> some View {
         environment(session.onboarding)
             .environment(session.capture)

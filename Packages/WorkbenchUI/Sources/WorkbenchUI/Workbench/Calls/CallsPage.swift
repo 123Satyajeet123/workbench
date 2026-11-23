@@ -1,7 +1,6 @@
 import SwiftUI
 import WorkbenchCore
 
-/// The calls helper: the calls recorded on this Mac in the last week, newest first, each saved or failed with its reason.
 struct CallsPage: View {
     private static let days = 7
 

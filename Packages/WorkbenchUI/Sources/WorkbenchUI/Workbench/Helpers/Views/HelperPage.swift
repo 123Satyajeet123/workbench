@@ -1,7 +1,6 @@
 import SwiftUI
 import WorkbenchCore
 
-/// A machine's page: its face and name, the day, and the machine's content.
 struct HelperPage: View {
     let model: HelperModel
 
@@ -31,7 +30,6 @@ extension HelperModel {
         return nil
     }
 
-    /// What the machine reads, for a card that says it in one line.
     var reads: String {
         chosenSource ?? (source is ScreenSource ? "Your screen windows" : "Nothing chosen yet")
     }

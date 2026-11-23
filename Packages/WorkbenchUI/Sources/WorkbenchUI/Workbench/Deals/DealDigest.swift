@@ -1,7 +1,6 @@
 import Foundation
 import WorkbenchCore
 
-/// A machine that touched a deal, with what the strip needs to say about it.
 struct StripMachine: Equatable {
     var machine: Machine
     var watch: WatchSchedule
@@ -13,7 +12,6 @@ struct StripMachine: Equatable {
 /// no model is called.
 struct DealDigest: Equatable {
     var triage: Triage?
-    /// The action the deal waits for, while it is open.
     var action: Item?
     var story: DealStory
     var machines: [StripMachine]
@@ -24,7 +22,6 @@ struct DealDigest: Equatable {
     var revisit: Item?
 }
 
-/// Builds the digest of a deal for one person.
 struct DealDigestReader {
     let store: Store
     let me: String

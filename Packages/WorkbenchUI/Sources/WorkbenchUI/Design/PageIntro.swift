@@ -22,7 +22,6 @@ struct DismissedIntros: RawRepresentable, Equatable {
     mutating func restore(_ page: SidebarSelection) { pages.remove(page.rawValue) }
 }
 
-/// A page's introduction: what the page is for, in a quiet callout under its title, with a cross to close it.
 struct PageIntroCallout: View {
     let text: String
     let dismiss: () -> Void
@@ -43,7 +42,6 @@ struct PageIntroCallout: View {
     }
 }
 
-/// The ⓘ beside a page's title once its introduction is closed: it shows the introduction again.
 struct PageIntroButton: View {
     let show: () -> Void
 

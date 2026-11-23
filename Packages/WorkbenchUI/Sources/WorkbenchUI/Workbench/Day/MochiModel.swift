@@ -7,14 +7,12 @@ import WorkbenchCore
 /// builds the ones the founder accepts. Held-out days are never read here, so they stay fit to judge a machine later.
 @Observable
 final class MochiModel {
-    /// How far back Mochi reads.
     static let days = 14
 
     private(set) var proposals: [Proposal] = []
     private(set) var trainingDays = 0
     private(set) var phase = ReadPhase.idle
     private(set) var problem: String?
-    /// The latest morning brief.
     private(set) var brief: MorningBrief?
     private(set) var briefPhase = ReadPhase.idle
     private static let briefKey = StateKey<MorningBrief>.json("mochi.brief")
@@ -76,7 +74,6 @@ final class MochiModel {
         }
     }
 
-    /// The blocks a proposal cites, for its evidence chips.
     func evidence(_ proposal: Proposal) -> [Item] {
         let cited = Set(proposal.evidence)
         return ((try? blocks()) ?? []).filter { $0.id.map(cited.contains) == true }

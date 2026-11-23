@@ -25,7 +25,6 @@ final class TeamModel {
         reload()
     }
 
-    /// The founder first, from their name, then the people they added.
     func reload() {
         do {
             team = try store?.queries.team() ?? Team(name: "", people: [])

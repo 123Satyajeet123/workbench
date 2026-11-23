@@ -4,9 +4,7 @@ import SwiftUI
 /// Where macOS put the window's close, minimise and zoom buttons, measured from the window's top left corner, so a row
 /// beside them can line up with them exactly.
 struct WindowButtons: Equatable {
-    /// The buttons' vertical centre.
     var center: CGFloat
-    /// The right edge of the zoom button.
     var trailing: CGFloat
 
     /// Where they sit in a unified title bar, until the window is measured.

@@ -5,7 +5,6 @@ import WorkbenchCore
 /// Asking the team's memory: the founder's machines' items and the deals' notes and items they may read.
 @Observable
 final class MemoryModel {
-    /// How far back a machine's items are searched.
     static let days = 90
 
     private(set) var answer: Asker.Answer?

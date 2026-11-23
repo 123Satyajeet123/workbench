@@ -47,12 +47,10 @@ struct ItemRow: View {
         return "Hidden from Today"
     }
 
-    /// The badge fields that have a value here, leaving out the field the section already names.
     private var badgeFields: [String] {
         model.spec.badges.filter { $0 != grouping && !item[$0].isEmpty }
     }
 
-    /// The value of the first field whose values carry a tone, and that tone.
     private var toned: (String, HelperSpec.Tone)? {
         for field in model.spec.fields {
             if let tone = model.spec.tones[item[field.name]] { return (item[field.name], tone) }

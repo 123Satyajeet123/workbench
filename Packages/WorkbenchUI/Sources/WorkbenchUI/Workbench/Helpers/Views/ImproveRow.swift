@@ -41,7 +41,6 @@ struct ImproveRow: View {
     }
 }
 
-/// The machine's last decisions: trials, switches, rejections, rollbacks.
 struct DecisionHistory: View {
     let model: HelperModel
 

@@ -3,14 +3,12 @@ import LocalSources
 import Observation
 import WorkbenchCore
 
-/// What the founder can do with a fact line. A summary line acts on the facts it cites.
 enum FactChoice: Equatable {
     case done, notRelevant, wrong
     case snooze(until: WorkDay)
     case handOff(to: String)
 }
 
-/// A line of the chat a fact came from.
 struct ChatLine: Identifiable, Equatable {
     var id: Int64
     var time: Date?
@@ -26,7 +24,6 @@ struct ChatLine: Identifiable, Equatable {
     }
 }
 
-/// One summary line with the facts it cites that are still listed.
 struct SummaryRow: Identifiable {
     var summary: Summary
     var line: Summary.Line
@@ -44,7 +41,6 @@ struct SummaryRow: Identifiable {
 final class TodayModel {
     private static let firstRunKey = StateKey<String>.text("morning.firstrun")
 
-    /// How many days People and Projects reach back.
     static let days = 7
 
     struct Undo: Equatable {
@@ -220,7 +216,6 @@ final class TodayModel {
         field.map { FactGroups.make(facts, by: $0, lifecycle: lifecycle, now: now) } ?? []
     }
 
-    /// One row per scope that has a short line with a fact still listed.
     private func rows(
         _ field: String?, of machine: Machine, day: WorkDay, listed: [Item], groups: [FactGroup], countsOpen: Bool
     ) throws -> [SummaryRow] {
@@ -280,7 +275,6 @@ final class TodayModel {
         }
     }
 
-    /// The line a fact or finding shows: the title field of the machine that found it.
     func title(of item: Item) -> String {
         if NewsSignals.owns(item.task) { return item[NewsSignals.headlineField] }
         let field = crew.machines.first { $0.spec.task == item.task }?.spec.title
@@ -380,7 +374,6 @@ final class TodayModel {
         return ChatLine.around(item, in: try await helper.source.evidence(on: item.day).lines, reach: Int64(reach))
     }
 
-    /// The machines' own pages read the same rows, so they follow an action too.
     private func reloadMachines() {
         for helper in crew.machines { helper.reload() }
         crew.machines.first?.itemsChanged()

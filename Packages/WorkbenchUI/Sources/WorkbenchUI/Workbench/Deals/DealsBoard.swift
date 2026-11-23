@@ -1,7 +1,6 @@
 import SwiftUI
 import WorkbenchCore
 
-/// One column of the board. A card moves by drag or from its menu.
 struct StageColumn: View {
     let column: ObjectBoard.Column
     @Binding var open: String?
@@ -42,7 +41,6 @@ struct StageColumn: View {
     }
 }
 
-/// A deal on the board: its class, owner, open action and capture ribbon.
 struct DealCard: View {
     let deal: WorkObject
     let digest: DealDigest?
@@ -87,7 +85,6 @@ struct RevisitLine: View {
     }
 }
 
-/// What the deal waits for and by when. A due date that has passed shows as a warning.
 struct ActionLine: View {
     let action: Item
 

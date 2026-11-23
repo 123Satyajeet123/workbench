@@ -9,7 +9,6 @@ struct VersionAlarm {
     let notifications: Notifications
     let problems: ProblemSlot
 
-    /// Checks the machine's latest version; `revert` puts a machine back on an earlier version.
     func check(_ helper: HelperModel, revert: (HelperModel, HelperModel.Version) -> Void) {
         guard let decisions = try? store.queries.decisions(of: helper.spec.task) else { return }
         guard let switched = decisions.first, switched.kind == .promote,

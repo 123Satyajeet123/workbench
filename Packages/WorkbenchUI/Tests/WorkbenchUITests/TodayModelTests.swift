@@ -5,7 +5,6 @@ import WorkbenchCore
 
 @testable import WorkbenchUI
 
-/// Today over a scratch store holding TodaySample's day: facts 1 to 7 and Sentinel's finding 8.
 @Suite struct TodayModelTests {
     private let noon: Date = {
         Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: Date(timeIntervalSince1970: 1_790_000_000))!

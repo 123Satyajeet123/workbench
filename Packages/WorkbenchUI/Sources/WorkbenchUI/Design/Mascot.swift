@@ -128,7 +128,6 @@ struct Mascot: View {
 }
 
 extension Mascot {
-    /// A small sign for the moods that need the founder: a question, a problem.
     fileprivate var badge: (String, Color)? {
         switch mood {
         case .asking: ("?", Tone.attention.color)

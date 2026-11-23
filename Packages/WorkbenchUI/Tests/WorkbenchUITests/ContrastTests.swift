@@ -41,7 +41,6 @@ struct ContrastTests {
 
     private static let appearances: [NSAppearance.Name] = [.aqua, .darkAqua]
 
-    /// The surfaces text sits on, by name: the plain ones, and the sidebar under a hovered or selected row.
     private static func surfaces(_ name: NSAppearance.Name) -> [(String, RGB)] {
         let sidebar = resolve(Palette.sidebar, name).rgb
         return [

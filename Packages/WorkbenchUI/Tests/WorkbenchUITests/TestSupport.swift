@@ -59,7 +59,6 @@ extension OnboardingModel {
     }
 }
 
-/// Records each notification instead of showing it.
 final class FakeNotifier: Notifier {
     var access = SystemAccess.allowed
     var posted: [(title: String, body: String, page: SidebarSelection)] = []
@@ -68,7 +67,6 @@ final class FakeNotifier: Notifier {
     func post(title: String, body: String, page: SidebarSelection) async throws { posted.append((title, body, page)) }
 }
 
-/// A clock a test can move.
 nonisolated final class TestClock: Sendable {
     private let value: Mutex<Date>
     init(_ start: Date) { value = Mutex(start) }
@@ -77,7 +75,6 @@ nonisolated final class TestClock: Sendable {
 }
 
 extension Machine {
-    /// A machine record for a model under test, as the store would hand it out.
     static func test(_ spec: HelperSpec, _ name: String, id: Int64 = 0) -> Machine {
         Machine(id: id, name: name, template: spec.task, spec: spec, state: .active)
     }
@@ -86,7 +83,6 @@ extension Machine {
 let teamJID = "120300000000000001@g.us"
 let familyJID = "120300000000000002@g.us"
 
-/// A WhatsApp container with a team group (Asha, Bharat) and a family group, and three team messages at `at`.
 func whatsApp(at date: Date) throws -> URL {
     let folder = FileManager.default.temporaryDirectory.appending(path: "wa-ui-\(UUID().uuidString)")
     try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -117,7 +113,6 @@ func whatsApp(at date: Date) throws -> URL {
     return folder
 }
 
-/// A reply type for model calls whose content a test does not read.
 nonisolated struct Nothing: Decodable, Sendable {}
 
 /// Answers with the reply whose key its instructions contain, so each brief or task reads differently. Replies can be

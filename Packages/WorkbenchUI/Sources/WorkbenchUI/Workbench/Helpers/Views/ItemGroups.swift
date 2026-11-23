@@ -1,7 +1,6 @@
 import SwiftUI
 import WorkbenchCore
 
-/// One section per value of a choice field, in the choice's order, then any other value an item gives.
 struct ItemGroups: View {
     let model: HelperModel
     let field: String

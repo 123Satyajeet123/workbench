@@ -1,17 +1,12 @@
 import SwiftUI
 
-/// The main window, laid out as Notion's: a flush sidebar, a thin line, and the open page. The title bar is a clear
-/// strip over both; the sidebar toggle sits in it just right of the window's buttons, in the same place whether the
-/// sidebar is shown or hidden.
 struct WorkbenchView: View {
     static let minimumSize = CGSize(width: 900, height: 600)
     static let idealSize = CGSize(width: 1160, height: 780)
-    /// The sidebar's width at actual size; zoom scales it.
     static let sidebarWidth: CGFloat = 240
 
     @SceneStorage("selection") private var selection = SidebarSelection.day
     @SceneStorage("sidebarShown") private var isSidebarShown = true
-    /// Where macOS put the window's buttons; the top row is centred on them and the toggle starts just after them.
     @State private var buttons = WindowButtons.unified
     @Environment(Crew.self) private var crew
     @Environment(Navigation.self) private var navigation
@@ -71,11 +66,8 @@ struct WorkbenchView: View {
         }
     }
 
-    /// The toggle starts just after the zoom button; its own padding makes the gap.
     private var toggleLeading: CGFloat { buttons.trailing + Space.xs }
 
-    /// The strip above the page, in the title bar: it moves the window, and holds the toggle while the sidebar is
-    /// hidden.
     private func topRow(height: CGFloat) -> some View {
         HStack(spacing: 0) {
             if !isSidebarShown {

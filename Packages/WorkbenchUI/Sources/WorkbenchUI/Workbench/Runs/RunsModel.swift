@@ -2,7 +2,6 @@ import Foundation
 import Observation
 import WorkbenchCore
 
-/// Every model call and what it cost, and how well each prompt on each model did by the founder's marks.
 @Observable
 final class RunsModel {
     struct Meter: Equatable {

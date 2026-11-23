@@ -6,7 +6,6 @@ import WorkbenchCore
 
 @testable import WorkbenchUI
 
-/// Pip as the fact machine: typed facts with a project that stays the same across readings, opened and closed over days.
 @Suite struct FactMachineTests {
     private let noon: Date = {
         Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: Date(timeIntervalSince1970: 1_790_000_000))!

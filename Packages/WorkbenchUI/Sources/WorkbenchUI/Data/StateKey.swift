@@ -30,7 +30,6 @@ struct StateKey<Value> {
 }
 
 extension StateKey where Value: Codable {
-    /// A value kept as JSON.
     static func json(_ name: String) -> Self {
         StateKey(
             name: name,
@@ -54,14 +53,12 @@ extension StateKey where Value == Date {
 }
 
 extension StateKey where Value == WorkDay {
-    /// A work day kept as yyyy-MM-dd.
     static func day(_ name: String) -> Self {
         StateKey(name: name, write: \.description, read: { WorkDay($0) })
     }
 }
 
 extension StateKey where Value == Bool {
-    /// A switch kept as "on" or "off".
     static func onOff(_ name: String) -> Self {
         StateKey(name: name, write: { $0 ? "on" : "off" }, read: { $0 == "on" })
     }

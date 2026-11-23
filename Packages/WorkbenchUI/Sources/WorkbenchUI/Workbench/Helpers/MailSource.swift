@@ -9,7 +9,6 @@ import WorkbenchCore
 final class MailSource: MachineSource {
     static let defaultLabel = "Deals"
 
-    /// The day's parts of the named labels, and how many were past the budget, as last refreshed.
     private(set) var mailReading: (parts: [MailPart], leftOut: Int) = ([], 0)
     /// Threads of the named labels opened on the day, as last refreshed. Threads never opened cannot be known.
     private(set) var threadsOpened = 0

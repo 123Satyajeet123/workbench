@@ -6,7 +6,6 @@ import WorkbenchCore
 
 @testable import WorkbenchUI
 
-/// Answers a summary call with the sample's reply for its field, counts the calls, and can refuse them.
 private final class SummaryModel: StructuredModel, Sendable {
     struct Refused: Error {}
 
@@ -30,7 +29,6 @@ private final class SummaryModel: StructuredModel, Sendable {
     }
 }
 
-/// Today over facts no reading summarized: the scratch store holds TodaySample's day, by default without summaries.
 @Suite struct TodaySummariesTests {
     private struct Setup {
         let crew: Crew
@@ -110,7 +108,6 @@ private final class SummaryModel: StructuredModel, Sendable {
     }
 }
 
-/// The founder's Pip may still be on its first design, before facts opened and closed. Today lists its facts anyway.
 @Suite struct TodayOldDesignTests {
     @Test func aFactMachineWithNoLifecycleStillFillsTodayWithItsFacts() async throws {
         let noon = Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: .now)!

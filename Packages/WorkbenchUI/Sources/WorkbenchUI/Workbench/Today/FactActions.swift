@@ -5,7 +5,6 @@ import WorkbenchCore
 /// one is a mark or an event that Undo takes back.
 struct FactActions: View {
     let items: [Item]
-    /// What the undo bar says after the action: the line, shortened.
     let summary: String
     let model: TodayModel
 

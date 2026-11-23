@@ -17,7 +17,6 @@ final class Reminders {
     private static let settingsKey = StateKey<Settings>.json("reminders")
     private static let digestKey = StateKey<String>.text("reminders.digest.sent")
     private static let mochiKey = StateKey<Date>.moment("reminders.mochi.ran")
-    /// Mochi runs once a week, in the evening.
     static let mochiHour = 18
     static let week: TimeInterval = 7 * 86_400
 

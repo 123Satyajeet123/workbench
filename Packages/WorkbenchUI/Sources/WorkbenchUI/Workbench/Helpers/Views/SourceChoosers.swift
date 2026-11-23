@@ -2,7 +2,6 @@ import LocalSources
 import SwiftUI
 import WorkbenchCore
 
-/// The setup a machine needs before it can read, by the kind of source it has.
 struct SourceChooser: View {
     let model: HelperModel
 

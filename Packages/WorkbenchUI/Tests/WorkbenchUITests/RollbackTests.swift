@@ -5,7 +5,6 @@ import WorkbenchCore
 
 @testable import WorkbenchUI
 
-/// After a switch, the new brief's held-out audit answers decide whether the machine rolls back by itself.
 @Suite struct RollbackTests {
     private struct Setup {
         let store: Store
@@ -27,7 +26,6 @@ import WorkbenchCore
         return Setup(store: store, crew: crew, timeline: try #require(crew.timeline), notifier: notifier, clock: clock)
     }
 
-    /// Switches the timeline from its brief to "New brief", as the founder's Switch button logs it.
     private func switchBrief(_ s: Setup) {
         let parent = s.timeline.spec.brief
         s.crew.edit(s.timeline, brief: "New brief")
@@ -37,7 +35,6 @@ import WorkbenchCore
                 parentBrief: parent))
     }
 
-    /// One reading of `day` whose item is the audit pick, then the founder's answer to it.
     private func audit(_ s: Setup, on day: WorkDay, wrong: Bool) async throws {
         answer(s, try await read(s, on: day), wrong: wrong)
     }
@@ -48,7 +45,6 @@ import WorkbenchCore
         s.timeline.mark(item, as: wrong ? .rejected : .confirmed)
     }
 
-    /// One reading of `day` whose single item is the audit pick.
     private func read(_ s: Setup, on day: WorkDay) async throws -> Item {
         s.clock.set(s.clock.now.addingTimeInterval(60))
         let model = RecordedModel(ScriptedModel(#"{"items":[]}"#), store: s.store)

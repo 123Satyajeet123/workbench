@@ -1,7 +1,6 @@
 import SwiftUI
 import WorkbenchCore
 
-/// One small line above a machine's items: the read button, what the last reading did, and the view picker.
 struct ReadBar: View {
     let model: HelperModel
 
@@ -29,7 +28,6 @@ struct ReadBar: View {
     }
 }
 
-/// What the day's source holds and what reading sends, with the switches the source needs.
 struct ReadNote: View {
     let model: HelperModel
     @Environment(ModelSettings.self) private var models
