@@ -37,6 +37,7 @@ extension SourceKind {
     public var words: String {
         switch self {
         case .whatsapp: "WhatsApp"
+        case .telegram: "Telegram"
         case .mail: "Mail"
         case .call: "Call"
         case .calendar: "Calendar"
