@@ -1,10 +1,10 @@
 import SwiftUI
 
 enum SettingsSection: String, CaseIterable, Hashable {
-    case general, appearance, notifications, capture, webResearch, startup
+    case general, appearance, notch, notifications, capture, webResearch, startup
 
     static let groups: [(title: String?, sections: [SettingsSection])] = [
-        (nil, [.general, .appearance, .notifications]),
+        (nil, [.general, .appearance, .notch, .notifications]),
         ("This computer", [.capture, .webResearch, .startup]),
     ]
 
@@ -12,6 +12,7 @@ enum SettingsSection: String, CaseIterable, Hashable {
         switch self {
         case .general: "General"
         case .appearance: "Appearance"
+        case .notch: "Notch"
         case .notifications: "Notifications"
         case .capture: "Capture"
         case .webResearch: "Web research"
@@ -23,6 +24,7 @@ enum SettingsSection: String, CaseIterable, Hashable {
         switch self {
         case .general: "gearshape"
         case .appearance: "paintpalette"
+        case .notch: "rectangle.topthird.inset.filled"
         case .notifications: "bell"
         case .capture: "eye"
         case .webResearch: "globe"
@@ -125,6 +127,10 @@ struct SettingsItem {
         SettingsItem(title: "Model", section: .general, words: "read with claude opus sonnet codex ai"),
         SettingsItem(title: "Billing and API key", section: .general, words: "bill to plan anthropic api key pay"),
         SettingsItem(title: "Theme", section: .appearance, words: "appearance dark mode light system colour color"),
+        SettingsItem(
+            title: "Show in the notch", section: .notch,
+            words: "island top screen camera recording reading review queue hide"),
+        SettingsItem(title: "When nothing is happening", section: .notch, words: "idle claude plan ring usage"),
         SettingsItem(
             title: "Reminders", section: .notifications, words: "digest morning brief notifications weekly mochi"),
         SettingsItem(title: "Open at login", section: .startup, words: "startup login launch start"),
