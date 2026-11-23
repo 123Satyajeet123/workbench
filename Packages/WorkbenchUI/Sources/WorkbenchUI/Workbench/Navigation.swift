@@ -5,13 +5,13 @@ import Observation
 @Observable
 final class Navigation {
     var requested: SidebarSelection?
-    /// The fact the person chose in the menu bar. Today opens it in the inspector.
+    /// The fact the person chose in the menu bar. Mochi's page opens it in the inspector.
     var requestedFact: Int64?
     var settingsSection = SettingsSection.general
 
-    /// Opens Today with `fact` in the inspector.
+    /// Opens Mochi's page with `fact` in the inspector.
     func show(fact: Int64) {
-        requested = .day
+        requested = .mochi
         requestedFact = fact
     }
 

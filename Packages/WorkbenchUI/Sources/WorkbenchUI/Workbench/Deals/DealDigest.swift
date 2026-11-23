@@ -78,8 +78,7 @@ struct DealDigestReader {
                 ? "Rated \(call.rating.rawValue): no rule pushed it either way"
                 : "Rated \(call.rating.rawValue) by: \(decided.joined(separator: "; "))"
         }
-        return StripMachine(
-            machine: machine, watch: try MachineKey.watch(machine.task).load(from: store) ?? WatchSchedule(), rule: rule
-        )
+        let watch = try MachineKey.watch(machine.task).load(from: store) ?? .standard(for: machine.spec.source)
+        return StripMachine(machine: machine, watch: watch, rule: rule)
     }
 }

@@ -7,6 +7,7 @@ struct ReadBar: View {
     var body: some View {
         HStack(spacing: Space.m) {
             Button(readTitle) { Task { await model.read() } }
+                .buttonStyle(.primary)
                 .disabled(model.phase == .reading || hasNothingToRead || model.isPaused)
             ReadPhaseLabel(phase: model.phase, items: model.spec.itemsNoun, droppedBecause: "not backed by the source")
             Spacer()

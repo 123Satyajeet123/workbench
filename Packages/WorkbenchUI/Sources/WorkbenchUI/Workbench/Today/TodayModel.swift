@@ -4,7 +4,7 @@ import Observation
 import WorkbenchCore
 
 enum FactChoice: Equatable {
-    case done, notRelevant, wrong
+    case done, right, notRelevant, wrong
     case snooze(until: WorkDay)
     case handOff(to: String)
 }
@@ -63,6 +63,8 @@ final class TodayModel {
     private(set) var meetingCards: [MeetingCard] = []
     /// For each revisit on Today, the news about its company since the investor passed.
     private(set) var passedNews: [Int64: [Item]] = [:]
+    /// The follow-ups of the last calls: those still open, and those done in the window.
+    private(set) var callFollowUps: [Item] = []
     private(set) var undoable: Undo?
     /// The bulk "handled" the person just made, which one click takes back.
     private(set) var handledBatch: HandledBatch?
@@ -109,11 +111,12 @@ final class TodayModel {
 
     var isEmpty: Bool {
         sections.isEmpty && team.isEmpty && unsummarized.isEmpty && projects.isEmpty && meetingCards.isEmpty
+            && callFollowUps.isEmpty
     }
 
     /// The lifecycle of each fact Today lists, by task: each fact keeper's own, and the store's typed facts.
     private var lifecycles: [String: HelperSpec.Lifecycle] {
-        HelperSpec.Lifecycle.ofTypedFacts.merging(
+        HelperSpec.Lifecycle.ofFactsWithoutMachine.merging(
             crew.factKeepers.compactMap { helper in helper.spec.lifecycle.map { (helper.spec.task, $0) } }
         ) { typed, _ in typed }
     }
@@ -145,7 +148,8 @@ final class TodayModel {
         let revisits = try store.queries.openRevisits()
         passedNews = try passedNews(of: revisits, now: now)
         let open = try keepers.flatMap { try store.queries.openItems(readBy: $0.spec) }
-        var input = MorningInput(facts: try store.queries.openDealActions() + open, me: me())
+        let openFromCalls = try store.queries.openItems(readBy: .callFollowUps)
+        var input = MorningInput(facts: try store.queries.openDealActions() + openFromCalls + open, me: me())
         input.revisits = revisits
         input.news = try store.queries.newsSignals(since: today.adding(days: 1 - Store.newsRetentionDays))
         input.firedTimers = try store.queries.itemsWithFiredTimers()
@@ -155,6 +159,7 @@ final class TodayModel {
         sections = MorningList.pick(input, now: now)
         backlog = try cutoffOffer(open)
         let since = today.adding(days: 1 - Self.days)
+        callFollowUps = try recentCallFollowUps(open: openFromCalls, since: since, now: now)
         let facts = try keepers.flatMap { machine in
             try recentFacts(of: machine, open: open.filter { $0.task == machine.task }, since: since)
         }
@@ -174,6 +179,15 @@ final class TodayModel {
             try rows($0.spec.labelField, of: $0, day: today, listed: listed, groups: projectGroups, countsOpen: true)
         }
         buildMeetingCards()
+    }
+
+    /// The follow-ups of calls from the window, and every one still open, however old; one dropped is left out.
+    private func recentCallFollowUps(open: [Item], since day: WorkDay, now: Date) throws -> [Item] {
+        let recent = try store.queries.items(of: HelperSpec.callFollowUps.task, since: day)
+        let known = Set(recent.compactMap(\.id))
+        return (open.filter { $0.id.map { !known.contains($0) } ?? false } + recent).filter { item in
+            item.isListed(at: now) && (item.closed == nil || item.closed?.outcome == "done")
+        }
     }
 
     /// The open facts the first list offers to mark as handled: none once the person answered the offer.
@@ -227,6 +241,13 @@ final class TodayModel {
     }
 
     func perform(_ choice: FactChoice, on items: [Item], text: String) {
+        if choice == .right {
+            problems.attempt("save that", clearing: true) {
+                for id in items.compactMap(\.id) { try store.mark(item: id, as: .confirmed) }
+            }
+            reloadMachines()
+            return
+        }
         let plan = plan(for: choice, items)
         guard !plan.isEmpty else { return }
         do {
@@ -276,6 +297,7 @@ final class TodayModel {
 
     func title(of item: Item) -> String {
         if NewsSignals.owns(item.task) { return item[NewsSignals.headlineField] }
+        if item.task == HelperSpec.callFollowUps.task { return item[HelperSpec.callFollowUps.title] }
         let field = crew.helper(task: item.task)?.spec.title
         return field.map { item[$0] } ?? item.quote
     }
@@ -345,6 +367,7 @@ final class TodayModel {
             let name = person.trimmingCharacters(in: .whitespaces)
             return ids.isEmpty || name.isEmpty ? [:] : [.handOff(to: name): ids]
         case .done: return closing(items)
+        case .right: return [:]
         }
     }
 

@@ -106,13 +106,25 @@ struct WhatsAppFixture {
     }
 
     func run(_ sql: String, in file: String = "ChatStorage.sqlite") throws {
+        let db = try open(file)
+        defer { close(db) }
+        try run(sql, on: db)
+    }
+
+    func open(_ file: String = "ChatStorage.sqlite") throws -> OpaquePointer? {
         var db: OpaquePointer?
-        defer { sqlite3_close(db) }
-        let path = container.appending(path: file).path
-        guard sqlite3_open(path, &db) == SQLITE_OK, sqlite3_exec(db, sql, nil, nil, nil) == SQLITE_OK else {
+        guard sqlite3_open(container.appending(path: file).path, &db) == SQLITE_OK else {
+            sqlite3_close(db)
             throw FixtureError()
         }
+        return db
     }
+
+    func run(_ sql: String, on db: OpaquePointer?) throws {
+        guard sqlite3_exec(db, sql, nil, nil, nil) == SQLITE_OK else { throw FixtureError() }
+    }
+
+    func close(_ db: OpaquePointer?) { sqlite3_close(db) }
 
     struct FixtureError: Error {}
 }

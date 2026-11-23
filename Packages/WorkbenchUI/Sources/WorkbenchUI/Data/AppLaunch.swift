@@ -99,16 +99,25 @@ enum AppLaunch {
                     return today.needsCount
                 },
                 notify: {
-                    (try? await notifications.notifySummary(title: $0, body: "Open Today", page: .day)) == true
+                    (try? await notifications.notifySummary(title: $0, body: "Open Today", page: .mochi)) == true
                 })
             let calls = CallNotes(
                 store: store, listener: CallNotes.appleListener(), founder: { identity.identity.name },
-                owner: owner.get, makeModel: makeModel)
+                owner: owner.get, makeModel: makeModel,
+                meetings: { interval in
+                    guard let calendar = profile.calendar else { return nil }
+                    return try? await MeetingReader(calendar: calendar, policy: store)
+                        .meetings(during: interval, at: .now)
+                })
             capture.onCallSaved = { Task { await calls.processPending() } }
             let callWatcher = CallWatcher(
                 store: store, controls: capture,
-                announce: { notifications.announce(title: $0, body: $1, page: .calls) }, identify: service.source(of:))
-            service.onListening = { callWatcher.update(listening: $0, at: .now) }
+                announce: { title, body in
+                    guard AlertStyle.current() != .popup else { return }
+                    notifications.announce(title: title, body: body, page: .calls)
+                }, identify: service.source(of:))
+            service.onListening = { callWatcher.update(listening: $0, playing: service.playingApps, at: .now) }
+            calls.onFollowUps = { today.refresh() }
             let session = AppSession(
                 profile: profile, store: store, capture: capture, onboarding: onboarding, identity: identity,
                 team: onboarding.teamModel, models: ModelSettings(store: store, secrets: secrets),

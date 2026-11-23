@@ -11,7 +11,7 @@ extension SourceDescriptor {
 
     /// What was said in a recorded call, transcribed on this Mac. The grant label is the call app's bundle id.
     public static let callTranscript = SourceDescriptor(
-        key: "call.transcript", aliases: [], consent: .call, grammar: callGrammar, retention: .call,
+        key: "call.transcript", aliases: ["call_transcript"], consent: .call, grammar: callGrammar, retention: .call,
         obtainedBy: .speech, editWindow: 0)
 }
 
@@ -147,16 +147,19 @@ public struct CallSummarizer: FixedModelTask {
     static func input(_ recording: Recording, lines: [CallLine], me: String) -> String {
         let minutes = recording.endedAt.map { Int(($0.timeIntervalSince(recording.startedAt) / 60).rounded()) }
         let when = recording.startedAt.formatted(date: .abbreviated, time: .shortened)
-        return [
-            "Call: \(recording.source.label)", "When: \(when)" + (minutes.map { ", \($0) min" } ?? ""),
-            "Founder: \(me)", "", CallTranscript.text(lines, me: me, them: "Them"),
-        ].joined(separator: "\n")
+        var header = ["Call: \(recording.source.label)", "When: \(when)" + (minutes.map { ", \($0) min" } ?? "")]
+        header.append("Founder: \(me)")
+        if let guests = recording.guests, !guests.isEmpty {
+            header.append("Invited: \(guests.joined(separator: ", "))")
+        }
+        return (header + ["", CallTranscript.text(lines, me: me, them: recording.them)]).joined(separator: "\n")
     }
 
     public static let instructions = """
         You read the transcript of one call the founder recorded and write their notes on it.
-        The founder's own lines are marked with the name after "Founder:". Every other voice is marked "Them"; it can \
-        be several people, so use a name only when one is said.
+        The founder's own lines are marked with the name after "Founder:". Every other voice is marked "Them", which \
+        can be several people, or with the guest's name when one guest was invited. Use a name for "Them" only when \
+        one is said; the invited list says who was asked to join.
         summary: two to four plain sentences on what the call was about and where it ended.
         decisions: each thing that was agreed or settled, one short line each.
         actions: each concrete follow-up someone took on. owner is who does it: the founder's name as given after \

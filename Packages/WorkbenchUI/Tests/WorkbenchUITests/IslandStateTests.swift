@@ -63,7 +63,7 @@ import WorkbenchCore
     @Test func aClickOpensThePageBehindWhatIsShownAndIdleTakesNoClick() {
         #expect(IslandState.recording(since: since).page == .calls)
         #expect(IslandState.reading(names: ["Atlas"], page: .machine(4)).page == .machine(4))
-        #expect(IslandState.needsYou(machines: ["Pip"]).page == .day)
+        #expect(IslandState.needsYou(machines: ["Pip"]).page == .mochi)
         #expect(IslandState.plan(plan).page == .usage)
         #expect(IslandState.idle.page == nil && !IslandState.idle.takesClicks)
     }
@@ -254,7 +254,7 @@ import WorkbenchCore
         for page in SidebarSelection.fixed + [.machine(42)] {
             #expect(SidebarSelection(url: page.url) == page)
         }
-        #expect(SidebarSelection.review.url.absoluteString == "workbench://open?page=review")
+        #expect(SidebarSelection.timeline.url.absoluteString == "workbench://open?page=timeline")
         #expect(SidebarSelection(url: URL(string: "https://open?page=review")!) == nil)
         #expect(SidebarSelection(url: URL(string: "workbench://delete?page=review")!) == nil)
         #expect(SidebarSelection(url: URL(string: "workbench://open?page=nothing")!) == nil)

@@ -8,12 +8,16 @@ import WorkbenchCore
 @Observable
 final class MeetingsModel {
     static let offerDeclinedKey = "calendarOfferDeclined"
+    static let skipsAllDayKey = "calendar.skipsAllDay"
 
     private(set) var day = CalendarDay.empty
     private(set) var isOn = false
     private(set) var offerDeclined: Bool
     /// One line saying why the calendar cannot be read, while macOS refuses it.
     private(set) var refusal: String?
+    var skipsAllDay: Bool {
+        didSet { defaults.set(skipsAllDay, forKey: Self.skipsAllDayKey) }
+    }
 
     @ObservationIgnored private let store: Store
     @ObservationIgnored private let reader: MeetingReader?
@@ -23,10 +27,11 @@ final class MeetingsModel {
         self.store = store
         self.defaults = defaults
         offerDeclined = defaults.bool(forKey: Self.offerDeclinedKey)
+        skipsAllDay = defaults.object(forKey: Self.skipsAllDayKey) as? Bool ?? true
         reader = calendar.map { MeetingReader(calendar: $0, policy: store) }
     }
 
-    var meetings: [Meeting] { day.meetings }
+    var meetings: [Meeting] { skipsAllDay ? day.meetings.filter { !$0.isAllDay } : day.meetings }
     var calendars: [CalendarInfo] { day.calendars }
 
     /// Whether Today may ask once to show the meetings: the calendar is off and the person has not said no.

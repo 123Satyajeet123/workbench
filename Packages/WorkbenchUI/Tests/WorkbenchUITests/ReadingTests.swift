@@ -91,6 +91,34 @@ import WorkbenchCore
         await s.pip.readIfDue()
         #expect(s.model.calls.withLock { $0 } == 1, "outside the reading hours")
     }
+
+    @Test func aChatMachineReadsOnItsOwnEvenWithNotificationsBlocked() async throws {
+        let s = try setup(
+            reply:
+                #"{"items":[{"person":"Asha","project":"Login","kind":"blocker","text":"Waiting for keys","eta":"","asks":"team","stance":"said","cite":11,"quote":"login API done"}],"closes":[]}"#
+        )
+        s.notifier.access = .blocked
+        #expect(s.pip.watch.isOn, "nothing saved yet: a chat machine reads every hour")
+        await s.pip.readIfDue()
+        #expect(s.model.calls.withLock { $0 } == 1 && s.pip.items.count == 1)
+        #expect(s.notifier.posted.isEmpty && s.pip.problem == nil, "no alert, and no trouble for it")
+    }
+
+    @Test func turningReadingOnDoesNotWaitForNotifications() async throws {
+        let s = try setup(reply: #"{"items":[],"closes":[]}"#)
+        s.notifier.access = .blocked
+        await s.pip.setWatch(on: false)
+        await s.pip.setWatch(on: true)
+        #expect(s.pip.watch.isOn && s.pip.notifications.blocked)
+    }
+
+    @Test func aScreenMachineDoesNotReadOnItsOwnUntilAsked() throws {
+        let store = try scratchStore()
+        let timeline = HelperModel(
+            machine: .test(.timeline, "Timeline"), source: ScreenSource(store: store), store: store,
+            notifier: FakeNotifier())
+        #expect(!timeline.watch.isOn)
+    }
 }
 
 @Suite struct TimelineReadingTests {

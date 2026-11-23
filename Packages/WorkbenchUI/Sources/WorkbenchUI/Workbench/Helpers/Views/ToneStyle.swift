@@ -16,7 +16,7 @@ extension HelperSpec.Tone {
         case .good: "checkmark.seal.fill"
         case .attention: "exclamationmark.circle.fill"
         case .bad: "exclamationmark.octagon.fill"
-        case .neutral: "circle.dashed"
+        case .neutral: "circle.fill"
         }
     }
 }

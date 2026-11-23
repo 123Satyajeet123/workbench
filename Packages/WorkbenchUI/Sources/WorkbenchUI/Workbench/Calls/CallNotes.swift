@@ -5,6 +5,8 @@ import LocalSources
 import Observation
 import WorkbenchCore
 
+typealias MeetingLookup = @MainActor (DateInterval) async -> [Meeting]?
+
 enum ListenerReadiness: Equatable {
     case ready, needsDownload, downloading, unsupported
 }
@@ -54,12 +56,16 @@ final class CallNotes {
     @ObservationIgnored private let listener: (any CallListener)?
     @ObservationIgnored private let founder: () -> String
     @ObservationIgnored private let owner: () throws -> PersonID
+    @ObservationIgnored private let meetings: MeetingLookup
+    @ObservationIgnored var onFollowUps: () -> Void = {}
 
     init(
         store: Store, listener: (any CallListener)?, founder: @escaping () -> String,
-        owner: @escaping () throws -> PersonID, makeModel: ((ModelChoice) -> RecordedModel)? = nil
+        owner: @escaping () throws -> PersonID, makeModel: ((ModelChoice) -> RecordedModel)? = nil,
+        meetings: @escaping MeetingLookup = { _ in nil }
     ) {
         self.store = store
+        self.meetings = meetings
         self.listener = listener
         self.founder = founder
         self.owner = owner
@@ -139,6 +145,7 @@ final class CallNotes {
     }
 
     func processPending() async {
+        await nameFromCalendar()
         guard speech == .ready else { return }
         let recordings = (try? store.queries.recordings()) ?? []
         for recording in recordings.reversed() where recording.state == .saved {
@@ -151,6 +158,23 @@ final class CallNotes {
             }
         }
     }
+
+    private func nameFromCalendar() async {
+        let recordings = (try? store.queries.recordings()) ?? []
+        for recording in recordings where recording.state == .saved && recording.guests == nil {
+            let end = recording.endedAt ?? recording.startedAt
+            let around = DateInterval(
+                start: recording.startedAt.addingTimeInterval(-Self.calendarReach),
+                end: end.addingTimeInterval(Self.calendarReach))
+            guard let found = await meetings(around) else { return }
+            problems.attempt("name the call", clearing: false) {
+                try store.nameRecording(recording.id, after: Meeting.during(recording.startedAt, end, in: found))
+            }
+        }
+        refresh()
+    }
+
+    static let calendarReach: TimeInterval = 3600
 
     private func transcribe(_ recording: Recording) async {
         guard let listener else { return }
@@ -186,8 +210,11 @@ final class CallNotes {
         do {
             let lines = try store.queries.currentLines(
                 in: [recording.container], from: .distantPast, to: .distantFuture)
-            try await CallSummarizer(model: makeModel.current()).summarize(
-                recording, lines: lines, me: founderLabel(founder()))
+            let model = try makeModel.current()
+            let me = founderLabel(founder())
+            try await CallSummarizer(model: model).summarize(recording, lines: lines, me: me)
+            try await CallFollowUps(model: model).read(recording, lines: lines, me: me, into: store)
+            onFollowUps()
         } catch {
             problems.report("write the notes of that call", error)
         }

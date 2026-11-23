@@ -38,6 +38,19 @@ public struct MeetingReader: Sendable {
     }
 
     public func today(at now: Date, in zone: Calendar = .current) async throws -> CalendarDay {
+        let start = zone.startOfDay(for: now)
+        let day = DateInterval(start: start, end: zone.date(byAdding: .day, value: 1, to: start) ?? start)
+        let (calendars, meetings) = try await read(day, at: now)
+        return CalendarDay(calendars: calendars, meetings: meetings)
+    }
+
+    public func meetings(during interval: DateInterval, at now: Date) async throws -> [Meeting] {
+        try await read(interval, at: now).meetings
+    }
+
+    private func read(_ interval: DateInterval, at now: Date) async throws -> (
+        calendars: [CalendarInfo], meetings: [Meeting]
+    ) {
         let current = try await policy.currentPolicy()
         guard current.isEnabled(.calendar) else { throw ReadError.denied(.sourceSwitchedOff) }
         let access = await calendar.requestAccess()
@@ -52,9 +65,7 @@ public struct MeetingReader: Sendable {
             case .confirm: throw ReadError.denied(.privateMode)
             }
         }
-        let start = zone.startOfDay(for: now)
-        let day = DateInterval(start: start, end: zone.date(byAdding: .day, value: 1, to: start) ?? start)
-        let meetings = chosen.isEmpty ? [] : calendar.meetings(during: day, in: chosen)
-        return CalendarDay(calendars: calendars, meetings: meetings.sorted { $0.start < $1.start })
+        let meetings = chosen.isEmpty ? [] : calendar.meetings(during: interval, in: chosen)
+        return (calendars, meetings.sorted { $0.start < $1.start })
     }
 }

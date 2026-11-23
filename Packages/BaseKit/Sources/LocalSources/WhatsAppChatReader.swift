@@ -62,22 +62,26 @@ public struct WhatsAppChatReader: Sendable {
     public let chatJIDs: [String]
     let policy: any CapturePolicyProvider
     private let me: String
+    /// Hears the voice notes a read brings, on this Mac.
+    let hear: VoiceHearing
 
     public init(
         container: URL = defaultContainer, chatJIDs: [String], policy: any CapturePolicyProvider,
-        me: String = "You"
+        me: String = "You", hear: @escaping VoiceHearing = VoiceText.texts(in:)
     ) {
         self.container = container
         store = .shared(for: container)
         self.chatJIDs = chatJIDs
         self.policy = policy
         self.me = me
+        self.hear = hear
     }
 
     public init(
-        container: URL = defaultContainer, chatJID: String, policy: any CapturePolicyProvider, me: String = "You"
+        container: URL = defaultContainer, chatJID: String, policy: any CapturePolicyProvider, me: String = "You",
+        hear: @escaping VoiceHearing = VoiceText.texts(in:)
     ) {
-        self.init(container: container, chatJIDs: [chatJID], policy: policy, me: me)
+        self.init(container: container, chatJIDs: [chatJID], policy: policy, me: me, hear: hear)
     }
 
     /// The people in the chats now, and the name of everyone the chats ever had. Only names: no message is read.

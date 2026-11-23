@@ -17,7 +17,8 @@ struct ItemActions: View {
                     Task { await actions.remind(item, from: model.machine, title: item[model.spec.title]) }
                 }
             }
-            .labelStyle(.iconOnly).menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+            .labelStyle(.iconOnly).menuStyle(.button).buttonStyle(.ghost).menuIndicator(.hidden)
+            .foregroundStyle(.supporting).fixedSize()
             .disabled(item.state == .rejected)
         }
     }

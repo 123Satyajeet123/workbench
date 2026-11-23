@@ -16,8 +16,11 @@ public struct Recording: Sendable, Equatable, Identifiable {
     public var title: String?
     public var transcribedAt: Date?
     public var transcriptError: String?
+    public var guests: [String]?
 
     public var source: CallSource { CallSource(service: service ?? app, title: title ?? "") }
+
+    public var them: String { guests?.count == 1 ? guests?.first ?? "Them" : "Them" }
 }
 
 extension Store {
@@ -79,6 +82,15 @@ extension Store {
         }
     }
 
+    public func nameRecording(_ id: Int64, after meeting: Meeting?) throws {
+        let guests = meeting?.guests.compactMap { ($0.name.cleaned ?? $0.email.cleaned) } ?? []
+        try writer.write { db in
+            try db.execute(
+                sql: "UPDATE recording SET title = COALESCE(?, title), guests = ? WHERE id = ?",
+                arguments: [meeting?.title.cleaned, try Coding.json(guests), id])
+        }
+    }
+
     public func closeInterruptedRecordings() throws {
         try writer.write { db in
             try db.execute(
@@ -96,7 +108,7 @@ extension Queries {
                 "recording",
                 """
                 SELECT id, app, bundle_id, folder, started_at, ended_at, state, error, service, title, transcribed_at,
-                    transcript_error
+                    transcript_error, guests
                 FROM recording ORDER BY id DESC
                 """
             ) { row in
@@ -107,7 +119,10 @@ extension Queries {
                     state: try row.enumeration("state"), error: try row.optionalValue("error"),
                     service: try row.optionalValue("service"), title: try row.optionalValue("title"),
                     transcribedAt: try row.optionalDate("transcribed_at"),
-                    transcriptError: try row.optionalValue("transcript_error"))
+                    transcriptError: try row.optionalValue("transcript_error"),
+                    guests: try (row["guests"] as String?).map {
+                        try JSONDecoder().decode([String].self, from: Data($0.utf8))
+                    })
             }
         }
     }

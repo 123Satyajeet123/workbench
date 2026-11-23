@@ -39,7 +39,8 @@ extension WhatsAppChatReader: EvidenceSource {
                 }
             }
         }
-        read.readings = fetched.map { reading(of: $0, now: now) }
+        let voices = await hear(fetched.flatMap { $0.messages.compactMap { voiceFile(of: $0, now: now) } })
+        read.readings = fetched.map { reading(of: $0, voices: voices, now: now) }
         return read
     }
 
@@ -51,7 +52,8 @@ extension WhatsAppChatReader: EvidenceSource {
         return id
     }
 
-    /// What one chat gave inside the read transaction. Nothing slow runs in the transaction: the photos are read after.
+    /// What one chat gave inside the read transaction. Nothing slow runs in the transaction: the photos are read and
+    /// the voice notes heard after.
     private struct Fetched {
         var grant: CaptureGrant
         var chat: String
@@ -100,9 +102,9 @@ extension WhatsAppChatReader: EvidenceSource {
             messages: messages, replies: replies)
     }
 
-    private func reading(of fetched: Fetched, now: Date) -> SourceReading {
+    private func reading(of fetched: Fetched, voices: [URL: String], now: Date) -> SourceReading {
         let (place, plan) = (fetched.place, fetched.plan)
-        let messages = fetched.messages.map { readingPhoto($0, now: now) }
+        let messages = fetched.messages.map { hearingVoice(readingPhoto($0, now: now), voices: voices, now: now) }
         var lines: [ObservedLine] = []
         var census: [Int: TypeCensus] = [:]
         var unkeyed = 0
@@ -127,8 +129,7 @@ extension WhatsAppChatReader: EvidenceSource {
     /// logs as updates. Only a photo sent within the retention (how far back anything reads) is read, so the first reading of a long chat does not
     /// recognize every photo it ever held.
     private func readingPhoto(_ message: Message, now: Date) -> Message {
-        guard message.type == .image, let time = message.time,
-            Double(UTCInstant(now).milliseconds - time.milliseconds) / 1000 < CapturePolicy.retention,
+        guard message.type == .image, isRecent(message, now: now),
             let file = mediaFile(atRelativePath: message.mediaPath)
         else { return message }
         let seen = ImageText.text(in: file)
@@ -137,6 +138,28 @@ extension WhatsAppChatReader: EvidenceSource {
         read.words = ["[photo] \(seen)", message.words].filter { !$0.isEmpty }
             .joined(separator: WhatsAppMessageText.separator)
         return read
+    }
+
+    /// A voice note's words are what was said in it, heard on this Mac (`VoiceText`), then its caption. As for a
+    /// photo, only a note sent within the retention is heard.
+    private func hearingVoice(_ message: Message, voices: [URL: String], now: Date) -> Message {
+        guard let line = voiceFile(of: message, now: now).flatMap({ VoiceText.line(heard: voices[$0]) }) else {
+            return message
+        }
+        var read = message
+        read.words = [line, message.words].filter { !$0.isEmpty }.joined(separator: WhatsAppMessageText.separator)
+        return read
+    }
+
+    private func voiceFile(of message: Message, now: Date) -> URL? {
+        guard message.type == .voiceNote, isRecent(message, now: now) else { return nil }
+        return mediaFile(atRelativePath: message.mediaPath)
+    }
+
+    /// Whether the message was sent within the retention: how far back anything reads.
+    private func isRecent(_ message: Message, now: Date) -> Bool {
+        guard let time = message.time else { return false }
+        return Double(UTCInstant(now).milliseconds - time.milliseconds) / 1000 < CapturePolicy.retention
     }
 
     /// A path counts only when the file exists inside the container's `Message` folder.

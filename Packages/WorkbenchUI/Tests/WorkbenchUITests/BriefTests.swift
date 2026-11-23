@@ -50,7 +50,7 @@ import WorkbenchCore
         let brief = try #require(mochi.brief)
         #expect(brief.day == yesterday.description && brief.lines.map(\.kind) == [.stuck, .next])
         #expect(notifier.posted.map(\.body) == ["Asha is blocked until the OTA is pushed."])
-        #expect(notifier.posted.map(\.page) == [.day], "a click opens Mochi's day")
+        #expect(notifier.posted.map(\.page) == [.mochi], "a click opens Mochi's day")
         #expect(brief.unseen == ["Timeline"], "the timeline found nothing that day")
         await reminders.tick()
         #expect(model.calls.withLock { $0 } == 1, "once a morning")

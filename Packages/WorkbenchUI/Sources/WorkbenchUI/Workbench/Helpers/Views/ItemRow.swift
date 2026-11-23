@@ -7,20 +7,26 @@ struct ItemRow: View {
     let showsSpan: Bool
     /// A field the section already names, so its badge would repeat it.
     var grouping: String?
+    @Environment(\.uiScale) private var scale
 
     var body: some View {
         HStack(alignment: .top, spacing: Space.m) {
             if showsSpan {
                 Text(span).textStyle(.callout, digits: true).foregroundStyle(.supporting)
                     .zoomedWidth(110, alignment: .leading)
+            } else if let mark = markSymbol {
+                Image(systemName: mark.symbol).foregroundStyle(mark.color).zoomedWidth(18)
+                    .accessibilityLabel(item.state == .confirmed ? "Marked right" : "Marked wrong")
             } else if let (value, tone) = toned {
-                Image(systemName: tone.symbol).foregroundStyle(tone.color).zoomedWidth(18).accessibilityLabel(value)
+                Image(systemName: tone.symbol).foregroundStyle(tone.color)
+                    .font(tone == .neutral ? .system(size: 7 * scale) : nil)
+                    .frame(height: 18 * scale).zoomedWidth(18).accessibilityLabel(value)
             }
             VStack(alignment: .leading, spacing: Space.xs) {
                 HStack(spacing: Space.s) {
                     Text(item[model.spec.title])
                     ForEach(badgeFields, id: \.self) { field in
-                        Text(item[field]).pill()
+                        Text(badge(item[field])).pill()
                     }
                 }
                 Text(showsSpan ? item.quotedWords : "\(item.quotedWords) · \(time(item.start))")
@@ -33,8 +39,18 @@ struct ItemRow: View {
             .opacity(item.state == .rejected ? 0.5 : 1)
             .strikethrough(item.state == .rejected)
             Spacer()
-            MarkButtons(state: item.state) { model.mark(item, as: $0) }
-            ItemActions(model: model, item: item)
+            HStack(spacing: Space.s) {
+                MarkButtons(state: item.state) { model.mark(item, as: $0) }
+                ItemActions(model: model, item: item)
+            }
+        }
+    }
+
+    private var markSymbol: (symbol: String, color: Color)? {
+        switch item.state {
+        case .confirmed: ("checkmark.circle.fill", Tone.good.color)
+        case .rejected: ("xmark.circle.fill", Tone.bad.color)
+        case .proposed: nil
         }
     }
 
@@ -56,6 +72,10 @@ struct ItemRow: View {
             if let tone = model.spec.tones[item[field.name]] { return (item[field.name], tone) }
         }
         return nil
+    }
+
+    private func badge(_ value: String) -> String {
+        WorkDay(value).map { $0.start.formatted(.dateTime.weekday(.abbreviated).day().month()) } ?? value
     }
 
     private var span: String { "\(time(item.start))–\(time(item.end))" }

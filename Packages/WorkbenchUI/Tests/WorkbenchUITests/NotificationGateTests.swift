@@ -154,7 +154,7 @@ private let notice = FactNotice(itemID: 7, title: "Send Asha the term sheet", so
     @Test func aSummaryAndFactsShareOneDailyCap() async throws {
         let notifier = RecordingNotifier()
         let center = notifications(notifier)
-        #expect(try await center.notifySummary(title: "3 things need you today", body: "", page: .day))
+        #expect(try await center.notifySummary(title: "3 things need you today", body: "", page: .mochi))
         for id in 1...3 {
             try await center.notify(
                 FactNotice(itemID: Int64(id), title: "A", source: "B", offer: .open), itemOpen: true)
@@ -165,10 +165,10 @@ private let notice = FactNotice(itemID: 7, title: "Send Asha the term sheet", so
 
     @Test func aSummaryKeepsQuietHoursAndTheWindowRule() async throws {
         let notifier = RecordingNotifier()
-        #expect(try await !notifications(notifier, now: at(23, 23)).notifySummary(title: "S", body: "", page: .day))
-        #expect(try await !notifications(notifier, front: true).notifySummary(title: "S", body: "", page: .day))
+        #expect(try await !notifications(notifier, now: at(23, 23)).notifySummary(title: "S", body: "", page: .mochi))
+        #expect(try await !notifications(notifier, front: true).notifySummary(title: "S", body: "", page: .mochi))
         #expect(notifier.summaries.isEmpty)
-        #expect(try await notifications(notifier).notifySummary(title: "S", body: "", page: .day))
+        #expect(try await notifications(notifier).notifySummary(title: "S", body: "", page: .mochi))
         #expect(notifier.summaries == ["S"])
     }
 

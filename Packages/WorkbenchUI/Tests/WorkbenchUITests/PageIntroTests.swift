@@ -5,12 +5,12 @@ import Testing
 struct PageIntroTests {
     @Test func aClosedNoteStaysClosedAcrossLaunchesAndOpensAgain() throws {
         var dismissed = DismissedIntros()
-        #expect(!dismissed.contains(.day) && !dismissed.contains(.people))
+        #expect(!dismissed.contains(.mochi) && !dismissed.contains(.people))
         dismissed.dismiss(.people)
         dismissed.dismiss(.machine(12))
         let saved = try #require(DismissedIntros(rawValue: dismissed.rawValue))
         #expect(saved == dismissed)
-        #expect(saved.contains(.people) && saved.contains(.machine(12)) && !saved.contains(.day))
+        #expect(saved.contains(.people) && saved.contains(.machine(12)) && !saved.contains(.mochi))
         var restored = saved
         restored.restore(.people)
         #expect(!restored.contains(.people) && restored.contains(.machine(12)))

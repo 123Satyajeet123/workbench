@@ -95,11 +95,15 @@ final class Crew {
             chat, among: machines.compactMap { $0.source as? WhatsAppSource }, capture: capture)
     }
 
+    static let echo = "Echo"
+
     func helper(id: Int64) -> HelperModel? { machines.first { $0.machine.id == id } }
 
     func helper(task: String) -> HelperModel? { machines.first { $0.spec.task == Trial.machineTask(of: task) } }
 
+    /// The name of the machine that keeps a task's items. The follow-ups of calls are Echo's.
     func name(ofTask task: String) -> String {
+        if task == HelperSpec.callFollowUps.task { return Self.echo }
         guard let name = helper(task: task)?.name else {
             return task
         }
@@ -244,6 +248,10 @@ final class Crew {
             try TelegramSource(
                 store: store, capture: capture, account: telegram, task: machine.task, founder: founder,
                 othersReading: { [weak self] in self?.telegramChats(except: machine.task) ?? [] })
+        case .callTranscript: throw NotAMachineSource()
         }
     }
 }
+
+/// A call's transcript is read once, after its notes, by `CallFollowUps`; no machine of the crew reads it.
+struct NotAMachineSource: Error {}

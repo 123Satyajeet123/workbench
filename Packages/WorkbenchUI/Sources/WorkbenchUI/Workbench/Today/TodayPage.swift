@@ -1,31 +1,7 @@
 import SwiftUI
 import WorkbenchCore
 
-struct TodayPage: View {
-    let open: (SidebarSelection) -> Void
-    @Environment(TodayModel.self) private var today
-    @Environment(ReviewModel.self) private var review
-    @Environment(MochiModel.self) private var mochi
-    @Environment(IdentityModel.self) private var identity
-
-    var body: some View {
-        Page(
-            intro: .day,
-            title: identity.identity.greeting(), subtitle: Date.now.formatted(date: .complete, time: .omitted),
-            look: SidebarSelection.day.look
-        ) {
-            Button("\(SidebarSelection.review.title) · \(review.items.count)") { open(.review) }
-                .help(SidebarSelection.review.role)
-        } content: {
-            TodayBody(model: today, brief: mochi.brief)
-        }
-        .onAppear(perform: today.refresh)
-        .task { await today.refreshMeetings() }
-        .task(id: today.today) { await today.summarizeIfMissing() }
-    }
-}
-
-/// The sections of Today, in order. A section with nothing in it is not shown; a day with nothing says so.
+/// The sections of Mochi's page, in order. A section with nothing in it is not shown; a day with nothing says so.
 struct TodayBody: View {
     let model: TodayModel
     let brief: MorningBrief?
@@ -41,6 +17,7 @@ struct TodayBody: View {
             if model.isEmpty { Text("Nothing for today yet.").foregroundStyle(.supporting) }
             morningList
             meetings
+            fromCalls
             team
             projects
             if let brief { YesterdayBrief(brief: brief) }
@@ -86,6 +63,14 @@ struct TodayBody: View {
         if model.meetings.offersMeetings { MeetingsOffer(model: model) }
         if let refusal = model.meetings.refusal { PermissionNotice(message: refusal, pane: .calendars) }
         if !model.meetingCards.isEmpty { MeetingsSection(model: model) }
+    }
+
+    @ViewBuilder private var fromCalls: some View {
+        if !model.callFollowUps.isEmpty {
+            TodaySection("From calls", count: model.callFollowUps.filter { $0.closed == nil }.count) {
+                ForEach(model.callFollowUps) { FactLine(item: $0, model: model).transition(.opacity) }
+            }
+        }
     }
 
     @ViewBuilder private var team: some View {

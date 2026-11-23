@@ -1,101 +1,76 @@
 import SwiftUI
 import WorkbenchCore
 
+/// The home: Mochi's brief, Mochi's one question, then what needs you, today's meetings, follow-ups from calls, the
+/// team and the projects.
 struct MochiPage: View {
-    let open: (SidebarSelection) -> Void
-
-    @Environment(Crew.self) private var crew
-    @Environment(Navigation.self) private var navigation
-    @Environment(CaptureSettings.self) private var capture
-    @Environment(RunsModel.self) private var runs
+    @Environment(TodayModel.self) private var today
     @Environment(IdentityModel.self) private var identity
 
     var body: some View {
         Page(
             intro: .mochi,
             title: identity.identity.greeting(), subtitle: Date.now.formatted(date: .complete, time: .omitted),
-            look: SidebarSelection.day.look
+            look: SidebarSelection.mochi.look
         ) {
             BriefCard()
-            if let timeline = crew.timeline { TimelineSection(model: timeline) }
-            TeamCard(open: open)
-            Card(
-                title: "\(SidebarSelection.calls.title) · \(SidebarSelection.calls.role)",
-                icon: {
-                    SidebarSelection.calls.look.map { Mascot(look: $0, size: 22) }
-                }
-            ) {
-                echoStatus
-                Button("Open \(SidebarSelection.calls.title)") { open(.calls) }
-            }
-            Card(title: "Model use", symbol: "gauge.with.dots.needle.33percent") {
-                Text("\(runs.meter.today.tokensText) tokens · \(runs.meter.today.costText) today")
-                Button("Open \(SidebarSelection.usage.title)") { open(.usage) }
-            }
-            Card(title: "Capture", symbol: capture.status.symbol) {
-                Text(
-                    "Capture is \(capture.status.title.lowercased()). \(capture.log.count) windows and files kept today."
-                )
-                Button("Open capture settings") { navigation.openSettings(.capture) }
-            }
+            QuestionCard()
+            TodayBody(model: today, brief: nil)
         }
-        .onAppear {
-            runs.refresh()
-            capture.refreshLog()
-        }
-    }
-
-    @ViewBuilder private var echoStatus: some View {
-        if let call = capture.call { RecordingNowLabel(call: call) }
-        let finished = capture.recordings(since: Calendar.current.startOfDay(for: .now)).filter {
-            $0.state != .recording
-        }
-        if finished.isEmpty, capture.call == nil {
-            Text("No call recorded today. Start one from the menu bar.").foregroundStyle(.supporting)
-        } else if !finished.isEmpty {
-            let failed = finished.filter { $0.state == .failed }.count
-            Text("\(finished.count) calls recorded today\(failed == 0 ? "." : ", \(failed) failed.")")
-                .foregroundStyle(failed == 0 ? Color.primary : Tone.bad.color)
-        }
+        .onAppear(perform: today.refresh)
+        .task { await today.refreshMeetings() }
+        .task(id: today.today) { await today.summarizeIfMissing() }
     }
 }
 
-private struct TeamCard: View {
-    let open: (SidebarSelection) -> Void
-    @Environment(TeamModel.self) private var team
+/// The timeline machine's blocks of work, one day at a time.
+struct TimelinePage: View {
     @Environment(Crew.self) private var crew
-    @Environment(Navigation.self) private var navigation
 
     var body: some View {
-        Card(title: team.team.name.cleaned ?? "Your team", symbol: "person.3") {
-            if team.team.people.isEmpty {
-                Text("No team yet. Tick your team's people on \(pip?.name ?? "Pip")'s page.").foregroundStyle(
-                    .supporting)
+        Page(intro: .timeline, title: SidebarSelection.timeline.title, subtitle: SidebarSelection.timeline.role) {
+            if let timeline = crew.timeline {
+                HStack {
+                    Spacer()
+                    DayStepper(day: timeline.day, today: timeline.today, show: timeline.show)
+                }
+                HelperContent(model: timeline)
             } else {
-                Text(
-                    team.team.people.map { $0.role.isEmpty ? $0.name : "\($0.name) (\($0.role))" }.formatted(
-                        .list(type: .and)))
+                Text("The timeline reader is missing.").foregroundStyle(.supporting)
             }
-            if let pip { Button("Edit team on \(pip.name)'s page") { open(.machine(pip.machine.id)) } }
         }
-        .onAppear(perform: team.reload)
     }
-
-    private var pip: HelperModel? { crew.team }
 }
 
-private struct TimelineSection: View {
-    let model: HelperModel
+/// The one item a machine picked at random for the founder to check, from Review: the answer measures the machine.
+private struct QuestionCard: View {
+    @Environment(ReviewModel.self) private var review
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Space.m) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("Timeline").textStyle(.title2, weight: .bold)
-                Spacer()
-                DayStepper(day: model.day, today: model.today, show: model.show)
-            }
-            HelperContent(model: model)
+        if let item = review.question {
+            Card(
+                title: "\(review.name(of: item)) asks: is this right?",
+                icon: { review.helper(for: item).map { Mascot(look: .of($0.machine), size: 22) } },
+                content: {
+                    HStack(alignment: .top, spacing: Space.m) {
+                        VStack(alignment: .leading, spacing: Space.xs) {
+                            Text(title(of: item)).fontWeight(.medium)
+                            Text(item.quotedWords).textStyle(.callout).foregroundStyle(.supporting)
+                                .textSelection(.enabled)
+                        }
+                        Spacer(minLength: Space.m)
+                        MarkButtons(state: item.state) { review.answer(item, $0) }
+                    }
+                    Text(Self.why).textStyle(.caption).foregroundStyle(.supporting)
+                })
         }
+    }
+
+    private static let why =
+        "Picked at random from its last reading. Your answer is how Workbench measures how right it is."
+
+    private func title(of item: Item) -> String {
+        review.helper(for: item).map { item[$0.spec.title] } ?? item.quote
     }
 }
 
@@ -125,6 +100,7 @@ private struct BriefCard: View {
             Button(mochi.briefPhase == .reading ? "Writing…" : "Brief yesterday now") {
                 Task { await mochi.writeBrief(for: WorkDay(containing: .now).adding(days: -1)) }
             }
+            .buttonStyle(.primary)
             .disabled(mochi.briefPhase == .reading)
         }
     }

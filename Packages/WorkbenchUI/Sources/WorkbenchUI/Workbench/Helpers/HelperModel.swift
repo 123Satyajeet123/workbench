@@ -186,7 +186,6 @@ extension HelperModel {
         await improvement.startTrial(version, by: by, why: why)
     }
 
-    func tryModel(_ choice: ModelChoice) async { await improvement.tryModel(choice) }
     func learnFromMarks() async { await improvement.learnFromMarks() }
     func improve() async { await improvement.improve() }
     func keepCurrent() { improvement.keepCurrent() }

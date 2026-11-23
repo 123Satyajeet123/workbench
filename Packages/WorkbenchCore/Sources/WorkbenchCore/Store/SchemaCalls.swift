@@ -9,4 +9,9 @@ extension Schema {
         "ALTER TABLE recording ADD COLUMN transcribed_at TEXT",
         "ALTER TABLE recording ADD COLUMN transcript_error TEXT",
     ]
+
+    /// The guests of the calendar event a call overlaps, looked up once after it is saved: null until looked up.
+    static let callGuests = [
+        "ALTER TABLE recording ADD COLUMN guests TEXT CHECK(guests IS NULL OR json_valid(guests))"
+    ]
 }

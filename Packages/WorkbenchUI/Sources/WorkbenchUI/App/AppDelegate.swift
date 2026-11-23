@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var island: IslandPanel?
     /// What the founder did on a notification, held until the session can act on it.
     let replies = NotificationReplies()
+    private var popup: PopupPanel?
 
     init(storeFolder: URL, profile: Profile = .yours) {
         self.storeFolder = storeFolder
@@ -37,6 +38,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 today: session.today, review: session.review, crew: session.crew, navigation: session.navigation)
             replies.handler = answering.handle
             session.browsers.refreshEnabledBrowsers()
+            popup = PopupPanel(session: session)
         }
         DispatchQueue.main.async(execute: Self.comeToFront)
     }

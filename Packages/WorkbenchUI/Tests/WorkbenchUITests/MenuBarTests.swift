@@ -93,7 +93,7 @@ import WorkbenchCore
         let navigation = Navigation()
         navigation.requested = .crew
         navigation.show(fact: 42)
-        #expect(navigation.requested == .day && navigation.requestedFact == 42)
+        #expect(navigation.requested == .mochi && navigation.requestedFact == 42)
     }
 }
 

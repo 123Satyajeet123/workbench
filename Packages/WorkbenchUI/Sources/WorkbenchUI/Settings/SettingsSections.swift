@@ -186,25 +186,41 @@ private struct IslandSection: View {
     @AppStorage(IslandKey.reading) private var showsReading = true
     @AppStorage(IslandKey.needsYou) private var showsNeedsYou = true
     @AppStorage(IslandKey.idle) private var idle = IslandIdle.nothing
+    @AppStorage(IslandKey.style) private var style = AlertStyle.notch
 
     var body: some View {
-        Section("Show") {
-            SettingRow("Recording a call", "A red dot and the time. Hover for Stop.") {
-                Toggle("Recording a call", isOn: $showsRecording).labelsHidden().toggleStyle(.switch)
-            }
-            SettingRow("A machine reading", "Which machine is reading your chats.") {
-                Toggle("A machine reading", isOn: $showsReading).labelsHidden().toggleStyle(.switch)
-            }
-            SettingRow("What needs you", "How many lines on Today need you, and from which machine.") {
-                Toggle("What needs you", isOn: $showsNeedsYou).labelsHidden().toggleStyle(.switch)
+        Section {
+            SettingRow(
+                "Show alerts as",
+                style == .notch
+                    ? "The notch stays around the camera and shows calls, reading and what needs you."
+                    : "A pop-up at the top right appears only when a call is detected, while one records and a minute before a meeting you can join."
+            ) {
+                Picker("Show alerts as", selection: $style) {
+                    ForEach(AlertStyle.allCases) { Text($0.title).tag($0) }
+                }
+                .labelsHidden().pickerStyle(.segmented).fixedSize()
             }
         }
-        Section("Idle") {
-            SettingRow("When nothing is happening", "The ring shows your Claude plan's 5-hour use.") {
-                Picker("When nothing is happening", selection: $idle) {
-                    ForEach(IslandIdle.allCases) { Text($0.title).tag($0) }
+        if style == .notch {
+            Section("Show") {
+                SettingRow("Recording a call", "A red dot and the time. Hover for Stop.") {
+                    Toggle("Recording a call", isOn: $showsRecording).labelsHidden().toggleStyle(.switch)
                 }
-                .labelsHidden().fixedSize()
+                SettingRow("A machine reading", "Which machine is reading your chats.") {
+                    Toggle("A machine reading", isOn: $showsReading).labelsHidden().toggleStyle(.switch)
+                }
+                SettingRow("What needs you", "How many lines on Mochi's page need you, and from which machine.") {
+                    Toggle("What needs you", isOn: $showsNeedsYou).labelsHidden().toggleStyle(.switch)
+                }
+            }
+            Section("Idle") {
+                SettingRow("When nothing is happening", "The ring shows your Claude plan's 5-hour use.") {
+                    Picker("When nothing is happening", selection: $idle) {
+                        ForEach(IslandIdle.allCases) { Text($0.title).tag($0) }
+                    }
+                    .labelsHidden().fixedSize()
+                }
             }
         }
     }

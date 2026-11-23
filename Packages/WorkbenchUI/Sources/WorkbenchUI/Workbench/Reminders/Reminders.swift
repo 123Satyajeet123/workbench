@@ -95,7 +95,7 @@ final class Reminders {
             // A quiet day is kept on Mochi's page without an alert: alerts that rarely matter teach people to ignore
             // them (research: clinical alert override rates).
             if let brief = await mochi.writeBrief(for: today.adding(days: -1)), !brief.isQuiet {
-                await post("Mochi's brief", brief.headline, page: .day)
+                await post("Mochi's brief", brief.headline, page: .mochi)
             }
         }
         if settings.digest, let slot = Self.slot(at: now, hours: settings.digestHours), slot != state(Self.digestKey) {
@@ -103,7 +103,7 @@ final class Reminders {
             review.refresh()
             if !review.items.isEmpty {
                 await post(
-                    "Review", "\(review.items.count) to review, \(review.questions) picked at random.", page: .review)
+                    "Review", "\(review.items.count) to review, \(review.questions) picked at random.", page: .mochi)
             }
         }
         if settings.weeklyMochi, isMochiDue(at: now) {
@@ -114,7 +114,7 @@ final class Reminders {
             if !new.isEmpty {
                 await post(
                     "Mochi", "Mochi suggests \(new.count) machine\(new.count == 1 ? "" : "s") for work you repeat.",
-                    page: .day)
+                    page: .mochi)
             }
         }
     }

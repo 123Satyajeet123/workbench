@@ -11,15 +11,16 @@ import Testing
         }
     }
 
-    @Test func theHomeKeepsItsOldRawValueAndIsCalledToday() {
-        #expect(SidebarSelection(rawValue: "day") == .day && SidebarSelection.day.title == "Today")
-        #expect(SidebarSelection.fixed.prefix(3).map(\.title) == ["Today", "People", "Projects"])
+    @Test func theHomeIsMochiAndOldTodayAndReviewLinksOpenIt() {
+        #expect(SidebarSelection(rawValue: "day") == .mochi && SidebarSelection(rawValue: "review") == .mochi)
+        #expect(SidebarSelection.fixed.prefix(3).map(\.title) == ["Mochi", "People", "Projects"])
+        #expect(SidebarSelection.calls.title == "Calls" && SidebarSelection.crew.title == "Overview")
     }
 
     @Test func theOldRunsAndAdvancedLinksOpenUsageAndCrewIsAPage() throws {
         #expect(SidebarSelection(url: try #require(URL(string: "workbench://open?page=runs"))) == .usage)
         #expect(SidebarSelection(rawValue: "advanced") == .usage)
-        #expect(SidebarSelection(rawValue: "crew") == .crew && SidebarSelection.crew.title == "Crew")
+        #expect(SidebarSelection(rawValue: "crew") == .crew && SidebarSelection.crew.title == "Overview")
     }
 
     @Test func settingsIsAPageAndAskingForCaptureSettingsOpensItOnCapture() {

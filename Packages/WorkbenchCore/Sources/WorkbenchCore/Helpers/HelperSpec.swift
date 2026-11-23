@@ -17,6 +17,8 @@ public struct HelperSpec: Codable, Sendable, Equatable {
         case news = "news_articles"
         /// Web pages found by search for the investor's criteria, read one at a time for startups that fit.
         case webSearch = "web_search"
+        /// What was said in a call the founder recorded, transcribed on this Mac.
+        case callTranscript = "call_transcript"
 
         public var kind: SourceKind {
             switch self {
@@ -26,6 +28,7 @@ public struct HelperSpec: Codable, Sendable, Equatable {
             case .pageText: .screenText
             case .mail: .mail
             case .news, .webSearch: .web
+            case .callTranscript: .call
             }
         }
 
@@ -37,6 +40,7 @@ public struct HelperSpec: Codable, Sendable, Equatable {
             case .mail: "messages"
             case .news: "articles"
             case .webSearch: "pages"
+            case .callTranscript: "lines"
             }
         }
 
@@ -57,6 +61,7 @@ public struct HelperSpec: Codable, Sendable, Equatable {
                 startups, or none.
                 """
             case .pageText: SourceDescriptor.webPage.grammar
+            case .callTranscript: SourceDescriptor.callTranscript.grammar
             }
         }
     }

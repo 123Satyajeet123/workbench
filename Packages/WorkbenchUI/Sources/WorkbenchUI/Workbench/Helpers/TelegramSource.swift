@@ -1,5 +1,6 @@
 import CaptureService
 import Foundation
+import LocalSources
 import Observation
 import TelegramReader
 import WorkbenchCore
@@ -27,12 +28,15 @@ final class TelegramSource: MachineSource {
     @ObservationIgnored private let othersReading: () -> Set<String>
     @ObservationIgnored private let chatKey: StateKey<TelegramChat>
     @ObservationIgnored private let consentKey: StateKey<TelegramConsent>
+    @ObservationIgnored private let hear: VoiceHearing
 
     init(
         store: Store, capture: CaptureService, account: TelegramAccount, task: String,
-        founder: @escaping () -> String, othersReading: @escaping () -> Set<String> = { [] }
+        founder: @escaping () -> String, othersReading: @escaping () -> Set<String> = { [] },
+        hear: @escaping VoiceHearing = VoiceText.texts(in:)
     ) throws {
         self.store = store
+        self.hear = hear
         self.capture = capture
         self.account = account
         self.founder = founder
@@ -123,7 +127,7 @@ final class TelegramSource: MachineSource {
         await account.applyDeletions()
         let reader = TelegramChatReader(
             service: account.service, chat: chat.id, agreed: Set(consent.people.map(\.id)), policy: store,
-            me: founderLabel(founder()), window: day.start..<day.end)
+            me: founderLabel(founder()), window: day.start..<day.end, hear: hear)
         let report = try await store.ingest(reader, owner: try capture.owner(), now: store.clock())
         if let failure = report.failures.first { throw failure.error }
         let lines = try store.queries.currentLines(in: [chat.label], from: day.start, to: day.end)

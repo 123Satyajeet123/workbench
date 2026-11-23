@@ -1,4 +1,5 @@
 import AVFoundation
+import CaptureService
 import Foundation
 import Kernel
 import Synchronization
@@ -62,6 +63,83 @@ private let summaryReply = #"""
             AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(16_000 * seconds)))
         buffer.frameLength = buffer.frameCapacity
         try file.write(from: buffer)
+    }
+
+    @Test func aFollowUpYouTookOnInACallLandsOnTodayAndItsTickClosesIt() async throws {
+        let store = try scratchStore()
+        try store.seedMachines(MachineTemplate.seeded.map { ($0.spec, $0.name) })
+        _ = try call(in: store)
+        let listener = FakeListener(said: [
+            "me-001.m4a": [TimedText(start: 0.5, text: "Sure, I will send the deck tonight.")],
+            "them-001.m4a": [TimedText(start: 0.2, text: "Can you send the deck?")],
+        ])
+        let noTime =
+            #"{"direction":"unclear","offset_days":0,"weekday":"none","week":"none","part_of_day":"none","offset_minutes":0,"day_of_month":0,"month":0,"month_which":"none","year":0,"clock_hour":-1,"clock_minute":0,"meridiem":"none","precision":"none","ambiguous":false,"words":""}"#
+        let followUps = #"""
+            {"items":[
+             {"person":"Shivansh","kind":"commitment","text":"Send the deck","when":\#(noTime),"asks":"founder",
+              "relation":{"kind":"new","handle":"","outcome":""},"cite":@send the deck tonight@,
+              "quote":"I will send the deck tonight"},
+             {"person":"Them","kind":"commitment","text":"Book the room","when":\#(noTime),"asks":"team",
+              "relation":{"kind":"new","handle":"","outcome":""},"cite":@Can you send@,"quote":"book the room"}]}
+            """#
+        let model = KeyedModel([
+            "write their notes on it": #"{"summary":"Deck.","decisions":[],"actions":[]}"#,
+            HelperSpec.callFollowUps.brief: followUps,
+        ])
+        let notes = CallNotes(
+            store: store, listener: listener, founder: { "Shivansh" }, owner: testOwner,
+            makeModel: { _ in RecordedModel(model, store: store) })
+        let crew = Crew(
+            store: store, capture: try CaptureService(store: store), founder: { "Shivansh" }, notifier: FakeNotifier())
+        let today = TodayModel(store: store, crew: crew)
+        notes.onFollowUps = today.refresh
+        await notes.start()
+
+        let task = HelperSpec.callFollowUps.task
+        #expect(today.callFollowUps.map(today.title(of:)) == ["Send the deck"], "words nobody said stay off Today")
+        #expect(today.needs.first?.reason == .asks && today.needs.first?.item.task == task)
+        #expect(ReviewModel(store: store, crew: crew).items.isEmpty, "a call's follow-up is not a machine's finding")
+
+        today.perform(.done, on: today.callFollowUps, text: "Done")
+        #expect(today.isDone(today.callFollowUps) && !today.needs.contains { $0.item.task == task })
+    }
+
+    @Test func aCallIsNamedAfterItsCalendarMeetingAndItsOneGuestNamesThem() async throws {
+        let store = try scratchStore()
+        let recording = try call(in: store)
+        let listener = FakeListener(said: ["them-001.m4a": [TimedText(start: 1, text: "Hey, quick update.")]])
+        let model = ScriptedModel(summaryReply)
+        let asked = Mutex<[DateInterval]>([])
+        let intro = Meeting(
+            id: "1", calendar: "work", title: "Acme intro", start: recording.startedAt.addingTimeInterval(-60),
+            end: recording.startedAt.addingTimeInterval(1800),
+            attendees: [.init(name: "", email: "meera@acme.in"), .init(name: "Me", email: "me@x.in", isMe: true)])
+        let notes = CallNotes(
+            store: store, listener: listener, founder: { "Shivansh" }, owner: testOwner,
+            makeModel: { _ in RecordedModel(model, store: store) },
+            meetings: { interval in
+                asked.withLock { $0.append(interval) }
+                return [intro]
+            })
+        await notes.start()
+
+        let named = try #require(try store.queries.recordings().first)
+        #expect(named.source.label == "Google Meet · Acme intro" && named.them == "meera@acme.in")
+        let input = try #require(model.inputs.withLock { $0.last })
+        #expect(input.contains("Invited: meera@acme.in") && input.contains("meera@acme.in: Hey, quick update."))
+        #expect(asked.withLock { $0.first?.contains(recording.startedAt) } == true)
+
+        await notes.processPending()
+        #expect(asked.withLock { $0.count } == 1, "a call is looked up once")
+    }
+
+    @Test func aCallIsLookedUpAgainLaterWhenTheCalendarCannotBeRead() async throws {
+        let store = try scratchStore()
+        _ = try call(in: store)
+        let notes = CallNotes(store: store, listener: nil, founder: { "" }, owner: testOwner, meetings: { _ in nil })
+        await notes.start()
+        #expect(try store.queries.recordings().first?.guests == nil)
     }
 
     @Test func aSavedCallIsTranscribedAsYouAndThemThenSummarized() async throws {

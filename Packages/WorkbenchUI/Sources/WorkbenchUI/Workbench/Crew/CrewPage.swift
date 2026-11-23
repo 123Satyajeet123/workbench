@@ -8,7 +8,7 @@ struct CrewPage: View {
     var body: some View {
         Page(
             intro: .crew, title: SidebarSelection.crew.title,
-            subtitle: "What each machine reads, how right it is and what it costs"
+            subtitle: "What each of Mochi's machines reads, how right it is and what it costs"
         ) {
             CrewBody(open: open)
         }
@@ -20,15 +20,14 @@ struct CrewBody: View {
     let open: (SidebarSelection) -> Void
     @Environment(Crew.self) private var crew
     @Environment(RunsModel.self) private var runs
-    @Environment(ReviewModel.self) private var review
 
     var body: some View {
         VStack(alignment: .leading, spacing: Space.l) {
             ProblemSlotBanner(slot: crew.problems)
-            ForEach(crew.crew, id: \.machine.id) { helper in
+            EchoCard(open: open)
+            ForEach(crew.machines, id: \.machine.id) { helper in
                 MachineCard(helper: helper, facts: facts(of: helper), open: { open(.machine(helper.machine.id)) })
             }
-            reviewCard
             MochiProposals(open: open)
         }
     }
@@ -37,14 +36,34 @@ struct CrewBody: View {
         CrewCardFacts(task: helper.spec.task, runs: runs.runs, quality: runs.quality, now: .now)
     }
 
-    private var reviewCard: some View {
-        Card(title: SidebarSelection.review.title, symbol: "checkmark.circle") {
-            Text(
-                review.items.isEmpty
-                    ? "Nothing waits for your check."
-                    : "\(review.items.count) \(review.items.count == 1 ? "item waits" : "items wait") for your check. Each check teaches the machines."
-            )
-            Button("Open Review") { open(.review) }
+}
+
+private struct EchoCard: View {
+    let open: (SidebarSelection) -> Void
+    @Environment(CaptureSettings.self) private var capture
+
+    var body: some View {
+        Card(
+            title: "Echo · Calls",
+            icon: { SidebarSelection.calls.look.map { Mascot(look: $0, size: 22) } },
+            content: {
+                Text("Reads: the calls you record")
+                status
+                Button("Open \(SidebarSelection.calls.title)") { open(.calls) }.buttonStyle(.primary)
+            })
+    }
+
+    @ViewBuilder private var status: some View {
+        if let call = capture.call { RecordingNowLabel(call: call) }
+        let finished = capture.recordings(since: Calendar.current.startOfDay(for: .now)).filter {
+            $0.state != .recording
+        }
+        if finished.isEmpty, capture.call == nil {
+            Text("No call recorded today.").foregroundStyle(.supporting)
+        } else if !finished.isEmpty {
+            let failed = finished.filter { $0.state == .failed }.count
+            Text("\(finished.count) calls recorded today\(failed == 0 ? "." : ", \(failed) failed.")")
+                .foregroundStyle(failed == 0 ? Color.primary : Tone.bad.color)
         }
     }
 }

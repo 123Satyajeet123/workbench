@@ -111,14 +111,6 @@ final class HelperImprovement {
         }
     }
 
-    /// Another model on trial: the same brief and examples, read by `choice` on past days. The days' evidence goes to
-    /// that model's vendor, so this runs only on the founder's click.
-    func tryModel(_ choice: ModelChoice) async {
-        var version = HelperModel.Version(context.spec)
-        version.runner = choice.id
-        await startTrial(version, by: .person, why: "Try \(choice.title)")
-    }
-
     func learnFromMarks() async {
         var version = HelperModel.Version(context.spec)
         version.examples = Self.exampleCount

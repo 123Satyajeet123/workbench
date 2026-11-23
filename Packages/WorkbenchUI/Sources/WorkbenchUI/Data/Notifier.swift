@@ -45,7 +45,7 @@ struct FactNotice: Equatable, Sendable {
     let source: String
     let offer: Offer
     /// What a click on the notification opens until the window can open the fact itself.
-    var page = SidebarSelection.day
+    var page = SidebarSelection.mochi
 
     var identifier: String { Self.identifier(of: itemID) }
 

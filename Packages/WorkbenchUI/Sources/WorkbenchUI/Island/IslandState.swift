@@ -65,7 +65,7 @@ enum IslandState: Equatable {
         case .plan: .usage
         case .recording, .offer: .calls
         case .reading(_, let page): page
-        case .needsYou: .day
+        case .needsYou: .mochi
         }
     }
 

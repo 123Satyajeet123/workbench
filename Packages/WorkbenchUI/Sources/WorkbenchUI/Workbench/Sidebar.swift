@@ -14,6 +14,7 @@ struct Sidebar: View {
     @Environment(Navigation.self) private var navigation
     @Environment(Crew.self) private var crew
     @Environment(TodayModel.self) private var today
+    @Environment(ReviewModel.self) private var review
     @Environment(TeamCatalogModel.self) private var catalog
     @Environment(DealsModel.self) private var deals
     @Environment(WorkspaceModel.self) private var workspace
@@ -83,7 +84,7 @@ struct Sidebar: View {
             presenting: deleting
         ) { helper in
             Button("Delete \(helper.name)", role: .destructive) {
-                if selection == .machine(helper.machine.id) { selection = .day }
+                if selection == .machine(helper.machine.id) { selection = .mochi }
                 crew.delete(helper)
                 workspace.refresh()
             }
@@ -108,16 +109,16 @@ struct Sidebar: View {
             })
     }
 
-    /// Mochi is the home: its row opens Today, with the count of what needs you.
+    /// Mochi is the home: its row opens Mochi's page, with the count of what needs you and of Mochi's question.
     private var mochiRow: some View {
         Label {
             Text(SidebarSelection.mochi.title)
         } icon: {
             Mascot(look: .mochi, size: Mascot.sidebarSize, mood: crew.mochiMood)
         }
-        .badge(today.needsCount)
-        .help(SidebarSelection.day.role)
-        .tag(SidebarSelection.day)
+        .badge(today.needsCount + (review.question == nil ? 0 : 1))
+        .help(SidebarSelection.mochi.role)
+        .tag(SidebarSelection.mochi)
     }
 
     /// The rows of one level of the tree. A row dragged between them takes that place under `parent`.
@@ -196,7 +197,6 @@ struct Sidebar: View {
     @ViewBuilder private func menu(for pages: Set<SidebarSelection>) -> some View {
         if let page = pages.first, pages.count == 1 {
             Button("Open in new tab") { openInNewTab(page) }
-            if page == .day { Button("Open Mochi's page") { selection = .mochi } }
             Button(workspace.isFavorite(page) ? "Remove from Favorites" : "Add to Favorites") {
                 workspace.toggleFavorite(page)
             }
@@ -267,7 +267,7 @@ struct Sidebar: View {
     /// Archives the object a page shows. A machine's page is not archived: the machine is deleted instead.
     private func archive(_ page: SidebarSelection) {
         guard let object = crew.object(of: page, in: workspace), crew.helper(page: object.id) == nil else { return }
-        if selection == page { selection = .day }
+        if selection == page { selection = .mochi }
         workspace.archive(object.id)
     }
 }

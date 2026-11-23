@@ -24,12 +24,15 @@ public struct TelegramChatReader: EvidenceSource {
     private let policy: any CapturePolicyProvider
     private let me: String
     private let window: Range<Date>
+    /// Hears the voice notes a read brings, on this Mac.
+    private let hear: VoiceHearing
 
     public var descriptor: SourceDescriptor { .telegramChat }
 
     public init(
         service: any TelegramService, chat: Int64, agreed: Set<Int64>, policy: any CapturePolicyProvider,
-        me: String = "You", window: Range<Date> = .distantPast..<Date.distantFuture
+        me: String = "You", window: Range<Date> = .distantPast..<Date.distantFuture,
+        hear: @escaping VoiceHearing = VoiceText.texts(in:)
     ) {
         self.service = service
         self.chat = chat
@@ -37,6 +40,7 @@ public struct TelegramChatReader: EvidenceSource {
         self.policy = policy
         self.me = me
         self.window = window
+        self.hear = hear
     }
 
     /// The actor of a member's lines, and the name of a member in the audience.
@@ -67,7 +71,9 @@ public struct TelegramChatReader: EvidenceSource {
             guard newcomers.isEmpty else { throw TelegramConsentMissing(people: newcomers) }
             guard let audience = Self.audience(of: members, chat: chat) else { throw ReadError.audienceUnknown }
             let messages = try await service.messages(in: chat, from: window.lowerBound, to: window.upperBound, me: me)
-            let lines = messages.filter { $0.chat == chat && window.contains($0.date) }.compactMap(observedLine)
+            let kept = messages.filter { $0.chat == chat && window.contains($0.date) }
+            let voices = await hear(kept.compactMap(\.voice))
+            let lines = kept.compactMap { observedLine($0, voices: voices) }
             return SourceRead(
                 readings: [
                     SourceReading(
@@ -79,8 +85,11 @@ public struct TelegramChatReader: EvidenceSource {
         }
     }
 
-    private func observedLine(_ message: TelegramMessage) -> ObservedLine? {
-        let text = [message.title, message.text].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " — ")
+    /// A voice note's words are what was said in it, heard on this Mac (`VoiceText`), before its caption.
+    private func observedLine(_ message: TelegramMessage, voices: [URL: String]) -> ObservedLine? {
+        let heard = VoiceText.line(heard: message.voice.flatMap { voices[$0] })
+        let text = [heard, message.title, message.text].compactMap { $0 }.filter { !$0.isEmpty }
+            .joined(separator: " — ")
         guard !text.isEmpty,
             let key = try? EntityKey.telegram(chatID: chat, messageID: message.id)
         else { return nil }

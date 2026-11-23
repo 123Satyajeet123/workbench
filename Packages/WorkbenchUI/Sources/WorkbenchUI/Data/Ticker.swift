@@ -7,9 +7,14 @@ nonisolated final class Ticker: Sendable {
 
     deinit { loop.withLock { $0?.cancel() } }
 
-    /// Runs `job` now, then after each `interval`. Starting again replaces the loop that ran before.
-    func start(every interval: Duration = .seconds(60), _ job: @escaping @MainActor () async -> Void) {
+    /// Runs `job` now, then after each `interval`; with `waitingFirst`, it waits one interval before the first run.
+    /// Starting again replaces the loop that ran before.
+    func start(
+        every interval: Duration = .seconds(60), waitingFirst: Bool = false,
+        _ job: @escaping @MainActor () async -> Void
+    ) {
         let next = Task {
+            if waitingFirst { try? await Task.sleep(for: interval) }
             while !Task.isCancelled {
                 await job()
                 try? await Task.sleep(for: interval)

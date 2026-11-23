@@ -56,7 +56,8 @@ final class IslandPanel: NSPanel {
                     reading: session.crew.machines.filter { $0.phase == .reading }.map {
                         (name: $0.name, page: SidebarSelection.machine($0.machine.id))
                     },
-                    needsYou: session.today.needs.map { session.crew.name(ofTask: $0.item.task) },
+                    needsYou: session.today.needs.map { session.crew.name(ofTask: $0.item.task) }
+                        + (session.review.question.map { [session.review.name(of: $0)] } ?? []),
                     plan: session.models.billing == .plan
                         ? session.planUsage.limits.flatMap { $0.fiveHour ?? $0.week } : nil,
                     shows: shows)
@@ -113,13 +114,14 @@ private struct IslandRoot: View {
     @AppStorage(IslandKey.reading) private var showsReading = true
     @AppStorage(IslandKey.needsYou) private var showsNeedsYou = true
     @AppStorage(IslandKey.idle) private var idle = IslandIdle.nothing
+    @AppStorage(IslandKey.style) private var style = AlertStyle.notch
     @State private var isPressed = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        let current = state(
-            IslandShows(
-                recording: showsRecording, reading: showsReading, needsYou: showsNeedsYou, plan: idle == .planRing))
+        let shows = IslandShows(
+            recording: showsRecording, reading: showsReading, needsYou: showsNeedsYou, plan: idle == .planRing)
+        let current = style == .notch ? state(shows) : .idle
         let look = PanelLook(
             takesClicks: presenter.content.takesClicks, sharingType: current.sharingType, isTall: presenter.isTall)
         IslandView(presenter: presenter, isPressed: isPressed)

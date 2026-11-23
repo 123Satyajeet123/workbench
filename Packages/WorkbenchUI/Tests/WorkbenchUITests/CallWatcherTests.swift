@@ -35,10 +35,46 @@ import WorkbenchCore
             identify: { CallSource(service: $0.name == "zoom.us" ? "Zoom" : $0.name) })
     }
 
-    private func run(_ watcher: CallWatcher, _ apps: [AudioApp], from: TimeInterval, to: TimeInterval) {
+    private func run(
+        _ watcher: CallWatcher, _ apps: [AudioApp], playing: [AudioApp]? = nil, from: TimeInterval, to: TimeInterval
+    ) {
         for second in stride(from: from, through: to, by: 2) {
-            watcher.update(listening: apps, at: start.addingTimeInterval(second))
+            watcher.update(listening: apps, playing: playing ?? apps, at: start.addingTimeInterval(second))
         }
+    }
+
+    @Test func aMicWithNoSoundOrAnAppThatIsNotACallAsksNothing() throws {
+        let controls = FakeControls()
+        var titles: [String] = []
+        let dictation = AudioApp(bundleID: "com.example.dictate", name: "Dictate", processes: [2])
+        let watcher = CallWatcher(
+            store: try scratchStore(), controls: controls, announce: { title, _ in titles.append(title) },
+            identify: { app in
+                app.bundleID == zoom.bundleID
+                    ? CallSource(service: "Zoom") : CallSource(service: app.name, isCall: false)
+            })
+        run(watcher, [zoom], playing: [], from: 0, to: 20)
+        #expect(watcher.offer == nil, "holding the mic to record a voice note is not a call")
+        run(watcher, [zoom, dictation], from: 22, to: 40)
+        #expect(watcher.offer?.app == zoom && titles == ["Record this Zoom call?"], "Zoom starts sounding: a call")
+        watcher.dismiss()
+        run(watcher, [dictation], from: 60, to: 90)
+        #expect(watcher.offer == nil && titles.count == 1, "dictation is never offered")
+    }
+
+    @Test func onlyAKnownCallAppOrSiteIsACall() {
+        #expect(CallSource.identify(app: "zoom.us", bundleID: "us.zoom.xos", windowTitle: "", address: "").isCall)
+        #expect(
+            CallSource.identify(
+                app: "Google Chrome", bundleID: "com.google.Chrome", windowTitle: "Meet", address: "meet.google.com/abc"
+            ).isCall)
+        #expect(
+            !CallSource.identify(
+                app: "Google Chrome", bundleID: "com.google.Chrome", windowTitle: "Docs", address: "docs.google.com"
+            ).isCall)
+        let dictation = CallSource.identify(
+            app: "Superwhisper", bundleID: "com.superwhisper", windowTitle: "", address: "")
+        #expect(!dictation.isCall)
     }
 
     @Test func aNewCallIsOfferedOnceAndRecordingItStopsWhenTheCallEnds() throws {

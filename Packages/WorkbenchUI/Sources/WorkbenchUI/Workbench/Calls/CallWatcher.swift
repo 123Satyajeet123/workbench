@@ -35,6 +35,7 @@ final class CallWatcher {
 
     @ObservationIgnored private var detector = CallDetector()
     @ObservationIgnored private var followed: String?
+    @ObservationIgnored private var heard: [String: AudioApp] = [:]
     @ObservationIgnored private let store: Store
     @ObservationIgnored private let controls: any CallControls
     @ObservationIgnored private let announce: (String, String) -> Void
@@ -51,19 +52,27 @@ final class CallWatcher {
         always = ((try? Self.alwaysKey.load(from: store)) ?? nil) ?? [:]
     }
 
-    func update(listening: [AudioApp], at now: Date) {
+    func update(listening: [AudioApp], playing: [AudioApp], at now: Date) {
         guard controls.callsAllowed else {
             offer = nil
             followed = nil
+            heard = [:]
             detector = CallDetector()
             return
         }
         let apps = Dictionary(listening.map { ($0.bundleID, $0) }, uniquingKeysWith: { first, _ in first })
         for event in detector.update(listening: Set(apps.keys), at: now) {
             switch event {
-            case .started(let id): if let app = apps[id] { started(app) }
-            case .ended(let id): ended(id)
+            case .started(let id): heard[id] = apps[id]
+            case .ended(let id):
+                heard[id] = nil
+                ended(id)
             }
+        }
+        let sounding = Set(playing.map(\.bundleID))
+        for (id, app) in heard.sorted(by: { $0.key < $1.key }) where sounding.contains(id) {
+            heard[id] = nil
+            started(app)
         }
     }
 
@@ -90,6 +99,7 @@ final class CallWatcher {
     private func started(_ app: AudioApp) {
         guard controls.recordingApp == nil else { return }
         let source = identify(app)
+        guard source.isCall else { return }
         if always[app.bundleID] != nil, !controls.isPrivate {
             follow(app, confirmed: false)
             announce(

@@ -30,7 +30,7 @@ enum OnboardingScreen: String, CaseIterable, Codable, Identifiable {
             "Name the companies you invested in and the ones you passed on. Workbench watches the news for them."
         case .firstLook:
             "See what your machines find in your last few days, so you do not start with an empty page. Mark a few to teach them."
-        case .done: "Open \(SidebarSelection.day.title) to read your first day."
+        case .done: "Open \(SidebarSelection.mochi.title) to read your first day."
         }
     }
 

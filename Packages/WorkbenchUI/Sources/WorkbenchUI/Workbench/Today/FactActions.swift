@@ -24,6 +24,7 @@ struct FactActions: View {
                         Button(snooze.title) { act(.snooze(until: model.today.adding(days: snooze.days)), "Snoozed") }
                     }
                 }
+                Button("Right", systemImage: "hand.thumbsup") { act(.right, "Marked right") }
                 if !model.handOffPeople.isEmpty {
                     Menu("Hand off to", systemImage: "arrowshape.turn.up.right") {
                         ForEach(model.handOffPeople, id: \.self) { person in

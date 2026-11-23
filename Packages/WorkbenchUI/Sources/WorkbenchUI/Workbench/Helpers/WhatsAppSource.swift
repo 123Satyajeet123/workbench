@@ -32,12 +32,14 @@ final class WhatsAppSource: MachineSource {
     @ObservationIgnored private let chatsKey: StateKey<[WhatsAppChat]>
     @ObservationIgnored private let membersKey: StateKey<[WhatsAppMember]>
     @ObservationIgnored private let everyChatKey: StateKey<Bool>
+    @ObservationIgnored private let hear: VoiceHearing
 
     init(
         store: Store, capture: CaptureService, task: String, founder: @escaping () -> String,
-        container: URL = WhatsAppChatReader.defaultContainer
+        container: URL = WhatsAppChatReader.defaultContainer, hear: @escaping VoiceHearing = VoiceText.texts(in:)
     ) throws {
         self.store = store
+        self.hear = hear
         self.capture = capture
         self.founder = founder
         self.container = container
@@ -233,7 +235,8 @@ final class WhatsAppSource: MachineSource {
     private func reader() -> WhatsAppChatReader { reader(chatJIDs: chats.map(\.jid)) }
 
     private func reader(chatJIDs: [String]) -> WhatsAppChatReader {
-        WhatsAppChatReader(container: container, chatJIDs: chatJIDs, policy: store, me: founderLabel(founder()))
+        WhatsAppChatReader(
+            container: container, chatJIDs: chatJIDs, policy: store, me: founderLabel(founder()), hear: hear)
     }
 
     private func evidence(_ stored: StoredLine, start: Date) -> Evidence {

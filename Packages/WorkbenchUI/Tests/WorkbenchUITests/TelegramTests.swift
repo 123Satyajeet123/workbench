@@ -49,7 +49,7 @@ nonisolated private let apiHash = UUID().uuidString.replacingOccurrences(of: "-"
         Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: Date(timeIntervalSince1970: 1_790_000_000))!
     }()
 
-    private func makeRelay(reply: String = #"{"items":[]}"#) throws -> (
+    private func makeRelay(reply: String = #"{"items":[]}"#, hear: @escaping VoiceHearing = { _ in [:] }) throws -> (
         HelperModel, Store, CaptureService, ScriptedModel, TelegramSource, FakeTelegram
     ) {
         let now = noon
@@ -60,7 +60,7 @@ nonisolated private let apiHash = UUID().uuidString.replacingOccurrences(of: "-"
         let account = TelegramAccount(service: service, capture: capture, store: store, secrets: MemorySecrets())
         let source = try TelegramSource(
             store: store, capture: capture, account: account, task: HelperSpec.teamTelegram.task,
-            founder: { "Kabir" })
+            founder: { "Kabir" }, hear: hear)
         let model = ScriptedModel(reply)
         let relay = HelperModel(
             machine: .test(.teamTelegram, "Relay"), source: source, store: store,
@@ -71,6 +71,29 @@ nonisolated private let apiHash = UUID().uuidString.replacingOccurrences(of: "-"
     private func connected(_ source: TelegramSource) async throws {
         try source.account.connect(apiID: "12345", apiHash: apiHash)
         for _ in 0..<50 where !source.account.isReady { try await Task.sleep(for: .milliseconds(20)) }
+    }
+
+    @Test func aVoiceNoteIsReadAsWhatWasSaidAndOneNotHeardIsLeftOut() async throws {
+        let note = URL(fileURLWithPath: "/notes/heard.oga")
+        let (_, _, _, _, source, service) = try makeRelay(hear: { urls in
+            Dictionary(uniqueKeysWithValues: urls.filter { $0 == note }.map { ($0, "the API keys are in") })
+        })
+        try await connected(source)
+        try await source.ask(team)
+        try source.confirmEveryoneAgreed()
+        service.history.withLock {
+            $0 = [
+                TelegramMessage(
+                    id: 1, chat: team.id, date: noon, kind: .voiceNote, sender: "Asha", isOutgoing: false, text: "",
+                    voice: note),
+                TelegramMessage(
+                    id: 2, chat: team.id, date: noon, kind: .voiceNote, sender: "Bharat", isOutgoing: false, text: "",
+                    voice: URL(fileURLWithPath: "/notes/silent.oga")),
+            ]
+        }
+        let lines = try await source.evidence(on: WorkDay(containing: noon)).lines
+        #expect(lines.map(\.line) == ["Asha: [voice note] the API keys are in"])
+        #expect(lines.first?.quotable == ["[voice note] the API keys are in"])
     }
 
     @Test func aNewMachineReadsWhatsAppOrTelegram() {

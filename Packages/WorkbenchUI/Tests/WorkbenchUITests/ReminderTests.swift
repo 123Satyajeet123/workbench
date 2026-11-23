@@ -59,7 +59,7 @@ import WorkbenchCore
         await reminders.setDigest(on: true)
         await reminders.tick()
         #expect(notifier.posted.map(\.body) == ["1 to review, 1 picked at random."])
-        #expect(notifier.posted.map(\.page) == [.review], "a click opens Review")
+        #expect(notifier.posted.map(\.page) == [.mochi], "a click opens Mochi, where the random check waits")
         clock.set(at(11))
         await reminders.tick()
         #expect(notifier.posted.count == 1, "once per slot")

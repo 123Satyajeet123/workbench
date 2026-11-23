@@ -37,7 +37,7 @@ private final class Gate: Sendable {
 
 /// Posts straight through the notifier, so the other tests do not depend on the gate.
 private func direct(_ notifications: Notifications, _ title: String) async -> Bool {
-    (try? await notifications.notifier.post(title: title, body: "", page: .day)) != nil
+    (try? await notifications.notifier.post(title: title, body: "", page: .mochi)) != nil
 }
 
 /// The morning notification over a store, a clock, a presence and a count of what needs the person.
@@ -92,7 +92,7 @@ private func direct(_ notifications: Notifications, _ title: String) async -> Bo
         day.clock.set(at(9))
         await day.schedule.check()
         #expect(day.notifier.posted.map(\.title) == ["3 things need you today"])
-        #expect(day.notifier.posted.map(\.page) == [.day], "a click opens the list")
+        #expect(day.notifier.posted.map(\.page) == [.mochi], "a click opens the list")
     }
 
     @Test func aSecondMorningNotificationOnOneDayNeverComesAndTheNextDayHasOne() async throws {
@@ -232,7 +232,7 @@ private func direct(_ notifications: Notifications, _ title: String) async -> Bo
             notifier: notifier, defaults: defaults, clock: { clock.now }, windowInFront: { false })
         let schedule = MorningSchedule(
             store: store, notifications: notifications, presence: FakePresence(), needsCount: { 3 },
-            notify: { (try? await notifications.notifySummary(title: $0, body: "Open Today", page: .day)) == true })
+            notify: { (try? await notifications.notifySummary(title: $0, body: "Open Today", page: .mochi)) == true })
         await schedule.setOn(true)
         schedule.settings.hour = 7
         return (schedule, notifier, clock)
@@ -244,7 +244,7 @@ private func direct(_ notifications: Notifications, _ title: String) async -> Bo
         await schedule.check()
         await schedule.check()
         #expect(notifier.posted.map(\.title) == ["3 things need you today"])
-        #expect(notifier.posted.map(\.page) == [.day])
+        #expect(notifier.posted.map(\.page) == [.mochi])
     }
 
     @Test func theGateRefusingInQuietHoursLeavesTheDayOpenForTheNextWake() async throws {

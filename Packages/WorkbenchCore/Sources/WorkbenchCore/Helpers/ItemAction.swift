@@ -14,8 +14,11 @@ public enum ItemAction: Sendable, Hashable {
 }
 
 extension HelperSpec.Lifecycle {
-    /// The lifecycles of the facts the store writes from what a person typed, by task: no machine's spec holds them.
-    public static let ofTypedFacts = [DealAction.task: DealAction.lifecycle, Revisit.task: Revisit.lifecycle]
+    /// The lifecycles of the facts no machine of the crew keeps, by task: those the store writes from what a person
+    /// typed, and the follow-ups of calls.
+    public static let ofFactsWithoutMachine = [
+        DealAction.task: DealAction.lifecycle, Revisit.task: Revisit.lifecycle, HelperSpec.callFollowUps.task: .callFollowUps,
+    ]
 
     /// How the founder closes an item by hand: the outcome the spec gives its value of `field`, else the first outcome.
     public func doneOutcome(of item: Item) -> String {

@@ -65,6 +65,37 @@ struct CallNoteStoreTests {
             source: CallSource(service: "Google Meet", title: "Weekly sync"), grant: grant(.call))
     }
 
+    @Test func aCallTakesTheNameAndGuestsOfTheMeetingItOverlapsMost() throws {
+        let store = try makeStore()
+        let call = try recording(store)
+        try store.finishRecording(call.id)
+        #expect(try store.queries.recordings().first?.guests == nil, "not looked up yet")
+        let start = call.startedAt
+        func meeting(_ title: String, _ from: TimeInterval, _ to: TimeInterval, guests: [String]) -> Meeting {
+            Meeting(
+                id: title, calendar: "work", title: title, start: start.addingTimeInterval(from),
+                end: start.addingTimeInterval(to),
+                attendees: [.init(name: "Kabir", email: "k@acme.in", isMe: true)]
+                    + guests.map { .init(name: $0, email: "\($0.lowercased())@acme.in") })
+        }
+        let meetings = [
+            meeting("Standup", -1800, 300, guests: ["Asha", "Raj"]),
+            meeting("Acme intro", 120, 3600, guests: ["Meera"]),
+            meeting("Lunch", 7200, 9000, guests: []),
+        ]
+        let found = Meeting.during(start, start.addingTimeInterval(2400), in: meetings)
+        #expect(found?.title == "Acme intro")
+        #expect(Meeting.during(start, start.addingTimeInterval(600), in: [meetings[2]]) == nil)
+
+        try store.nameRecording(call.id, after: found)
+        let named = try #require(try store.queries.recordings().first)
+        #expect(named.source.label == "Google Meet · Acme intro" && named.guests == ["Meera"] && named.them == "Meera")
+
+        try store.nameRecording(call.id, after: nil)
+        let unmatched = try #require(try store.queries.recordings().first)
+        #expect(unmatched.title == "Acme intro" && unmatched.guests == [] && unmatched.them == "Them")
+    }
+
     @Test func anOlderRecordingWithoutASourceIsTaggedWithItsApp() throws {
         let store = try makeStore()
         _ = try store.startRecording(app: "Brave", bundleID: "com.brave.Browser", grant: grant(.call))

@@ -22,10 +22,11 @@ public struct Meeting: Sendable, Equatable, Identifiable {
     public var attendees: [Attendee]
     public var notesLength: Int
     public var joinURL: URL?
+    public var isAllDay: Bool
 
     public init(
         id: String, calendar: String, title: String, start: Date, end: Date, attendees: [Attendee] = [],
-        notesLength: Int = 0, joinURL: URL? = nil
+        notesLength: Int = 0, joinURL: URL? = nil, isAllDay: Bool = false
     ) {
         self.id = id
         self.calendar = calendar
@@ -35,11 +36,27 @@ public struct Meeting: Sendable, Equatable, Identifiable {
         self.attendees = attendees
         self.notesLength = notesLength
         self.joinURL = joinURL
+        self.isAllDay = isAllDay
     }
 
     public var joinService: String? { joinURL.flatMap(MeetingLink.service(of:)) }
 
     public var guests: [Attendee] { attendees.filter { !$0.isMe } }
+
+    public static func during(_ start: Date, _ end: Date, in meetings: [Meeting]) -> Meeting? {
+        let call = DateInterval(start: start, end: max(start, end))
+        let overlaps = meetings.compactMap { meeting -> (meeting: Meeting, seconds: TimeInterval)? in
+            guard !meeting.isAllDay, meeting.end > meeting.start,
+                let shared = call.intersection(with: DateInterval(start: meeting.start, end: meeting.end)),
+                shared.duration > 0 || call.duration == 0
+            else { return nil }
+            return (meeting, shared.duration)
+        }
+        return overlaps.max { a, b in
+            (a.seconds, -abs(a.meeting.start.timeIntervalSince(start)))
+                < (b.seconds, -abs(b.meeting.start.timeIntervalSince(start)))
+        }?.meeting
+    }
 }
 
 public struct CalendarInfo: Sendable, Equatable, Identifiable {
