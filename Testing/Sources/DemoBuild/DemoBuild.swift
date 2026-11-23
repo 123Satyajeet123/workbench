@@ -27,6 +27,7 @@ public struct BuildReport: Equatable {
     public var daysRead = 0
     public var daysLeftUnread = 0
     public var facts = 0
+    public var deals = 0
     public var runs = 0
     public var costUSD = 0.0
     public var problems: [String] = []
@@ -37,6 +38,8 @@ public enum BuildFailure: Error, LocalizedError {
     case heldOut(String)
     case cannotOpen(String)
     case missing(String)
+    case modelTermsNotConfirmed
+    case modelTermsUnreadable(String)
 
     public var errorDescription: String? {
         switch self {
@@ -44,13 +47,20 @@ public enum BuildFailure: Error, LocalizedError {
         case .heldOut(let id): "\(id) is dated in 23 Nov to 6 Dec 2026, a held-out study. Nothing there may be used."
         case .cannotOpen(let cause): "The demo store did not open: \(cause)"
         case .missing(let what): "The demo has no \(what)."
+        case .modelTermsNotConfirmed:
+            """
+            Your Workbench has no yes to the model terms, and the builder never gives it for you. Open Workbench on \
+            your own profile, confirm the terms in Settings › General › Model, then run the builder again. It copies \
+            that yes into the demo. A --dry-run build needs no yes.
+            """
+        case .modelTermsUnreadable(let cause): "Your yes to the model terms could not be read: \(cause)"
         }
     }
 }
 
 /// Builds a demo folder from nothing, using only synthetic sources and the app's own pipelines: the Fund team from its
-/// template, the mails through the native host's entry point, the chat through the WhatsApp reader, and the days through
-/// the machines with the person's own model CLI.
+/// template, the mails through the native host's entry point, the chat through the WhatsApp reader, the days through
+/// the machines with the person's own model CLI, and the hot candidates accepted as deals.
 @MainActor
 public enum DemoBuild {
     public static func run(
@@ -60,9 +70,10 @@ public enum DemoBuild {
         if let late = letters.first(where: { HeldOutWindow.study.contains($0.sent) }) {
             throw BuildFailure.heldOut(late.message)
         }
+        let terms = options.dryRun ? nil : try FounderModelTerms.read(from: Profile.yours.defaultFolder)
         try DemoFolder.prepare(folder, yours: Profile.yours.defaultFolder, marker: Profile.builtMarker)
         do {
-            return try await build(in: folder, letters: letters, options: options, progress: progress)
+            return try await build(in: folder, letters: letters, terms: terms, options: options, progress: progress)
         } catch {
             try? FileManager.default.removeItem(at: folder)
             throw error
@@ -70,7 +81,8 @@ public enum DemoBuild {
     }
 
     private static func build(
-        in folder: URL, letters: [Letter], options: BuildOptions, progress: (String) -> Void
+        in folder: URL, letters: [Letter], terms: String?, options: BuildOptions,
+        progress: (String) -> Void
     ) async throws -> BuildReport {
         try SyntheticWhatsApp.write(to: Profile.demo.whatsAppContainer(in: folder))
         let session: AppSession
@@ -80,12 +92,14 @@ public enum DemoBuild {
         case .failed(let failure): throw BuildFailure.cannotOpen(failure.cause)
         }
         defer { session.reminders.stop() }
+        if let terms { try session.store.saveState(terms, forKey: ModelTerms.stateKey) }
 
         try startFundTeam(in: session)
-        let intake = try machine(HelperSpec.dealIntake.task, in: session)
-        let pip = try machine(HelperSpec.team.task, in: session)
+        let intake = try machine(reading: .mail, in: session)
+        let pip = try machine(reading: .whatsappChat, in: session)
         let chat = try chooseChat(of: pip)
         try mail(of: intake).choose(MailFeed.label)
+        session.capture.setBrowser(MailFeed.browser, named: MailFeed.browserName, on: true)
         let kept = try MailFeed(owner: Profile.demo.owner(secrets: NoSecrets())).keep(
             letters, in: session.store, at: clock)
         clock.release()
@@ -115,6 +129,7 @@ public enum DemoBuild {
                 progress(
                     "\(helper.name) \(day.description): \(lines) lines, \(helper.phase), cost \(try cost(of: session))")
             }
+            report.deals = try await acceptHotCandidates(of: intake, on: mailDays, in: session)
         }
         report.machines = session.crew.machines.map(\.name)
         report.facts = try session.store.queries.count(of: .item)
@@ -138,15 +153,33 @@ public enum DemoBuild {
         return (0..<max(a.count, b.count)).flatMap { index in [a[safe: index], b[safe: index]].compactMap { $0 } }
     }
 
+    /// The work days of the dates in the fund's own calendar, so each line falls on the day the fixture means.
     private static func days(of dates: [Date]) -> [WorkDay] {
-        Array(Set(dates.map { WorkDay(containing: $0).description })).sorted().compactMap { WorkDay($0) }
+        Array(Set(dates.map { WorkDay(containing: $0, calendar: .syntheticFund) })).sorted()
+    }
+
+    /// Accepts each company the intake rated hot as a deal, once, through the app's own "New deal from this".
+    private static func acceptHotCandidates(
+        of intake: HelperModel, on days: [WorkDay], in session: AppSession
+    ) async throws -> Int {
+        let now = session.store.clock()
+        let read = try days.flatMap { try session.store.queries.items(of: intake.spec.task, on: $0) }
+        let hot = read.filter {
+            $0.isListed(at: now) && intake.spec.triage(of: $0)?.rating == .hot
+        }
+        var companies: Set<String> = []
+        for item in hot where companies.insert(item[intake.spec.title]).inserted {
+            await session.deals.newDeal(from: item, of: intake)
+        }
+        return session.deals.deals.count
     }
 
     private static func cost(of session: AppSession) throws -> Double {
         try session.store.queries.runs().map(\.usage.costUSD).reduce(0, +)
     }
 
-    /// The same steps as the onboarding screens: the partner's name, the team, the Fund template, then done.
+    /// The same steps as the onboarding screens: the partner's name, the team, the Fund template, then done. The Fund
+    /// template reads no chat, so the chat machine comes from the gallery, as a person adds one.
     private static func startFundTeam(in session: AppSession) throws {
         session.identity.identity.name = SyntheticWhatsApp.partner
         session.team.template = .fund
@@ -155,12 +188,16 @@ public enum DemoBuild {
             session.onboarding.next()
         }
         guard session.onboarding.isFinished else { throw BuildFailure.missing("finished setup") }
-        session.crew.create(from: .team, name: MachineTemplate.team.name)
+        guard let chats = GalleryTemplate.of(id: MachineTemplate.team.id) else {
+            throw BuildFailure.missing("gallery item \(MachineTemplate.team.id)")
+        }
+        try session.store.start(chats)
+        session.crew.reload()
     }
 
-    private static func machine(_ task: String, in session: AppSession) throws -> HelperModel {
-        guard let found = session.crew.machines.first(where: { $0.machine.template == task }) else {
-            throw BuildFailure.missing("machine \(task)")
+    private static func machine(reading source: HelperSpec.Source, in session: AppSession) throws -> HelperModel {
+        guard let found = session.crew.machines.first(where: { $0.spec.source == source }) else {
+            throw BuildFailure.missing("machine that reads \(source)")
         }
         return found
     }
@@ -188,6 +225,15 @@ struct NoSecrets: SecretStore {
     func create(_ value: String, as name: String) throws -> Bool { false }
     func save(_ value: String, as name: String) throws {}
     func remove(_ name: String) throws {}
+}
+
+extension Calendar {
+    /// The calendar of the synthetic fund, in India: its chat lines, mails and held-out window are dated there.
+    static let syntheticFund: Calendar = {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Asia/Kolkata")!
+        return calendar
+    }()
 }
 
 extension Array {

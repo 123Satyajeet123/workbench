@@ -111,17 +111,11 @@ enum SyntheticWhatsApp {
             text: "Badhiya. Aaj shaam tak sabka summary is group me daal do."),
     ]
 
-    private static var calendar: Calendar {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(identifier: "Asia/Kolkata")!
-        return calendar
-    }
-
     static func date(of line: Line) -> Date {
         let parts = (line.day + "-" + line.time).split(whereSeparator: { $0 == "-" || $0 == ":" }).compactMap {
             Int($0)
         }
-        return calendar.date(
+        return Calendar.syntheticFund.date(
             from: DateComponents(year: parts[0], month: parts[1], day: parts[2], hour: parts[3], minute: parts[4]))!
     }
 
@@ -131,13 +125,14 @@ enum SyntheticWhatsApp {
         let messages = lines.enumerated().map { index, line in
             let sender = line.from
             return "(\(index + 10), 1, \(date(of: line).timeIntervalSinceReferenceDate), 0, \(quoted(line.text)), "
-                + "\(sender == nil ? 1 : 0), \(sender.map { String($0.id) } ?? "NULL"), 'SYN\(index + 10)')"
+                + "\(sender == nil ? 1 : 0), \(sender.map { String($0.id) } ?? "NULL"), 'SYN\(index + 10)', 0)"
         }
         return """
+            PRAGMA journal_mode = WAL;
             CREATE TABLE ZWACHATSESSION (Z_PK INTEGER PRIMARY KEY, ZCONTACTJID TEXT, ZSESSIONTYPE INTEGER, ZPARTNERNAME TEXT,
                 ZLASTMESSAGEDATE REAL);
             CREATE TABLE ZWAMESSAGE (Z_PK INTEGER PRIMARY KEY, ZCHATSESSION INTEGER, ZMESSAGEDATE REAL, ZMESSAGETYPE INTEGER,
-                ZTEXT TEXT, ZISFROMME INTEGER, ZGROUPMEMBER INTEGER, ZSTANZAID TEXT);
+                ZTEXT TEXT, ZISFROMME INTEGER, ZGROUPMEMBER INTEGER, ZSTANZAID TEXT, ZFLAGS INTEGER);
             CREATE TABLE ZWAMEDIAITEM (Z_PK INTEGER PRIMARY KEY, ZMESSAGE INTEGER, ZMEDIALOCALPATH TEXT, ZTITLE TEXT,
                 ZMETADATA BLOB);
             CREATE TABLE Z_METADATA (Z_VERSION INTEGER PRIMARY KEY, Z_UUID TEXT);

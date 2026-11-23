@@ -27,7 +27,7 @@ public enum ModelTerms {
         "Your plan's limits cover one person's ordinary use, and Workbench reads for you alone."
     public static let conditions = [trainingOff, ordinaryUse]
 
-    static let stateKey = "model.terms"
+    public static let stateKey = "model.terms"
 }
 
 public enum ModelTermsError: Error, Equatable, LocalizedError {

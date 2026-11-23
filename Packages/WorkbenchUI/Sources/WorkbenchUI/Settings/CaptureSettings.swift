@@ -52,8 +52,11 @@ final class CaptureSettings {
 
     var enabledBrowsers: Set<String> { Set(service.policy.browsers.keys) }
 
-    func set(_ browser: ChromiumBrowser, on: Bool) {
-        change { $0.browsers[browser.bundleID] = on ? browser.name : nil }
+    func set(_ browser: ChromiumBrowser, on: Bool) { setBrowser(browser.bundleID, named: browser.name, on: on) }
+
+    /// Lets the extension in the browser with this bundle id send pages, or stops it.
+    func setBrowser(_ bundleID: String, named name: String, on: Bool) {
+        change { $0.browsers[bundleID] = on ? name : nil }
     }
 
     /// The calendars among `all` that Today reads: every meeting calendar until the person chooses.

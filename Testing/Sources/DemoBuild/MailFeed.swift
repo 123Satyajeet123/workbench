@@ -10,6 +10,7 @@ struct MailFeed {
     static let account = "meera.rao@northlake-capital.example.com"
     static let label = "Deals"
     static let browser = "com.google.Chrome"
+    static let browserName = "Google Chrome"
 
     let owner: Result<PersonID, any Error>
 
@@ -73,13 +74,9 @@ struct HeldOutWindow {
     let start: Date
     let end: Date
 
-    static let study: HeldOutWindow = {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(identifier: "Asia/Kolkata")!
-        return HeldOutWindow(
-            start: calendar.date(from: DateComponents(year: 2026, month: 11, day: 23))!,
-            end: calendar.date(from: DateComponents(year: 2026, month: 12, day: 7))!)
-    }()
+    static let study = HeldOutWindow(
+        start: Calendar.syntheticFund.date(from: DateComponents(year: 2026, month: 11, day: 23))!,
+        end: Calendar.syntheticFund.date(from: DateComponents(year: 2026, month: 12, day: 7))!)
 
     func contains(_ date: Date) -> Bool { date >= start && date < end }
 }
