@@ -49,9 +49,16 @@ extension MachineTemplate {
         detail:
             "Follows the open commitments, questions and decisions of Pip and tells you what is overdue, quiet, blocked or drifting."
     )
+    public static let followUps = MachineTemplate(
+        spec: .followUps, name: "Follow-ups", role: "Follow-up keeper",
+        detail: "Reads the chats you choose and keeps what you owe people and what they owe you, until it is done.")
+    public static let morningDigest = MachineTemplate(
+        spec: .morningDigest, name: "Morning digest", role: "Group digest",
+        detail: "Reads the WhatsApp groups you choose and gives you their decisions, asks, news and problems.")
+
     public static let all = [
         team, timeline, pages, derailment, dealIntake, dealsFromChats, outbound, founderCheck, newsSignals,
-        companySignals,
+        companySignals, followUps, morningDigest,
     ]
     /// The machines a store made before team templates starts with; the others are made on request or from Mochi's
     /// proposals.

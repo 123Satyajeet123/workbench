@@ -12,6 +12,26 @@ extension Criteria {
 }
 
 /// The helpers that ship with Workbench. Each is data over the catalog; none has code of its own.
+extension HelperSpec.Field {
+    /// How a line says when something is due, in English, Hindi or Hinglish, read as a record.
+    static let dueWords = """
+        When it is due, from the words of the line, as a record: you never write a date. Read the tense \
+        of the sentence for the direction: "kal" and "parson" are the days before today in a sentence \
+        about the past ("kal deck bheja") and the days after today in one about a promise or a plan \
+        ("kal tak bhej dunga"). "kal tak" is one day from the line, "parson" two, "narson" three; \
+        "aaj shaam" is today, evening; EOD and COB are today, evening. "kal subah 10 baje" is one day \
+        from the line, morning, hour 10; "5 baje" alone has no meridiem. "2 ghante mein" is 120 minutes. \
+        "30 tareekh tak" is day 30 of this month; "agle mahine ki 15" is day 15, month next; "15 Dec" is \
+        day 15, month 12. "mahine ke end tak" is precision month, this; "agle hafte" is precision week, \
+        next; "is hafte" or EOW is week, this. A range such as "Monday se Wednesday" is due at its end. \
+        When the line was sent late at night, after midnight and before the writer likely slept, and it \
+        says "kal", "aaj" or "parson", two days fit: set ambiguous to true. Set ambiguous to true too \
+        when "next Monday" or "agle Monday" can mean two Mondays. A quarter, a repeat ("har Monday"), a \
+        festival or working days have no field: set precision none, and give the words. When the line \
+        says no time, set precision none, direction unclear and words empty.
+        """
+}
+
 extension HelperSpec {
     /// Pip, the fact machine: what each person plans, did and is stuck on, and what is decided or asked, by project,
     /// from the chats the founder chose. Open facts stay open until a later line closes them (research 32).
@@ -40,24 +60,7 @@ extension HelperSpec {
                     "plan: to do, today or later. done: finished or progressed. blocker: stuck, waiting, needs help. commitment: someone promises a result to another person. decision: something agreed or chosen. question: asked and not answered in these lines. status: where a piece of work stands now."
             ),
             Field("text", .text(required: true), meaning: "One short English line in your words."),
-            Field(
-                "when", .time,
-                meaning: """
-                    When it is due, from the words of the line, as a record: you never write a date. Read the tense \
-                    of the sentence for the direction: "kal" and "parson" are the days before today in a sentence \
-                    about the past ("kal deck bheja") and the days after today in one about a promise or a plan \
-                    ("kal tak bhej dunga"). "kal tak" is one day from the line, "parson" two, "narson" three; \
-                    "aaj shaam" is today, evening; EOD and COB are today, evening. "kal subah 10 baje" is one day \
-                    from the line, morning, hour 10; "5 baje" alone has no meridiem. "2 ghante mein" is 120 minutes. \
-                    "30 tareekh tak" is day 30 of this month; "agle mahine ki 15" is day 15, month next; "15 Dec" is \
-                    day 15, month 12. "mahine ke end tak" is precision month, this; "agle hafte" is precision week, \
-                    next; "is hafte" or EOW is week, this. A range such as "Monday se Wednesday" is due at its end. \
-                    When the line was sent late at night, after midnight and before the writer likely slept, and it \
-                    says "kal", "aaj" or "parson", two days fit: set ambiguous to true. Set ambiguous to true too \
-                    when "next Monday" or "agle Monday" can mean two Mondays. A quarter, a repeat ("har Monday"), a \
-                    festival or working days have no field: set precision none, and give the words. When the line \
-                    says no time, set precision none, direction unclear and words empty.
-                    """),
+            Field("when", .time, meaning: Field.dueWords),
             Field(
                 "stance", .choice(["said", "reported"]),
                 meaning: "said: written by the person it is about. reported: written by someone else."),
@@ -207,6 +210,53 @@ extension HelperSpec {
         ],
         citation: .facts, view: .grouped(by: "severity"), title: "next", badges: ["project", "kind"],
         tones: ["act": .bad, "watch": .attention, "info": .neutral], itemsNoun: "findings", nudge: nil)
+
+    /// What the person and the people they talk to owe each other, from the chats the person chose. An item stays
+    /// open until a later line keeps, answers or drops it.
+    public static let followUps = HelperSpec(
+        task: "follow.ups", source: .whatsappChat,
+        brief: """
+            You keep what the person and the people they talk to owe each other, from the chats they chose. Give one \
+            item for each line where someone asks the person for something, promises the person something, or the \
+            person promises something to someone. Use only what a message says. Greetings, thanks and chatter give no \
+            item. Write each item in plain English even when the message is in Hindi or Hinglish.
+            """,
+        fields: [
+            Field(
+                "who", .text(required: true), meaning: "The other person: who asks, who promises, or who is promised."),
+            Field(
+                "owes", .choice(["you", "them"]),
+                meaning: "you: the person owes it (they were asked, or they promised). them: the other person owes it."),
+            Field(
+                "kind", .choice(["ask", "promise"]),
+                meaning: "ask: someone asks for something. promise: someone says they will do something."),
+            Field("text", .text(required: true), meaning: "What is owed, in one short English line."),
+            Field("when", .time, meaning: Field.dueWords),
+        ],
+        citation: .one, view: .checklist(by: "owes"), title: "text", badges: ["who"],
+        tones: ["ask": .attention, "promise": .neutral], itemsNoun: "follow-ups", nudge: nil,
+        lifecycle: Lifecycle(
+            field: "kind", open: ["ask", "promise"], outcomes: ["kept", "answered", "dropped"], owner: "who"))
+
+    /// What happened in the groups the person chose, for the next morning: decisions, asks of the person, news,
+    /// plans and problems.
+    public static let morningDigest = HelperSpec(
+        task: "morning.digest", source: .whatsappChat,
+        brief: """
+            You write the morning digest of the WhatsApp groups the person chose. Give one item for each thing the \
+            person would want to know the next morning: a decision, a request of the person, news, a plan or a \
+            problem. Use only what a message says. Greetings, thanks, chatter and forwards with no news give no item. \
+            Write each item in plain English even when the message is in Hindi or Hinglish.
+            """,
+        fields: [
+            Field(
+                "kind", .choice(["asks you", "decision", "news", "plan", "problem"]),
+                meaning: "asks you: a request of the person or a wait on them. The others as named."),
+            Field("text", .text(required: true), meaning: "The thing, in one short English line."),
+            Field("who", .text(required: false), meaning: "Who said it or who it is about; empty when not said."),
+        ],
+        citation: .one, view: .grouped(by: "kind"), title: "text", badges: ["who"],
+        tones: ["asks you": .attention, "problem": .bad], itemsNoun: "points", nudge: nil)
 }
 
 extension HelperSpec.Attention {

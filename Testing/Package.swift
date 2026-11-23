@@ -12,6 +12,7 @@ let package = Package(
         .executable(name: "trust-sim", targets: ["TrustSimRunner"]),
         .executable(name: "independent-flows", targets: ["IndependentFlowsDemo"]),
         .executable(name: "model-access", targets: ["ModelAccessDemo"]),
+        .executable(name: "gallery", targets: ["GalleryDemo"]),
     ],
     dependencies: [
         .package(path: "../Packages/WorkbenchCore"), .package(path: "../Packages/WorkbenchUI"),
@@ -35,6 +36,7 @@ let package = Package(
             name: "ModelAccessDemo",
             dependencies: ["WorkbenchCore", "WorkbenchUI", .product(name: "AgentCLI", package: "BaseKit")],
             swiftSettings: [.defaultIsolation(MainActor.self)]),
+        .executableTarget(name: "GalleryDemo", dependencies: ["WorkbenchCore"]),
         .testTarget(name: "EvalsTests", dependencies: ["Evals", "WorkbenchCore"]),
     ]
 )

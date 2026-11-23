@@ -36,12 +36,7 @@ extension TeamTemplate {
     public var setupQuestions: [SetupQuestion] {
         var questions: [SetupQuestion] = []
         for (index, seed) in seeds.enumerated() {
-            let values: [(SetupQuestion.Kind, SetupAnswer?)] = [
-                (.criteria, seed.spec.criteria.map(SetupAnswer.criteria)),
-                (.feeds, seed.spec.feeds.map(SetupAnswer.feeds)),
-                (.claimTypes, seed.spec.claimTypes.map(SetupAnswer.claimTypes)),
-            ]
-            for case (let kind, let value?) in values {
+            for (kind, value) in seed.spec.settingValues {
                 if let shared = questions.firstIndex(where: { $0.kind == kind && $0.templateValue == value }) {
                     let known = questions[shared]
                     questions[shared] = SetupQuestion(
@@ -54,6 +49,17 @@ extension TeamTemplate {
             }
         }
         return questions
+    }
+}
+
+extension HelperSpec {
+    /// The values of this spec a person can set at setup or on the page, with the value the spec has now.
+    var settingValues: [(kind: SetupQuestion.Kind, value: SetupAnswer)] {
+        let values: [(SetupQuestion.Kind, SetupAnswer?)] = [
+            (.criteria, criteria.map(SetupAnswer.criteria)), (.feeds, feeds.map(SetupAnswer.feeds)),
+            (.claimTypes, claimTypes.map(SetupAnswer.claimTypes)),
+        ]
+        return values.compactMap { kind, value in value.map { (kind, $0) } }
     }
 }
 
