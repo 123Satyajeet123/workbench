@@ -5,7 +5,7 @@ import Testing
 @testable import WorkbenchUI
 
 @MainActor private final class Picked: ObservableObject {
-    @Published var page = SidebarSelection.day
+    @Published var page = SidebarSelection.mochi
 }
 
 private struct Rail: View {
@@ -33,6 +33,7 @@ private struct Rail: View {
         try await Task.sleep(for: .milliseconds(400))
 
         var opened: [String] = []
+        var shown = picked.page
         let height = window.contentView!.bounds.height
         for y in stride(from: height - 40, to: 80, by: -12) {
             for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
@@ -54,15 +55,15 @@ private struct Rail: View {
                 sheet.sendEvent(escape)
                 if opened.last != "add" { opened.append("add") }
                 try await Task.sleep(for: .milliseconds(400))
-            } else if opened.last != "\(picked.page)" {
+            } else if opened.isEmpty || picked.page != shown {
                 opened.append("\(picked.page)")
             }
+            shown = picked.page
         }
-        let pages: [SidebarSelection] = [.day, .people, .projects, .calls, .mochi, .crew, .machine(pip.machine.id)]
-        let expected =
-            ["\(SidebarSelection.deals)"] + pages.map { "\($0)" } + [
-                "add", "\(SidebarSelection.review)", "\(SidebarSelection.usage)",
-            ]
+        let pages: [SidebarSelection] = [
+            .mochi, .people, .projects, .calls, .timeline, .crew, .machine(pip.machine.id),
+        ]
+        let expected = ["\(SidebarSelection.deals)"] + pages.map { "\($0)" } + ["add", "\(SidebarSelection.usage)"]
         #expect(opened == expected)
     }
 }

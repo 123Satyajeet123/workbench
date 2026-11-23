@@ -21,7 +21,7 @@ enum OnboardingScreen: String, CaseIterable, Identifiable {
             "Name your team and add the people you work with. Workbench links what it finds to them. Later, tick who is on it on Pip's page."
         case .connect:
             "Turn on what you want Workbench to read. Each stays off until you turn it on, and you can change it later in Settings."
-        case .done: "Open \(SidebarSelection.day.title) to read your first day."
+        case .done: "Open \(SidebarSelection.mochi.title) to read your first day."
         }
     }
 

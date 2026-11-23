@@ -31,6 +31,7 @@ public final class EventKitCalendar: CalendarEvents, @unchecked Sendable {
             notesLength: event.notes?.count ?? 0,
             joinURL: MeetingLink.find(
                 in: [event.url?.absoluteString, event.location, event.notes],
-                orAnyLinkIn: [event.url?.absoluteString, event.location]))
+                orAnyLinkIn: [event.url?.absoluteString, event.location]),
+            isAllDay: event.isAllDay)
     }
 }

@@ -13,23 +13,22 @@ struct SidebarLayoutTests {
     }
 
     @Test func everyPageOfTheWindowButDealsAndTeamIsInTheSidebarOnceInItsOrder() {
-        #expect(pages == [.day, .people, .projects, .calls, .mochi, .crew, .review])
+        #expect(pages == [.mochi, .people, .projects, .calls, .timeline, .crew])
         let windowPages = SidebarSelection.fixed.filter { ![.deals, .catalog, .usage, .settings].contains($0) }
         #expect(Set(pages) == Set(windowPages) && pages.count == windowPages.count)
     }
 
-    @Test func aSavedPageWithNoRowIsNotListedSoTheWindowFallsBackToToday() {
+    @Test func aSavedPageWithNoRowIsNotListedSoTheWindowFallsBackToMochi() {
         #expect(!SidebarLayout.lists(.deals) && !SidebarLayout.lists(.catalog))
-        #expect(SidebarLayout.lists(.day) && SidebarLayout.lists(.calls) && SidebarLayout.lists(.machine(7)))
+        for page in [SidebarSelection.mochi, .timeline, .calls, .machine(7)] { #expect(SidebarLayout.lists(page)) }
         #expect(SidebarLayout.lists(.usage), "Usage has its own row above Settings")
         #expect(SidebarLayout.lists(.settings), "Settings has its own row at the bottom")
     }
 
-    @Test func machinesSitInTheCrewSectionBetweenCrewAndReview() throws {
-        let crew = try #require(SidebarLayout.sections.first { $0.title == "Crew" })
-        let machines = try #require(crew.entries.firstIndex(of: .machines))
-        #expect(crew.entries[machines - 1] == .page(.crew, symbol: "rectangle.grid.2x2"))
-        #expect(crew.entries[machines + 1] == .page(.review, symbol: "checkmark.circle"))
+    @Test func machinesSitUnderMochisCrewAfterTheOverview() throws {
+        let crew = try #require(SidebarLayout.sections.first { $0.title == "Mochi's crew" })
+        #expect(crew.entries == [.page(.crew, symbol: "rectangle.grid.2x2"), .machines])
+        #expect(SidebarLayout.sections.first?.entries.first == .helper(.mochi), "Mochi is the home, listed first")
         #expect(SidebarLayout.sections.filter { $0.entries.contains(.machines) }.count == 1)
     }
 

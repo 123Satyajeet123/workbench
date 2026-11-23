@@ -55,10 +55,10 @@ struct WorkbenchView: View {
 
     @ViewBuilder private var page: some View {
         switch tabs.page {
-        case .day: TodayPage()
+        case .mochi: MochiPage()
         case .people: FactGroupsPage(lens: .people)
         case .projects: FactGroupsPage(lens: .projects)
-        case .mochi: MochiPage(open: show)
+        case .timeline: TimelinePage()
         case .crew: CrewPage(open: show)
         case .machine(let id):
             if let helper = crew.helper(id: id) {
@@ -67,7 +67,6 @@ struct WorkbenchView: View {
                 ContentUnavailableView("This machine was deleted", systemImage: "trash")
             }
         case .calls: CallsPage()
-        case .review: ReviewPage()
         case .deals: DealsPage()
         case .catalog: TeamCatalogPage(open: show)
         case .usage: UsagePage()

@@ -3,10 +3,12 @@ import Foundation
 public struct CallSource: Equatable, Sendable {
     public var service: String
     public var title: String
+    public var isCall: Bool
 
-    public init(service: String, title: String = "") {
+    public init(service: String, title: String = "", isCall: Bool = true) {
         self.service = service
         self.title = title
+        self.isCall = isCall
     }
 
     public var label: String { title.isEmpty ? service : "\(service) · \(title)" }
@@ -36,9 +38,10 @@ public struct CallSource: Equatable, Sendable {
 
     public static func identify(app: String, bundleID: String, windowTitle: String, address: String) -> CallSource {
         if bundleID == "in-person" { return inPerson }
-        let service = site(of: address) ?? apps[bundleID] ?? app
+        let known = site(of: address) ?? apps[bundleID]
+        let service = known ?? app
         let skipped = noise.union([app.lowercased(), service.lowercased()])
-        return CallSource(service: service, title: cleanTitle(windowTitle, skipping: skipped))
+        return CallSource(service: service, title: cleanTitle(windowTitle, skipping: skipped), isCall: known != nil)
     }
 
     private static func site(of address: String) -> String? {

@@ -19,13 +19,6 @@ struct ImproveRow: View {
                 .help(
                     "Mochi reads the items you marked on training days and tries one small change on past days. You decide."
                 )
-                Menu("Try another model") {
-                    ForEach(ModelChoice.choices.filter { $0.id != model.spec.runner }) { choice in
-                        Button(choice.title) { Task { await model.tryModel(choice) } }
-                    }
-                }
-                .fixedSize().disabled(asking || model.isPaused)
-                .help("Reads your marked past days with that model and compares. The days go to that model's maker.")
                 if model.spec.examples == nil {
                     Button("Learn from my marked examples") { Task { await model.learnFromMarks() } }
                         .disabled(asking || model.isPaused)

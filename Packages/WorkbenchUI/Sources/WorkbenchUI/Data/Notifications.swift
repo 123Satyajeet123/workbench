@@ -17,16 +17,25 @@ final class Notifications {
     }
 
     func whenAllowed(_ turnOn: @escaping () -> Void) async {
+        if await isAllowed() {
+            turnOn()
+        } else if blocked {
+            waiting.append(turnOn)
+        }
+    }
+
+    func isAllowed() async -> Bool {
         switch await notifier.authorize() {
         case .allowed:
             blocked = false
             problem = nil
-            turnOn()
+            return true
         case .blocked:
             blocked = true
-            waiting.append(turnOn)
+            return false
         case .failed(let reason):
             problem = "macOS refused notifications: \(reason)"
+            return false
         }
     }
 

@@ -92,6 +92,107 @@ struct CallNoteStoreTests {
         #expect(try store.queries.callNotes().isEmpty)
     }
 
+    private func summaryRun(_ store: Store) throws -> RunID {
+        try store.beginRun(task: "call.summary", model: "test", prompt: "", input: "", kinds: [.call])
+    }
+
+    @Test func aFollowUpBecomesAnOpenItemOnlyWhenItsWordsWereSaid() throws {
+        let store = try makeStore()
+        let call = try recording(store)
+        try store.finishRecording(call.id)
+        let lines = [
+            CallLine(speaker: .me, start: 5, text: "I'll send the deck tonight."),
+            CallLine(speaker: .them, start: 40, text: "Raj will fix the login bug by Friday."),
+        ]
+        let summary = CallSummary(
+            summary: "Planning.", decisions: [],
+            actions: [
+                .init(owner: "Kabir", text: "Send the deck", due: "", quote: "send the deck tonight"),
+                .init(owner: "Raj", text: "Fix the login bug", due: "2026-11-27", quote: "fix the login bug by Friday"),
+                .init(owner: "Raj", text: "Hire a designer", due: "soon", quote: "we must hire a designer"),
+            ])
+        try store.saveCallActions(
+            of: call, lines: lines, summary: summary, founder: "Kabir (You)", run: try summaryRun(store))
+
+        let open = try store.queries.openCallActions()
+        #expect(open.map { $0["text"] } == ["Send the deck", "Fix the login bug"], "the unsaid one is left out")
+        #expect(open.map { $0["asks"] } == ["founder", "team"])
+        #expect(open.map(\.dueDay?.description) == [nil, "2026-11-27"])
+        #expect(open.allSatisfy { $0.source == .call && $0["project"] == "Google Meet · Weekly sync" })
+        #expect(open.last?.start == call.startedAt.addingTimeInterval(40))
+    }
+
+    @Test func summarizingACallAgainReplacesItsOpenFollowUpsAndKeepsDoneOnes() throws {
+        let store = try makeStore()
+        let call = try recording(store)
+        let lines = [CallLine(speaker: .them, start: 0, text: "Asha will send the build and the notes")]
+        let first = CallSummary(
+            summary: "", decisions: [],
+            actions: [
+                .init(owner: "Asha", text: "Send the build", quote: "send the build"),
+                .init(owner: "Asha", text: "Send the notes", quote: "the notes"),
+            ])
+        let ids = try store.saveCallActions(
+            of: call, lines: lines, summary: first, founder: "Kabir", run: try summaryRun(store))
+        try store.close(item: ids[0], as: "done")
+        let again = CallSummary(
+            summary: "", decisions: [], actions: [.init(owner: "Asha", text: "Send notes", quote: "the notes")])
+        try store.saveCallActions(
+            of: call, lines: lines, summary: again, founder: "Kabir", run: try summaryRun(store))
+        #expect(try store.queries.openCallActions().map { $0["text"] } == ["Send notes"])
+        #expect(try store.queries.callActions(of: call.id).map { $0.closed?.outcome } == ["done", "dropped", nil])
+    }
+
+    @Test func deletingACallDeletesItsFollowUps() throws {
+        let store = try makeStore()
+        let call = try recording(store)
+        try store.finishRecording(call.id)
+        let lines = [CallLine(speaker: .them, start: 0, text: "I will call the bank")]
+        let summary = CallSummary(
+            summary: "", decisions: [], actions: [.init(owner: "Them", text: "Call the bank", quote: "call the bank")])
+        try store.saveCallActions(
+            of: call, lines: lines, summary: summary, founder: "Kabir", run: try summaryRun(store))
+        try store.delete(.kind(.call, before: day(1)))
+        #expect(try store.queries.callActions().isEmpty)
+    }
+
+    @Test func aSummaryKeptBeforeFollowUpsHadWordsStillReads() throws {
+        let old = #"{"summary":"s","decisions":[],"actions":[{"owner":"Asha","text":"Send build"}]}"#
+        let summary = try JSONDecoder().decode(CallSummary.self, from: Data(old.utf8))
+        #expect(summary.actions == [.init(owner: "Asha", text: "Send build")])
+    }
+
+    @Test func aCallTakesTheNameAndGuestsOfTheMeetingItOverlapsMost() throws {
+        let store = try makeStore()
+        let call = try recording(store)
+        try store.finishRecording(call.id)
+        #expect(try store.queries.recordings().first?.guests == nil, "not looked up yet")
+        let start = call.startedAt
+        func meeting(_ title: String, _ from: TimeInterval, _ to: TimeInterval, guests: [String]) -> Meeting {
+            Meeting(
+                id: title, calendar: "work", title: title, start: start.addingTimeInterval(from),
+                end: start.addingTimeInterval(to),
+                attendees: [.init(name: "Kabir", email: "k@acme.in", isMe: true)]
+                    + guests.map { .init(name: $0, email: "\($0.lowercased())@acme.in") })
+        }
+        let meetings = [
+            meeting("Standup", -1800, 300, guests: ["Asha", "Raj"]),
+            meeting("Acme intro", 120, 3600, guests: ["Meera"]),
+            meeting("Lunch", 7200, 9000, guests: []),
+        ]
+        let found = Meeting.during(start, start.addingTimeInterval(2400), in: meetings)
+        #expect(found?.title == "Acme intro")
+        #expect(Meeting.during(start, start.addingTimeInterval(600), in: [meetings[2]]) == nil)
+
+        try store.nameRecording(call.id, after: found)
+        let named = try #require(try store.queries.recordings().first)
+        #expect(named.source.label == "Google Meet · Acme intro" && named.guests == ["Meera"] && named.them == "Meera")
+
+        try store.nameRecording(call.id, after: nil)
+        let unmatched = try #require(try store.queries.recordings().first)
+        #expect(unmatched.title == "Acme intro" && unmatched.guests == [] && unmatched.them == "Them")
+    }
+
     @Test func anOlderRecordingWithoutASourceIsTaggedWithItsApp() throws {
         let store = try makeStore()
         _ = try store.startRecording(app: "Brave", bundleID: "com.brave.Browser", grant: grant(.call))

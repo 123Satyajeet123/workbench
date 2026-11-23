@@ -29,39 +29,24 @@ struct SQLiteRow {
 }
 
 final class SQLiteSnapshot {
-    private static let copyDeadline: TimeInterval = 8
+    private static let busyMilliseconds: Int32 = 8_000
     private var handle: OpaquePointer?
 
-    init(copying path: String) throws {
+    init(reading path: String) throws {
         try Self.checkAccess(path)
-        var source: OpaquePointer?
-        guard sqlite3_open_v2(path, &source, SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK else {
-            sqlite3_close(source)
-            throw ReadError.unreadableStore
-        }
-        defer { sqlite3_close(source) }
-        guard
-            sqlite3_open_v2("", &handle, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX, nil)
-                == SQLITE_OK,
-            let copy = sqlite3_backup_init(handle, "main", source, "main")
+        guard sqlite3_open_v2(path, &handle, SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK,
+            sqlite3_busy_timeout(handle, Self.busyMilliseconds) == SQLITE_OK,
+            sqlite3_exec(handle, "BEGIN", nil, nil, nil) == SQLITE_OK
         else {
-            sqlite3_close(handle)
-            throw ReadError.unreadableStore
-        }
-        let deadline = Date().addingTimeInterval(Self.copyDeadline)
-        var status: Int32
-        repeat {
-            status = sqlite3_backup_step(copy, 256)
-            if status == SQLITE_BUSY || status == SQLITE_LOCKED { Thread.sleep(forTimeInterval: 0.02) }
-        } while [SQLITE_OK, SQLITE_BUSY, SQLITE_LOCKED].contains(status) && Date() < deadline
-        let finished = sqlite3_backup_finish(copy)
-        guard status == SQLITE_DONE, finished == SQLITE_OK else {
             sqlite3_close(handle)
             throw ReadError.unreadableStore
         }
     }
 
-    deinit { sqlite3_close(handle) }
+    deinit {
+        sqlite3_exec(handle, "ROLLBACK", nil, nil, nil)
+        sqlite3_close(handle)
+    }
 
     // SQLite reports a refused file and a missing one as the same failure.
     private static func checkAccess(_ path: String) throws {

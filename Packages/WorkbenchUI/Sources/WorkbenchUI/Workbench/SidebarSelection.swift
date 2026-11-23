@@ -3,21 +3,20 @@ import Foundation
 import WorkbenchCore
 
 enum SidebarSelection: Hashable, Identifiable, RawRepresentable {
-    case day, people, projects, mochi, crew, review, calls, deals, catalog, usage, settings
+    case mochi, people, projects, calls, timeline, crew, deals, catalog, usage, settings
     case machine(Int64)
 
     static let fixed: [Self] = [
-        .day, .people, .projects, .mochi, .crew, .review, .calls, .deals, .catalog, .usage, .settings,
+        .mochi, .people, .projects, .calls, .timeline, .crew, .deals, .catalog, .usage, .settings,
     ]
 
     init?(rawValue: String) {
         switch rawValue {
-        case "day": self = .day
+        case "mochi", "day", "review": self = .mochi
         case "people": self = .people
         case "projects": self = .projects
-        case "mochi": self = .mochi
+        case "timeline": self = .timeline
         case "crew": self = .crew
-        case "review": self = .review
         case "calls": self = .calls
         case "deals": self = .deals
         case "catalog": self = .catalog
@@ -33,12 +32,11 @@ enum SidebarSelection: Hashable, Identifiable, RawRepresentable {
 
     var rawValue: String {
         switch self {
-        case .day: "day"
+        case .mochi: "mochi"
         case .people: "people"
         case .projects: "projects"
-        case .mochi: "mochi"
+        case .timeline: "timeline"
         case .crew: "crew"
-        case .review: "review"
         case .calls: "calls"
         case .deals: "deals"
         case .catalog: "catalog"
@@ -71,13 +69,12 @@ enum SidebarSelection: Hashable, Identifiable, RawRepresentable {
 
     var title: String {
         switch self {
-        case .day: "Today"
+        case .mochi: "Mochi"
         case .people: "People"
         case .projects: "Projects"
-        case .mochi: "Mochi"
-        case .crew: "Crew"
-        case .review: "Review"
-        case .calls: "Echo"
+        case .timeline: "Timeline"
+        case .crew: "Overview"
+        case .calls: "Calls"
         case .deals: "Deals"
         case .catalog: "Team"
         case .usage: "Usage"
@@ -88,13 +85,12 @@ enum SidebarSelection: Hashable, Identifiable, RawRepresentable {
 
     var role: String {
         switch self {
-        case .day: "What needs you"
+        case .mochi: "Your day, from every machine"
         case .people: "Facts by person"
         case .projects: "Facts by project"
-        case .mochi: "Brief and timeline"
-        case .crew: "Your machines"
-        case .review: "Everything to check"
-        case .calls: "Calls"
+        case .timeline: "What you did, across apps"
+        case .crew: "Every machine that works for Mochi"
+        case .calls: "Calls Echo recorded"
         case .deals: "Shared work"
         case .catalog: "Shared by your team"
         case .usage: "Model cost and Claude plan limits"
@@ -105,8 +101,6 @@ enum SidebarSelection: Hashable, Identifiable, RawRepresentable {
 
     var intro: String? {
         switch self {
-        case .day:
-            "Your day at a glance: what needs you, today's meetings, your team, your projects and yesterday's brief."
         case .people:
             "What each person on your team planned, finished, got stuck on or promised."
         case .projects:
@@ -116,11 +110,11 @@ enum SidebarSelection: Hashable, Identifiable, RawRepresentable {
         case .deals:
             "Your team's deals, one column per stage. Open a deal to see where it came from and what it needs next."
         case .mochi:
-            "A brief of your day and a timeline of what you worked on. After \(Mochi.minimumDays) work days, Mochi suggests machines for work you repeat."
+            "Mochi gathers what every machine found: what needs you, today's meetings, follow-ups from calls, your team and your projects. After \(Mochi.minimumDays) work days, Mochi suggests machines for work you repeat."
+        case .timeline:
+            "Your day in blocks of work. Each block joins the windows you used for one task, even across apps, read from your screen."
         case .crew:
-            "Each machine reads one source for one job, like Pip with your team's chats. Add one with + in the sidebar."
-        case .review:
-            "Everything found that you haven't checked yet. Your marks teach each machine and decide when it can run on its own."
+            "Each machine reads one source for one job and reports to Mochi, like Pip with your team's chats or Echo with your calls. Add one with + in the sidebar."
         case .catalog:
             "What your teammates shared with you: their days and their machines."
         case .usage, .settings, .machine: nil
@@ -129,9 +123,9 @@ enum SidebarSelection: Hashable, Identifiable, RawRepresentable {
 
     var look: Mascot.Look? {
         switch self {
-        case .day, .mochi: .mochi
+        case .mochi: .mochi
         case .calls: .echo
-        case .people, .projects, .crew, .review, .deals, .catalog, .usage, .settings, .machine: nil
+        case .people, .projects, .timeline, .crew, .deals, .catalog, .usage, .settings, .machine: nil
         }
     }
 }

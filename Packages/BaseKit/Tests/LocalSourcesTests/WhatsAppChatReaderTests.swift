@@ -43,6 +43,20 @@ import WorkbenchCore
         #expect(entries.map(\.text) == ["start", "inside"])
     }
 
+    /// WhatsApp keeps its store in WAL mode and writes while Workbench reads. Measured on the founder's Mac
+    /// (2026-11-24): copying the 162 MB store took 197 MB of memory per reading; reading it in place took 3 MB.
+    @Test func aStoreWhatsAppIsWritingIsReadInPlaceUpToItsLastCommit() async throws {
+        let fixture = try WhatsAppFixture()
+        try fixture.run("PRAGMA journal_mode=WAL;")
+        try fixture.message(chat: 4, type: 0, text: "committed", member: 1, date: 150)
+        let writer = try fixture.open()
+        defer { fixture.close(writer) }
+        try fixture.run("BEGIN IMMEDIATE; INSERT INTO ZWAMESSAGE VALUES (9, 4, 160, 0, 'pending', 0, 1);", on: writer)
+        let entries = try await reader(fixture, chat: groupJID).entries(
+            from: Date(timeIntervalSinceReferenceDate: 100), to: Date(timeIntervalSinceReferenceDate: 200))
+        #expect(entries.map(\.text) == ["committed"])
+    }
+
     /// The founder's group (measured 2026-11-19): every member kept by a privacy ID with empty contact names, one
     /// "first name" holding encoded data, so every sender came out blank and Pip found no one's update.
     @Test func membersKeptByPrivacyIDGetTheNameTheFounderKnowsAndMentionsUseIt() async throws {

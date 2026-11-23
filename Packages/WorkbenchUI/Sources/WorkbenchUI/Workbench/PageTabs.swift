@@ -10,15 +10,15 @@ struct PageTabs: Equatable {
     private(set) var tabs: [Tab]
     private var current: Int
 
-    init(pages: [SidebarSelection] = [.day], current: Int = 0) {
-        tabs = (pages.isEmpty ? [.day] : pages).map { Tab(page: $0) }
+    init(pages: [SidebarSelection] = [.mochi], current: Int = 0) {
+        tabs = (pages.isEmpty ? [.mochi] : pages).map { Tab(page: $0) }
         self.current = min(max(current, 0), tabs.count - 1)
     }
 
     init(saved: String, isOpen: (SidebarSelection) -> Bool = { _ in true }) {
         let parts = saved.split(separator: "|", maxSplits: 1).map(String.init)
         let pages = (parts.last ?? "").split(separator: ",").compactMap { SidebarSelection(rawValue: String($0)) }
-            .map { isOpen($0) ? $0 : .day }
+            .map { isOpen($0) ? $0 : .mochi }
         self.init(pages: pages, current: parts.count == 2 ? Int(parts[0]) ?? 0 : 0)
     }
 
@@ -35,7 +35,7 @@ struct PageTabs: Equatable {
         tabs[current].page = page
     }
 
-    mutating func openNewTab(_ page: SidebarSelection = .day) {
+    mutating func openNewTab(_ page: SidebarSelection = .mochi) {
         current += 1
         tabs.insert(Tab(page: page), at: current)
     }

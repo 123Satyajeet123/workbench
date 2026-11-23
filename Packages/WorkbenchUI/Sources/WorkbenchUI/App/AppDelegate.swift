@@ -7,6 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     lazy var launch = AppLaunch.start(storeFolder: storeFolder)
     private let storeFolder: URL
     private var island: IslandPanel?
+    private var popup: PopupPanel?
 
     init(storeFolder: URL) {
         self.storeFolder = storeFolder
@@ -23,7 +24,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        if case .ready(let session) = launch { island = IslandPanel(session: session) }
+        if case .ready(let session) = launch {
+            island = IslandPanel(session: session)
+            popup = PopupPanel(session: session)
+        }
         DispatchQueue.main.async(execute: Self.comeToFront)
     }
 

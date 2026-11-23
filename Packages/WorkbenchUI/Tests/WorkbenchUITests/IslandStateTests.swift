@@ -51,7 +51,7 @@ import WorkbenchCore
     @Test func pressingOpensThePageBehindWhatIsShown() {
         #expect(IslandState.recording(since: since).page == .calls)
         #expect(IslandState.reading(names: ["Atlas"], page: .machine(4)).page == .machine(4))
-        #expect(IslandState.waiting(machines: ["Pip"]).page == .review)
+        #expect(IslandState.waiting(machines: ["Pip"]).page == .mochi)
         #expect(IslandState.plan(plan).page == .usage)
         #expect(IslandState.idle.page == nil)
     }
@@ -60,7 +60,7 @@ import WorkbenchCore
         #expect(IslandState.recording(since: since).detail == "Recording a call")
         #expect(IslandState.reading(names: ["Atlas"], page: .machine(4)).detail == "Atlas is reading")
         #expect(IslandState.reading(names: ["Atlas", "Pip"], page: .crew).detail == "Atlas and Pip are reading")
-        #expect(IslandState.waiting(machines: ["Pip"]).detail == "1 to review from Pip")
+        #expect(IslandState.waiting(machines: ["Pip"]).detail == "Pip asks: is this right?")
         #expect(
             IslandState.waiting(machines: ["Relay", "Pip", "Pip", "Relay", "Pip"]).detail
                 == "5 to review · Pip 3, Relay 2")
@@ -93,7 +93,7 @@ import WorkbenchCore
         for page in SidebarSelection.fixed + [.machine(42)] {
             #expect(SidebarSelection(url: page.url) == page)
         }
-        #expect(SidebarSelection.review.url.absoluteString == "workbench://open?page=review")
+        #expect(SidebarSelection.timeline.url.absoluteString == "workbench://open?page=timeline")
         #expect(SidebarSelection(url: URL(string: "https://open?page=review")!) == nil)
         #expect(SidebarSelection(url: URL(string: "workbench://delete?page=review")!) == nil)
         #expect(SidebarSelection(url: URL(string: "workbench://open?page=nothing")!) == nil)

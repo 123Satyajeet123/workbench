@@ -80,6 +80,7 @@ private struct IslandContent: View {
     @AppStorage(IslandKey.reading) private var showsReading = true
     @AppStorage(IslandKey.review) private var showsReview = true
     @AppStorage(IslandKey.idle) private var idle = IslandIdle.nothing
+    @AppStorage(IslandKey.style) private var style = AlertStyle.notch
 
     var body: some View {
         IslandControl(
@@ -93,7 +94,7 @@ private struct IslandContent: View {
     }
 
     private var state: IslandState {
-        guard shown else { return .idle }
+        guard shown, style == .notch else { return .idle }
         let limits = idle == .planRing && session.models.billing == .plan ? session.planUsage.limits : nil
         return IslandState(
             recordingSince: session.capture.call?.startedAt,
@@ -101,7 +102,7 @@ private struct IslandContent: View {
             reading: session.crew.machines.filter { $0.phase == .reading }.map {
                 (name: $0.name, page: SidebarSelection.machine($0.machine.id))
             },
-            waiting: session.review.items.map(session.review.name(of:)),
+            waiting: session.review.question.map { [session.review.name(of: $0)] } ?? [],
             plan: limits.flatMap { $0.fiveHour ?? $0.week },
             shows: IslandShows(recording: showsRecording, reading: showsReading, review: showsReview))
     }

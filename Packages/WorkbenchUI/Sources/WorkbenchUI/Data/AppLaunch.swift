@@ -65,17 +65,26 @@ enum AppLaunch {
             let capture = CaptureSettings(service: service)
             let calls = CallNotes(
                 store: store, listener: CallNotes.appleListener(), founder: { identity.identity.name },
-                defaultPlace: storeFolder == defaultStoreFolder ? CallNotes.documentsPlace : nil)
+                defaultPlace: storeFolder == defaultStoreFolder ? CallNotes.documentsPlace : nil,
+                meetings: { interval in
+                    try? await MeetingReader(calendar: EventKitCalendar(), policy: store)
+                        .meetings(during: interval, at: .now)
+                })
             capture.onCallSaved = { Task { await calls.processPending() } }
             let callWatcher = CallWatcher(
                 store: store, controls: capture,
-                announce: { notifications.announce(title: $0, body: $1, page: .calls) })
-            service.onListening = { callWatcher.update(listening: $0, at: .now) }
+                announce: { title, body in
+                    guard AlertStyle.current() != .popup else { return }
+                    notifications.announce(title: title, body: body, page: .calls)
+                })
+            service.onListening = { callWatcher.update(listening: $0, playing: service.playingApps, at: .now) }
+            let today = TodayModel(store: store, crew: crew, calendar: EventKitCalendar(), deals: { deals.deals })
+            calls.onFollowUps = { today.refresh() }
             let session = AppSession(
                 store: store, capture: capture, onboarding: onboarding, identity: identity,
                 team: onboarding.teamModel, models: ModelSettings(store: store),
                 crew: crew, review: review, mochi: mochi,
-                today: TodayModel(store: store, crew: crew, calendar: EventKitCalendar(), deals: { deals.deals }),
+                today: today,
                 reminders: Reminders(store: store, review: review, mochi: mochi, notifications: notifications),
                 catalog: catalog, actions: ActionsModel(store: store, founder: { identity.identity.name }),
                 deals: deals, memory: MemoryModel(store: store, crew: crew, deals: deals),

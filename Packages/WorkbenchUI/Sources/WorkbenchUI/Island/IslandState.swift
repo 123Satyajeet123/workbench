@@ -47,7 +47,7 @@ enum IslandState: Equatable {
         case .plan: .usage
         case .recording, .offer: .calls
         case .reading(_, let page): page
-        case .waiting: .review
+        case .waiting: .mochi
         }
     }
 
@@ -67,6 +67,7 @@ enum IslandState: Equatable {
     private func waitingDetail(_ machines: [String]) -> String {
         let counts = Dictionary(machines.map { ($0, 1) }, uniquingKeysWith: +)
             .sorted { $0.value != $1.value ? $0.value > $1.value : $0.key < $1.key }
+        if machines.count == 1 { return "\(machines[0]) asks: is this right?" }
         if counts.count == 1 { return "\(machines.count) to review from \(counts[0].key)" }
         return "\(machines.count) to review · " + counts.map { "\($0.key) \($0.value)" }.joined(separator: ", ")
     }

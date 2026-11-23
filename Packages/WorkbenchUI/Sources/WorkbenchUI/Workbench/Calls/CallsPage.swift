@@ -260,7 +260,7 @@ private struct TranscriptView: View {
                     .buttonStyle(.plain).foregroundStyle(.linkText).monospacedDigit()
                     .pointerStyle(.link).help("Play from here")
                     .frame(width: 52, alignment: .leading)
-                    (Text(line.speaker == .me ? me : "Them").bold() + Text("  " + line.text))
+                    (Text(line.speaker == .me ? me : recording.them).bold() + Text("  " + line.text))
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }

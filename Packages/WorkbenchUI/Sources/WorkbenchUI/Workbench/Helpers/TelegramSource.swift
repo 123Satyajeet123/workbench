@@ -1,5 +1,6 @@
 import CaptureService
 import Foundation
+import LocalSources
 import Observation
 import TelegramReader
 import WorkbenchCore
@@ -27,12 +28,15 @@ final class TelegramSource: MachineSource {
     @ObservationIgnored private let othersReading: () -> Set<String>
     @ObservationIgnored private let chatKey: StateKey<TelegramChat>
     @ObservationIgnored private let consentKey: StateKey<TelegramConsent>
+    @ObservationIgnored private let hear: VoiceHearing
 
     init(
         store: Store, capture: CaptureService, account: TelegramAccount, task: String,
-        founder: @escaping () -> String, othersReading: @escaping () -> Set<String> = { [] }
+        founder: @escaping () -> String, othersReading: @escaping () -> Set<String> = { [] },
+        hear: @escaping VoiceHearing = VoiceText.texts(in:)
     ) throws {
         self.store = store
+        self.hear = hear
         self.capture = capture
         self.account = account
         self.founder = founder
@@ -116,14 +120,17 @@ final class TelegramSource: MachineSource {
             me: founderLabel(founder()))
         let (messages, people) = try await reader.read(from: day.start, to: day.end)
         members = people
-        let lines = messages.compactMap(line)
+        let voices = await hear(messages.compactMap(\.voice))
+        let lines = messages.compactMap { line($0, voices: voices) }
         return EvidenceSet(
             lines: lines,
             context: ["members": people.map(\.name) + [founderLabel(founder())], "founder": [founderLabel(founder())]])
     }
 
-    private func line(_ message: TelegramMessage) -> Evidence? {
-        let text = [message.title, message.text].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " — ")
+    private func line(_ message: TelegramMessage, voices: [URL: String]) -> Evidence? {
+        let heard = message.voice.flatMap { voices[$0] }.flatMap { $0.isEmpty ? nil : "\(VoiceText.tag) \($0)" }
+        let text = [heard, message.title, message.text].compactMap { $0 }.filter { !$0.isEmpty }
+            .joined(separator: " — ")
         guard !text.isEmpty else { return nil }
         let sender = message.isOutgoing ? founderLabel(founder()) : message.sender
         return Evidence(id: message.id, start: message.date, line: "\(sender): \(text)", quotable: [text])

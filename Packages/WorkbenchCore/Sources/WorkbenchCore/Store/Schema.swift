@@ -22,7 +22,9 @@ enum Schema {
 
     static var stepDigests: [String] { steps.map { Digest.sha256($0.joined(separator: ";\n")) } }
 
-    static let steps = [baseline, itemEvents, runText, summaries, itemActions, mail, typedItems, quoteMarks, callNotes]
+    static let steps = [
+        baseline, itemEvents, runText, summaries, itemActions, mail, typedItems, quoteMarks, callNotes, callGuests,
+    ]
 
     private static let itemEvents = [
         """
@@ -163,6 +165,10 @@ enum Schema {
             summary TEXT CHECK(summary IS NULL OR json_valid(summary)), summary_error TEXT, run_id INTEGER,
             updated_at TEXT NOT NULL)
         """,
+    ]
+
+    private static let callGuests = [
+        "ALTER TABLE recording ADD COLUMN guests TEXT CHECK(guests IS NULL OR json_valid(guests))"
     ]
 
     private static let baseline = [

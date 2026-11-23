@@ -64,10 +64,22 @@ public struct CallSummary: Codable, Sendable, Equatable {
     public struct Action: Codable, Sendable, Equatable {
         public var owner: String
         public var text: String
+        public var due: String
+        public var quote: String
 
-        public init(owner: String, text: String) {
+        public init(owner: String, text: String, due: String = "", quote: String = "") {
             self.owner = owner
             self.text = text
+            self.due = due
+            self.quote = quote
+        }
+
+        public init(from decoder: any Decoder) throws {
+            let values = try decoder.container(keyedBy: CodingKeys.self)
+            owner = try values.decode(String.self, forKey: .owner)
+            text = try values.decode(String.self, forKey: .text)
+            due = try values.decodeIfPresent(String.self, forKey: .due) ?? ""
+            quote = try values.decodeIfPresent(String.self, forKey: .quote) ?? ""
         }
     }
 
@@ -83,6 +95,11 @@ public struct CallSummary: Codable, Sendable, Equatable {
 
     public static let schema = JSONSchema.object([
         .init("summary", .string), .init("decisions", .array(.string)),
-        .init("actions", .array(.object([.init("owner", .string), .init("text", .string)]))),
+        .init(
+            "actions",
+            .array(
+                .object([
+                    .init("owner", .string), .init("text", .string), .init("due", .string), .init("quote", .string),
+                ]))),
     ])
 }

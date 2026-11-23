@@ -16,15 +16,10 @@ enum SidebarLayout {
 
     static let sections = [
         Section(entries: [
-            .page(.day, symbol: "sun.max"), .page(.people, symbol: "person.2"),
-            .page(.projects, symbol: "square.stack.3d.up"), .helper(.calls),
+            .helper(.mochi), .page(.people, symbol: "person.2"), .page(.projects, symbol: "square.stack.3d.up"),
+            .helper(.calls), .page(.timeline, symbol: "clock"),
         ]),
-        Section(
-            title: "Crew",
-            entries: [
-                .helper(.mochi), .page(.crew, symbol: "rectangle.grid.2x2"), .machines,
-                .page(.review, symbol: "checkmark.circle"),
-            ]),
+        Section(title: "Mochi's crew", entries: [.page(.crew, symbol: "rectangle.grid.2x2"), .machines]),
     ]
 
     static var pages: [SidebarSelection] {
@@ -99,7 +94,7 @@ struct Sidebar: View {
             presenting: deleting
         ) { helper in
             Button("Delete \(helper.name)", role: .destructive) {
-                if selection == .machine(helper.machine.id) { selection = .day }
+                if selection == .machine(helper.machine.id) { selection = .mochi }
                 crew.delete(helper)
             }
         } message: { helper in
@@ -159,11 +154,13 @@ struct Sidebar: View {
             }
             .contextMenu { newTab(page) }
         case .helper(let page):
+            let count = count(of: page)
             row(page, title: page.title, role: page.role) {
                 SidebarRow(
                     title: page.title,
                     icon: page.look.map { .face($0, page == .mochi ? mochiMood : .calm) } ?? .symbol("circle"),
-                    isSelected: selection == page, isRail: isRail)
+                    detail: count > 0 ? count.formatted() : nil, isSelected: selection == page, isRail: isRail,
+                    showsDot: count > 0)
             }
             .contextMenu { newTab(page) }
         case .machines:
@@ -206,8 +203,7 @@ struct Sidebar: View {
 
     private func count(of page: SidebarSelection) -> Int {
         switch page {
-        case .day: today.needs.count
-        case .review: review.items.count
+        case .mochi: today.needs.count + (review.question == nil ? 0 : 1)
         default: 0
         }
     }

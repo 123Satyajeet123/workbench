@@ -170,17 +170,33 @@ private struct NotchSection: View {
     @AppStorage(IslandKey.reading) private var showsReading = true
     @AppStorage(IslandKey.review) private var showsReview = true
     @AppStorage(IslandKey.idle) private var idle = IslandIdle.nothing
+    @AppStorage(IslandKey.style) private var style = AlertStyle.notch
 
     var body: some View {
         Section {
             SettingRow(
-                "Show in the notch",
-                "Calls, reading and your review queue appear around the camera. Macs without a notch get a small pill."
+                "Show alerts as",
+                style == .notch
+                    ? "The notch stays around the camera and shows calls, reading and Mochi's question."
+                    : "A pop-up at the top right appears only when a call is detected, while one records and a minute before a meeting you can join."
             ) {
-                Toggle("Show in the notch", isOn: $shown).labelsHidden().toggleStyle(.switch)
+                Picker("Show alerts as", selection: $style) {
+                    ForEach(AlertStyle.allCases) { Text($0.title).tag($0) }
+                }
+                .labelsHidden().pickerStyle(.segmented).fixedSize()
             }
         }
-        if shown {
+        if style == .notch {
+            Section {
+                SettingRow(
+                    "Show in the notch",
+                    "Calls, reading and Mochi's question appear around the camera. Macs without a notch get a small pill."
+                ) {
+                    Toggle("Show in the notch", isOn: $shown).labelsHidden().toggleStyle(.switch)
+                }
+            }
+        }
+        if style == .notch, shown {
             Section("Show") {
                 SettingRow("Recording a call", "A red dot and the time. Hover for Stop.") {
                     Toggle("Recording a call", isOn: $showsRecording).labelsHidden().toggleStyle(.switch)
@@ -188,8 +204,8 @@ private struct NotchSection: View {
                 SettingRow("A machine reading", "Which machine is reading your chats.") {
                     Toggle("A machine reading", isOn: $showsReading).labelsHidden().toggleStyle(.switch)
                 }
-                SettingRow("Items to review", "How many items wait for you, and from whom.") {
-                    Toggle("Items to review", isOn: $showsReview).labelsHidden().toggleStyle(.switch)
+                SettingRow("Mochi's question", "When a machine asks whether something it found is right.") {
+                    Toggle("Mochi's question", isOn: $showsReview).labelsHidden().toggleStyle(.switch)
                 }
             }
             Section("Idle") {

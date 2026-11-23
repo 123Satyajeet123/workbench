@@ -22,12 +22,15 @@ final class WhatsAppSource: MachineSource {
     @ObservationIgnored private let chatsKey: StateKey<[WhatsAppChat]>
     @ObservationIgnored private let membersKey: StateKey<[WhatsAppMember]>
     @ObservationIgnored private let everyChatKey: StateKey<Bool>
+    @ObservationIgnored private let hear: VoiceHearing
 
     init(
         store: Store, capture: CaptureService, task: String, founder: @escaping () -> String,
-        container: URL = WhatsAppChatReader.defaultContainer, othersReading: @escaping () -> Set<String> = { [] }
+        container: URL = WhatsAppChatReader.defaultContainer, othersReading: @escaping () -> Set<String> = { [] },
+        hear: @escaping VoiceHearing = VoiceText.texts(in:)
     ) throws {
         self.store = store
+        self.hear = hear
         self.othersReading = othersReading
         self.capture = capture
         self.founder = founder
@@ -141,9 +144,10 @@ final class WhatsAppSource: MachineSource {
         let (entries, people) = try await reader().read(from: day.start, to: day.end)
         try remember(people)
         let photos = await ImageText.texts(in: entries.compactMap(\.photo))
+        let voices = await hear(entries.compactMap(\.voice))
         let names = Dictionary(chats.map { ($0.jid, $0.name) }, uniquingKeysWith: { first, _ in first })
         let lines = entries.compactMap { entry in
-            line(entry, photos: photos).map { line in
+            line(entry, photos: photos, voices: voices).map { line in
                 guard isSeveral, let chat = names[entry.chat] else { return line }
                 var named = line
                 named.line = "[\(chat)] " + line.line
@@ -167,9 +171,12 @@ final class WhatsAppSource: MachineSource {
         WhatsAppChatReader(container: container, chatJIDs: chats.map(\.jid), policy: store, me: founderLabel(founder()))
     }
 
-    private func line(_ entry: WhatsAppEntry, photos: [URL: String]) -> Evidence? {
+    private func line(_ entry: WhatsAppEntry, photos: [URL: String], voices: [URL: String]) -> Evidence? {
         var parts = [entry.title, entry.text].compactMap { $0 }.filter { !$0.isEmpty }
         if let url = entry.photo, let seen = photos[url], !seen.isEmpty { parts.insert("[photo] \(seen)", at: 0) }
+        if let url = entry.voice, let heard = voices[url], !heard.isEmpty {
+            parts.insert("\(VoiceText.tag) \(heard)", at: 0)
+        }
         let text = parts.joined(separator: " — ")
         guard !text.isEmpty else { return nil }
         let sender: String
@@ -183,9 +190,20 @@ final class WhatsAppSource: MachineSource {
 
 func founderLabel(_ name: String) -> String { name.isEmpty ? "You" : "\(name) (You)" }
 
+typealias VoiceHearing = @Sendable ([URL]) async -> [URL: String]
+
+extension VoiceText {
+    static let tag = "[voice note]"
+}
+
 extension WhatsAppEntry {
     fileprivate var photo: URL? {
         guard kind == .photo, case .file(let url) = media else { return nil }
+        return url
+    }
+
+    fileprivate var voice: URL? {
+        guard kind == .voiceNote, case .file(let url) = media else { return nil }
         return url
     }
 }

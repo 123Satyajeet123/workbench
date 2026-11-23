@@ -48,11 +48,11 @@ private struct Strip: View {
         }
         try send(.leftMouseUp, x: third - width * 2)
         try await Task.sleep(for: .milliseconds(200))
-        #expect(holder.tabs.tabs.map(\.page) == [.usage, .day, .people])
+        #expect(holder.tabs.tabs.map(\.page) == [.usage, .mochi, .people])
 
         try send(.leftMouseDown, x: 1 + width * 1.5)
         try send(.leftMouseUp, x: 1 + width * 1.5)
         try await Task.sleep(for: .milliseconds(200))
-        #expect(holder.tabs.page == .day)
+        #expect(holder.tabs.page == .mochi)
     }
 }

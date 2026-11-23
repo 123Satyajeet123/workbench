@@ -97,12 +97,6 @@ final class HelperImprovement {
         }
     }
 
-    func tryModel(_ choice: ModelChoice) async {
-        var version = HelperModel.Version(context.spec)
-        version.runner = choice.id
-        await startTrial(version, by: .person, why: "Try \(choice.title)")
-    }
-
     func learnFromMarks() async {
         var version = HelperModel.Version(context.spec)
         version.examples = Self.exampleCount

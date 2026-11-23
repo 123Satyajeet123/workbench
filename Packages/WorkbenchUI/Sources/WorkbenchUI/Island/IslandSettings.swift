@@ -13,7 +13,25 @@ enum IslandIdle: String, CaseIterable, Identifiable {
     }
 }
 
+enum AlertStyle: String, CaseIterable, Identifiable {
+    case notch, popup
+
+    var id: Self { self }
+
+    static func current(in defaults: UserDefaults = .standard) -> AlertStyle {
+        defaults.string(forKey: IslandKey.style).flatMap(AlertStyle.init(rawValue:)) ?? .notch
+    }
+
+    var title: String {
+        switch self {
+        case .notch: "Notch"
+        case .popup: "Pop-up"
+        }
+    }
+}
+
 enum IslandKey {
+    static let style = "island.style"
     static let shown = "island.shown"
     static let recording = "island.recording"
     static let reading = "island.reading"

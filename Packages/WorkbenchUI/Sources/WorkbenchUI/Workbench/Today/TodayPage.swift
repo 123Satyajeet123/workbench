@@ -1,25 +1,6 @@
 import SwiftUI
 import WorkbenchCore
 
-struct TodayPage: View {
-    @Environment(TodayModel.self) private var today
-    @Environment(MochiModel.self) private var mochi
-    @Environment(IdentityModel.self) private var identity
-
-    var body: some View {
-        Page(
-            intro: .day,
-            title: identity.identity.greeting(), subtitle: Date.now.formatted(date: .complete, time: .omitted),
-            look: SidebarSelection.day.look
-        ) {
-            TodayBody(model: today, brief: mochi.brief)
-        }
-        .onAppear(perform: today.refresh)
-        .task { await today.refreshMeetings() }
-        .task(id: today.today) { await today.summarizeIfMissing() }
-    }
-}
-
 struct TodayBody: View {
     let model: TodayModel
     let brief: MorningBrief?
@@ -35,6 +16,7 @@ struct TodayBody: View {
             if model.isEmpty { Text("Nothing for today yet.").foregroundStyle(.supporting) }
             needsYou
             meetings
+            fromCalls
             team
             projects
             if let brief { YesterdayBrief(brief: brief) }
@@ -57,6 +39,14 @@ struct TodayBody: View {
         if model.meetings.offersMeetings { MeetingsOffer(model: model) }
         if let refusal = model.meetings.refusal { PermissionNotice(message: refusal, pane: .calendars) }
         if !model.meetingCards.isEmpty { MeetingsSection(model: model) }
+    }
+
+    @ViewBuilder private var fromCalls: some View {
+        if !model.callFollowUps.isEmpty {
+            TodaySection("From calls", count: model.callFollowUps.filter { $0.closed == nil }.count) {
+                ForEach(model.callFollowUps) { FactLine(item: $0, model: model).transition(.opacity) }
+            }
+        }
     }
 
     @ViewBuilder private var team: some View {

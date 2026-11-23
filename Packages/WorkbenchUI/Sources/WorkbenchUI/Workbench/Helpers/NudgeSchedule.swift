@@ -25,6 +25,10 @@ struct WatchSchedule: Codable, Equatable {
     var fromHour = 9
     var untilHour = 22
 
+    static func standard(for source: HelperSpec.Source) -> WatchSchedule {
+        WatchSchedule(isOn: source == .whatsappChat || source == .telegramChat)
+    }
+
     func isDue(at now: Date, lastRead: Date?, calendar: Calendar = .current) -> Bool {
         let hour = calendar.component(.hour, from: now)
         guard isOn, (fromHour..<untilHour).contains(hour) else { return false }

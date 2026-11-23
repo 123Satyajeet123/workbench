@@ -28,14 +28,16 @@ final class HelperSchedule {
         self.reading = reading
         do {
             nudge = try MachineKey.nudge(context.spec.task).load(from: context.store) ?? NudgeSchedule()
-            watch = try MachineKey.watch(context.spec.task).load(from: context.store) ?? WatchSchedule()
+            watch =
+                try MachineKey.watch(context.spec.task).load(from: context.store)
+                ?? .standard(for: context.spec.source)
         } catch {
             context.problems.report("read the saved nudge", error)
         }
     }
 
     func start() {
-        ticker.start { [weak self] in
+        ticker.start(waitingFirst: true) { [weak self] in
             await self?.readIfDue()
             await self?.nudgeIfDue()
         }
@@ -52,11 +54,8 @@ final class HelperSchedule {
     }
 
     func setWatch(on: Bool) async {
-        guard on else {
-            watch.isOn = false
-            return
-        }
-        await context.notifications.whenAllowed { [weak self] in self?.watch.isOn = true }
+        watch.isOn = on
+        if on, context.spec.tones.values.contains(.bad) { _ = await context.notifications.isAllowed() }
     }
 
     func readIfDue() async {
@@ -73,7 +72,7 @@ final class HelperSchedule {
         let alarming = context.items(on: today).filter { item in
             !before.contains(item.id ?? -1) && item.fields.values.contains { spec.tones[$0] == .bad }
         }
-        guard !alarming.isEmpty else { return }
+        guard !alarming.isEmpty, await context.notifications.isAllowed() else { return }
         let group: String? = if case .board(let field, _) = spec.view { field } else { nil }
         let lines = alarming.map { item in
             [group.map { item[$0] } ?? "", item[spec.title]].filter { !$0.isEmpty }.joined(separator: ": ")

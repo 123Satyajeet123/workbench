@@ -38,6 +38,18 @@ struct SourceToggles: View {
             capture.toggle($0, among: today?.meetings.calendars ?? [])
             Task { await today?.refreshMeetings() }
         }
+        if let meetings = today?.meetings {
+            Toggle(
+                "Skip all-day events",
+                isOn: Binding(
+                    get: { meetings.skipsAllDay },
+                    set: { on in
+                        meetings.skipsAllDay = on
+                        Task { await today?.refreshMeetings() }
+                    })
+            )
+            .help("Holidays, birthdays and other all-day entries stay off Mochi and the pop-up.")
+        }
     }
 
     private func binding(for kind: SourceKind) -> Binding<Bool> {

@@ -71,6 +71,17 @@ final class FakeCalendar: CalendarEvents, @unchecked Sendable {
         return Day(store: store, model: model, calendar: calendar, defaults: defaults)
     }
 
+    @Test func allDayEventsAreSkippedUntilYouAskForThem() async throws {
+        var holiday = Self.meeting("Diwali", hour: 0)
+        holiday.isAllDay = true
+        let day = try await day([Self.meeting("Sync"), holiday])
+        #expect(day.model.meetings.meetings.map(\.title) == ["Sync"] && day.model.meetings.skipsAllDay)
+        day.model.meetings.skipsAllDay = false
+        #expect(day.model.meetings.meetings.map(\.title) == ["Diwali", "Sync"])
+        #expect(day.defaults.object(forKey: MeetingsModel.skipsAllDayKey) as? Bool == false)
+        #expect(Meeting.during(holiday.start, holiday.start.addingTimeInterval(600), in: [holiday]) == nil)
+    }
+
     @Test func withTheConsentOffNothingIsReadAndTheOfferShows() async throws {
         let off = try await day([Self.meeting("Sync")], consent: nil)
         #expect(off.calendar.accessAsks == 0 && off.calendar.reads.isEmpty)

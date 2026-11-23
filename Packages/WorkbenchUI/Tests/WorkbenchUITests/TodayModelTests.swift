@@ -115,6 +115,25 @@ import WorkbenchCore
         #expect(day.model.isClosable(try #require(day.model.needs.first { $0.id == 8 }).item))
     }
 
+    @Test func rightConfirmsAFactAndLeavesItWhereItIs() async throws {
+        let day = try await setup()
+        day.model.perform(.right, on: [try day.fact(2)], text: "Marked right")
+        let marked = try day.fact(2)
+        #expect(marked.state == .confirmed && marked.closed == nil)
+        #expect(day.model.needs.contains { $0.id == 2 })
+    }
+
+    @Test func mochiAsksTheRandomQuestionAndAnAnswerMarksIt() async throws {
+        let day = try await setup()
+        let review = ReviewModel(store: day.store, crew: day.crew)
+        let question = try #require(review.question)
+        #expect(question.askedWith != nil)
+        review.answer(question, .rejected)
+        let saved = try day.store.queries.items(of: question.task, on: question.day).first { $0.id == question.id }
+        #expect(saved?.state == .rejected)
+        #expect(review.question?.id != question.id)
+    }
+
     @Test func undoReopensWhatDoneClosed() async throws {
         let day = try await setup()
         day.model.perform(.done, on: [try day.fact(3)], text: "Done")

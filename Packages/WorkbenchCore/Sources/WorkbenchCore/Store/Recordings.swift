@@ -14,8 +14,11 @@ public struct Recording: Sendable, Equatable, Identifiable {
     public var error: String?
     public var service: String?
     public var title: String?
+    public var guests: [String]?
 
     public var source: CallSource { CallSource(service: service ?? app, title: title ?? "") }
+
+    public var them: String { guests?.count == 1 ? guests?.first ?? "Them" : "Them" }
 }
 
 extension Store {
@@ -76,6 +79,15 @@ extension Store {
         }
     }
 
+    public func nameRecording(_ id: Int64, after meeting: Meeting?) throws {
+        let guests = meeting?.guests.compactMap { ($0.name.cleaned ?? $0.email.cleaned) } ?? []
+        try writer.write { db in
+            try db.execute(
+                sql: "UPDATE recording SET title = COALESCE(?, title), guests = ? WHERE id = ?",
+                arguments: [meeting?.title.cleaned, try Coding.json(guests), id])
+        }
+    }
+
     public func closeInterruptedRecordings() throws {
         try writer.write { db in
             try db.execute(
@@ -92,7 +104,7 @@ extension Queries {
             try db.fetch(
                 "recording",
                 """
-                SELECT id, app, bundle_id, folder, started_at, ended_at, state, error, service, title
+                SELECT id, app, bundle_id, folder, started_at, ended_at, state, error, service, title, guests
                 FROM recording ORDER BY id DESC
                 """
             ) { row in
@@ -101,7 +113,10 @@ extension Queries {
                     folder: Store.resolve(try row.value("folder"), in: directory),
                     startedAt: try row.date("started_at"), endedAt: try row.optionalDate("ended_at"),
                     state: try row.enumeration("state"), error: try row.optionalValue("error"),
-                    service: try row.optionalValue("service"), title: try row.optionalValue("title"))
+                    service: try row.optionalValue("service"), title: try row.optionalValue("title"),
+                    guests: try (row["guests"] as String?).map {
+                        try JSONDecoder().decode([String].self, from: Data($0.utf8))
+                    })
             }
         }
     }

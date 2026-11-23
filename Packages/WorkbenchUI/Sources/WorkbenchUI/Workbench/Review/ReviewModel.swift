@@ -23,6 +23,7 @@ final class ReviewModel {
     }
 
     var questions: Int { items.filter { $0.askedWith != nil }.count }
+    var question: Item? { items.first { $0.askedWith != nil } }
     var canUndo: Bool { !undoStack.isEmpty }
     var current: Item? { items.indices.contains(selected) ? items[selected] : nil }
 
@@ -35,6 +36,7 @@ final class ReviewModel {
     func refresh() {
         problems.attempt("read the queue", clearing: true) {
             items = try store.queries.waitingItems(since: WorkDay(containing: store.clock()).adding(days: -Self.days))
+                .filter { $0.task != CallAction.task }
             selected = min(selected, max(items.count - 1, 0))
         }
     }
@@ -42,6 +44,12 @@ final class ReviewModel {
     func select(_ index: Int) { selected = max(0, min(index, items.count - 1)) }
     func next() { select(selected + 1) }
     func previous() { select(selected - 1) }
+
+    func answer(_ item: Item, _ mark: Mark) {
+        guard let index = items.firstIndex(of: item) else { return }
+        select(index)
+        self.mark(mark)
+    }
 
     func mark(_ mark: Mark) {
         guard let item = current, let id = item.id else { return }

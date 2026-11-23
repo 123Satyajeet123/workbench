@@ -4,6 +4,8 @@ import LocalSources
 import Observation
 import WorkbenchCore
 
+typealias MeetingLookup = @MainActor (DateInterval) async -> [Meeting]?
+
 enum ListenerReadiness: Equatable {
     case ready, needsDownload, downloading, unsupported
 }
@@ -51,15 +53,19 @@ final class CallNotes {
     @ObservationIgnored private let makeModel: ModelMaker
     @ObservationIgnored private let listener: (any CallListener)?
     @ObservationIgnored private let founder: () -> String
+    @ObservationIgnored private let meetings: MeetingLookup
     @ObservationIgnored let defaultPlace: URL?
+    @ObservationIgnored var onFollowUps: () -> Void = {}
 
     static let documentsPlace = URL.documentsDirectory.appending(path: "Workbench/Recordings")
 
     init(
         store: Store, listener: (any CallListener)?, founder: @escaping () -> String,
-        makeModel: ((ModelChoice) -> RecordedModel)? = nil, defaultPlace: URL? = nil
+        makeModel: ((ModelChoice) -> RecordedModel)? = nil, defaultPlace: URL? = nil,
+        meetings: @escaping MeetingLookup = { _ in nil }
     ) {
         self.store = store
+        self.meetings = meetings
         self.listener = listener
         self.founder = founder
         self.defaultPlace = defaultPlace
@@ -130,12 +136,17 @@ final class CallNotes {
     }
 
     func retry(_ recording: Recording) async {
-        problems.attempt("clear the old notes", clearing: true) { try store.forgetNote(of: recording.id) }
+        problems.attempt("clear the old notes", clearing: true) {
+            try store.forgetNote(of: recording.id)
+            try store.dropCallActions(of: recording.id)
+        }
+        onFollowUps()
         refresh()
         await processPending()
     }
 
     func processPending() async {
+        await nameFromCalendar()
         guard speech == .ready else { return }
         let recordings = (try? store.queries.recordings()) ?? []
         for recording in recordings.reversed() where recording.state == .saved {
@@ -149,6 +160,23 @@ final class CallNotes {
             }
         }
     }
+
+    private func nameFromCalendar() async {
+        let recordings = (try? store.queries.recordings()) ?? []
+        for recording in recordings where recording.state == .saved && recording.guests == nil {
+            let end = recording.endedAt ?? recording.startedAt
+            let around = DateInterval(
+                start: recording.startedAt.addingTimeInterval(-Self.calendarReach),
+                end: end.addingTimeInterval(Self.calendarReach))
+            guard let found = await meetings(around) else { return }
+            problems.attempt("name the call", clearing: false) {
+                try store.nameRecording(recording.id, after: Meeting.during(recording.startedAt, end, in: found))
+            }
+        }
+        refresh()
+    }
+
+    static let calendarReach: TimeInterval = 3600
 
     private func transcribe(_ recording: Recording) async {
         guard let listener else { return }
@@ -190,6 +218,8 @@ final class CallNotes {
                 CallSummary.self, schema: CallSummary.schema, task: Self.task, instructions: Self.instructions,
                 input: Self.input(recording, lines: lines, me: me), holding: [.call])
             try store.saveSummary(of: recording.id, summary: summary, run: run)
+            try store.saveCallActions(of: recording, lines: lines, summary: summary, founder: me, run: run)
+            onFollowUps()
         } catch {
             problems.attempt("save the summary error", clearing: false) {
                 try store.saveSummary(of: recording.id, summary: nil, run: nil, error: error.localizedDescription)
@@ -201,20 +231,25 @@ final class CallNotes {
     static func input(_ recording: Recording, lines: [CallLine], me: String) -> String {
         let minutes = recording.endedAt.map { Int(($0.timeIntervalSince(recording.startedAt) / 60).rounded()) }
         let when = recording.startedAt.formatted(date: .abbreviated, time: .shortened)
-        return [
-            "Call: \(recording.source.label)", "When: \(when)" + (minutes.map { ", \($0) min" } ?? ""),
-            "Founder: \(me)", "", CallTranscript.text(lines, me: me, them: "Them"),
-        ].joined(separator: "\n")
+        var header = ["Call: \(recording.source.label)", "When: \(when)" + (minutes.map { ", \($0) min" } ?? "")]
+        header.append("Founder: \(me)")
+        if let guests = recording.guests, !guests.isEmpty {
+            header.append("Invited: \(guests.joined(separator: ", "))")
+        }
+        return (header + ["", CallTranscript.text(lines, me: me, them: recording.them)]).joined(separator: "\n")
     }
 
     static let instructions = """
         You read the transcript of one call the founder recorded and write their notes on it.
-        The founder's own lines are marked with the name after "Founder:". Every other voice is marked "Them"; it can \
-        be several people, so use a name only when one is said.
+        The founder's own lines are marked with the name after "Founder:". Every other voice is marked "Them", which \
+        can be several people, or with the guest's name when one guest was invited. Use a name for "Them" only when \
+        one is said; the invited list says who was asked to join.
         summary: two to four plain sentences on what the call was about and where it ended.
         decisions: each thing that was agreed or settled, one short line each.
         actions: each concrete follow-up someone took on. owner is who does it: the founder's name as given after \
-        "Founder:", a person's name when it was said, or "Them". text says what, with any date that was said.
+        "Founder:", a person's name when it was said, or "Them". text says what, with any date that was said. due is \
+        that date as YYYY-MM-DD, worked out from the day of the call, or empty when no day was said. quote is the \
+        exact words from one transcript line where it was taken on, copied character for character.
         Use only what was said in the call. Leave a list empty when there is nothing for it. Speech recognition makes \
         mistakes; when a word is clearly misheard, write what was meant only if it is obvious.
         """

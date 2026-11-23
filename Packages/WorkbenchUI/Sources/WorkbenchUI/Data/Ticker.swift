@@ -6,8 +6,12 @@ nonisolated final class Ticker: Sendable {
 
     deinit { loop.withLock { $0?.cancel() } }
 
-    func start(every interval: Duration = .seconds(60), _ job: @escaping @MainActor () async -> Void) {
+    func start(
+        every interval: Duration = .seconds(60), waitingFirst: Bool = false,
+        _ job: @escaping @MainActor () async -> Void
+    ) {
         let next = Task {
+            if waitingFirst { try? await Task.sleep(for: interval) }
             while !Task.isCancelled {
                 await job()
                 try? await Task.sleep(for: interval)

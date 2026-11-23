@@ -4,7 +4,7 @@ import Observation
 import WorkbenchCore
 
 enum FactChoice: Equatable {
-    case done, notRelevant, wrong
+    case done, right, notRelevant, wrong
     case snooze(until: WorkDay)
 }
 
@@ -50,6 +50,7 @@ final class TodayModel {
     private(set) var people: [FactGroup] = []
     private(set) var projectGroups: [FactGroup] = []
     private(set) var meetingCards: [MeetingCard] = []
+    private(set) var callFollowUps: [Item] = []
     private(set) var undoable: Undo?
     let problems = ProblemSlot()
     var problem: String? { problems.text }
@@ -76,6 +77,7 @@ final class TodayModel {
 
     var isEmpty: Bool {
         needs.isEmpty && team.isEmpty && unsummarized.isEmpty && projects.isEmpty && meetingCards.isEmpty
+            && callFollowUps.isEmpty
     }
 
     private var factMachines: [Machine] { crew.factKeepers.map(\.machine) }
@@ -104,9 +106,11 @@ final class TodayModel {
         let now = store.clock()
         today = WorkDay(containing: now)
         let dealActions = try store.queries.openDealActions()
+        callFollowUps = try recentCallFollowUps(now: now)
+        let assigned = dealActions + callFollowUps.filter { $0.closed == nil }
         guard let machine = factMachines.first else {
             clear()
-            needs = Needs.pick(facts: dealActions, findings: [], today: today, now: now)
+            needs = Needs.pick(facts: assigned, findings: [], today: today, now: now)
             buildMeetingCards()
             return
         }
@@ -115,7 +119,7 @@ final class TodayModel {
         let facts = try factMachines.flatMap { try recentFacts(of: $0, lifecycle: lifecycle, since: since) }
         let findings = try sentinelTask.map { try store.queries.items(of: $0, on: today) } ?? []
         let listed = facts.filter { $0.isListed(at: now) }
-        needs = Needs.pick(facts: facts + dealActions, findings: findings, today: today, now: now)
+        needs = Needs.pick(facts: facts + assigned, findings: findings, today: today, now: now)
         people = group(facts, by: machine.spec.memberField, lifecycle, now)
         projectGroups = group(facts, by: machine.spec.labelField, lifecycle, now)
         team = try factMachines.flatMap {
@@ -126,6 +130,16 @@ final class TodayModel {
             try rows(machine.spec.labelField, of: $0, day: today, listed: listed, groups: projectGroups)
         }
         buildMeetingCards()
+    }
+
+    private func recentCallFollowUps(now: Date) throws -> [Item] {
+        let since = today.adding(days: 1 - Self.days)
+        let recent = try store.queries.items(of: CallAction.task, since: since)
+        let known = Set(recent.compactMap(\.id))
+        let older = try store.queries.openCallActions().filter { $0.id.map { !known.contains($0) } ?? false }
+        return (older + recent).filter { item in
+            item.isListed(at: now) && (item.closed == nil || item.closed?.outcome == "done")
+        }
     }
 
     private func clear() {
@@ -184,6 +198,13 @@ final class TodayModel {
     }
 
     func perform(_ choice: FactChoice, on items: [Item], text: String) {
+        if choice == .right {
+            problems.attempt("save that", clearing: true) {
+                for id in items.compactMap(\.id) { try store.mark(item: id, as: .confirmed) }
+            }
+            reloadMachines()
+            return
+        }
         let plan = plan(for: choice, items)
         guard !plan.isEmpty else { return }
         do {
@@ -232,6 +253,7 @@ final class TodayModel {
     }
 
     func title(of item: Item) -> String {
+        if item.task == CallAction.task { return item["text"] }
         let field = crew.helper(task: item.task)?.spec.title
         return field.map { item[$0] } ?? item.quote
     }
@@ -245,6 +267,7 @@ final class TodayModel {
         case .wrong: return ids.isEmpty ? [:] : [.wrong: ids]
         case .snooze(let day): return ids.isEmpty ? [:] : [.snooze(until: day): ids]
         case .done: return closing(items)
+        case .right: return [:]
         }
     }
 
@@ -252,7 +275,9 @@ final class TodayModel {
         let tasks = Set(factMachines.map(\.task))
         var plan = factMachines.first?.spec.lifecycle?.closing(items.filter { tasks.contains($0.task) }) ?? [:]
         plan.merge(DealAction.lifecycle.closing(items.filter { $0.task == DealAction.task })) { $0 + $1 }
-        let findings = items.filter { !tasks.contains($0.task) && $0.task != DealAction.task && $0.closed == nil }
+        plan.merge(CallAction.lifecycle.closing(items.filter { $0.task == CallAction.task })) { $0 + $1 }
+        let assigned: Set<String> = [DealAction.task, CallAction.task]
+        let findings = items.filter { !tasks.contains($0.task) && !assigned.contains($0.task) && $0.closed == nil }
             .compactMap(\.id)
         if !findings.isEmpty { plan[.done(outcome: "handled")] = findings }
         return plan

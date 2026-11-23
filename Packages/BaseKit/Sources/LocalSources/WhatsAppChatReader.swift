@@ -236,7 +236,7 @@ public struct WhatsAppChatReader: Sendable {
 
     private static func addressBook(_ container: URL, for jids: [String]) -> [String: String] {
         guard !jids.isEmpty,
-            let snapshot = try? SQLiteSnapshot(copying: container.appending(path: "ContactsV2.sqlite").path),
+            let snapshot = try? SQLiteSnapshot(reading: container.appending(path: "ContactsV2.sqlite").path),
             (try? snapshot.requireColumns(["ZLID", "ZWHATSAPPID", "ZFULLNAME"], in: "ZWAADDRESSBOOKCONTACT")) != nil
         else { return [:] }
         let marks = Self.marks(jids.count)
@@ -255,7 +255,7 @@ public struct WhatsAppChatReader: Sendable {
     }
 
     private static func snapshot(_ container: URL) throws -> SQLiteSnapshot {
-        let snapshot = try SQLiteSnapshot(copying: container.appending(path: "ChatStorage.sqlite").path)
+        let snapshot = try SQLiteSnapshot(reading: container.appending(path: "ChatStorage.sqlite").path)
         try snapshot.requireColumns(
             ["Z_PK", "ZCONTACTJID", "ZSESSIONTYPE", "ZPARTNERNAME", "ZLASTMESSAGEDATE"], in: "ZWACHATSESSION")
         try snapshot.requireColumns(

@@ -22,6 +22,7 @@ struct FactActions: View {
                         Button(snooze.title) { act(.snooze(until: model.today.adding(days: snooze.days)), "Snoozed") }
                     }
                 }
+                Button("Right", systemImage: "hand.thumbsup") { act(.right, "Marked right") }
                 Button("Not relevant", systemImage: "eye.slash") { act(.notRelevant, "Hidden as not relevant") }
                 Button("Wrong", systemImage: "xmark.circle") { act(.wrong, "Hidden as wrong") }
             }

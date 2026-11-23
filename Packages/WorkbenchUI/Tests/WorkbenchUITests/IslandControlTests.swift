@@ -80,7 +80,7 @@ import Testing
         #expect(tracker.bounds.width == metrics.compactSize(ear: 0).width)
         let stop = IslandView.stopRect(metrics)
         try click(tracker, at: CGPoint(x: min(stop.midX, tracker.bounds.maxX - 2), y: 4), in: window)
-        #expect(taps.opened == [.review] && taps.stops == 0)
+        #expect(taps.opened == [.mochi] && taps.stops == 0)
     }
 
     @Test func anOfferedCallOpensOnItsOwnWithRecordAndNotNow() async throws {

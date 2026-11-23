@@ -147,7 +147,7 @@ public final class TDLibTelegram: TelegramService, @unchecked Sendable {
                         id: message.id, chat: chat, date: date, kind: content.kind,
                         sender: try await name(of: message.senderId), isOutgoing: message.isOutgoing,
                         text: Self.tagged(content.text, me: me, usernames: usernames, as: label),
-                        title: content.title))
+                        title: content.title, voice: await voice(of: message.content)))
             }
             if TimeInterval(oldest.date) < start.timeIntervalSince1970 { break }
             from = oldest.id
@@ -167,6 +167,16 @@ public final class TDLibTelegram: TelegramService, @unchecked Sendable {
 
     public func signOut() async throws {
         _ = try await call { try await $0.logOut() }
+    }
+
+    private func voice(of content: MessageContent) async -> URL? {
+        guard case .messageVoiceNote(let message) = content else { return nil }
+        let file = try? await call {
+            try await $0.downloadFile(
+                fileId: message.voiceNote.voice.id, limit: 0, offset: 0, priority: 1, synchronous: true)
+        }
+        guard let local = file?.local, local.isDownloadingCompleted, !local.path.isEmpty else { return nil }
+        return URL(fileURLWithPath: local.path)
     }
 
     static func plain(_ content: MessageContent) -> (
