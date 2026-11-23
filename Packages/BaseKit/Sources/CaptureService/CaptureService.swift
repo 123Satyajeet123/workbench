@@ -9,6 +9,8 @@ import WorkbenchCore
 @MainActor @Observable
 public final class CaptureService {
     public static let interval: Duration = .seconds(2)
+    /// The consent kinds whose lines live in the evidence store under a label the person names.
+    static let evidenceKinds: [SourceKind] = [.whatsapp, .mail]
 
     public private(set) var policy: CapturePolicy
     public private(set) var status: CaptureStatus
@@ -41,6 +43,7 @@ public final class CaptureService {
         loop = CaptureLoop(store: store, presence: presence)
         try store.closeInterruptedRecordings()
         try store.closeInterruptedRuns()
+        if case .success(let person) = owner { try store.moveMailPartsToEvidence(owner: person) }
     }
 
     /// The owner of every source this Mac reads. Throws why there is none.
@@ -65,17 +68,19 @@ public final class CaptureService {
         setWhatsAppWatch(on: false)
     }
 
-    /// The new policy is saved as one consent event, then used by the next reading. A WhatsApp chat taken off the
-    /// allow-list has its lines, and the copies of their words, erased: the consent is withdrawn.
+    /// The new policy is saved as one consent event, then used by the next reading. A WhatsApp chat or a mail label
+    /// taken off the allow-list has its lines, and the copies of their words, erased: the consent is withdrawn.
     public func update(_ change: (inout CapturePolicy) -> Void) throws {
         var changed = policy
         change(&changed)
         guard changed != policy else { return }
-        let withdrawn = policy.withdrawnChats(in: changed)
+        let withdrawn = Self.evidenceKinds.map { kind in (kind, policy.withdrawn(kind, in: changed)) }
         try store.savePolicy(changed)
         policy = changed
         refreshStatus()
-        for chat in withdrawn { try store.eraseEvidence(.grant(kind: .whatsapp, label: chat)) }
+        for (kind, labels) in withdrawn {
+            for label in labels { try store.eraseEvidence(.grant(kind: kind, label: label)) }
+        }
     }
 
     public func keptToday(limit: Int) throws -> [Activity] {

@@ -4,13 +4,14 @@ extension MailPart {
     /// Characters of mail text one reading sends at most (about 50k tokens), the same as for page text.
     public static let budget = WebPage.budget
 
-    /// One numbered line a machine reads: the sender, the subject and the text; a deck page also names its file and
-    /// page. Nil for a part not yet stored.
+    /// One numbered line a machine reads, with the label and authority the store gave it: the sender, and for a deck
+    /// page its file and page or for quoted text a note that it is quoted, then the text. Nil for a part with no stored line.
     public var evidence: Evidence? {
         guard let id else { return nil }
-        let place = kind == .deck ? " — \(name) page \(page)" : ""
+        let place = isDeck ? " — \(name) page \(page)" : isQuoted ? " (quoted)" : ""
         return Evidence(
-            id: id, start: seenAt, line: "\(sender) — \(subject)\(place): \(text)", quotable: [text])
+            id: id, start: sentAt, line: "\(sender ?? "Unknown")\(place): \(text)", quotable: [text], lineID: lineID,
+            provenance: provenance)
     }
 
     /// The parts of a day a machine reads: only those of the named labels, a repeated text once, earliest first up to

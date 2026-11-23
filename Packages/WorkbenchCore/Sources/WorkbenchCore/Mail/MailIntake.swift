@@ -1,7 +1,9 @@
 import Foundation
+import Kernel
 
 /// The native host's work for mail messages. Each step asks the capture policy itself: mail that is switched off, in
-/// another label than the named one, or not from Gmail is dropped here, whatever the extension sent.
+/// another label than the named one, or not from Gmail is dropped here, whatever the extension sent. Lines go to the
+/// evidence store through its one writer, which checks the consent again inside its write transaction.
 enum MailIntake {
     /// The labels the extension may read now: those the policy allows for mail. Empty when mail is off.
     static func status(store: Store) throws -> PageHost.Reply {
@@ -13,32 +15,29 @@ enum MailIntake {
         return PageHost.Reply(kept: false, labels: labels)
     }
 
-    /// Keeps a message the policy allows, and names the attached decks the host does not have yet.
-    static func keep(_ message: MailMessage, store: Store) throws -> PageHost.Reply {
-        guard let batch = message.batch(policy: try store.currentPolicy(), at: store.clock()) else {
-            return PageHost.Reply(kept: false)
-        }
-        let added = try store.record(batch)
+    /// Keeps a message the policy allows, and names the attached decks the host does not have yet. A message whose page
+    /// did not show who sent it and who it went to is not kept.
+    static func keep(_ message: MailMessage, store: Store, owner: PersonID) throws -> PageHost.Reply {
+        guard let grant = message.context.grant(policy: try store.currentPolicy(), at: store.clock()),
+            let reading = message.reading(grant: grant, now: store.clock())
+        else { return PageHost.Reply(kept: false) }
+        let report = try store.record(reading, of: .gmailMail, owner: owner)
+        try store.noteMailOpened(thread: message.context.threadId, label: reading.label)
         let known = try store.queries.deckNames(ofMessage: message.context.messageId)
-        return PageHost.Reply(kept: added > 0, wantDecks: message.attachments.filter { !known.contains($0) })
+        return PageHost.Reply(
+            kept: report.inserted > 0, wantDecks: message.attachments.filter { !known.contains($0) })
     }
 
     /// Adds a chunk of a deck. When the deck is whole, keeps the text of its pages under the stored message.
-    static func keep(_ chunk: DeckChunk, decks: DeckAssembly, store: Store) throws -> PageHost.Reply {
-        let now = store.clock()
-        guard let grant = chunk.context.grant(policy: try store.currentPolicy(), at: now),
-            let message = try store.queries.mailMessage(id: chunk.context.messageId),
-            message.label == chunk.context.label, let deck = decks.add(chunk)
+    static func keep(_ chunk: DeckChunk, decks: DeckAssembly, store: Store, owner: PersonID) throws -> PageHost.Reply {
+        let context = chunk.context
+        guard let grant = context.grant(policy: try store.currentPolicy(), at: store.clock()),
+            let message = try store.queries.mailMessage(thread: context.threadId, message: context.messageId),
+            message.grantID == Store.grantID(kind: .mail, label: context.label), let deck = decks.add(chunk),
+            let reading = message.reading(
+                pages: DeckText.pages(in: deck), file: chunk.name, thread: context.threadId,
+                message: context.messageId, grant: grant)
         else { return PageHost.Reply(kept: false) }
-        let parts = DeckText.pages(in: deck).map { page in
-            MailPart(
-                threadID: message.threadID, messageID: message.messageID, kind: .deck, name: chunk.name,
-                page: page.page, label: message.label, sender: message.sender, subject: message.subject,
-                sentAt: message.sentAt, seenAt: now, text: page.text)
-        }
-        guard let batch = MailBatch(parts, threadID: message.threadID, label: message.label, grant: grant) else {
-            return PageHost.Reply(kept: false)
-        }
-        return PageHost.Reply(kept: try store.record(batch) > 0)
+        return PageHost.Reply(kept: try store.record(reading, of: .gmailMail, owner: owner).inserted > 0)
     }
 }

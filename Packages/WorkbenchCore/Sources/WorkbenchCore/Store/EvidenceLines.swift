@@ -21,10 +21,17 @@ public struct StoredLine: Sendable, Equatable {
     /// Who may read the line and how far it is trusted. Nil when the stored label is not the label of its source: the
     /// line is then read as unlabelled and of unknown authority.
     public var provenance: Provenance?
+    /// The consent that let the line in: its kind and label (`Store.grantID`).
+    public var grantID: String
+    /// Where in the message the line is, as its source wrote it.
+    public var coordinate: String?
+    /// The words were quoted or forwarded, not the actor's own.
+    public var forwarded: Bool
 
     public init(
         number: Int64, lineID: Data, container: String, time: Date?, actor: String?, text: String, isTombstone: Bool,
-        provenance: Provenance? = nil
+        provenance: Provenance? = nil, grantID: String = "", coordinate: String? = nil,
+        forwarded: Bool = false
     ) {
         self.number = number
         self.lineID = lineID
@@ -34,6 +41,9 @@ public struct StoredLine: Sendable, Equatable {
         self.text = text
         self.isTombstone = isTombstone
         self.provenance = provenance
+        self.grantID = grantID
+        self.coordinate = coordinate
+        self.forwarded = forwarded
     }
 
     init(row: Row) {
@@ -43,19 +53,26 @@ public struct StoredLine: Sendable, Equatable {
             number: row["number"], lineID: row["line_id"], container: row["container"],
             time: milliseconds.map { Date(timeIntervalSince1970: Double($0) / 1000) }, actor: actor,
             text: row["text"], isTombstone: row["tombstone"] == 1,
-            provenance: Self.provenance(source: row["source_id"], label: row["label_id"], actor: actor))
+            provenance: Self.provenance(
+                source: row["source_id"], label: row["label_id"], actor: actor, forwarded: row["forwarded"] == 1),
+            grantID: row["grant_id"], coordinate: row["coordinate"], forwarded: row["forwarded"] == 1)
     }
 
     /// The label of a line is the label of its source alone, as the writer made it. A stored label id that this does
     /// not give is a label this version cannot rebuild, so the line has none.
-    private static func provenance(source: Data, label: Data, actor: String?) -> Provenance? {
+    private static func provenance(source: Data, label: Data, actor: String?, forwarded: Bool) -> Provenance? {
         guard let source = SourceID(bytes: Array(source)) else { return nil }
         let own = Label(source: source)
         return own.id.bytes == Array(label)
-            ? Provenance(label: own, authority: Authority(actor: actor, owner: WhatsAppAudience.owner)) : nil
+            ? Provenance(
+                label: own, authority: Authority(actor: actor, owner: WhatsAppAudience.owner, forwarded: forwarded))
+            : nil
     }
 
-    static let columns = "e.line_id, e.container, e.event_time, e.actor, e.text, e.tombstone, e.source_id, e.label_id"
+    static let columns = """
+        e.line_id, e.container, e.event_time, e.actor, e.text, e.tombstone, e.source_id, e.label_id, e.grant_id, \
+        e.coordinate, e.forwarded
+        """
 
     static func fetchAll(_ db: Database, sql: String, arguments: StatementArguments) throws -> [StoredLine] {
         try Row.fetchAll(db, sql: sql, arguments: arguments).map(StoredLine.init(row:))
@@ -152,5 +169,5 @@ extension Queries {
 }
 
 extension Date {
-    fileprivate var millisecondsSince1970: Int64 { UTCInstant(self).milliseconds }
+    var millisecondsSince1970: Int64 { UTCInstant(self).milliseconds }
 }

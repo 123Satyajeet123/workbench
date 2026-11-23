@@ -65,9 +65,10 @@ final class HelperReading {
         }
     }
 
-    /// The numbers of the lines an earlier reading of this machine saw. A line the evidence store holds was read when a
-    /// finished run of this machine had it in its window, so a store that starts again from number one loses nothing.
-    /// A line of another source was read when its number is at most the last one a reading saw.
+    /// The numbers of the lines an earlier reading of this machine saw. A line the evidence store holds (WhatsApp, mail,
+    /// pages) was read when a finished run of this machine had it in its window, so a store that starts again from
+    /// number one loses nothing. Only the screen source keeps no stored line yet: a window of it was read when its
+    /// number is at most the last one a reading saw. This is the one place the position marker remains.
     private func numbersRead(in full: EvidenceSet, scope: String, day: WorkDay) throws -> Set<Int64> {
         let stored = full.lines.filter { $0.lineID != nil }.map(\.id)
         let cursor = try MachineKey.lastLine(context.spec.task, scope: scope, day: day).load(from: context.store)
@@ -75,7 +76,7 @@ final class HelperReading {
         return try context.store.queries.numbersRead(by: context.spec.task, among: stored).union(past)
     }
 
-    /// Where a reading of lines that are not in the evidence store stopped.
+    /// Where a reading of the screen's windows, which the evidence store does not hold yet, stopped.
     private func keepCursor(of full: EvidenceSet, scope: String, day: WorkDay) throws {
         guard let top = full.lines.filter({ $0.lineID == nil }).map(\.id).max() else { return }
         try MachineKey.lastLine(context.spec.task, scope: scope, day: day).save(top, to: context.store)

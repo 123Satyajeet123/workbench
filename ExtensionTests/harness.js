@@ -41,6 +41,17 @@
     out.thread = readMail();
     out.dateInTitle = Math.floor(Date.parse(document.querySelector("[title]").getAttribute("title")) / 1000);
     out.threadWithoutClasses = variant(without("class"), readMail);
+    out.threadWithoutQuoteTag = variant(
+      (root) =>
+        root.querySelectorAll("blockquote").forEach((quote) => {
+          const plain = document.createElement("div");
+          plain.innerHTML = quote.innerHTML;
+          quote.replaceWith(plain);
+        }),
+      readMail,
+    );
+    out.threadWithoutAccount = variant(without("aria-label"), readMail);
+    out.threadWithoutAddressAttributes = variant(without("email"), readMail);
     out.threadWithoutThreadId = variant(without("data-thread-id"), readMail);
     out.threadFromTheAddress = variant(without("data-thread-id", "data-legacy-thread-id"), readMail);
     out.threadWithoutMessageIds = variant(without("data-message-id"), readMail);

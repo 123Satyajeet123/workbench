@@ -55,7 +55,8 @@ public struct ClaimExtractor: Sendable {
         let (reply, run) = try await model.generate(
             Reply.self, schema: Self.schema(for: types), task: Self.task,
             instructions: Self.instructions(for: types),
-            input: lines.map { "[\($0.id)] \($0.line)" }.joined(separator: "\n"), holding: [.mail])
+            input: lines.map { "[\($0.id)] \($0.line)" }.joined(separator: "\n"), holding: [.mail],
+            window: lines.compactMap { line in line.lineID.map { WindowLine(number: line.id, lineID: $0) } })
         let verifier = Verifier(window: EvidenceSet(lines: lines), settings: try model.verifierSettings())
         let found = try verifier.settle(
             reply.claims, part: "claims",

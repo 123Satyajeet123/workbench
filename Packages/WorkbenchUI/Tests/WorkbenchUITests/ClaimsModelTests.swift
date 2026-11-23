@@ -46,12 +46,29 @@ final class RecordingSearch: SearchProvider, PageFetching, Sendable {
 
 @MainActor
 @Suite struct ClaimsModelTests {
-    private let deckPart = MailPart(
-        id: 11, threadID: "t1", messageID: "m1", kind: .deck, name: "deck.pdf", page: 2, label: "Deals",
-        sender: "Priya", subject: "Acme pitch", sentAt: .now, seenAt: .now,
-        text: "Acme raised $20 million in its seed round in 2023.")
-    private static let extraction =
-        #"{"claims":[{"line":11,"text":"Acme raised $20 million.","type":"funding","value":"$20 million","quote":"raised $20 million"}]}"#
+    private static let pitch = "Acme raised $20 million in its seed round in 2023."
+
+    /// The pitch as the app reads it back: a line the host stored, with the label and authority the writer gave it.
+    private static func storedPart(in store: Store) throws -> MailPart {
+        let context = MailContext(
+            browser: "com.brave.Browser", url: "https://mail.google.com/mail/u/0/#label/Deals/T1", label: "Deals",
+            threadId: "T1", messageId: "m1")
+        let mail = MailMessage(
+            context: context, sender: "priya@acme.example", recipients: ["vc@fund.example"], text: pitch)
+        try store.savePolicy(CapturePolicy(switches: [.mail: true], allowList: [.mail: ["Deals"]]))
+        _ = PageHost.answer(
+            try JSONEncoder().encode(mail), store: store, browser: "com.brave.Browser",
+            owner: .success(try PersonID("test-owner")))
+        return try #require(try store.queries.mailParts(from: .distantPast, to: .distantFuture).first)
+    }
+
+    /// A part no store line stands behind: it has no label and no authority.
+    private static let unlabelledPart = MailPart(
+        id: 11, threadID: "t1", label: "Deals", sender: "priya@acme.example", sentAt: .now, text: pitch)
+
+    private static func extraction(line: Int64) -> String {
+        #"{"claims":[{"line":\#(line),"text":"Acme raised $20 million.","type":"funding","value":"$20 million","quote":"raised $20 million"}]}"#
+    }
 
     private struct Setup {
         var fixture: DealFixture
@@ -63,23 +80,23 @@ final class RecordingSearch: SearchProvider, PageFetching, Sendable {
 
     private func setup(
         web: Bool = true, mail: Bool = true, key: String? = "k", cap: Int = 100,
-        queries: String = #"["Acme seed round"]"#, readsDeck: Bool = false
+        queries: String = #"["Acme seed round"]"#, readsDeck: Bool = false, labelled: Bool = true
     )
         async throws -> Setup
     {
         let fixture = try DealFixture()
         let deal = try await fixture.deal("Acme", reading: VCFixture.hot)
+        let part = labelled ? try Self.storedPart(in: fixture.store) : Self.unlabelledPart
         try fixture.store.savePolicy(
             CapturePolicy(switches: [.web: web, .mail: mail], allowList: [.mail: ["Deals"]]))
         try fixture.store.saveWebSettings(WebSettings(provider: .brave, monthlyCap: cap))
         let search = RecordingSearch()
         let model = RepliesInOrder(
-            (readsDeck ? [Self.extraction] : []) + [
+            (readsDeck ? [Self.extraction(line: part.id ?? 0)] : []) + [
                 #"{"queries":\#(queries)}"#,
                 #"{"verdict":"contradicted","page":1,"quote":"raised $11 Mn in its seed"}"#,
             ])
         let store = fixture.store
-        let part = deckPart
         let claims = fixture.makeClaims(
             model: model,
             openSession: {
@@ -153,8 +170,19 @@ final class RecordingSearch: SearchProvider, PageFetching, Sendable {
         #expect(s.model.inputs.withLock { $0 }.isEmpty, "no check call")
     }
 
-    @Test func aClaimReadFromTheDeckHasNoKnownLabelYetSoItIsNotSearchedFor() async throws {
+    @Test func aClaimReadFromDeckLinesWithAKnownLabelHasThatLabelAndItsQueryLeaves() async throws {
         let s = try await setup(readsDeck: true)
+        await s.claims.extract(from: s.deal)
+        let claim = try #require(s.claims.state(of: s.deal).claims.first)
+        let gmail = try SourceDescriptor.gmailMail.sourceID(owner: PersonID("test-owner"))
+        #expect(claim.label == Label(source: gmail))
+        s.claims.toggle(claim, in: s.deal)
+        await s.claims.checkChosen(in: s.deal)
+        #expect(s.search.queries.withLock { $0 } == ["Acme seed round"] && s.claims.problems.text == nil)
+    }
+
+    @Test func aClaimReadFromALineWithNoStoredLabelHasNoLabelSoItIsNotSearchedFor() async throws {
+        let s = try await setup(readsDeck: true, labelled: false)
         await s.claims.extract(from: s.deal)
         let claim = try #require(s.claims.state(of: s.deal).claims.first)
         #expect(claim.label == nil)

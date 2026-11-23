@@ -14,9 +14,13 @@ public enum Authority: String, CaseIterable, Comparable, Sendable {
     }
 
     /// The authority of a line from the sender the source recorded. The owner's own lines are their own words and
-    /// any other sender is another person; a line with no sender is unknown. No reader keeps a forwarded flag yet, so
-    /// no stored line is `forwardedOrQuoted`: the level is in the order, ready for a reader that keeps the flag.
-    public init(actor: String?, owner: String) {
+    /// any other sender is another person; a line with no sender is unknown. A line marked forwarded or quoted is
+    /// `forwardedOrQuoted` whoever sent it: the sender repeated words that someone else wrote.
+    public init(actor: String?, owner: String, forwarded: Bool = false) {
+        guard !forwarded else {
+            self = .forwardedOrQuoted
+            return
+        }
         self = actor.map { $0 == owner ? .ownWords : .groupMember } ?? .unknown
     }
 }

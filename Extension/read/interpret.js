@@ -3,6 +3,7 @@
 // (the shape contract). It selects only by attribute name: never by class, and it names no site.
 (() => {
   const attributeName = /^(?!class$)[A-Za-z][A-Za-z0-9_-]*$/i;
+  const tagName = /^[a-z][a-z0-9-]*$/;
   const urlParts = { hash: "hash", path: "pathname" };
 
   function recordFor(records, hostname) {
@@ -11,6 +12,11 @@
 
   function withAttribute(root, name) {
     return attributeName.test(name) ? [...root.querySelectorAll(`[${name}]`)] : [];
+  }
+
+  // The elements of one tag name, such as the tag a record names for quoted text. A tag is structure, not a class.
+  function withTag(root, tag) {
+    return tagName.test(tag) ? [...root.querySelectorAll(tag)] : [];
   }
 
   function matches(value, pattern) {
@@ -80,5 +86,5 @@
   }
 
   globalThis.WorkbenchReader = globalThis.WorkbenchReader ?? {};
-  globalThis.WorkbenchReader.interpret = Object.freeze({ recordFor, withAttribute, read, checkShape });
+  globalThis.WorkbenchReader.interpret = Object.freeze({ recordFor, withAttribute, withTag, identify, read, checkShape });
 })();

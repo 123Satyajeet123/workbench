@@ -50,7 +50,7 @@ enum AppLaunch {
             let service = try CaptureService(store: store, owner: owner)
             let identity = IdentityModel(store: store)
             let notifications = Notifications()
-            let pages = try PageHostListener(path: PagesSocket.path(in: storeFolder), store: store)
+            let pages = try PageHostListener(path: PagesSocket.path(in: storeFolder), store: store, owner: owner)
             let web = WebResearchSettings(store: store, browser: pages)
             let crew = Crew(
                 store: store, capture: service, founder: { identity.identity.name }, makeModel: nil,

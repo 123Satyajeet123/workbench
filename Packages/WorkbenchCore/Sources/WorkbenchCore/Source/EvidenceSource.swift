@@ -23,6 +23,10 @@ public enum EvidenceQuality: String, Sendable {
 /// The id space of an old citation (`evidence_legacy.space`).
 public enum LegacySpace: String, Sendable {
     case whatsAppRow = "wa_zpk"
+    case mailPart = "mail_part"
+
+    /// The old citation space of each consent kind whose facts cite row numbers of their own store.
+    static let byKind: [(SourceKind, LegacySpace)] = [(.whatsapp, .whatsAppRow), (.mail, .mailPart)]
 }
 
 /// What an old citation named: a row number of the source's own store.
@@ -49,10 +53,16 @@ public struct ObservedLine: Sendable {
     public var messageRef: String?
     /// The old citation id of the row this line came from; set only while that id still means this row.
     public var legacy: LegacyRef?
+    /// Where in the message the line is, as the source gives it (the file and page of a deck page).
+    public var coordinate: String?
+    /// The words were quoted from an earlier message or forwarded, not written by the actor. Only a source with a
+    /// structural sign of it sets this; a source with none leaves it false and the line keeps the actor's authority.
+    public var forwarded: Bool
 
     public init(
         line: Line, quality: EvidenceQuality = .stable, eventTime: UTCInstant? = nil, actor: String? = nil,
-        replyTo: EntityKey? = nil, messageRef: String? = nil, legacy: LegacyRef? = nil
+        replyTo: EntityKey? = nil, messageRef: String? = nil, legacy: LegacyRef? = nil, coordinate: String? = nil,
+        forwarded: Bool = false
     ) {
         self.line = line
         self.quality = quality
@@ -61,6 +71,8 @@ public struct ObservedLine: Sendable {
         self.replyTo = replyTo
         self.messageRef = messageRef
         self.legacy = legacy
+        self.coordinate = coordinate
+        self.forwarded = forwarded
     }
 }
 

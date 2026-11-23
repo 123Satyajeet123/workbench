@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import Kernel
 import Synchronization
 import Testing
 
@@ -11,10 +12,12 @@ import Testing
         browser: "com.brave.Browser", url: "https://mail.google.com/mail/u/0/#label/Deals/FMfcgz",
         label: "Deals", threadId: "FMfcgz", messageId: "msg-1")
 
+    private let owner = Result<PersonID, any Error>.success(try! PersonID("owner-1"))
+
     private func message(_ context: MailContext? = nil, text: String = "Acme raises a 2M seed.") -> MailMessage {
         MailMessage(
-            context: context ?? gmail, sender: "Ana <ana@acme.example>", subject: "Acme seed", sent: 1_789_990_000,
-            text: text, attachments: ["Deck.pdf"])
+            context: context ?? gmail, sender: "ana@acme.example", recipients: ["vc@fund.example"],
+            account: "vc@fund.example", sent: 1_789_990_000, text: text, attachments: ["Deck.pdf"])
     }
 
     private func store(policy: CapturePolicy?) throws -> Store {
@@ -27,7 +30,7 @@ import Testing
         _ value: some Encodable, to store: Store, browser: String = "com.brave.Browser",
         decks: DeckAssembly = DeckAssembly()
     ) throws -> PageHost.Reply {
-        PageHost.answer(try JSONEncoder().encode(value), store: store, browser: browser, decks: decks)
+        PageHost.answer(try JSONEncoder().encode(value), store: store, browser: browser, owner: owner, decks: decks)
     }
 
     private func stored(_ store: Store) throws -> [MailPart] {
@@ -69,10 +72,10 @@ import Testing
         let reply = try send(message(), to: store)
         #expect(reply == PageHost.Reply(kept: true, wantDecks: ["Deck.pdf"]))
         let part = try #require(try stored(store).first)
-        #expect(part.threadID == "FMfcgz" && part.messageID == "msg-1" && part.kind == .message)
-        #expect(part.sender == "Ana <ana@acme.example>" && part.subject == "Acme seed")
+        #expect(part.threadID == "FMfcgz" && !part.isDeck && part.sender == "ana@acme.example")
         #expect(part.text == "Acme raises a 2M seed." && part.label == "Deals")
-        #expect(part.sentAt == Date(timeIntervalSince1970: 1_789_990_000) && part.seenAt == t0)
+        #expect(part.sentAt == Date(timeIntervalSince1970: 1_789_990_000))
+        #expect(part.provenance?.authority == .groupMember)
     }
 
     @Test func withMailConsentOffNothingIsStored() throws {
@@ -118,8 +121,8 @@ import Testing
         #expect(try send(message(), to: store).kept)
         #expect(try send(message(), to: store).kept == false, "the second opening adds nothing")
         #expect(try stored(store).count == 1)
-        #expect(try send(message(text: "changed"), to: store).kept == false, "the message id decides, not the text")
-        #expect(try stored(store).map(\.text) == ["Acme raises a 2M seed."])
+        #expect(try send(message(text: "changed"), to: store).kept, "a changed text is a new line of the same message")
+        #expect(try stored(store).map(\.text) == ["changed"], "the current version is the one seen last")
         var second = gmail
         second.messageId = "msg-2"
         #expect(try send(message(second, text: "Reply"), to: store).kept)
@@ -146,8 +149,9 @@ import Testing
 
     @Test func theHostSaysWhichLabelsItReads() throws {
         let status = Data(#"{"type":"mail_status"}"#.utf8)
-        #expect(PageHost.answer(status, store: try store(policy: named), browser: nil).labels == ["Deals"])
-        #expect(PageHost.answer(status, store: try store(policy: nil), browser: nil).labels == [])
+        #expect(
+            PageHost.answer(status, store: try store(policy: named), browser: nil, owner: owner).labels == ["Deals"])
+        #expect(PageHost.answer(status, store: try store(policy: nil), browser: nil, owner: owner).labels == [])
         #expect(
             PageHost.answer(
                 status, store: try store(policy: CapturePolicy(allowList: [.mail: ["Deals"]])), browser: nil
@@ -169,13 +173,13 @@ import Testing
         let replies = try pieces.reversed().map { try send($0, to: store, decks: decks) }
         #expect(
             replies.map(\.kept) == Array(repeating: false, count: pieces.count - 1) + [true], "out of order is fine")
-        let pages = try stored(store).filter { $0.kind == .deck }
+        let pages = try stored(store).filter { $0.isDeck }
         #expect(pages.map(\.page) == [1, 2])
         #expect(pages.map(\.text) == ["Acme Seed Deck", "Traction: 40k MRR"])
-        #expect(pages.allSatisfy { $0.name == "Deck.pdf" && $0.sender == "Ana <ana@acme.example>" })
+        #expect(pages.allSatisfy { $0.name == "Deck.pdf" && $0.sender == "ana@acme.example" })
         #expect(try send(message(), to: store).wantDecks == [], "the host has the deck: it does not ask again")
         for piece in pieces { _ = try send(piece, to: store, decks: decks) }
-        #expect(try stored(store).filter { $0.kind == .deck }.count == 2, "a deck sent twice is stored once")
+        #expect(try stored(store).filter { $0.isDeck }.count == 2, "a deck sent twice is stored once")
     }
 
     @Test func aDeckMissingAChunkStoresNothing() throws {
@@ -184,7 +188,7 @@ import Testing
         let pieces = chunks(of: makeDeck([.text("Acme Seed Deck")]), name: "Deck.pdf", context: gmail, size: 700)
         let decks = DeckAssembly()
         for piece in pieces.dropLast() { _ = try send(piece, to: store, decks: decks) }
-        #expect(try stored(store).filter { $0.kind == .deck }.isEmpty)
+        #expect(try stored(store).filter { $0.isDeck }.isEmpty)
     }
 
     @Test func aDeckChunkWithConsentOffOrForTheWrongLabelOrWithNoStoredMessageIsDropped() throws {
@@ -195,7 +199,7 @@ import Testing
         _ = try send(message(), to: off)
         try off.savePolicy(CapturePolicy())
         for piece in pieces { #expect(try send(piece, to: off).kept == false) }
-        #expect(try stored(off).filter { $0.kind == .deck }.isEmpty, "consent withdrawn after the message")
+        #expect(try stored(off).filter { $0.isDeck }.isEmpty, "consent withdrawn after the message")
 
         let wrong = try store(policy: named)
         _ = try send(message(), to: wrong)
@@ -204,7 +208,7 @@ import Testing
         for piece in chunks(of: deck, name: "Deck.pdf", context: other, size: 700) {
             #expect(try send(piece, to: wrong).kept == false)
         }
-        #expect(try stored(wrong).filter { $0.kind == .deck }.isEmpty)
+        #expect(try stored(wrong).filter { $0.isDeck }.isEmpty)
 
         let unknown = try store(policy: named)
         for piece in pieces { #expect(try send(piece, to: unknown).kept == false) }
@@ -251,8 +255,8 @@ import Testing
         let lines = reading.parts.compactMap(\.evidence)
         #expect(
             lines.map(\.line) == [
-                "Ana <ana@acme.example> — Acme seed: Acme raises a 2M seed.",
-                "Ana <ana@acme.example> — Acme seed — Deck.pdf page 1: Slide one",
+                "ana@acme.example: Acme raises a 2M seed.",
+                "ana@acme.example — Deck.pdf page 1: Slide one",
             ])
         #expect(Set(lines.map(\.id)).count == 2, "every line has its own number")
         #expect(lines[1].quotable == ["Slide one"])
@@ -260,9 +264,7 @@ import Testing
 
     @Test func aReadingKeepsOnlyTheNamedLabelsEachTextOnceWithinTheBudget() {
         func part(_ id: Int64, label: String = "Deals", text: String, thread: String = "t") -> MailPart {
-            MailPart(
-                id: id, threadID: thread, messageID: "m\(id)", label: label, sender: "a", subject: "s", sentAt: t0,
-                seenAt: t0, text: text)
+            MailPart(id: id, threadID: thread, label: label, sender: "a", sentAt: t0, text: text)
         }
         let parts = [
             part(1, text: "first"), part(2, label: "Personal", text: "private"), part(3, text: "first"),

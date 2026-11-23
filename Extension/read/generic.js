@@ -66,12 +66,6 @@
     return readBlocks(root, view).map(({ text }) => text).join("\n").slice(0, maximumCharacters);
   }
 
-  function firstHeadingText(root) {
-    return root.querySelector("h1, h2, h3, h4, h5, h6, [role='heading']")?.textContent.trim() ?? "";
-  }
-
   globalThis.WorkbenchReader = globalThis.WorkbenchReader ?? {};
-  globalThis.WorkbenchReader.generic = Object.freeze({
-    maximumCharacters, roleOf, readBlocks, readText, firstHeadingText,
-  });
+  globalThis.WorkbenchReader.generic = Object.freeze({ maximumCharacters, roleOf, readBlocks, readText });
 })();

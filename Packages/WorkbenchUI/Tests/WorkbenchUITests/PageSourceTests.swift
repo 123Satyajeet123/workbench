@@ -1,4 +1,5 @@
 import Foundation
+import Kernel
 import Testing
 import WorkbenchCore
 
@@ -18,10 +19,13 @@ import WorkbenchCore
             ("https://x.com/home", "a post about cats"),
         ] {
             let page = WebPage(browser: "com.brave.Browser", url: url, title: "Inbox", text: text)
-            try store.record(try #require(page.batch(policy: try store.currentPolicy(), at: now)))
+            let reply = PageHost.answer(
+                try JSONEncoder().encode(page), store: store, browser: "com.brave.Browser",
+                owner: .success(try PersonID("test-owner")))
+            #expect(reply.kept)
         }
         let gmail = try #require(
-            try store.queries.activities(since: .distantPast).first { $0.text?.contains("Acme") == true }?.id)
+            try store.queries.pageLines(from: .distantPast, to: .distantFuture).first { $0.text.contains("Acme") }?.id)
         let scripted = ScriptedModel(
             #"{"items":[{"title":"Acme seed round","who":"Acme","next":"Reply","cite":\#(gmail),"quote":"raising a 2M seed"}]}"#
         )
@@ -44,6 +48,9 @@ import WorkbenchCore
         #expect(input.contains("mail.example.com — Inbox: Acme: raising a 2M seed"))
         #expect(!input.contains("cats"))
         #expect(scout.items.map(\.quote) == ["raising a 2M seed"])
+        #expect(
+            try store.queries.numbersRead(by: machine.task, among: [gmail]) == [gmail],
+            "the run recorded the page line in its window")
         #expect(try PageSource(store: store, task: machine.task).sites == ["mail.example.com"], "the sites are kept")
     }
 

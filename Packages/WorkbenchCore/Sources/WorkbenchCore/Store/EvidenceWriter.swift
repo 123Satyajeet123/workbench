@@ -229,15 +229,16 @@ struct EvidenceStamp {
             sql: """
                 INSERT INTO evidence(line_id, entity_key, quality, source_id, container, event_time, first_seen,
                     last_seen, actor, text, reply_to, coordinate, message_ref, tombstone, label_id, grant_id,
-                    audience_digest, retention_class, obtained_by, walk_complete, reader_version)
-                SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, NULL, ?
+                    audience_digest, retention_class, obtained_by, walk_complete, reader_version, forwarded)
+                SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?
                 WHERE NOT EXISTS (SELECT 1 FROM evidence WHERE line_id = ?)
                 """,
             arguments: [
                 lineID, key, item.quality.rawValue, stamp.source, stamp.container, item.eventTime?.milliseconds,
-                stamp.now, stamp.now, item.actor, line.text, item.replyTo.map { Data($0.bytes) }, item.messageRef,
+                stamp.now, stamp.now, item.actor, line.text, item.replyTo.map { Data($0.bytes) }, item.coordinate,
+                item.messageRef,
                 line.isTombstone ? 1 : 0, stamp.label, stamp.grantID, stamp.audience, stamp.retention,
-                stamp.obtainedBy, stamp.readerVersion, lineID,
+                stamp.obtainedBy, stamp.readerVersion, item.forwarded ? 1 : 0, lineID,
             ])
         if db.changesCount == 1 {
             if line.isTombstone { report.tombstones = 1 } else { report.inserted = 1 }

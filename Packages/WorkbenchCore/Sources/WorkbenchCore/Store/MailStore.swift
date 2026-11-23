@@ -1,74 +1,88 @@
 import Foundation
 import GRDB
+import Lines
 
 extension Store {
-    /// Keeps the parts of a batch that are new: a part whose message id (and file and page) is stored already is left
-    /// out, so opening a thread twice adds nothing. The thread counts as opened on today's work day. Returns how many
-    /// parts were new.
-    @discardableResult
-    public func record(_ batch: MailBatch) throws -> Int {
-        try check(batch.grant, kind: .mail, label: batch.label)
+    /// Counts the thread as opened on today's work day, once per day. It holds no text.
+    func noteMailOpened(thread: String, label: String) throws {
         let day = WorkDay(containing: clock()).description
-        return try writer.write { db in
+        try writer.write { db in
             try db.execute(
                 sql: "INSERT OR IGNORE INTO mail_open(thread_id, day, label) VALUES (?,?,?)",
-                arguments: [batch.threadID, day, batch.label])
-            var added = 0
-            for part in batch.parts {
-                try db.execute(
-                    sql: """
-                        INSERT OR IGNORE INTO mail_part(thread_id, message_id, kind, name, page, label, sender, subject,
-                            sent_at, seen_at, text) VALUES (?,?,?,?,?,?,?,?,?,?,?)
-                        """,
-                    arguments: [
-                        part.threadID, part.messageID, part.kind.rawValue, part.name, part.page, part.label,
-                        part.sender, part.subject, part.sentAt.stored, part.seenAt.stored, part.text,
-                    ])
-                added += db.changesCount
-            }
-            return added
+                arguments: [thread, day, label])
         }
     }
 }
 
 extension Queries {
-    /// Parts first seen in `start..<end`, oldest first.
+    private static let mailGrants = "substr(e.grant_id, 1, length(?)) = ?"
+    private static let current = """
+        e.id = (SELECT v.id FROM evidence v WHERE v.entity_key = e.entity_key ORDER BY v.last_seen DESC, v.id DESC LIMIT 1)
+        """
+
+    /// The mail lines first seen in `start..<end`, oldest first: the current version of each message and deck page.
     public func mailParts(from start: Date, to end: Date) throws -> [MailPart] {
         try reader.read { db in
-            try db.fetch(
-                "mail_part",
-                """
-                SELECT id, thread_id, message_id, kind, name, page, label, sender, subject, sent_at, seen_at, text
-                FROM mail_part WHERE seen_at >= ? AND seen_at < ? ORDER BY id
-                """, [start.stored, end.stored], as: MailPart.init(row:))
+            try StoredLine.fetchAll(
+                db,
+                sql: """
+                    SELECT e.id AS number, \(StoredLine.columns) FROM evidence e
+                    WHERE \(Self.mailGrants) AND e.first_seen >= ? AND e.first_seen < ? AND \(Self.current)
+                    ORDER BY e.id
+                    """, arguments: Self.mailPrefix + [start.millisecondsSince1970, end.millisecondsSince1970]
+            ).compactMap(MailPart.init)
         }
     }
 
-    /// The stored message with this id, not a deck page.
-    public func mailMessage(id messageID: String) throws -> MailPart? {
-        try reader.read { db in
-            try db.fetch(
-                "mail_part",
-                """
-                SELECT id, thread_id, message_id, kind, name, page, label, sender, subject, sent_at, seen_at, text
-                FROM mail_part WHERE message_id = ? AND kind = 'message'
-                """, [messageID], as: MailPart.init(row:)
-            ).first
+    private static var mailPrefix: StatementArguments {
+        let prefix = Store.grantID(kind: .mail, label: "")
+        return [prefix, prefix]
+    }
+
+    /// The facts the deck pages of a stored message share, or nil when the host kept no line of it.
+    func mailMessage(thread: String, message: String) throws -> StoredMessage? {
+        guard let key = try? MailLineKey.message(thread: thread, message: message) else { return nil }
+        return try reader.read { db in
+            try Row.fetchOne(
+                db,
+                sql: """
+                    SELECT grant_id, actor, event_time, audience_digest FROM evidence WHERE entity_key = ?
+                        ORDER BY last_seen DESC, id DESC LIMIT 1
+                    """, arguments: [Data(key.bytes)]
+            ).map {
+                StoredMessage(
+                    grantID: $0["grant_id"], actor: $0["actor"], eventTime: $0["event_time"],
+                    audience: $0["audience_digest"])
+            }
         }
     }
 
-    /// Every stored part of the thread a mail item cites, in order: the messages and the deck pages the model read. Empty
-    /// when the item is not a mail item or its part was deleted.
+    /// Every stored line of the thread a mail item cites, in order: the messages and the deck pages the model read. The
+    /// item's cited number names a line through the window of the run that made it, or, for an item made before runs kept
+    /// their windows, through the old citation id. Empty when the item is not a mail item or its lines were erased.
     public func threadParts(ofItem id: Int64) throws -> [MailPart] {
         try reader.read { db in
-            try db.fetch(
-                "mail_part",
-                """
-                SELECT id, thread_id, message_id, kind, name, page, label, sender, subject, sent_at, seen_at, text
-                FROM mail_part WHERE thread_id = (
-                    SELECT thread_id FROM mail_part WHERE id = (SELECT cite_first FROM item WHERE id = ? AND source = 'mail'))
-                ORDER BY id
-                """, [id], as: MailPart.init(row:))
+            guard
+                let thread = try String.fetchOne(
+                    db,
+                    sql: """
+                        SELECT e.container FROM item JOIN run_window w ON w.run_id = item.run_id
+                            AND w.ordinal = item.cite_first JOIN evidence e ON e.line_id = w.line_id
+                        WHERE item.id = ? AND item.source = 'mail'
+                        UNION
+                        SELECT e.container FROM item JOIN evidence_legacy l ON l.space = ? AND l.ref = item.cite_first
+                            JOIN evidence e ON e.line_id = l.line_id
+                        WHERE item.id = ? AND item.source = 'mail'
+                            AND NOT EXISTS (SELECT 1 FROM run_window WHERE run_id = item.run_id)
+                        """, arguments: [id, LegacySpace.mailPart.rawValue, id])
+            else { return [] }
+            return try StoredLine.fetchAll(
+                db,
+                sql: """
+                    SELECT e.id AS number, \(StoredLine.columns) FROM evidence e
+                    WHERE e.container = ? AND \(Self.mailGrants) AND \(Self.current) ORDER BY e.id
+                    """, arguments: [thread] + Self.mailPrefix
+            ).compactMap(MailPart.init)
         }
     }
 
@@ -77,8 +91,11 @@ extension Queries {
         try reader.read { db in
             Set(
                 try String.fetchAll(
-                    db, sql: "SELECT DISTINCT name FROM mail_part WHERE message_id = ? AND kind = 'deck'",
-                    arguments: [messageID]))
+                    db,
+                    sql: """
+                        SELECT DISTINCT json_extract(coordinate, '$.file') FROM evidence
+                        WHERE message_ref = ? AND coordinate IS NOT NULL
+                        """, arguments: [messageID]))
         }
     }
 
@@ -92,15 +109,5 @@ extension Queries {
             return Dictionary(
                 uniqueKeysWithValues: try rows.map { (try $0.workDay("day"), try $0.value("threads") as Int) })
         }
-    }
-}
-
-extension MailPart {
-    init(row: Row) throws {
-        self.init(
-            id: try row.value("id"), threadID: try row.value("thread_id"), messageID: try row.value("message_id"),
-            kind: try row.enumeration("kind"), name: try row.value("name"), page: try row.value("page"),
-            label: try row.value("label"), sender: try row.value("sender"), subject: try row.value("subject"),
-            sentAt: try row.date("sent_at"), seenAt: try row.date("seen_at"), text: try row.value("text"))
     }
 }

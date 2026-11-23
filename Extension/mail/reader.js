@@ -2,7 +2,7 @@
 // never click, type, focus or change anything. Where the page's ids and facts sit is named in the adapter record
 // (read/records.js, unverified against live Gmail); nothing here names a class.
 (() => {
-  const { generic, interpret, records } = globalThis.WorkbenchReader;
+  const { interpret, records } = globalThis.WorkbenchReader;
   const labelPattern = /^#label\/(.+)\/[A-Za-z0-9_-]+(?:\?.*)?$/;
 
   // "#label/Deals/FMfcgz" is a thread opened inside the label Deals. Anything else (inbox, search, a label's list with
@@ -21,16 +21,43 @@
     return elements.filter((element) => !elements.some((other) => other !== element && other.contains(element)));
   }
 
-  function bodyOf(message, fields) {
-    return outermost(interpret.withAttribute(message, fields.body)).map(textOf).filter(Boolean).join("\n\n");
+  // The text of `body` outside its quoted blocks, read from the text nodes. A line break stands for each break and block.
+  function textOutside(body, quoteTag) {
+    const walker = body.ownerDocument.createTreeWalker(body, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
+      acceptNode: (node) =>
+        node.nodeType === Node.ELEMENT_NODE && node.matches(quoteTag) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT,
+    });
+    const parts = [];
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (node.nodeType === Node.TEXT_NODE) parts.push(node.data);
+      else if (node.matches("br, div, p")) parts.push("\n");
+    }
+    return parts.join("").replace(/[ \t]*\n[ \t]*/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
   }
 
-  function senderOf(message, fields) {
-    const node = interpret.withAttribute(message, fields.sender)[0];
-    if (!node) return "";
-    const name = node.getAttribute(fields.senderName);
-    const email = node.getAttribute(fields.sender);
-    return name && name !== email ? `${name} <${email}>` : email;
+  // The words of the message body, and apart from them the text its quoted blocks hold. A quoted block is marked by
+  // the tag the record names; no class and no word of the text decides it.
+  function bodyOf(message, fields) {
+    const own = [];
+    const quoted = [];
+    for (const body of outermost(interpret.withAttribute(message, fields.body))) {
+      const blocks = outermost(interpret.withTag(body, fields.quoted));
+      quoted.push(...blocks.map(textOf));
+      own.push(blocks.length ? textOutside(body, fields.quoted) : textOf(body));
+    }
+    return { text: own.filter(Boolean).join("\n\n"), quoted: quoted.filter(Boolean).join("\n\n") };
+  }
+
+  // The addresses the header shows, in page order: the sender first, then the people it went to. Only attributes are
+  // read; an address in the body text is never taken, and a body node's own attributes are left out.
+  function addressesOf(message, fields) {
+    const bodies = interpret.withAttribute(message, fields.body);
+    const shown = interpret
+      .withAttribute(message, fields.address)
+      .filter((node) => !bodies.some((body) => body.contains(node)))
+      .map((node) => node.getAttribute(fields.address).trim())
+      .filter(Boolean);
+    return [...new Set(shown)];
   }
 
   function sentOf(message, fields) {
@@ -50,6 +77,11 @@
     });
   }
 
+  function peopleOf(message, fields, account) {
+    const [sender = "", ...recipients] = addressesOf(message, fields);
+    return { sender, recipients, account };
+  }
+
   // The expanded messages of the thread open at `place` (a URL), `{ stale: site }` when the page lost the attributes
   // the record expects, or null when no thread with an id is open inside a label.
   function readThread(doc, place) {
@@ -60,17 +92,17 @@
     const { container, items } = interpret.read(record, doc, place);
     if (!container) return null;
     const { fields } = record;
+    const account = interpret.identify(record.account ?? [], { doc, location: place })?.value ?? null;
     const messages = items.flatMap(({ id, element }) => {
-      const text = bodyOf(element, fields);
-      return text && id
+      const { text, quoted } = bodyOf(element, fields);
+      return (text || quoted) && id
         ? [{
-            messageId: id, sender: senderOf(element, fields), sent: sentOf(element, fields), text,
+            messageId: id, ...peopleOf(element, fields, account), sent: sentOf(element, fields), text, quoted,
             attachments: pdfAttachments(element, fields),
           }]
         : [];
     });
-    const subject = generic.firstHeadingText(doc.querySelector("[role='main']") ?? doc);
-    return { site: record.site, label, threadId: container.value, threadVia: container.via, subject, messages };
+    return { site: record.site, label, threadId: container.value, threadVia: container.via, messages };
   }
 
   globalThis.WorkbenchMail = globalThis.WorkbenchMail ?? {};

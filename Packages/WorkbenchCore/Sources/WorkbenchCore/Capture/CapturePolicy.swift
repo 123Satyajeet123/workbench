@@ -87,9 +87,9 @@ public struct CapturePolicy: Codable, Sendable, Equatable {
 
     public func isEnabled(_ kind: SourceKind) -> Bool { switches[kind] ?? false }
 
-    /// The WhatsApp chats this policy allows and `other` does not, sorted.
-    public func withdrawnChats(in other: CapturePolicy) -> [String] {
-        (allowList[.whatsapp] ?? []).subtracting(other.allowList[.whatsapp] ?? []).sorted()
+    /// The labels (chats, mail labels) of `kind` this policy allows and `other` does not, sorted.
+    public func withdrawn(_ kind: SourceKind, in other: CapturePolicy) -> [String] {
+        (allowList[kind] ?? []).subtracting(other.allowList[kind] ?? []).sorted()
     }
 
     public func authorize(_ request: CaptureRequest, at now: Date) -> CaptureDecision {

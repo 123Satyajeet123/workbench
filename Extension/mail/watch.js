@@ -31,7 +31,8 @@
   async function sendMessage(thread, message) {
     const context = { url: location.href, label: thread.label, threadId: thread.threadId, messageId: message.messageId };
     const reply = await ask({
-      type: "mail", context, sender: message.sender, subject: thread.subject, sent: message.sent, text: message.text,
+      type: "mail", context, sender: message.sender, recipients: message.recipients, account: message.account,
+      sent: message.sent, text: message.text, quoted: message.quoted,
       attachments: message.attachments.map(({ name }) => name),
     });
     if (reply?.error) return;

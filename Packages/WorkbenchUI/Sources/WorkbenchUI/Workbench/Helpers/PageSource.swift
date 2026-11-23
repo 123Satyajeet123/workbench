@@ -9,7 +9,7 @@ import WorkbenchCore
 final class PageSource: MachineSource {
     private(set) var sites: [String]
     /// The day's page texts on the sites, and how many were past the budget, as last refreshed.
-    private(set) var pageReading: (pages: [Activity], leftOut: Int) = ([], 0)
+    private(set) var pageReading: (pages: [PageLine], leftOut: Int) = ([], 0)
 
     @ObservationIgnored private let store: Store
     @ObservationIgnored private let sitesKey: StateKey<[String]>
@@ -35,10 +35,10 @@ final class PageSource: MachineSource {
     func refresh(on day: WorkDay) throws { pageReading = try reading(on: day) }
 
     func evidence(on day: WorkDay) throws -> EvidenceSet {
-        EvidenceSet(lines: try reading(on: day).pages.compactMap(\.pageEvidence))
+        EvidenceSet(lines: try reading(on: day).pages.map(\.evidence))
     }
 
-    private func reading(on day: WorkDay) throws -> (pages: [Activity], leftOut: Int) {
-        WebPage.reading(try store.queries.activities(from: day.start, to: day.end), sites: sites)
+    private func reading(on day: WorkDay) throws -> (pages: [PageLine], leftOut: Int) {
+        PageLine.reading(try store.queries.pageLines(from: day.start, to: day.end), sites: sites)
     }
 }

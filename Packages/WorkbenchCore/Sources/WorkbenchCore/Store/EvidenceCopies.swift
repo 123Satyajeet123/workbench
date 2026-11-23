@@ -103,17 +103,18 @@ extension Store {
                 JOIN run_window w ON w.run_id = item.run_id AND w.ordinal BETWEEN item.cite_first AND item.cite_last
                 WHERE item.source_deleted = 0 AND w.line_id IN (\(lines.sql))
                 """, arguments: lines.arguments)
-        let byOldID = try Citing.fetchAll(
-            db,
-            sql: """
-                SELECT item.id, item.scope, e.container FROM item
-                JOIN evidence_legacy l ON l.space = ? AND l.ref BETWEEN item.cite_first AND item.cite_last
-                JOIN evidence e ON e.line_id = l.line_id
-                WHERE item.source_deleted = 0 AND item.source = ? AND l.line_id IN (\(lines.sql))
-                    AND NOT EXISTS (SELECT 1 FROM run_window WHERE run_id = item.run_id)
-                """,
-            arguments: StatementArguments([LegacySpace.whatsAppRow.rawValue, SourceKind.whatsapp.rawValue])
-                + lines.arguments)
+        let byOldID = try LegacySpace.byKind.flatMap { kind, space in
+            try Citing.fetchAll(
+                db,
+                sql: """
+                    SELECT item.id, item.scope, e.container FROM item
+                    JOIN evidence_legacy l ON l.space = ? AND l.ref BETWEEN item.cite_first AND item.cite_last
+                    JOIN evidence e ON e.line_id = l.line_id
+                    WHERE item.source_deleted = 0 AND item.source = ? AND l.line_id IN (\(lines.sql))
+                        AND NOT EXISTS (SELECT 1 FROM run_window WHERE run_id = item.run_id)
+                    """,
+                arguments: StatementArguments([space.rawValue, kind.rawValue]) + lines.arguments)
+        }
         return Self.distinct(byWindow + byOldID.filter(\.isInItsOwnChat))
     }
 
@@ -126,17 +127,18 @@ extension Store {
                 JOIN run_window w ON w.run_id = ev.run_id AND w.ordinal = ev.line_id
                 WHERE ev.actor = 'model' AND ev.quote <> '' AND w.line_id IN (\(lines.sql))
                 """, arguments: lines.arguments)
-        let byOldID = try Citing.fetchAll(
-            db,
-            sql: """
-                SELECT ev.id, item.scope, e.container FROM item_event ev JOIN item ON item.id = ev.item_id
-                JOIN evidence_legacy l ON l.space = ? AND l.ref = ev.line_id
-                JOIN evidence e ON e.line_id = l.line_id
-                WHERE ev.actor = 'model' AND ev.quote <> '' AND item.source = ? AND l.line_id IN (\(lines.sql))
-                    AND NOT EXISTS (SELECT 1 FROM run_window WHERE run_id = ev.run_id)
-                """,
-            arguments: StatementArguments([LegacySpace.whatsAppRow.rawValue, SourceKind.whatsapp.rawValue])
-                + lines.arguments)
+        let byOldID = try LegacySpace.byKind.flatMap { kind, space in
+            try Citing.fetchAll(
+                db,
+                sql: """
+                    SELECT ev.id, item.scope, e.container FROM item_event ev JOIN item ON item.id = ev.item_id
+                    JOIN evidence_legacy l ON l.space = ? AND l.ref = ev.line_id
+                    JOIN evidence e ON e.line_id = l.line_id
+                    WHERE ev.actor = 'model' AND ev.quote <> '' AND item.source = ? AND l.line_id IN (\(lines.sql))
+                        AND NOT EXISTS (SELECT 1 FROM run_window WHERE run_id = ev.run_id)
+                    """,
+                arguments: StatementArguments([space.rawValue, kind.rawValue]) + lines.arguments)
+        }
         return Self.distinct(byWindow + byOldID.filter(\.isInItsOwnChat))
     }
 

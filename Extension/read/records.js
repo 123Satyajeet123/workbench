@@ -5,7 +5,9 @@
 // hosts       the host names the record covers.
 // container   where the id of the place (a thread, a channel) comes from: sources tried in order.
 // item        `with` finds the item elements; `id` gives each item's id: sources tried in order.
-// fields      names of the attributes that hold more facts about an item, for the code that reads that kind of page.
+// account     where the address of the signed-in account comes from: sources tried in order, as for container.
+// fields      names of the attributes that hold more facts about an item, for the code that reads that kind of page. A
+//             field `quoted` names the tag that holds text quoted from an earlier message.
 // shape       `appliesTo` says when the page should have items; `expect` lists what the page must then hold.
 //
 // A source is { attribute, pattern } (an attribute value) or { url: "hash" | "path", pattern }. The text a pattern
@@ -26,7 +28,8 @@
         { attribute: "data-legacy-last-message-id", pattern: "^([0-9a-f]{8,32})$" },
       ],
     },
-    fields: { sender: "email", senderName: "name", sent: "title", attachment: "download_url", body: "dir" },
+    account: [{ attribute: "aria-label", pattern: "^Google Account: .*\\(([^()\\s]+@[^()\\s]+)\\)$" }],
+    fields: { address: "email", sent: "title", attachment: "download_url", body: "dir", quoted: "blockquote" },
     shape: {
       appliesTo: { url: "hash", pattern: "^#label/.+/[A-Za-z0-9_-]+(?:\\?.*)?$" },
       expect: [{ attribute: "data-message-id", pattern: "^#?msg-f:\\d+$" }],

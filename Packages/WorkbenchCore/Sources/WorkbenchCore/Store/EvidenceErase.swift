@@ -145,16 +145,17 @@ extension Store {
         counts.legacyCitations = try count("SELECT count(*) FROM evidence_legacy WHERE line_id IN (\(selected))")
         counts.searchEntries = try count(
             "SELECT count(*) FROM evidence_fts_docsize WHERE id IN (SELECT id FROM evidence WHERE \(condition.sql))")
-        counts.citingFacts =
-            try Int.fetchOne(
-                db,
-                sql: """
-                    SELECT count(*) FROM item WHERE source = ? AND EXISTS (
-                        SELECT 1 FROM evidence_legacy WHERE space = ? AND ref BETWEEN item.cite_first AND item.cite_last
-                            AND line_id IN (\(selected)))
-                    """,
-                arguments: StatementArguments([SourceKind.whatsapp.rawValue, LegacySpace.whatsAppRow.rawValue])
-                    + condition.arguments) ?? 0
+        counts.citingFacts = try LegacySpace.byKind.reduce(0) { total, pair in
+            total
+                + (try Int.fetchOne(
+                    db,
+                    sql: """
+                        SELECT count(*) FROM item WHERE source = ? AND EXISTS (
+                            SELECT 1 FROM evidence_legacy WHERE space = ? AND ref BETWEEN item.cite_first AND item.cite_last
+                                AND line_id IN (\(selected)))
+                        """,
+                    arguments: StatementArguments([pair.0.rawValue, pair.1.rawValue]) + condition.arguments) ?? 0)
+        }
         for key in try cursorKeys(of: erasure, condition, in: db)
         where try Bool.fetchOne(db, sql: "SELECT EXISTS (SELECT 1 FROM state WHERE key = ?)", arguments: [key]) == true
         {

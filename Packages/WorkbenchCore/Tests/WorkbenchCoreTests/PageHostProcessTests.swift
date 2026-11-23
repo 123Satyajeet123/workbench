@@ -1,4 +1,5 @@
 import Foundation
+import Kernel
 import Synchronization
 import Testing
 
@@ -8,6 +9,8 @@ import Testing
 /// host opens no store; the app's listener, started here in this process, is the only writer. `scripts/pages-e2e.sh`
 /// builds the host first.
 @Suite struct PageHostProcessTests {
+    static let owner = Result<PersonID, any Error>.success(try! PersonID("owner-1"))
+
     static let host = URL(filePath: #filePath).deletingLastPathComponent()
         .appending(path: "../../.build/debug/workbench-pages").standardized
 
@@ -76,12 +79,13 @@ import Testing
     }
 
     private func app(
-        policy: CapturePolicy, browserOf: @escaping @Sendable (Int32) -> String? = { _ in "com.brave.Browser" }
+        policy: CapturePolicy, owner: Result<PersonID, any Error> = Self.owner,
+        browserOf: @escaping @Sendable (Int32) -> String? = { _ in "com.brave.Browser" }
     ) throws -> (store: Store, socket: String, listener: PageHostListener) {
         let store = try Store(directory: temporaryDirectory())
         try store.savePolicy(policy)
         let socket = shortSocketPath()
-        return (store, socket, try PageHostListener(path: socket, store: store, browserOf: browserOf))
+        return (store, socket, try PageHostListener(path: socket, store: store, owner: owner, browserOf: browserOf))
     }
 
     @Test func theHostProcessStoresAnAllowedPageAndNothingFromABrokenFrame() async throws {
@@ -91,24 +95,26 @@ import Testing
         let page = WebPage(
             browser: "com.brave.Browser", url: "https://mail.example.com/", title: "Inbox", text: "Deck from Acme")
         #expect(try replies(in: try await run([try encoded(page)], socket: socket)) == [PageHost.Reply(kept: true)])
-        #expect(try store.queries.activities(since: .distantPast).compactMap(\.text) == ["Deck from Acme"])
+        #expect(try store.queries.pageLines(from: .distantPast, to: .distantFuture).map(\.text) == ["Deck from Acme"])
 
         let session = try HostSession(socket: socket)
         session.sendRaw(Data([0xFF, 0xFF, 0xFF, 0x7F]) + Data("junk".utf8))
         session.process.waitUntilExit()
         #expect(await session.next(within: 0.2) == nil, "a broken frame ends the host; the browser sees the port close")
-        #expect(try store.queries.activities(since: .distantPast).count == 1)
+        #expect(try store.queries.pageLines(from: .distantPast, to: .distantFuture).count == 1)
     }
 
     @Test func theHostProcessReassemblesADeckSentInChunksOverOneSession() async throws {
         let (store, socket, listener) = try app(
-            policy: CapturePolicy(switches: [.mail: true], allowList: [.mail: ["Deals"]]))
+            policy: CapturePolicy(switches: [.mail: true], allowList: [.mail: ["Deals"]]),
+            owner: .success(try PersonID("owner-1")))
         defer { _ = listener }
         let context = MailContext(
             browser: "com.brave.Browser", url: "https://mail.google.com/mail/u/0/#label/Deals/FMfc",
             label: "Deals", threadId: "FMfc", messageId: "msg-1")
         let message = MailMessage(
-            context: context, sender: "Ana", subject: "Acme", text: "Acme raises a seed.", attachments: ["Deck.pdf"])
+            context: context, sender: "ana@acme.example", recipients: ["vc@fund.example"],
+            text: "Acme raises a seed.", attachments: ["Deck.pdf"])
         let pieces = chunks(of: makeDeck([.text("Acme Seed Deck")]), name: "Deck.pdf", context: context, size: 700)
         let inputs = try [JSONEncoder().encode(message)] + pieces.map { try JSONEncoder().encode($0) }
         let replies = try replies(in: try await run(inputs, socket: socket))
@@ -130,7 +136,7 @@ import Testing
         session.send(try encoded(page))
         let message = try #require(await session.next(), "no answer while the pipe was open")
         #expect(try JSONDecoder().decode(PageHost.Reply.self, from: message) == PageHost.Reply(kept: true))
-        #expect(try store.queries.activities(since: .distantPast).compactMap(\.text) == ["open pipe"])
+        #expect(try store.queries.pageLines(from: .distantPast, to: .distantFuture).map(\.text) == ["open pipe"])
     }
 
     @Test func theReplyCarriesTheIdOfItsMessage() async throws {
@@ -165,19 +171,19 @@ import Testing
 
         #expect(try await ask() == Self.appUnavailable)
         var listener: PageHostListener? = try PageHostListener(
-            path: socket, store: store, browserOf: { _ in "com.brave.Browser" })
+            path: socket, store: store, owner: Self.owner, browserOf: { _ in "com.brave.Browser" })
         #expect(try JSONDecoder().decode(PageHost.Reply.self, from: try await ask()) == PageHost.Reply(kept: true))
         listener = nil
         #expect(try await ask() == Self.appUnavailable, "the app is gone: nothing is kept")
         _ = listener
-        #expect(try store.queries.activities(since: .distantPast).compactMap(\.text) == ["later"])
+        #expect(try store.queries.pageLines(from: .distantPast, to: .distantFuture).map(\.text) == ["later"])
     }
 
     @Test func theAppBeingGoneIsToldOnceWhetherOrNotAMessageWaits() async throws {
         let store = try Store(directory: temporaryDirectory())
         let socket = shortSocketPath()
         var listener: PageHostListener? = try PageHostListener(
-            path: socket, store: store, browserOf: { _ in "com.brave.Browser" })
+            path: socket, store: store, owner: Self.owner, browserOf: { _ in "com.brave.Browser" })
         let session = try HostSession(socket: socket)
         defer { session.finish() }
         session.send(try encoded(WebPage(browser: "", url: "https://site.example/", title: "t", text: "first")))
@@ -192,10 +198,10 @@ import Testing
         let store = try Store(directory: temporaryDirectory())
         try store.savePolicy(CapturePolicy(switches: [.screen: true, .screenText: true]))
         let socket = shortSocketPath()
-        let listener = try PageHostListener(path: socket, store: store, user: geteuid() &+ 1)
+        let listener = try PageHostListener(path: socket, store: store, owner: Self.owner, user: geteuid() &+ 1)
         let page = try encoded(page(saying: "stranger"))
         #expect(try await run([page], socket: socket) == [Self.appUnavailable])
-        #expect(try store.queries.activities(since: .distantPast).isEmpty)
+        #expect(try store.queries.pageLines(from: .distantPast, to: .distantFuture).isEmpty)
         _ = listener
     }
 
@@ -204,7 +210,8 @@ import Testing
         try store.savePolicy(CapturePolicy(switches: [.screen: true, .screenText: true]))
         let stale = shortSocketPath()
         FileManager.default.createFile(atPath: stale, contents: Data("left behind".utf8))
-        let listener = try PageHostListener(path: stale, store: store, browserOf: { _ in "com.brave.Browser" })
+        let listener = try PageHostListener(
+            path: stale, store: store, owner: Self.owner, browserOf: { _ in "com.brave.Browser" })
         let page = try encoded(page(saying: "later"))
         #expect(try replies(in: try await run([page], socket: stale)) == [PageHost.Reply(kept: true)])
         _ = listener
@@ -322,8 +329,11 @@ import Testing
         let output = try runUnderFakeBrowser(NativeMessage.frame(try encoded(page)), socket: socket)
         let answers = try replies(in: try frames(in: output))
         #expect(answers == [PageHost.Reply(kept: true)], "\(answers)")
-        let kept = try #require(try store.queries.activities(since: .distantPast).first)
-        #expect(kept.bundleID == "com.brave.Browser" && kept.app == "Brave Browser", "the bundle id of the parent app")
+        #expect(
+            try store.queries.pageLines(from: .distantPast, to: .distantFuture).map(\.text) == [
+                "from the fake browser"
+            ],
+            "kept: the app named the parent's browser, not the browser the message claimed")
     }
 
     @Test func aHostNotStartedByABrowserAppKeepsNothingAndTheReplyNamesWhy() async throws {
@@ -334,7 +344,9 @@ import Testing
         let page = WebPage(browser: "com.brave.Browser", url: "https://site.example/", title: "t", text: "forged")
         let reply = try #require(try replies(in: try await run([try encoded(page)], socket: socket)).first)
         #expect(reply.kept == false && reply.error == PageHost.unknownBrowser, "the test process is no browser app")
-        #expect(try store.queries.activities(since: .distantPast).isEmpty, "a message that says Brave changes nothing")
+        #expect(
+            try store.queries.pageLines(from: .distantPast, to: .distantFuture).isEmpty,
+            "a message that says Brave changes nothing")
     }
 
     @Test func aSocketPathThatDoesNotFitIsRefusedWithItsLength() {

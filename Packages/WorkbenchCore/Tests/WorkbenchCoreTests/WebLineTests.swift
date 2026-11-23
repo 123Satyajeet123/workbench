@@ -75,19 +75,19 @@ import Testing
     }
 
     @Test func aFrameOnAnAllowedSiteIsKeptUnderThePageAddress() throws {
-        let batch = try #require(page(frame: "https://widget.example.com/inside").batch(policy: on, at: t0))
-        #expect(batch.activities.first?.document == "https://app.example.com/board")
-        #expect(page(frame: nil).batch(policy: on, at: t0) != nil)
+        let reading = try #require(page(frame: "https://widget.example.com/inside").reading(policy: on, at: t0))
+        #expect(reading.container == "https://app.example.com/board" && reading.label == "app.example.com")
+        #expect(page(frame: nil).reading(policy: on, at: t0) != nil)
     }
 
     @Test func aFrameOnAPrivateMailOrWhatsAppSiteIsNeverKeptEvenInAnAllowedPage() {
         for frame in [
             "https://netbanking.hdfcbank.com/login", "https://mail.google.com/mail/u/0/", "https://web.whatsapp.com/",
         ] {
-            #expect(page(frame: frame).batch(policy: on, at: t0) == nil, "\(frame)")
+            #expect(page(frame: frame).reading(policy: on, at: t0) == nil, "\(frame)")
         }
         var denied = on
         denied.denyList[.screen] = ["widget.example.com"]
-        #expect(page(frame: "https://widget.example.com/inside").batch(policy: denied, at: t0) == nil)
+        #expect(page(frame: "https://widget.example.com/inside").reading(policy: denied, at: t0) == nil)
     }
 }

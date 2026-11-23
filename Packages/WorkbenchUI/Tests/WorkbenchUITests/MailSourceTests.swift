@@ -1,5 +1,6 @@
 import CaptureService
 import Foundation
+import Kernel
 import Testing
 import WorkbenchCore
 
@@ -15,8 +16,11 @@ import WorkbenchCore
         let context = MailContext(
             browser: "com.brave.Browser", url: "https://mail.google.com/mail/u/0/#label/\(label)/\(thread)",
             label: label, threadId: thread, messageId: message)
-        let sent = MailMessage(context: context, sender: "Ana <ana@acme.example>", subject: "Acme", text: text)
-        _ = PageHost.answer(try JSONEncoder().encode(sent), store: store, browser: "com.brave.Browser")
+        let sent = MailMessage(
+            context: context, sender: "ana@acme.example", recipients: ["vc@fund.example"], text: text)
+        _ = PageHost.answer(
+            try JSONEncoder().encode(sent), store: store, browser: "com.brave.Browser",
+            owner: .success(try PersonID("test-owner")))
     }
 
     @Test func namingALabelSwitchesMailOnForThatLabelOnly() throws {
@@ -88,12 +92,46 @@ import WorkbenchCore
         await reading.read()
 
         let input = try #require(scripted.inputs.withLock { $0.first })
-        #expect(input.contains("Ana <ana@acme.example> — Acme: Acme (fintech) is raising a 2M seed"))
+        #expect(input.contains("ana@acme.example: Acme (fintech) is raising a 2M seed"))
         #expect(!input.contains("cat photos"), "mail in another label never reaches the model")
         #expect(reading.items.map { $0["company"] } == ["Acme"])
         #expect(reading.items.first?["rating"] == "hot", "code rates it from the rule readings")
         #expect(reading.spec.triage(of: try #require(reading.items.first))?.needsReview == false)
         #expect(reading.phase == .read(kept: 1, dropped: 0))
+        #expect(
+            try store.queries.numbersRead(by: machine.task, among: [mailLine]) == [mailLine],
+            "the run recorded the mail line in its window")
+    }
+
+    @Test func aMailReadingReadsOnlyUnreadLinesByTheirRunWindowNeverByThePositionMarker() async throws {
+        let now = noon
+        let store = try scratchStore(clock: { now })
+        let capture = try CaptureService(store: store)
+        let source = MailSource(store: store, capture: capture)
+        try source.choose("Deals")
+        let scripted = ScriptedModel("{\"items\":[]}")
+        let machine = try store.createMachine(from: .dealIntake, name: "Deal intake")
+        let intake = HelperModel(
+            machine: machine, source: source, store: store,
+            makeModel: { _ in RecordedModel(scripted, store: store) }, notifier: FakeNotifier())
+        let marker = MachineKey.lastLine(machine.task, scope: source.scope, day: WorkDay(containing: now))
+        try marker.save(Int64.max, to: store)
+
+        try open("Deals", thread: "T1", message: "m1", text: "First pitch words", in: store)
+        intake.reload()
+        await intake.read()
+        #expect(scripted.inputs.withLock { $0.count } == 1, "a marker past every line hides no stored line")
+        #expect(try marker.load(from: store) == Int64.max, "a mail reading never moves the marker")
+
+        await intake.read()
+        #expect(scripted.inputs.withLock { $0.count } == 1, "nothing new: the run window says all was read")
+
+        try open("Deals", thread: "T1", message: "m2", text: "Second pitch words", in: store)
+        intake.reload()
+        await intake.read()
+        let inputs = scripted.inputs.withLock { $0 }
+        #expect(inputs.count == 2 && inputs[1].contains("Second pitch words"))
+        #expect(try marker.load(from: store) == Int64.max)
     }
 
     @Test func aReadAfterTheLabelIsSwitchedOffReadsNothing() async throws {

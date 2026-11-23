@@ -48,12 +48,7 @@ public struct HelperSpec: Codable, Sendable, Equatable {
                 the windows the founder had in front, in order. Each line is `[number] HH:mm–HH:mm (minutes) app — \
                 window title — address`; the address is a web page or a file and can be missing.
                 """
-            case .mail:
-                """
-                the mail threads the investor opened in their Deals label, in order. Each line is `[number] sender — \
-                subject: the text`. A line of an attached deck also names the file and the page: `sender — subject — \
-                file page 3: the text`. A thread shows one line for each message and each deck page.
-                """
+            case .mail: SourceDescriptor.gmailMail.grammar
             case .news:
                 """
                 one news article from a feed the investor follows. The line is `[number] feed — title: text`. The \
@@ -64,11 +59,7 @@ public struct HelperSpec: Codable, Sendable, Equatable {
                 one web page that a search found. The line is `[number] address — text`. It may name several \
                 startups, or none.
                 """
-            case .pageText:
-                """
-                the text of web pages the founder had on screen, in order. Each line is `[number] HH:mm site — page \
-                title: the text on screen`. The same page can appear again after a scroll, with new text.
-                """
+            case .pageText: SourceDescriptor.webPage.grammar
             }
         }
     }

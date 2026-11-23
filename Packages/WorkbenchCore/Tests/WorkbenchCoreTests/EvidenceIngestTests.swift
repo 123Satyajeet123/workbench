@@ -465,7 +465,7 @@ import Testing
     }
 
     @Test func everyOldSourceNameIsPortedOrListedAsNot() {
-        let notPorted: Set<HelperSpec.Source> = [.screenSessions, .pageText, .mail, .news, .webSearch]
+        let notPorted: Set<HelperSpec.Source> = [.screenSessions, .news, .webSearch]
         for source in HelperSpec.Source.allCases {
             #expect((SourceRegistry.descriptor(named: source.rawValue) == nil) == notPorted.contains(source))
         }

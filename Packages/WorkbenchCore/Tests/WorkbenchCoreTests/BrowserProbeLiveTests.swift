@@ -28,7 +28,7 @@ private enum Live {
             close(running)
             throw Failure("the Workbench app is running; quit it first")
         }
-        let listener = try PageHostListener(path: path, store: try makeStore())
+        let listener = try PageHostListener(path: path, store: try makeStore(), owner: PageHost.noOwner)
         for _ in 0..<180 where listener.connectedBrowsers.isEmpty { try await Task.sleep(for: .seconds(1)) }
         guard !listener.connectedBrowsers.isEmpty else {
             throw Failure("no browser connected in 3 minutes: reload the extension from Extension/ and try again")

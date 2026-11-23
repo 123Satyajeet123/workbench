@@ -1,61 +1,79 @@
 import Foundation
+import Kernel
+import Lines
 import Testing
 
 @testable import WorkbenchCore
 
 @Suite struct PageTextTests {
     private let on = CapturePolicy(switches: [.screen: true, .screenText: true])
+    private let owner = Result<PersonID, any Error>.success(try! PersonID("owner-1"))
     private func page(_ url: String, title: String = "Inbox", browser: String = "com.brave.Browser") -> WebPage {
         WebPage(browser: browser, url: url, title: title, text: "Deck from Acme: seed round, 2M")
     }
 
-    @Test func aPageIsKeptAsScreenTextWithoutItsQuery() throws {
-        let batch = try #require(page("https://mail.example.com/mail/u/0/?tab=rm#inbox").batch(policy: on, at: t0))
-        let kept = try #require(batch.activities.first)
-        #expect(batch.activities.count == 1 && kept.kind == .page)
-        #expect(kept.document == "https://mail.example.com/mail/u/0/" && kept.app == "Brave Browser")
-        #expect(kept.text == "Deck from Acme: seed round, 2M")
+    @Test func aPageIsKeptAsScreenTextLinesLabelledWithItsSiteAndWithoutItsQuery() throws {
+        let reading = try #require(
+            page("https://mail.example.com/mail/u/0/?tab=rm#inbox").reading(policy: on, at: t0))
+        #expect(reading.container == "https://mail.example.com/mail/u/0/" && reading.label == "mail.example.com")
+        #expect(reading.grant.kind == .screenText && reading.grant.label == "mail.example.com")
+        #expect(reading.lines.map(\.line.text) == ["Deck from Acme: seed round, 2M"])
+        #expect(reading.lines.first?.coordinate == "Inbox", "the title")
+        #expect(reading.audience == AudienceDigest(owner: "me", members: [String]()), "the owner alone")
+    }
+
+    @Test func aPageIsKeptOnlyWithAnOwner() throws {
+        let store = try makeStore()
+        try store.savePolicy(on)
+        let message = try JSONEncoder().encode(page("https://mail.example.com/"))
+        let withoutOwner = PageHost.answer(message, store: store, browser: "com.brave.Browser")
+        #expect(withoutOwner.kept == false && withoutOwner.error == PageHost.unknownOwner)
+        #expect(PageHost.answer(message, store: store, browser: "com.brave.Browser", owner: owner).kept)
+        #expect(try store.queries.pageLines(from: .distantPast, to: .distantFuture).count == 1)
     }
 
     @Test func noTextIsKeptWhenTheSwitchIsOffTheSiteIsPrivateOrDeniedOrTheWindowIsPrivate() {
         let textOff = CapturePolicy(switches: [.screen: true, .screenText: false])
-        #expect(page("https://mail.example.com/").batch(policy: textOff, at: t0) == nil)
+        #expect(page("https://mail.example.com/").reading(policy: textOff, at: t0) == nil)
         #expect(
-            page("https://mail.example.com/").batch(policy: CapturePolicy(switches: [.screenText: true]), at: t0) == nil
+            page("https://mail.example.com/").reading(policy: CapturePolicy(switches: [.screenText: true]), at: t0)
+                == nil
         )
-        #expect(page("https://netbanking.hdfcbank.com/login").batch(policy: on, at: t0) == nil)
+        #expect(page("https://netbanking.hdfcbank.com/login").reading(policy: on, at: t0) == nil)
         var denied = on
         denied.denyList[.screen] = ["linkedin.com"]
-        #expect(page("https://www.linkedin.com/in/someone").batch(policy: denied, at: t0) == nil)
-        #expect(page("https://www.linkedin.com/in/someone").batch(policy: on, at: t0) != nil)
-        #expect(page("https://x.com/home", title: "Home / X - Private Browsing").batch(policy: on, at: t0) == nil)
-        #expect(page("https://x.com/home", browser: "com.evil.app").batch(policy: on, at: t0) == nil)
+        #expect(page("https://www.linkedin.com/in/someone").reading(policy: denied, at: t0) == nil)
+        #expect(page("https://www.linkedin.com/in/someone").reading(policy: on, at: t0) != nil)
+        #expect(page("https://x.com/home", title: "Home / X - Private Browsing").reading(policy: on, at: t0) == nil)
+        #expect(page("https://x.com/home", browser: "com.evil.app").reading(policy: on, at: t0) == nil)
         var paused = on
         paused.mode = .paused(until: t0.addingTimeInterval(3600))
-        #expect(page("https://x.com/home").batch(policy: paused, at: t0) == nil)
+        #expect(page("https://x.com/home").reading(policy: paused, at: t0) == nil)
     }
 
     @Test func gmailIsNeverKeptAsAPageEvenWithScreenTextOn() throws {
-        #expect(page("https://mail.google.com/mail/u/0/#inbox").batch(policy: on, at: t0) == nil)
-        #expect(page("https://mail.google.com/mail/u/0/#label/Deals/FMfc").batch(policy: on, at: t0) == nil)
+        #expect(page("https://mail.google.com/mail/u/0/#inbox").reading(policy: on, at: t0) == nil)
+        #expect(page("https://mail.google.com/mail/u/0/#label/Deals/FMfc").reading(policy: on, at: t0) == nil)
         let store = try makeStore()
         try store.savePolicy(on)
         let reply = PageHost.answer(
-            try JSONEncoder().encode(page("https://mail.google.com/")), store: store, browser: "com.brave.Browser")
+            try JSONEncoder().encode(page("https://mail.google.com/")), store: store, browser: "com.brave.Browser",
+            owner: owner)
         #expect(reply == PageHost.Reply(kept: false))
-        #expect(try store.queries.activities(since: .distantPast).isEmpty)
+        #expect(try store.queries.pageLines(from: .distantPast, to: .distantFuture).isEmpty)
     }
 
     @Test func whatsAppWebIsNeverKeptAsAPageEvenWithScreenTextOn() throws {
-        #expect(page("https://web.whatsapp.com/").batch(policy: on, at: t0) == nil)
-        #expect(page("https://web.whatsapp.com/send?phone=91").batch(policy: on, at: t0) == nil)
-        #expect(page("https://whatsapp.com/").batch(policy: on, at: t0) != nil, "only the web client is excluded")
+        #expect(page("https://web.whatsapp.com/").reading(policy: on, at: t0) == nil)
+        #expect(page("https://web.whatsapp.com/send?phone=91").reading(policy: on, at: t0) == nil)
+        #expect(page("https://whatsapp.com/").reading(policy: on, at: t0) != nil, "only the web client is excluded")
         let store = try makeStore()
         try store.savePolicy(on)
         let reply = PageHost.answer(
-            try JSONEncoder().encode(page("https://web.whatsapp.com/")), store: store, browser: "com.brave.Browser")
+            try JSONEncoder().encode(page("https://web.whatsapp.com/")), store: store, browser: "com.brave.Browser",
+            owner: owner)
         #expect(reply == PageHost.Reply(kept: false))
-        #expect(try store.queries.activities(since: .distantPast).isEmpty)
+        #expect(try store.queries.pageLines(from: .distantPast, to: .distantFuture).isEmpty)
     }
 
     @Test func theHostKeepsAllowedPagesAndAnswersEveryFrame() throws {
@@ -63,14 +81,14 @@ import Testing
         try store.savePolicy(on)
         let pages = [page("https://mail.example.com/"), page("https://www.hdfcbank.com/")]
         let input = try pages.map { NativeMessage.frame(try JSONEncoder().encode($0)) }.reduce(Data(), +)
-        var output = PageHost.receive(input, store: store, browser: "com.brave.Browser")
+        var output = PageHost.receive(input, store: store, browser: "com.brave.Browser", owner: owner)
         var replies: [PageHost.Reply] = []
         while let (message, used) = try NativeMessage.first(in: output) {
             replies.append(try JSONDecoder().decode(PageHost.Reply.self, from: message))
             output = output.dropFirst(used)
         }
         #expect(replies.map(\.kept) == [true, false])
-        #expect(try store.queries.activities(since: t0.addingTimeInterval(-1)).compactMap(\.text).count == 1)
+        #expect(try store.queries.pageLines(from: .distantPast, to: .distantFuture).count == 1)
     }
 
     @Test func aBrokenOrOversizeFrameStoresNothing() throws {
@@ -81,9 +99,10 @@ import Testing
         #expect(throws: NativeMessage.Failure.truncated) { try NativeMessage.first(in: Data([5, 0, 0, 0, 1])) }
         _ = PageHost.receive(
             huge + NativeMessage.frame(try JSONEncoder().encode(page("https://x.com/"))), store: store,
-            browser: "com.brave.Browser")
-        _ = PageHost.receive(NativeMessage.frame(Data("not json".utf8)), store: store, browser: "com.brave.Browser")
-        #expect(try store.queries.activities(since: t0.addingTimeInterval(-1)).isEmpty)
+            browser: "com.brave.Browser", owner: owner)
+        _ = PageHost.receive(
+            NativeMessage.frame(Data("not json".utf8)), store: store, browser: "com.brave.Browser", owner: owner)
+        #expect(try store.queries.pageLines(from: .distantPast, to: .distantFuture).isEmpty)
     }
 
     @Test func aFrameIsReadWholeOrNamedBrokenOrTheEndOfTheInput() {
@@ -104,27 +123,26 @@ import Testing
         #expect(next([1, 0, 0x10, 0]) == .broken(.tooLong(0x10_0001)))
     }
 
-    private func text(_ url: String, _ text: String, at offset: Double, kind: Activity.Kind = .page) -> Activity {
-        Activity(
-            at: t0.addingTimeInterval(offset), kind: kind, app: "Brave Browser", bundleID: "com.brave.Browser",
-            title: "t", document: url, text: text)
+    private func line(_ id: Int64, _ url: String, _ text: String) -> PageLine {
+        PageLine(
+            id: id, lineID: Data(repeating: UInt8(id), count: 32), address: url,
+            site: CapturePolicy.host(of: url) ?? "", title: "t", seenAt: t0.addingTimeInterval(Double(id)), text: text)
     }
 
     @Test func aMachineReadsOnlyItsNamedSitesEachTextOnceWithinTheBudget() {
         let day = [
-            text("https://mail.example.com/mail/u/0/", "Deck from Acme", at: 3),
-            text("https://mail.example.com/mail/u/0/", "Deck from Acme", at: 4),
-            text("https://www.linkedin.com/in/someone", "Partner at Fund", at: 2),
-            text("https://x.com/home", "a post", at: 1),
-            text("https://mail.example.com/mail/u/0/", "Intro to Bolt", at: 5),
-            text("https://mail.example.com/mail/u/0/", "Accessibility text of the same window", at: 6, kind: .text),
+            line(1, "https://x.com/home", "a post"),
+            line(2, "https://www.linkedin.com/in/someone", "Partner at Fund"),
+            line(3, "https://mail.example.com/mail/u/0/", "Deck from Acme"),
+            line(4, "https://mail.example.com/mail/u/0/", "Deck from Acme"),
+            line(5, "https://mail.example.com/mail/u/0/", "Intro to Bolt"),
         ]
-        let read = WebPage.reading(day, sites: ["mail.example.com", "linkedin.com"])
-        #expect(read.pages.compactMap(\.text) == ["Partner at Fund", "Deck from Acme", "Intro to Bolt"])
+        let read = PageLine.reading(day, sites: ["mail.example.com", "linkedin.com"])
+        #expect(read.pages.map(\.text) == ["Partner at Fund", "Deck from Acme", "Intro to Bolt"])
         #expect(read.leftOut == 0)
-        #expect(WebPage.reading(day, sites: []).pages.isEmpty, "no named site reads nothing")
-        let tight = WebPage.reading(day, sites: ["mail.example.com"], budget: 20)
-        #expect(tight.pages.compactMap(\.text) == ["Deck from Acme"] && tight.leftOut == 1)
+        #expect(PageLine.reading(day, sites: []).pages.isEmpty, "no named site reads nothing")
+        let tight = PageLine.reading(day, sites: ["mail.example.com"], budget: 20)
+        #expect(tight.pages.map(\.text) == ["Deck from Acme"] && tight.leftOut == 1)
     }
 
     @Test func aTypedSiteBecomesAHost() {

@@ -1,6 +1,7 @@
 import Darwin
 import Dispatch
 import Foundation
+import Kernel
 import Synchronization
 
 /// The app's end of the native host's socket. The browser extension talks to the host process; the host passes each
@@ -20,7 +21,7 @@ public final class PageHostListener: Sendable {
     /// Only a process of `user` may connect: the person who runs the app. `browserOf` names the browser behind a
     /// connection; the default reads the process tree.
     public init(
-        path: String, store: Store, user: uid_t = geteuid(),
+        path: String, store: Store, owner: Result<PersonID, any Error>, user: uid_t = geteuid(),
         browserOf: (@Sendable (Int32) -> String?)? = nil
     ) throws {
         unlink(path)
@@ -31,7 +32,7 @@ public final class PageHostListener: Sendable {
         let sessions = sessions
         source.setEventHandler {
             Self.acceptAll(
-                on: descriptor, user: user, sessions: sessions, store: store,
+                on: descriptor, user: user, sessions: sessions, store: store, owner: owner,
                 browserOf: browserOf ?? PeerBrowser.bundleID(ofPeer:))
         }
         source.setCancelHandler { close(descriptor) }
@@ -102,7 +103,8 @@ public final class PageHostListener: Sendable {
     }
 
     private static func acceptAll(
-        on listener: Int32, user: uid_t, sessions: Sessions, store: Store, browserOf: @Sendable (Int32) -> String?
+        on listener: Int32, user: uid_t, sessions: Sessions, store: Store, owner: Result<PersonID, any Error>,
+        browserOf: @Sendable (Int32) -> String?
     ) {
         while true {
             let client = accept(listener, nil, nil)
@@ -120,7 +122,7 @@ public final class PageHostListener: Sendable {
             Thread.detachNewThread {
                 PageHost.serve(
                     read: { PagesSocket.read(client, count: $0) },
-                    write: { link.write($0) }, store: store, browser: browser,
+                    write: { link.write($0) }, store: store, browser: browser, owner: owner,
                     commands: link)
                 sessions.end(client)
             }

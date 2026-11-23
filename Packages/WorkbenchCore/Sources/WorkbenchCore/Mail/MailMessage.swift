@@ -33,39 +33,39 @@ public struct MailContext: Codable, Sendable, Equatable {
     }
 }
 
-/// The text of one expanded message, sent by the extension while the thread is open ("type": "mail").
+/// The text of one expanded message, sent by the extension while the thread is open ("type": "mail"). The addresses
+/// come from attributes of the page, never from its text.
 public struct MailMessage: Codable, Sendable, Equatable {
     public var type = "mail"
     public var context: MailContext
+    /// The address of the sender.
     public var sender: String
-    public var subject: String
+    /// The addresses the message went to, to and cc: empty when the page did not show them.
+    public var recipients: [String]
+    /// The address of the Gmail account the page is open for, when the page names it.
+    public var account: String?
     /// Seconds since 1970 when the page showed the message's date; nil when it could not be read.
     public var sent: Double?
     public var text: String
+    /// The text of the blocks the page marks as quoted from an earlier message; nil or empty when it marks none.
+    public var quoted: String?
     /// The file names of PDF attachments the page lists, so the host can say which decks it still lacks.
     public var attachments: [String]
 
     public init(
-        context: MailContext, sender: String, subject: String, sent: Double? = nil, text: String,
-        attachments: [String] = []
+        context: MailContext, sender: String, recipients: [String] = [], account: String? = nil, sent: Double? = nil,
+        text: String, quoted: String? = nil, attachments: [String] = []
     ) {
         self.context = context
         self.sender = sender
-        self.subject = subject
+        self.recipients = recipients
+        self.account = account
         self.sent = sent
         self.text = text
+        self.quoted = quoted
         self.attachments = attachments
     }
 
     /// Characters of one message kept at most.
     public static let maximumCharacters = 100_000
-
-    func batch(policy: CapturePolicy, at now: Date) -> MailBatch? {
-        guard let grant = context.grant(policy: policy, at: now), !text.isEmpty else { return nil }
-        let part = MailPart(
-            threadID: context.threadId, messageID: context.messageId, label: context.label, sender: sender,
-            subject: subject, sentAt: sent.map(Date.init(timeIntervalSince1970:)) ?? now, seenAt: now,
-            text: String(text.prefix(Self.maximumCharacters)))
-        return MailBatch([part], threadID: context.threadId, label: context.label, grant: grant)
-    }
 }

@@ -45,16 +45,18 @@ struct ExtensionReaderTests {
         #expect(thread["label"] as? String == "Deals")
         #expect(thread["threadId"] as? String == "thread-f:1801000000000000000")
         #expect(thread["threadVia"] as? String == "data-thread-id")
-        #expect(thread["subject"] as? String == "Acme: seed round, deck attached")
         let messages = try messages(of: thread)
         #expect(
             messages.map { $0["messageId"] as? String } == ["msg-f:1801000000000000001", "msg-f:1801000000000000003"],
             "the collapsed message has no body and is left out")
         try #require(messages.count == 2)
-        #expect(messages[0]["sender"] as? String == "Ana Rao <ana@acme.example>")
+        #expect(messages[0]["sender"] as? String == "ana@acme.example")
         #expect(messages[1]["sender"] as? String == "raj@acme.example")
         let text = try #require(messages[0]["text"] as? String)
         #expect(text.contains("We are raising a 2M seed round.") && text.contains("Hi,"))
+        #expect(!text.contains("please send"), "the quoted block is not the sender's own words")
+        #expect(messages[0]["quoted"] as? String == "On Thu: please send")
+        #expect(messages[1]["quoted"] as? String == "", "a message with no quoted block has none")
         #expect(messages[0]["sent"] as? Int == out["dateInTitle"] as? Int)
         #expect(messages[1]["sent"] is NSNull, "a date that does not parse is null, not a guess")
         let attachments = try #require(messages[0]["attachments"] as? [[String: String]])
@@ -62,6 +64,27 @@ struct ExtensionReaderTests {
         #expect(attachments[0]["name"] == "Acme Seed Deck.pdf")
         #expect(attachments[0]["url"]?.hasPrefix("https://mail.google.com/mail/u/0?ui=2&ik=abc123&attid=0.1") == true)
         #expect((messages[1]["attachments"] as? [Any])?.isEmpty == true)
+    }
+
+    @Test func theHeaderAddressesComeFromAttributesAndAreEmptyWhenThePageShowsNoRecipient() throws {
+        let out = try run(fixture: "gmail-thread.html")
+        let read = try messages(of: out["thread"])
+        #expect(read[0]["recipients"] as? [String] == ["vc@fund.example", "Raj@Acme.example"])
+        #expect(
+            (read[1]["recipients"] as? [String])?.isEmpty == true,
+            "the second message shows its sender and no recipient: 1 of 2 read messages has none")
+        #expect(read.allSatisfy { $0["account"] as? String == "vc@fund.example" })
+        let noAccount = try messages(of: out["threadWithoutAccount"])
+        #expect(noAccount.allSatisfy { $0["account"] is NSNull }, "no account label, no account: nothing is guessed")
+        let noAttributes = try messages(of: out["threadWithoutAddressAttributes"])
+        #expect(noAttributes.allSatisfy { ($0["sender"] as? String)?.isEmpty == true })
+    }
+
+    @Test func aQuotedBlockIsMarkedByItsTagNeverByItsWords() throws {
+        let out = try run(fixture: "gmail-thread.html")
+        let untagged = try messages(of: out["threadWithoutQuoteTag"])
+        #expect(untagged[0]["quoted"] as? String == "", "the same words in a plain block are the sender's words")
+        #expect((untagged[0]["text"] as? String)?.contains("please send") == true)
     }
 
     @Test func theThreadIdFallsBackFromTheNamedAttributesToTheAddress() throws {
