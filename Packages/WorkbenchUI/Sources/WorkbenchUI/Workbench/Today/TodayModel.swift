@@ -208,6 +208,29 @@ final class TodayModel {
         }
     }
 
+    func isClosable(_ item: Item) -> Bool {
+        guard factMachines.contains(where: { $0.task == item.task }) else { return true }
+        return factMachines.first?.spec.lifecycle.map { $0.open.contains(item[$0.field]) } ?? false
+    }
+
+    func isDone(_ items: [Item]) -> Bool {
+        let closable = items.filter(isClosable)
+        return !closable.isEmpty && closable.allSatisfy { $0.closed != nil }
+    }
+
+    func reopen(_ items: [Item]) {
+        let ids = items.filter { $0.closed != nil }.compactMap(\.id)
+        guard !ids.isEmpty else { return }
+        do {
+            try store.undo([.done(outcome: "kept"): ids])
+            undoable = nil
+            reloadMachines()
+        } catch {
+            refresh()
+            problems.report("reopen that", error)
+        }
+    }
+
     func title(of item: Item) -> String {
         let field = crew.helper(task: item.task)?.spec.title
         return field.map { item[$0] } ?? item.quote
