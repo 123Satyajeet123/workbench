@@ -1,5 +1,6 @@
 import AVFoundation
 import Foundation
+import Kernel
 import Synchronization
 import Testing
 import WorkbenchCore
@@ -28,6 +29,8 @@ private nonisolated final class FakeListener: CallListener {
     }
 }
 
+private let testOwner = { try PersonID("test-owner") }
+
 private let summaryReply = #"""
     {"summary":"Asha shared the release plan.","decisions":["Ship on Friday"],
      "actions":[{"owner":"Asha","text":"Send the build by Thursday"}]}
@@ -35,6 +38,7 @@ private let summaryReply = #"""
 
 @MainActor struct CallNotesTests {
     private func call(in store: Store, seconds: Double = 2) throws -> Recording {
+        try store.savePolicy(CapturePolicy(switches: [.call: true]))
         let grant = try #require(
             CapturePolicy(switches: [.call: true])
                 .authorize(CaptureRequest(kind: .call, label: "com.google.Chrome", liveSession: true), at: Date())
@@ -70,7 +74,7 @@ private let summaryReply = #"""
         ])
         let model = ScriptedModel(summaryReply)
         let notes = CallNotes(
-            store: store, listener: listener, founder: { "Shivansh" },
+            store: store, listener: listener, founder: { "Shivansh" }, owner: testOwner,
             makeModel: { _ in RecordedModel(model, store: store) })
         await notes.start()
 
@@ -84,7 +88,7 @@ private let summaryReply = #"""
         #expect(input.contains("Call: Google Meet · Weekly sync"))
         #expect(input.contains("Shivansh (You): Hi Asha."))
         #expect(input.contains("Them: Hey, quick update."))
-        #expect(try store.queries.runs().first?.task == CallNotes.task)
+        #expect(try store.queries.runs().first?.task == CallSummarizer.task)
 
         await notes.processPending()
         #expect(listener.heard.withLock { $0.count } == 3 && model.inputs.withLock { $0.count } == 1)
@@ -95,23 +99,24 @@ private let summaryReply = #"""
         let recording = try call(in: store)
         let model = ScriptedModel(summaryReply)
         let notes = CallNotes(
-            store: store, listener: FakeListener(), founder: { "Shivansh" },
+            store: store, listener: FakeListener(), founder: { "Shivansh" }, owner: testOwner,
             makeModel: { _ in RecordedModel(model, store: store) })
         await notes.start()
-        #expect(notes.notes[recording.id] == CallNote(transcriptError: CallNotes.noSpeech))
+        #expect(notes.notes[recording.id] == CallNote(transcript: []))
         #expect(model.inputs.withLock { $0.isEmpty })
     }
 
     @Test func aFailedTranscriptCanBeTriedAgain() async throws {
         let store = try scratchStore()
         let recording = try call(in: store)
-        let notes = CallNotes(store: store, listener: FakeListener(fails: true), founder: { "" })
+        let notes = CallNotes(store: store, listener: FakeListener(fails: true), founder: { "" }, owner: testOwner)
         await notes.start()
         #expect(notes.notes[recording.id]?.transcriptError != nil)
 
         let fixed = CallNotes(
             store: store, listener: FakeListener(said: ["them-001.m4a": [TimedText(start: 0, text: "Bye")]]),
-            founder: { "" }, makeModel: { _ in RecordedModel(ScriptedModel(summaryReply), store: store) })
+            founder: { "" }, owner: testOwner,
+            makeModel: { _ in RecordedModel(ScriptedModel(summaryReply), store: store) })
         await fixed.checkSpeech()
         await fixed.retry(recording)
         #expect(fixed.notes[recording.id]?.transcript?.first?.text == "Bye")
@@ -122,38 +127,21 @@ private let summaryReply = #"""
         let store = try scratchStore()
         let recording = try call(in: store)
         let listener = FakeListener(ready: .needsDownload)
-        let notes = CallNotes(store: store, listener: listener, founder: { "" })
+        let notes = CallNotes(store: store, listener: listener, founder: { "" }, owner: testOwner)
         await notes.start()
         #expect(notes.speech == .needsDownload)
         #expect(notes.notes[recording.id] == nil && listener.heard.withLock { $0.isEmpty })
 
-        let old = CallNotes(store: store, listener: nil, founder: { "" })
+        let old = CallNotes(store: store, listener: nil, founder: { "" }, owner: testOwner)
         await old.start()
         #expect(old.speech == .unavailable("Transcripts need macOS 26 or newer."))
     }
 }
 
 @MainActor struct RecordingsPlaceSettingTests {
-    @Test func callsGoToTheDefaultFolderUntilTheFounderPicksAnotherAndCanGoBack() throws {
-        let store = try scratchStore()
-        let documents = scratchFolder().appending(path: "Workbench/Recordings")
-        let notes = CallNotes(store: store, listener: nil, founder: { "" }, defaultPlace: documents)
-        #expect(notes.savedIn.standardizedFileURL == documents.standardizedFileURL && notes.isDefaultPlace)
-
-        let mine = scratchFolder()
-        notes.saveRecordings(in: mine)
-        #expect(!notes.isDefaultPlace)
-        let again = CallNotes(store: store, listener: nil, founder: { "" }, defaultPlace: documents)
-        #expect(again.savedIn.standardizedFileURL == mine.standardizedFileURL)
-
-        again.useDefaultPlace()
-        let saved = try store.recordingsPlace()
-        #expect(again.isDefaultPlace && saved?.standardizedFileURL == documents.standardizedFileURL)
-    }
-
     @Test func withoutADefaultTheStoreKeepsItsOwnFolder() throws {
         let store = try scratchStore()
-        let notes = CallNotes(store: store, listener: nil, founder: { "" })
+        let notes = CallNotes(store: store, listener: nil, founder: { "" }, owner: testOwner)
         let saved = try store.recordingsPlace()
         #expect(notes.savedIn == store.defaultRecordingsPlace && saved == nil)
     }

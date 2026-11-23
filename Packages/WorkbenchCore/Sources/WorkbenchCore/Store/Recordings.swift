@@ -14,6 +14,8 @@ public struct Recording: Sendable, Equatable, Identifiable {
     public var error: String?
     public var service: String?
     public var title: String?
+    public var transcribedAt: Date?
+    public var transcriptError: String?
 
     public var source: CallSource { CallSource(service: service ?? app, title: title ?? "") }
 }
@@ -93,7 +95,8 @@ extension Queries {
             try db.fetch(
                 "recording",
                 """
-                SELECT id, app, bundle_id, folder, started_at, ended_at, state, error, service, title
+                SELECT id, app, bundle_id, folder, started_at, ended_at, state, error, service, title, transcribed_at,
+                    transcript_error
                 FROM recording ORDER BY id DESC
                 """
             ) { row in
@@ -102,7 +105,9 @@ extension Queries {
                     folder: Store.resolve(try row.value("folder"), in: directory),
                     startedAt: try row.date("started_at"), endedAt: try row.optionalDate("ended_at"),
                     state: try row.enumeration("state"), error: try row.optionalValue("error"),
-                    service: try row.optionalValue("service"), title: try row.optionalValue("title"))
+                    service: try row.optionalValue("service"), title: try row.optionalValue("title"),
+                    transcribedAt: try row.optionalDate("transcribed_at"),
+                    transcriptError: try row.optionalValue("transcript_error"))
             }
         }
     }

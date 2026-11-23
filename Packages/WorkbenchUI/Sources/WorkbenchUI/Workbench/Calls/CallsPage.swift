@@ -138,14 +138,9 @@ private struct CallCard: View {
         } else if note == nil, notes.speech == .ready {
             Label("Waiting to transcribe", systemImage: "clock").foregroundStyle(.supporting)
         }
-        if let error = note?.transcriptError {
-            if error == CallNotes.noSpeech {
-                Text(error).foregroundStyle(.supporting)
-            } else {
-                failure("The transcript was not made: \(error)")
-            }
-        }
-        if let lines = note?.transcript {
+        if let error = note?.transcriptError { failure("The transcript was not made: \(error)") }
+        if note?.transcript?.isEmpty == true { Text(CallNotes.noSpeech).foregroundStyle(.supporting) }
+        if let lines = note?.transcript, !lines.isEmpty {
             Fold("Transcript · \(lines.count) turns") {
                 TranscriptView(recording: recording, lines: lines, me: founderLabel(identity.identity.name))
             }

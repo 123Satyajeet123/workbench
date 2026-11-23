@@ -65,33 +65,6 @@ struct CallNoteStoreTests {
             source: CallSource(service: "Google Meet", title: "Weekly sync"), grant: grant(.call))
     }
 
-    @Test func aRecordingKeepsWhereItCameFromAndItsNotes() throws {
-        let store = try makeStore()
-        let call = try recording(store)
-        try store.finishRecording(call.id)
-        #expect(try store.queries.recordings().first?.source.label == "Google Meet · Weekly sync")
-        #expect(try store.queries.callNotes().isEmpty)
-
-        let lines = [CallLine(speaker: .me, start: 0, text: "Hi")]
-        try store.saveTranscript(of: call.id, lines: lines)
-        let summary = CallSummary(
-            summary: "Agreed to ship.", decisions: ["Ship Friday"], actions: [.init(owner: "Asha", text: "Send build")])
-        try store.saveSummary(of: call.id, summary: summary, run: nil)
-        #expect(try store.queries.callNotes()[call.id] == CallNote(transcript: lines, summary: summary))
-
-        try store.saveTranscript(of: call.id, lines: nil, error: "No speech")
-        #expect(try store.queries.callNotes()[call.id] == CallNote(transcriptError: "No speech"))
-    }
-
-    @Test func deletingACallDeletesItsTranscriptAndSummary() throws {
-        let store = try makeStore()
-        let call = try recording(store)
-        try store.finishRecording(call.id)
-        try store.saveTranscript(of: call.id, lines: [CallLine(speaker: .them, start: 1, text: "Bye")])
-        try store.delete(.kind(.call, before: day(1)))
-        #expect(try store.queries.callNotes().isEmpty)
-    }
-
     @Test func anOlderRecordingWithoutASourceIsTaggedWithItsApp() throws {
         let store = try makeStore()
         _ = try store.startRecording(app: "Brave", bundleID: "com.brave.Browser", grant: grant(.call))

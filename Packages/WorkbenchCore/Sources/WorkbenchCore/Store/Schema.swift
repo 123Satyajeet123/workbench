@@ -38,7 +38,7 @@ enum Schema {
     static let steps = [
         baseline, itemEvents, runText, summaries, itemActions, mail, typedItems, quoteMarks, newsArticles, evidence,
         runWindow, sourceDeleted, groundedFacts, factLifecycle, timers, evidenceForwarded,
-        morningList, notes, pendingRevokes, filing, itemSearch, runFailures, callNotes,
+        morningList, notes, pendingRevokes, filing, itemSearch, runFailures, calls,
     ]
 
     /// Items that open and close (research 32): a later line closes a commitment or answers a question. An event is
@@ -197,18 +197,6 @@ enum Schema {
             read_at TEXT)
         """,
         "CREATE INDEX news_article_fetched ON news_article(fetched_at)",
-    ]
-
-    private static let callNotes = [
-        "ALTER TABLE recording ADD COLUMN service TEXT",
-        "ALTER TABLE recording ADD COLUMN title TEXT",
-        """
-        CREATE TABLE call_note(
-            recording_id INTEGER PRIMARY KEY REFERENCES recording(id) ON DELETE CASCADE,
-            transcript TEXT CHECK(transcript IS NULL OR json_valid(transcript)), transcript_error TEXT,
-            summary TEXT CHECK(summary IS NULL OR json_valid(summary)), summary_error TEXT, run_id INTEGER,
-            updated_at TEXT NOT NULL)
-        """,
     ]
 
     private static let baseline = [

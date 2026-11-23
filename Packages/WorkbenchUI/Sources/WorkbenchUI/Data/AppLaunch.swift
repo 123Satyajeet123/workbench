@@ -100,7 +100,7 @@ enum AppLaunch {
                 })
             let calls = CallNotes(
                 store: store, listener: CallNotes.appleListener(), founder: { identity.identity.name },
-                defaultPlace: storeFolder == profile.defaultFolder ? CallNotes.documentsPlace : nil)
+                owner: owner.get)
             capture.onCallSaved = { Task { await calls.processPending() } }
             let callWatcher = CallWatcher(
                 store: store, controls: capture,

@@ -8,7 +8,7 @@ import Lines
 /// kind, audience proof, cost class, a second cursor kind) in the change that reads them.
 public struct SourceDescriptor: Sendable, Equatable {
     /// How long lines live. The raw value is the `retention_class` of the line.
-    public enum Retention: String, Sendable { case chat, mail, page, file, note, screen }
+    public enum Retention: String, Sendable { case chat, mail, page, file, note, screen, call }
 
     /// How the source gives its text. The raw value is the `obtained_by` of the line.
     public enum Obtained: String, Sendable {
@@ -17,6 +17,8 @@ public struct SourceDescriptor: Sendable, Equatable {
         case api
         case domText = "dom_text"
         case axValue = "ax_value"
+        /// Speech recognized on this Mac.
+        case speech
     }
 
     /// The source's own name, unique across sources: the key of its `SourceID`.
@@ -132,6 +134,7 @@ extension SourceDescriptor {
 public enum SourceRegistry {
     public static let all: [SourceDescriptor] = [
         .whatsAppChat, .telegramChat, .gmailMail, .webPage, .typedNote, .droppedFile, .note, .screenWindow, .screenText,
+        .callTranscript,
     ]
 
     /// The source with this key or alias, or nil when no ported source has it.

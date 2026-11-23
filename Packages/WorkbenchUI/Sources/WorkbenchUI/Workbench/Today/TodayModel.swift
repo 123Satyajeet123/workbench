@@ -278,8 +278,8 @@ final class TodayModel {
     }
 
     func isClosable(_ item: Item) -> Bool {
-        guard factMachines.contains(where: { $0.task == item.task }) else { return true }
-        return factMachines.first?.spec.lifecycle.map { $0.open.contains(item[$0.field]) } ?? false
+        guard let machine = factMachines.first(where: { $0.task == item.task }) else { return true }
+        return machine.spec.lifecycle.map { $0.open.contains(item[$0.field]) } ?? false
     }
 
     func isDone(_ items: [Item]) -> Bool {
