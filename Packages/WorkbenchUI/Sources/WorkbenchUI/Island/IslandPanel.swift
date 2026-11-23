@@ -6,9 +6,14 @@ import SwiftUI
 final class IslandPanel: NSPanel {
     private let presenter = IslandPresenter(metrics: .sample)
     private var screenChanges: Task<Void, Never>?
+    private let space: (any SpaceHolding)?
 
     /// `state` is read where SwiftUI tracks it, so the island follows what it reads. `open` runs on a click.
-    init(state: @escaping () -> IslandState, open: @escaping () -> Void) {
+    init(
+        state: @escaping () -> IslandState, open: @escaping () -> Void,
+        space: (any SpaceHolding)? = IslandSpace()
+    ) {
+        self.space = space
         super.init(
             contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered,
             defer: false)
@@ -63,6 +68,7 @@ final class IslandPanel: NSPanel {
         let frame = metrics.panelFrame(on: screen.frame)
         if frame != self.frame { setFrame(frame, display: true) }
         orderFrontRegardless()
+        space?.hold(self)
     }
 }
 
