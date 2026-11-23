@@ -42,7 +42,7 @@ nonisolated private let team = TelegramChat(id: -100_111, title: "Acme team", me
 nonisolated private let family = TelegramChat(id: -100_222, title: "Family", memberCount: 5)
 nonisolated private let asha = TelegramMember(id: 1, name: "Asha")
 nonisolated private let bharat = TelegramMember(id: 2, name: "Bharat")
-nonisolated private let apiHash = "0123456789abcdef0123456789abcdef"
+nonisolated private let apiHash = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
 
 @Suite struct TelegramTests {
     private let noon: Date = {

@@ -74,7 +74,7 @@ final class TelegramAccount {
             case .paused:
                 throw TelegramFailure(
                     "Telegram is paused because capture or its switch is off. Connect again on the machine's page.")
-            case .signedOut where !hasKeys: throw TelegramFailure("Connect Telegram first, on the machine's page.")
+            case .signedOut where !hasKeys: throw TelegramFailure("Telegram needs its app key; add it on the machine's page.")
             case .signedOut, .connecting: try await Task.sleep(for: .milliseconds(100))
             }
         }
