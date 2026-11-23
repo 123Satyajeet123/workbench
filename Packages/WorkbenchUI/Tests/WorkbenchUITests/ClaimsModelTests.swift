@@ -55,7 +55,10 @@ final class RecordingSearch: SearchProvider, PageFetching, Sendable {
             threadId: "T1", messageId: "m1")
         let mail = MailMessage(
             context: context, sender: "priya@acme.example", recipients: ["vc@fund.example"], text: pitch)
-        try store.savePolicy(CapturePolicy(switches: [.mail: true], allowList: [.mail: ["Deals"]]))
+        try store.savePolicy(
+            CapturePolicy(
+                switches: [.mail: true], allowList: [.mail: ["Deals"]], browsers: ["com.brave.Browser": "Brave Browser"]
+            ))
         _ = PageHost.answer(
             try JSONEncoder().encode(mail), store: store, browser: "com.brave.Browser",
             owner: .success(try PersonID("test-owner")))
@@ -88,7 +91,9 @@ final class RecordingSearch: SearchProvider, PageFetching, Sendable {
         let deal = try await fixture.deal("Acme", reading: VCFixture.hot)
         let part = labelled ? try Self.storedPart(in: fixture.store) : Self.unlabelledPart
         try fixture.store.savePolicy(
-            CapturePolicy(switches: [.web: web, .mail: mail], allowList: [.mail: ["Deals"]]))
+            CapturePolicy(
+                switches: [.web: web, .mail: mail], allowList: [.mail: ["Deals"]],
+                browsers: ["com.brave.Browser": "Brave Browser"]))
         try fixture.store.saveWebSettings(WebSettings(provider: .brave, monthlyCap: cap))
         let search = RecordingSearch()
         let model = RepliesInOrder(

@@ -7,7 +7,7 @@ import Testing
 @testable import WorkbenchCore
 
 @Suite struct MailTests {
-    private let named = CapturePolicy(switches: [.mail: true], allowList: [.mail: ["Deals"]])
+    private let named = CapturePolicy(switches: [.mail: true], allowList: [.mail: ["Deals"]]).withTestBrowser
     private let gmail = MailContext(
         browser: "com.brave.Browser", url: "https://mail.google.com/mail/u/0/#label/Deals/FMfcgz",
         label: "Deals", threadId: "FMfcgz", messageId: "msg-1")
@@ -61,6 +61,7 @@ import Testing
 
     @Test func mailIsAnotherConsentKindThanPageText() {
         let pageText = CapturePolicy(switches: [.screen: true, .screenText: true], allowList: [.mail: ["Deals"]])
+            .withTestBrowser
         #expect(pageText.authorize(CaptureRequest(kind: .mail, label: "Deals"), at: t0).denial == .sourceSwitchedOff)
         #expect(named.authorize(CaptureRequest(kind: .screenText), at: t0).denial == .sourceSwitchedOff)
     }
@@ -85,7 +86,7 @@ import Testing
             #expect(try stored(store).isEmpty)
             #expect(try store.queries.mailThreadsOpened(inLabel: "Deals").isEmpty)
         }
-        let pagesOnly = try store(policy: CapturePolicy(switches: [.screen: true, .screenText: true]))
+        let pagesOnly = try store(policy: CapturePolicy(switches: [.screen: true, .screenText: true]).withTestBrowser)
         #expect(try send(message(), to: pagesOnly).kept == false, "page text consent does not cover mail")
         #expect(try stored(pagesOnly).isEmpty)
     }

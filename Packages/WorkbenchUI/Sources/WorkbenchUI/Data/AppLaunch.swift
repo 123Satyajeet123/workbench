@@ -29,6 +29,7 @@ struct AppSession {
     let runs: RunsModel
     /// Where the browser host sends what the extension read. Held so that it listens as long as the app runs.
     let pages: PageHostListener
+    let browsers: BrowserSetup
     /// The right to write the store, held until the app ends.
     let writerLock: StoreLock
     let navigation = Navigation()
@@ -48,6 +49,7 @@ enum AppLaunch {
             let store = try Store(directory: storeFolder)
             let owner = OwnerIdentity.result(secrets: KeychainSecrets())
             let service = try CaptureService(store: store, owner: owner)
+            let capture = CaptureSettings(service: service)
             let identity = IdentityModel(store: store)
             let notifications = Notifications()
             let pages = try PageHostListener(path: PagesSocket.path(in: storeFolder), store: store, owner: owner)
@@ -62,7 +64,7 @@ enum AppLaunch {
             let deals = DealsModel(store: store, catalog: catalog)
             crew.onItemsChanged { deals.refresh() }
             let session = AppSession(
-                store: store, capture: CaptureSettings(service: service), onboarding: onboarding, identity: identity,
+                store: store, capture: capture, onboarding: onboarding, identity: identity,
                 team: onboarding.teamModel, models: ModelSettings(store: store),
                 crew: crew, review: review, mochi: mochi,
                 today: TodayModel(store: store, crew: crew, calendar: EventKitCalendar(), deals: { deals.deals }),
@@ -72,6 +74,8 @@ enum AppLaunch {
                 web: web, claims: ClaimsModel(store: store, me: { catalog.me }, web: web),
                 runs: RunsModel(store: store),
                 pages: pages,
+                browsers: BrowserSetup(
+                    capture: capture, connectedBrowsers: { Set(pages.connectedBrowsers.map(\.browser)) }),
                 writerLock: writerLock)
             service.start()
             session.reminders.start()

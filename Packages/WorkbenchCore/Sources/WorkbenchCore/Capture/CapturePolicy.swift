@@ -68,15 +68,27 @@ public struct CapturePolicy: Codable, Sendable, Equatable {
     public var denyList: [SourceKind: Set<String>]
     /// The labels a source may read. Nil means every label, except for a source that needs a list.
     public var allowList: [SourceKind: Set<String>]
+    /// The browsers the person said yes to, as bundle id to name. Pages and mail come only from these.
+    public var browsers: [String: String]
 
     public init(
         mode: Mode = .on, switches: [SourceKind: Bool] = [:], denyList: [SourceKind: Set<String>] = [:],
-        allowList: [SourceKind: Set<String>] = [:]
+        allowList: [SourceKind: Set<String>] = [:], browsers: [String: String] = [:]
     ) {
         self.mode = mode
         self.switches = switches
         self.denyList = denyList
         self.allowList = allowList
+        self.browsers = browsers
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        mode = try values.decode(Mode.self, forKey: .mode)
+        switches = try values.decode([SourceKind: Bool].self, forKey: .switches)
+        denyList = try values.decode([SourceKind: Set<String>].self, forKey: .denyList)
+        allowList = try values.decode([SourceKind: Set<String>].self, forKey: .allowList)
+        browsers = try values.decodeIfPresent([String: String].self, forKey: .browsers) ?? [:]
     }
 
     /// Captured data older than this is deleted: it is how far back anything reads.
@@ -86,6 +98,8 @@ public struct CapturePolicy: Codable, Sendable, Equatable {
     public static let needsAllowList: Set<SourceKind> = [.whatsapp, .mail]
 
     public func isEnabled(_ kind: SourceKind) -> Bool { switches[kind] ?? false }
+
+    public func isEnabled(browser bundleID: String) -> Bool { browsers[bundleID] != nil }
 
     /// The labels (chats, mail labels) of `kind` this policy allows and `other` does not, sorted.
     public func withdrawn(_ kind: SourceKind, in other: CapturePolicy) -> [String] {

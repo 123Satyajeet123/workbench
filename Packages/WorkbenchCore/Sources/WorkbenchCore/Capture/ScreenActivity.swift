@@ -12,10 +12,12 @@ public struct ScreenSnapshot: Equatable, Sendable {
     public var text: String
     /// The focused element is a password field.
     public var secureFocus: Bool
+    /// The app opens web addresses. A browser window with no address is never read.
+    public var isBrowser: Bool
 
     public init(
         app: String, bundleID: String, windowID: Int, document: String = "", title: String, text: String,
-        secureFocus: Bool = false
+        secureFocus: Bool = false, isBrowser: Bool = false
     ) {
         self.app = app
         self.bundleID = bundleID
@@ -24,6 +26,7 @@ public struct ScreenSnapshot: Equatable, Sendable {
         self.title = title
         self.text = text
         self.secureFocus = secureFocus
+        self.isBrowser = isBrowser
     }
 
     var place: String { "\(bundleID)#\(windowID)#\(document)" }

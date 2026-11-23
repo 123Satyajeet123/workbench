@@ -24,7 +24,8 @@ import WorkbenchCore
         let model = session.onboarding
         model.advance(to: screen)
         let rows = ConnectRow.rows(for: model.needs).filter { $0 != .reader }
-        let facts = ConnectFacts(readerFound: true, mailOn: true, sourceRows: rows)
+        let facts = ConnectFacts(
+            readerFound: true, mailOn: true, needsBrowser: ConnectRow.needsBrowser(for: model.needs), sourceRows: rows)
         let step = OnboardingStep(screen: screen, facts: facts).environment(session).environment(MacAccess())
         try renderPNG(step, named: name)
     }

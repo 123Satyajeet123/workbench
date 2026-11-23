@@ -83,6 +83,7 @@ extension View {
             .environment(session.web)
             .environment(session.claims)
             .environment(session.runs)
+            .environment(session.browsers)
             .environment(session.navigation)
     }
 }

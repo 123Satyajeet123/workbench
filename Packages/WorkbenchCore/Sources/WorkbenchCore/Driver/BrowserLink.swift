@@ -23,9 +23,6 @@ public final class BrowserLink: Sendable {
         self.writeFrame = write
     }
 
-    /// Whether the browser behind the connection is known and is one capture allows.
-    var isAllowed: Bool { browser.map(CapturePolicy.browserBundleIDs.contains) ?? false }
-
     @discardableResult
     public func write(_ frame: Data) -> Bool { writing.withLock { _ in writeFrame(frame) } }
 

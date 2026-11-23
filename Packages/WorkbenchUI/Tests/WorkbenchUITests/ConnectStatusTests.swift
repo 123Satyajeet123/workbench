@@ -1,4 +1,5 @@
 import Testing
+import WorkbenchCore
 
 @testable import WorkbenchUI
 
@@ -47,5 +48,23 @@ struct ConnectStatusTests {
         #expect(!ConnectFacts(fullDiskAccess: true, chats: ["A"]).isSet)
         #expect(ConnectFacts(readerFound: true, fullDiskAccess: true, chats: ["A"]).isSet)
         #expect(!ConnectFacts(readerFound: true, screenOn: true).isSet)
+    }
+
+    @Test func aBrowserRowGoesFromOffToWaitingToReadyAndNeedsTheExtensionToTalk() {
+        let facts = ConnectFacts()
+        func status(enabled: Bool, connected: Bool) -> ConnectStatus {
+            facts.status(of: BrowserFact(id: "x.alpha", name: "Alpha", isEnabled: enabled, isConnected: connected))
+        }
+        #expect(status(enabled: false, connected: false) == .off)
+        #expect(status(enabled: false, connected: true) == .off, "a browser that is not enabled is not ready")
+        #expect(status(enabled: true, connected: false) == .waiting)
+        #expect(status(enabled: true, connected: true) == .ready)
+        #expect(!ConnectStatus.waiting.isDone && ConnectStatus.waiting.title == "Waiting for the extension")
+    }
+
+    @Test func onlyATeamThatReadsPagesShowsBrowserRows() {
+        #expect(ConnectRow.needsBrowser(for: TeamTemplate.fund.sourceNeeds))
+        #expect(!ConnectRow.needsBrowser(for: TeamTemplate.startupTeam.sourceNeeds))
+        #expect(!ConnectRow.needsBrowser(for: TeamTemplate.blank.sourceNeeds))
     }
 }

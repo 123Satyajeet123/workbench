@@ -7,7 +7,7 @@ import Lines
 /// page text to a read-only Accessibility client (measured on Brave, 2026-11-19), so the extension reads it in the
 /// page instead. A page is screen text from a browser: the same switch, private rules and deletion apply.
 public struct WebPage: Codable, Sendable, Equatable {
-    /// The browser's bundle id, such as com.brave.Browser. The app sets it from the process that sent the message,
+    /// The browser's bundle id. The app sets it from the process that sent the message,
     /// never from the message.
     public var browser = ""
     public var url: String
@@ -70,7 +70,7 @@ public struct WebPage: Codable, Sendable, Equatable {
     /// A page shows no one who could read it, so the audience is the owner alone, the narrowest there is.
     public func reading(policy: CapturePolicy, at now: Date) -> SourceReading? {
         let addresses = [url] + (frame.map { [$0] } ?? [])
-        guard policy.isEnabled(.screenText), CapturePolicy.browserBundleIDs.contains(browser), !text.isEmpty,
+        guard policy.isEnabled(.screenText), policy.isEnabled(browser: browser), !text.isEmpty,
             !addresses.contains(where: { CapturePolicy.isSite($0, in: [MailContext.site, Self.whatsAppWebHost]) }),
             addresses.allSatisfy({ keepGrant(for: $0, policy: policy, at: now) != nil }),
             let site = CapturePolicy.host(of: url), let address = CaptureEngine.address(url),
@@ -102,16 +102,11 @@ public struct WebPage: Codable, Sendable, Equatable {
 
     private func keepGrant(for address: String, policy: CapturePolicy, at now: Date) -> CaptureGrant? {
         let snapshot = ScreenSnapshot(
-            app: browserName, bundleID: browser, windowID: 0, document: address, title: title, text: text)
+            app: policy.browsers[browser] ?? browser, bundleID: browser, windowID: 0, document: address, title: title,
+            text: text,
+            isBrowser: true)
         guard case .keep(let grant) = policy.verdict(for: snapshot, at: now) else { return nil }
         return grant
-    }
-
-    private var browserName: String {
-        [
-            "com.brave.Browser": "Brave Browser", "com.google.Chrome": "Google Chrome",
-            "company.thebrowser.Browser": "Arc", "com.microsoft.edgemac": "Microsoft Edge",
-        ][browser] ?? browser
     }
 }
 

@@ -58,6 +58,17 @@ struct CaptureVerdictTests {
         #expect(engine.wantsText(for: terminal, policy: screenOn, at: t0))
     }
 
+    @Test func aBrowserWindowWithNoAddressIsHiddenAndAnotherAppWithNoAddressIsKept() {
+        #expect(!hidden(snapshot { $0.isBrowser = false }), "the control: no address, not a browser")
+        #expect(hidden(snapshot { $0.isBrowser = true }))
+        #expect(
+            !hidden(
+                snapshot {
+                    $0.isBrowser = true
+                    $0.document = "https://example.com/"
+                }))
+    }
+
     @Test func aHiddenWindowIsNeverWalkedForText() {
         let engine = CaptureEngine()
         #expect(!engine.wantsText(for: snapshot { $0.secureFocus = true }, policy: screenOn, at: t0))

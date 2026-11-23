@@ -90,7 +90,8 @@ import Testing
 
     @Test func theHostProcessStoresAnAllowedPageAndNothingFromABrokenFrame() async throws {
         #expect(FileManager.default.isExecutableFile(atPath: Self.host.path), "build the host first")
-        let (store, socket, listener) = try app(policy: CapturePolicy(switches: [.screen: true, .screenText: true]))
+        let (store, socket, listener) = try app(
+            policy: CapturePolicy(switches: [.screen: true, .screenText: true]).withTestBrowser)
         defer { _ = listener }
         let page = WebPage(
             browser: "com.brave.Browser", url: "https://mail.example.com/", title: "Inbox", text: "Deck from Acme")
@@ -106,7 +107,7 @@ import Testing
 
     @Test func theHostProcessReassemblesADeckSentInChunksOverOneSession() async throws {
         let (store, socket, listener) = try app(
-            policy: CapturePolicy(switches: [.mail: true], allowList: [.mail: ["Deals"]]),
+            policy: CapturePolicy(switches: [.mail: true], allowList: [.mail: ["Deals"]]).withTestBrowser,
             owner: .success(try PersonID("owner-1")))
         defer { _ = listener }
         let context = MailContext(
@@ -128,7 +129,8 @@ import Testing
     /// The browser keeps stdin open until it has the reply (measured: Brave's host hung for minutes when the host
     /// waited for the end of input). The answer must come while the pipe is still open.
     @Test func theHostAnswersWhileTheBrowserKeepsThePipeOpen() async throws {
-        let (store, socket, listener) = try app(policy: CapturePolicy(switches: [.screen: true, .screenText: true]))
+        let (store, socket, listener) = try app(
+            policy: CapturePolicy(switches: [.screen: true, .screenText: true]).withTestBrowser)
         defer { _ = listener }
         let session = try HostSession(socket: socket)
         defer { session.finish() }
@@ -140,7 +142,8 @@ import Testing
     }
 
     @Test func theReplyCarriesTheIdOfItsMessage() async throws {
-        let (_, socket, listener) = try app(policy: CapturePolicy(switches: [.screen: true, .screenText: true]))
+        let (_, socket, listener) = try app(
+            policy: CapturePolicy(switches: [.screen: true, .screenText: true]).withTestBrowser)
         defer { _ = listener }
         let page = #"{"id":17,"url":"https://site.example/","title":"t","text":"with an id"}"#
         let replies = try replies(in: try await run([Data(page.utf8)], socket: socket))
@@ -158,7 +161,7 @@ import Testing
 
     @Test func theHostReachesAnAppThatStartsLaterAndRefusesAfterItStops() async throws {
         let store = try Store(directory: temporaryDirectory())
-        try store.savePolicy(CapturePolicy(switches: [.screen: true, .screenText: true]))
+        try store.savePolicy(CapturePolicy(switches: [.screen: true, .screenText: true]).withTestBrowser)
         let socket = shortSocketPath()
         let session = try HostSession(socket: socket)
         defer { session.finish() }
@@ -196,7 +199,7 @@ import Testing
 
     @Test func aProcessOfAnotherUserIsRefusedAndKeepsNothing() async throws {
         let store = try Store(directory: temporaryDirectory())
-        try store.savePolicy(CapturePolicy(switches: [.screen: true, .screenText: true]))
+        try store.savePolicy(CapturePolicy(switches: [.screen: true, .screenText: true]).withTestBrowser)
         let socket = shortSocketPath()
         let listener = try PageHostListener(path: socket, store: store, owner: Self.owner, user: geteuid() &+ 1)
         let page = try encoded(page(saying: "stranger"))
@@ -207,7 +210,7 @@ import Testing
 
     @Test func theSocketLeftByAnAppThatDiedIsReplaced() async throws {
         let store = try Store(directory: temporaryDirectory())
-        try store.savePolicy(CapturePolicy(switches: [.screen: true, .screenText: true]))
+        try store.savePolicy(CapturePolicy(switches: [.screen: true, .screenText: true]).withTestBrowser)
         let stale = shortSocketPath()
         FileManager.default.createFile(atPath: stale, contents: Data("left behind".utf8))
         let listener = try PageHostListener(
@@ -220,7 +223,8 @@ import Testing
     /// A command from the app reaches the browser through the host, and its result goes back to the waiting caller. A
     /// page message is answered at once while the command still waits.
     @Test func aCommandReachesTheBrowserWhileAPageMessageIsAnsweredAtOnce() async throws {
-        let (_, socket, listener) = try app(policy: CapturePolicy(switches: [.screen: true, .screenText: true]))
+        let (_, socket, listener) = try app(
+            policy: CapturePolicy(switches: [.screen: true, .screenText: true]).withTestBrowser)
         let session = try HostSession(socket: socket)
         defer { session.finish() }
         session.send(try encoded(WebPage(browser: "", url: "https://site.example/", title: "t", text: "hello")))
@@ -242,14 +246,14 @@ import Testing
 
     @Test func noCommandGoesToAConnectionWhoseBrowserIsUnknownOrNotAllowed() async throws {
         for browser: String? in [nil, "com.evil.app"] {
-            let (_, socket, listener) = try app(policy: CapturePolicy(), browserOf: { _ in browser })
+            let (_, socket, listener) = try app(policy: CapturePolicy().withTestBrowser, browserOf: { _ in browser })
             let session = try HostSession(socket: socket)
             defer { session.finish() }
             session.send(try encoded(WebPage(browser: "", url: "https://site.example/", title: "t", text: "x")))
             _ = try #require(await session.next())
             await #expect(throws: DriverFailure.noBrowserConnected) { try await listener.send(.closeAll, timeout: 1) }
         }
-        let (_, socket, listener) = try app(policy: CapturePolicy())
+        let (_, socket, listener) = try app(policy: CapturePolicy().withTestBrowser)
         let session = try HostSession(socket: socket)
         defer { session.finish() }
         session.send(try encoded(WebPage(browser: "", url: "https://site.example/", title: "t", text: "x")))
@@ -258,7 +262,7 @@ import Testing
     }
 
     @Test func aCommandWaitingWhenTheConnectionEndsFailsAndNoneHangs() async throws {
-        let (_, socket, listener) = try app(policy: CapturePolicy())
+        let (_, socket, listener) = try app(policy: CapturePolicy().withTestBrowser)
         let session = try HostSession(socket: socket)
         session.send(try encoded(WebPage(browser: "", url: "https://site.example/", title: "t", text: "x")))
         _ = try #require(await session.next())
@@ -270,7 +274,7 @@ import Testing
     }
 
     @Test func aCommandTheBrowserNeverAnswersFailsWithATimeout() async throws {
-        let (_, socket, listener) = try app(policy: CapturePolicy())
+        let (_, socket, listener) = try app(policy: CapturePolicy().withTestBrowser)
         let session = try HostSession(socket: socket)
         defer { session.finish() }
         session.send(try encoded(WebPage(browser: "", url: "https://site.example/", title: "t", text: "x")))
@@ -282,12 +286,8 @@ import Testing
     /// host as its child, as a browser does, and the host reads the framed messages from a file.
     private func runUnderFakeBrowser(_ input: Data, socket: String) throws -> Data {
         let root = temporaryDirectory()
-        let contents = root.appending(path: "Fake Browser.app/Contents")
-        try FileManager.default.createDirectory(
-            at: contents.appending(path: "MacOS"), withIntermediateDirectories: true)
-        let plist: [String: Any] = ["CFBundleIdentifier": "com.brave.Browser", "CFBundleName": "Fake Browser"]
-        try (plist as NSDictionary).write(to: contents.appending(path: "Info.plist"))
-        let browser = contents.appending(path: "MacOS/Browser")
+        let app = try BrowserFixture.app(in: root, named: "Fake Browser", bundleID: "com.brave.Browser")
+        let browser = app.appending(path: "Contents/MacOS/Browser")
         try FileManager.default.copyItem(at: URL(filePath: "/bin/bash"), to: browser)
         let signer = Process()
         signer.executableURL = URL(filePath: "/usr/bin/codesign")
@@ -321,7 +321,7 @@ import Testing
     /// The live parent chain: the host's parent is the process of the browser app, found from the process tree.
     @Test func theAppNamesTheBrowserFromTheProcessThatStartedTheHost() async throws {
         let (store, socket, listener) = try app(
-            policy: CapturePolicy(switches: [.screen: true, .screenText: true]),
+            policy: CapturePolicy(switches: [.screen: true, .screenText: true]).withTestBrowser,
             browserOf: PeerBrowser.bundleID(ofPeer:))
         defer { _ = listener }
         let page = WebPage(
@@ -338,7 +338,7 @@ import Testing
 
     @Test func aHostNotStartedByABrowserAppKeepsNothingAndTheReplyNamesWhy() async throws {
         let (store, socket, listener) = try app(
-            policy: CapturePolicy(switches: [.screen: true, .screenText: true]),
+            policy: CapturePolicy(switches: [.screen: true, .screenText: true]).withTestBrowser,
             browserOf: PeerBrowser.bundleID(ofPeer:))
         defer { _ = listener }
         let page = WebPage(browser: "com.brave.Browser", url: "https://site.example/", title: "t", text: "forged")

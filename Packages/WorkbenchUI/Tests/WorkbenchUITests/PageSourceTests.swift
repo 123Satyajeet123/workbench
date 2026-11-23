@@ -13,7 +13,9 @@ import WorkbenchCore
     @Test func aPageMachineReadsNothingUntilItsSitesAreNamedThenOnlyThoseSites() async throws {
         let now = noon
         let store = try scratchStore(clock: { now })
-        try store.savePolicy(CapturePolicy(switches: [.screen: true, .screenText: true]))
+        try store.savePolicy(
+            CapturePolicy(
+                switches: [.screen: true, .screenText: true], browsers: ["com.brave.Browser": "Brave Browser"]))
         for (url, text) in [
             ("https://mail.example.com/mail/u/0/", "Acme: raising a 2M seed, deck attached"),
             ("https://x.com/home", "a post about cats"),

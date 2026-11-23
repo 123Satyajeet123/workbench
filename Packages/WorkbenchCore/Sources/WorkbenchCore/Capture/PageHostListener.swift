@@ -15,6 +15,7 @@ public final class PageHostListener: Sendable {
     private static let backlog: Int32 = 8
 
     private let path: String
+    private let store: Store
     private let source: any DispatchSourceRead
     private let sessions = Sessions()
 
@@ -27,6 +28,7 @@ public final class PageHostListener: Sendable {
         unlink(path)
         let descriptor = try Self.listen(on: path)
         self.path = path
+        self.store = store
         let queue = DispatchQueue(label: "workbench.pages")
         source = DispatchSource.makeReadSource(fileDescriptor: descriptor, queue: queue)
         let sessions = sessions
@@ -73,15 +75,20 @@ public final class PageHostListener: Sendable {
             for client in open.withLock({ $0.clients }) { shutdown(client, SHUT_RDWR) }
         }
 
-        /// The links whose browser is known and allowed, newest first.
-        var commandLinks: [BrowserLink] {
-            open.withLock { Array($0.links.values) }.filter(\.isAllowed).sorted { $0.opened > $1.opened }
-        }
+        var links: [BrowserLink] { open.withLock { Array($0.links.values) } }
     }
 
-    /// The browsers connected now, newest first.
+    /// The links whose browser the person enabled, newest first. A browser that is unknown or not enabled has none,
+    /// and when the policy cannot be read there are none.
+    private var commandLinks: [BrowserLink] {
+        guard let policy = try? store.currentPolicy() else { return [] }
+        return sessions.links.filter { $0.browser.map(policy.isEnabled(browser:)) ?? false }
+            .sorted { $0.opened > $1.opened }
+    }
+
+    /// The enabled browsers connected now, newest first.
     public var connectedBrowsers: [(browser: String, opened: Date)] {
-        sessions.commandLinks.compactMap { link in link.browser.map { ($0, link.opened) } }
+        commandLinks.compactMap { link in link.browser.map { ($0, link.opened) } }
     }
 
     private static func listen(on path: String) throws -> Int32 {
@@ -136,10 +143,10 @@ public final class PageHostListener: Sendable {
     }
 }
 
-/// A command goes only to a connection whose browser is known and allowed: the newest one.
+/// A command goes only to a connection whose browser is known and enabled: the newest one.
 extension PageHostListener: DriverTransport {
     public func send(_ command: DriverCommand, timeout: TimeInterval) async throws -> DriverReply {
-        guard let link = sessions.commandLinks.first else { throw DriverFailure.noBrowserConnected }
+        guard let link = commandLinks.first else { throw DriverFailure.noBrowserConnected }
         return try await link.send(command, timeout: timeout).get()
     }
 }

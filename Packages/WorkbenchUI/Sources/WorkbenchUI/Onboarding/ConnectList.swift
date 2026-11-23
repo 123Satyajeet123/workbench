@@ -11,6 +11,7 @@ struct ConnectList: View {
     @Environment(TodayModel.self) private var today
     @Environment(Crew.self) private var crew
     @Environment(ModelSettings.self) private var models
+    @Environment(BrowserSetup.self) private var browsers
     @State private var choosingChats = false
 
     var body: some View {
@@ -18,12 +19,13 @@ struct ConnectList: View {
             ForEach(rows) { row in
                 ConnectRowView(
                     name: name(of: row), detail: isChecklist ? nil : detail(of: row), status: facts.status(of: row),
-                    action: isChecklist ? nil : action(for: row)
+                    actions: isChecklist ? [] : action(for: row).map { [$0] } ?? []
                 ) {
                     icon(of: row)
                 }
-                if row != rows.last { Divider() }
+                if row != rows.last || facts.needsBrowser { Divider() }
             }
+            if facts.needsBrowser { BrowserRows(facts: facts, isChecklist: isChecklist) }
         }
         .padding(.horizontal, Space.m)
         .background(.calloutFill, in: .rect(cornerRadius: Radius.card))
@@ -100,17 +102,19 @@ struct ConnectList: View {
     }
 }
 
-struct ConnectAction {
+struct ConnectAction: Identifiable {
     let title: String
     let isPrimary: Bool
     let perform: () -> Void
+
+    var id: String { title }
 }
 
 struct ConnectRowView<Icon: View>: View {
     let name: String
     let detail: String?
     let status: ConnectStatus
-    let action: ConnectAction?
+    let actions: [ConnectAction]
     @ViewBuilder let icon: Icon
 
     var body: some View {
@@ -122,18 +126,32 @@ struct ConnectRowView<Icon: View>: View {
                     Text(detail).textStyle(.callout).foregroundStyle(.supporting)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                if action != nil, tone == .attention { statusLabel }
+                if !actions.isEmpty, tone == .attention { statusLabel }
             }
             Spacer(minLength: Space.m)
-            if let action, action.isPrimary {
-                Button(action.title, action: action.perform).buttonStyle(.primary)
-            } else if let action {
-                Button(action.title, action: action.perform).buttonStyle(.ghost).foregroundStyle(.linkText)
-            } else {
+            if actions.isEmpty {
                 statusLabel.frame(maxWidth: 200, alignment: .trailing)
+            } else {
+                ViewThatFits(in: .horizontal) {
+                    actionButtons(HStackLayout(spacing: Space.s))
+                    actionButtons(VStackLayout(alignment: .trailing, spacing: Space.xs))
+                }
             }
         }
         .padding(.vertical, detail == nil ? Space.s : Space.m)
+    }
+
+    private func actionButtons(_ layout: some Layout) -> some View {
+        layout {
+            ForEach(actions) { action in
+                if action.isPrimary {
+                    Button(action.title, action: action.perform).buttonStyle(.primary)
+                } else {
+                    Button(action.title, action: action.perform).buttonStyle(.ghost).foregroundStyle(.linkText)
+                }
+            }
+        }
+        .fixedSize()
     }
 
     private var statusLabel: some View {
@@ -148,7 +166,7 @@ struct ConnectRowView<Icon: View>: View {
     private var symbol: String {
         switch status {
         case .ready, .chosen: "checkmark.circle.fill"
-        case .needsPermission, .missing: "exclamationmark.circle.fill"
+        case .needsPermission, .missing, .waiting: "exclamationmark.circle.fill"
         case .off: "circle"
         }
     }
@@ -156,7 +174,7 @@ struct ConnectRowView<Icon: View>: View {
     private var tone: Tone {
         switch status {
         case .ready, .chosen: .good
-        case .needsPermission, .missing: .attention
+        case .needsPermission, .missing, .waiting: .attention
         case .off: .neutral
         }
     }
@@ -197,6 +215,59 @@ private struct ChatsSheet: View {
             pip.dismissProblem()
             guard source.groups.isEmpty, source.direct.isEmpty else { return }
             pip.attempt("list your WhatsApp chats", source.loadGroups)
+        }
+    }
+}
+
+/// One row for each Chromium browser on this Mac, or one row that says there is none.
+private struct BrowserRows: View {
+    let facts: ConnectFacts
+    let isChecklist: Bool
+    @Environment(BrowserSetup.self) private var setup
+
+    var body: some View {
+        if facts.browsers.isEmpty {
+            row(
+                name: "Browser", detail: "Install a Chromium browser and open it once. Then check again.",
+                status: .missing, actions: [.init(title: "Check again", isPrimary: false) { setup.recheck() }])
+        }
+        ForEach(facts.browsers) { browser in
+            row(
+                name: browser.name, detail: detail(of: browser), status: facts.status(of: browser),
+                actions: actions(for: browser))
+            if browser != facts.browsers.last { Divider() }
+        }
+    }
+
+    private func row(
+        name: String, detail: String, status: ConnectStatus, actions: [ConnectAction] = []
+    ) -> some View {
+        ConnectRowView(
+            name: name, detail: isChecklist ? nil : detail, status: status, actions: isChecklist ? [] : actions
+        ) {
+            Image(systemName: "globe").foregroundStyle(.iconTint)
+        }
+    }
+
+    private func detail(of browser: BrowserFact) -> String {
+        switch facts.status(of: browser) {
+        case .ready: "The extension reads pages for you. Pages stay on this Mac."
+        case .waiting:
+            "Press the button: it opens the extensions page and the Extension folder. Turn on Developer mode, choose Load unpacked, and pick the Extension folder. This row turns green by itself."
+        default: "Workbench reads pages only in a browser you turn on."
+        }
+    }
+
+    private func actions(for browser: BrowserFact) -> [ConnectAction] {
+        guard let installed = setup.installed.first(where: { $0.id == browser.id }) else { return [] }
+        switch facts.status(of: browser) {
+        case .off:
+            return [.init(title: "Turn on", isPrimary: true) { setup.turn(installed, on: true) }]
+        case .waiting:
+            return [
+                .init(title: "Open extensions page", isPrimary: true) { setup.startLoading(in: installed) }
+            ]
+        default: return []
         }
     }
 }

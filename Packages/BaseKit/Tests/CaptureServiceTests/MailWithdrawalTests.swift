@@ -24,7 +24,10 @@ import struct Kernel.PersonID
     private func service() throws -> (CaptureService, Store) {
         let store = try Store(
             directory: FileManager.default.temporaryDirectory.appending(path: "cs-\(UUID().uuidString)"))
-        try store.savePolicy(CapturePolicy(switches: [.mail: true], allowList: [.mail: ["Deals", "Personal"]]))
+        try store.savePolicy(
+            CapturePolicy(
+                switches: [.mail: true], allowList: [.mail: ["Deals", "Personal"]],
+                browsers: ["com.brave.Browser": "Brave Browser"]))
         return (try CaptureService(store: store), store)
     }
 

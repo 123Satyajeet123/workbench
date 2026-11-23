@@ -23,14 +23,15 @@ import Testing
         }
     }
 
-    @Test func theBundleIdComesFromTheAppsInfoPlistAndOnlyThere() throws {
+    @Test func theBundleIdComesFromAChromiumBrowserAppAndFromNoOtherApp() throws {
         let root = temporaryDirectory()
-        let app = root.appending(path: "Fake Browser.app/Contents")
-        try FileManager.default.createDirectory(at: app.appending(path: "MacOS"), withIntermediateDirectories: true)
-        let plist: [String: Any] = ["CFBundleIdentifier": "com.brave.Browser", "CFBundleName": "Fake"]
-        try (plist as NSDictionary).write(to: app.appending(path: "Info.plist"))
-        let executable = app.appending(path: "MacOS/Fake").path
-        #expect(PeerBrowser.bundleID(ofExecutable: executable) == "com.brave.Browser")
+        func executable(of app: URL) -> String { app.appending(path: "Contents/MacOS/x").path }
+        let browser = try BrowserFixture.app(in: root, named: "Alpha", bundleID: "x.alpha")
+        #expect(PeerBrowser.bundleID(ofExecutable: executable(of: browser)) == "x.alpha", "the control")
+        let notChromium = try BrowserFixture.app(in: root, named: "Fox", bundleID: "x.fox", chromiumFramework: false)
+        let notABrowser = try BrowserFixture.app(in: root, named: "Chat", bundleID: "x.chat", schemes: ["chat"])
+        #expect(PeerBrowser.bundleID(ofExecutable: executable(of: notChromium)) == nil)
+        #expect(PeerBrowser.bundleID(ofExecutable: executable(of: notABrowser)) == nil)
         #expect(PeerBrowser.bundleID(ofExecutable: "/usr/bin/xctest") == nil)
         let bare = root.appending(path: "Bare.app/Contents/MacOS")
         try FileManager.default.createDirectory(at: bare, withIntermediateDirectories: true)

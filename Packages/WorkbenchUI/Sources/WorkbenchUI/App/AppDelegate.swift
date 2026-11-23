@@ -32,6 +32,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let answering = NotificationAnswering(
                 today: session.today, review: session.review, crew: session.crew, navigation: session.navigation)
             replies.handler = answering.handle
+            session.browsers.refreshEnabledBrowsers()
         }
         DispatchQueue.main.async(execute: Self.comeToFront)
     }

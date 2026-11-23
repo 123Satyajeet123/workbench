@@ -47,17 +47,22 @@ enum ConnectRow: CaseIterable, Identifiable {
     static func rows(for needs: [SourceNeed]) -> [Self] {
         [.reader] + needs.compactMap { Self($0.kind) }
     }
+
+    /// Pages, mail and web research are read in a browser, through the extension.
+    static func needsBrowser(for needs: [SourceNeed]) -> Bool {
+        needs.contains { [.screenText, .mail, .web].contains($0.kind) }
+    }
 }
 
 enum ConnectStatus: Equatable {
-    case ready, off, missing
+    case ready, off, missing, waiting
     case needsPermission(pane: String)
     case chosen(String)
 
     var isDone: Bool {
         switch self {
         case .ready, .chosen: true
-        case .off, .missing, .needsPermission: false
+        case .off, .missing, .waiting, .needsPermission: false
         }
     }
 
@@ -66,10 +71,19 @@ enum ConnectStatus: Equatable {
         case .ready: "Ready"
         case .off: "Off"
         case .missing: "Not installed"
+        case .waiting: "Waiting for the extension"
         case .needsPermission: "Needs permission"
         case .chosen(let name): name
         }
     }
+}
+
+/// One Chromium browser on this Mac, and what the person and the extension have done with it.
+struct BrowserFact: Equatable, Identifiable {
+    let id: String
+    let name: String
+    var isEnabled: Bool
+    var isConnected: Bool
 }
 
 struct ConnectFacts: Equatable {
@@ -85,6 +99,9 @@ struct ConnectFacts: Equatable {
     var microphoneRefused = false
     var mailOn = false
     var webOn = false
+    /// The Chromium browsers installed here. The extension needs one, so a team that reads pages shows them.
+    var browsers: [BrowserFact] = []
+    var needsBrowser = false
     /// The rows of the sources that count toward `isSet`.
     var sourceRows = ConnectRow.sources
 
@@ -113,6 +130,12 @@ struct ConnectFacts: Equatable {
             if microphoneRefused { return .needsPermission(pane: "Privacy_Microphone") }
             return callsOn ? .ready : .off
         }
+    }
+
+    /// Connected only when the extension has talked to the app through the native host.
+    func status(of browser: BrowserFact) -> ConnectStatus {
+        guard browser.isEnabled else { return .off }
+        return browser.isConnected ? .ready : .waiting
     }
 
     var isSet: Bool {

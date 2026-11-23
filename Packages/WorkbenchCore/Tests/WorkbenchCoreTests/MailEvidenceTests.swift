@@ -12,7 +12,7 @@ import Testing
 @Suite struct MailEvidenceTests {
     static let owner = try! PersonID("owner-1")
     static let ownerResult = Result<PersonID, any Error>.success(owner)
-    static let named = CapturePolicy(switches: [.mail: true, .web: true], allowList: [.mail: ["Deals"]])
+    static let named = CapturePolicy(switches: [.mail: true, .web: true], allowList: [.mail: ["Deals"]]).withTestBrowser
     static let gmail = MailContext(
         browser: "com.brave.Browser", url: "https://mail.google.com/mail/u/0/#label/Deals/FMfcgz", label: "Deals",
         threadId: "FMfcgz", messageId: "msg-1")
@@ -68,7 +68,7 @@ import Testing
         let store = try store()
         let reading = try #require(
             Self.message().reading(grant: grant(.mail, label: "Deals"), now: t0))
-        try store.savePolicy(CapturePolicy(switches: [.mail: true], allowList: [.mail: ["Personal"]]))
+        try store.savePolicy(CapturePolicy(switches: [.mail: true], allowList: [.mail: ["Personal"]]).withTestBrowser)
         #expect(throws: EvidenceError.consentWithdrawn) {
             try store.record(reading, of: .gmailMail, owner: Self.owner)
         }

@@ -9,6 +9,7 @@ struct OnboardingView: View {
     @Environment(TodayModel.self) private var today
     @Environment(Crew.self) private var crew
     @Environment(ModelSettings.self) private var models
+    @Environment(BrowserSetup.self) private var browsers
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var access = MacAccess()
 
@@ -25,7 +26,8 @@ struct OnboardingView: View {
                     screen: model.screen,
                     facts: ConnectFacts(
                         access: access, capture: capture, today: today, pip: crew.team,
-                        sourceRows: ConnectRow.rows(for: model.needs).filter { $0 != .reader })
+                        sourceRows: ConnectRow.rows(for: model.needs).filter { $0 != .reader },
+                        browsers: browsers.facts, needsBrowser: ConnectRow.needsBrowser(for: model.needs))
                 )
                 .padding(.horizontal, Space.page)
                 .padding(.bottom, Space.l)
@@ -44,6 +46,12 @@ struct OnboardingView: View {
         .animation(Motion.settle(reduceMotion: reduceMotion), value: model.index)
         .environment(access)
         .onAppear(perform: recheck)
+        .task {
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(2))
+                browsers.recheck()
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             recheck()
         }
@@ -51,6 +59,7 @@ struct OnboardingView: View {
 
     private func recheck() {
         access.recheck(reader: models.choice.kind)
+        browsers.recheck()
         if capture.isOn(.calendar) { Task { await today.refreshMeetings() } }
     }
 

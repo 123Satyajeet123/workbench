@@ -66,7 +66,7 @@ import Testing
 
 /// A page is kept only if the page address and the frame address are both allowed.
 @Suite struct FramePolicyTests {
-    private let on = CapturePolicy(switches: [.screen: true, .screenText: true])
+    private let on = CapturePolicy(switches: [.screen: true, .screenText: true]).withTestBrowser
 
     private func page(frame: String?) -> WebPage {
         WebPage(

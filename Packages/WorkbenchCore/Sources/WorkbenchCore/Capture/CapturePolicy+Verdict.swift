@@ -44,7 +44,7 @@ extension CapturePolicy {
 
     private func hidesContent(of snapshot: ScreenSnapshot) -> Bool {
         let title = snapshot.title.lowercased()
-        let browserWithoutAddress = Self.browserBundleIDs.contains(snapshot.bundleID) && snapshot.document.isEmpty
+        let browserWithoutAddress = snapshot.isBrowser && snapshot.document.isEmpty
         return snapshot.secureFocus || browserWithoutAddress
             || (Self.privateWords + Self.privateWindowMarkers).contains { title.contains($0) }
             || Self.isSite(snapshot.document, in: Self.privateDomains.union(denyList[.screen] ?? []))
@@ -64,11 +64,6 @@ extension CapturePolicy {
         while host.hasSuffix(".") { host.removeLast() }
         return host
     }
-
-    public static let browserBundleIDs: Set<String> = [
-        "com.brave.Browser", "com.google.Chrome", "company.thebrowser.Browser", "com.apple.Safari",
-        "com.microsoft.edgemac", "org.mozilla.firefox",
-    ]
 
     static let privateBundleIDs: Set<String> = [
         "com.1password.1password", "com.agilebits.onepassword7", "com.agilebits.onepassword-osx",

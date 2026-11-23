@@ -2,9 +2,10 @@ import Darwin
 import Foundation
 
 /// Which browser sent a message, learned from the process tree and not from the message: a page cannot forge it, and
-/// it works in every browser. The browser starts the native host, so the host's parent process is the browser. The
-/// bundle id is that of the `.app` the parent process runs from. Anything else (a helper process, launchd, a
-/// program outside an app) gives nil, and the connection's pages are dropped.
+/// it works in every Chromium browser. The browser starts the native host, so the host's parent process is the
+/// browser. The bundle id is that of the Chromium browser `.app` the parent process runs from. Anything else (a
+/// helper process, launchd, a program outside an app, an app that is no Chromium browser) gives nil, and the
+/// connection's pages are dropped.
 enum PeerBrowser {
     /// The bundle id of the browser behind a connected socket, or nil.
     static func bundleID(ofPeer client: Int32) -> String? {
@@ -15,7 +16,7 @@ enum PeerBrowser {
     }
 
     static func bundleID(ofExecutable path: String) -> String? {
-        appBundle(ofExecutable: path).flatMap { Bundle(url: $0)?.bundleIdentifier }
+        appBundle(ofExecutable: path).flatMap { ChromiumBrowser(app: $0)?.bundleID }
     }
 
     /// The `.app` that holds the executable at `path`, only when it sits at `<name>.app/Contents/MacOS/<file>`. A

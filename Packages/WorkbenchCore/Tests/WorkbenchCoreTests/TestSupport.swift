@@ -63,3 +63,14 @@ extension Store {
         try Store(directory: directory, clock: clock)
     }
 }
+
+/// The browser the tests have the person enable.
+let testBrowsers = ["com.brave.Browser": "Brave Browser"]
+
+extension CapturePolicy {
+    var withTestBrowser: CapturePolicy {
+        var policy = self
+        policy.browsers = testBrowsers
+        return policy
+    }
+}

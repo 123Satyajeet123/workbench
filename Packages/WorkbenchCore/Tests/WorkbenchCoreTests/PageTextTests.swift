@@ -6,7 +6,7 @@ import Testing
 @testable import WorkbenchCore
 
 @Suite struct PageTextTests {
-    private let on = CapturePolicy(switches: [.screen: true, .screenText: true])
+    private let on = CapturePolicy(switches: [.screen: true, .screenText: true]).withTestBrowser
     private let owner = Result<PersonID, any Error>.success(try! PersonID("owner-1"))
     private func page(_ url: String, title: String = "Inbox", browser: String = "com.brave.Browser") -> WebPage {
         WebPage(browser: browser, url: url, title: title, text: "Deck from Acme: seed round, 2M")
@@ -33,10 +33,11 @@ import Testing
     }
 
     @Test func noTextIsKeptWhenTheSwitchIsOffTheSiteIsPrivateOrDeniedOrTheWindowIsPrivate() {
-        let textOff = CapturePolicy(switches: [.screen: true, .screenText: false])
+        let textOff = CapturePolicy(switches: [.screen: true, .screenText: false]).withTestBrowser
         #expect(page("https://mail.example.com/").reading(policy: textOff, at: t0) == nil)
         #expect(
-            page("https://mail.example.com/").reading(policy: CapturePolicy(switches: [.screenText: true]), at: t0)
+            page("https://mail.example.com/").reading(
+                policy: CapturePolicy(switches: [.screenText: true]).withTestBrowser, at: t0)
                 == nil
         )
         #expect(page("https://netbanking.hdfcbank.com/login").reading(policy: on, at: t0) == nil)
@@ -49,6 +50,17 @@ import Testing
         var paused = on
         paused.mode = .paused(until: t0.addingTimeInterval(3600))
         #expect(page("https://x.com/home").reading(policy: paused, at: t0) == nil)
+    }
+
+    @Test func aPageIsKeptOnlyFromABrowserThePersonEnabled() {
+        let url = "https://news.example.com/"
+        #expect(page(url).reading(policy: on, at: t0) != nil, "the control")
+        var noBrowser = on
+        noBrowser.browsers = [:]
+        #expect(page(url).reading(policy: noBrowser, at: t0) == nil)
+        var another = on
+        another.browsers = ["x.other": "Other"]
+        #expect(page(url).reading(policy: another, at: t0) == nil, "yes to one browser is no to the next")
     }
 
     @Test func gmailIsNeverKeptAsAPageEvenWithScreenTextOn() throws {

@@ -7,22 +7,27 @@ public struct FrontApp: Sendable, Equatable {
     public var pid: pid_t
     public var name: String
     public var bundleID: String
+    /// The app opens web addresses.
+    public var isBrowser: Bool
 
-    public init(pid: pid_t, name: String, bundleID: String) {
+    public init(pid: pid_t, name: String, bundleID: String, isBrowser: Bool = false) {
         self.pid = pid
         self.name = name
         self.bundleID = bundleID
+        self.isBrowser = isBrowser
     }
 
     @MainActor
     public static func current(ownProcess: pid_t = getpid()) -> FrontApp? {
         guard let app = NSWorkspace.shared.frontmostApplication, app.processIdentifier != ownProcess else { return nil }
-        return FrontApp(pid: app.processIdentifier, name: app.localizedName ?? "", bundleID: app.bundleIdentifier ?? "")
+        return FrontApp(
+            pid: app.processIdentifier, name: app.localizedName ?? "", bundleID: app.bundleIdentifier ?? "",
+            isBrowser: app.bundleURL.map(WebBrowserApp.isBrowser) ?? false)
     }
 
     /// What is known of the app without any Accessibility call: its name and bundle id.
     public var unread: ScreenSnapshot {
-        ScreenSnapshot(app: name, bundleID: bundleID, windowID: 0, title: "", text: "")
+        ScreenSnapshot(app: name, bundleID: bundleID, windowID: 0, title: "", text: "", isBrowser: isBrowser)
     }
 }
 
@@ -70,12 +75,12 @@ public final class ScreenReader: ScreenReading {
         let windowID = window.map { Int(bitPattern: CFHash($0)) } ?? 0
         let focused: AXUIElement? = attribute(element, kAXFocusedUIElementAttribute)
         let secure = focused.flatMap { attribute($0, kAXSubroleAttribute) as String? } == "AXSecureTextField"
-        let browser = CapturePolicy.browserBundleIDs.contains(app.bundleID)
         return ScreenSnapshot(
             app: app.name, bundleID: app.bundleID, windowID: windowID,
-            document: window.map { document(of: $0, id: windowID, browser: browser, focused: focused) } ?? "",
+            document: window.map { document(of: $0, id: windowID, browser: app.isBrowser, focused: focused) } ?? "",
             title: window.flatMap { attribute($0, kAXTitleAttribute) } ?? "",
-            text: withText && !secure ? window.map(text(of:)) ?? "" : "", secureFocus: secure)
+            text: withText && !secure ? window.map(text(of:)) ?? "" : "", secureFocus: secure,
+            isBrowser: app.isBrowser)
     }
 
     /// A read that fails, or an address bar the user is editing, says nothing new: the last known document stays.

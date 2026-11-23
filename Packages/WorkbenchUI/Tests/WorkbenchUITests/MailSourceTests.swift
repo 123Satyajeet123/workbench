@@ -72,6 +72,7 @@ import WorkbenchCore
         await intake.read()
 
         try source.choose("Deals")
+        try capture.update { $0.browsers = ["com.brave.Browser": "Brave Browser"] }
         try open(
             "Deals", thread: "T1", message: "m1",
             text: "Acme (fintech) is raising a 2M seed, 40k MRR. Deck attached.", in: store)
@@ -109,6 +110,7 @@ import WorkbenchCore
         let capture = try CaptureService(store: store)
         let source = MailSource(store: store, capture: capture)
         try source.choose("Deals")
+        try capture.update { $0.browsers = ["com.brave.Browser": "Brave Browser"] }
         let scripted = ScriptedModel("{\"items\":[]}")
         let machine = try store.createMachine(from: .dealIntake, name: "Deal intake")
         let intake = HelperModel(
@@ -140,6 +142,7 @@ import WorkbenchCore
         let capture = try CaptureService(store: store)
         let source = MailSource(store: store, capture: capture)
         try source.choose("Deals")
+        try capture.update { $0.browsers = ["com.brave.Browser": "Brave Browser"] }
         try open("Deals", thread: "T1", message: "m1", text: "Acme raises a seed", in: store)
         let scripted = ScriptedModel("{\"items\":[]}")
         let machine = try store.createMachine(from: .dealIntake, name: "Deal intake")

@@ -78,6 +78,7 @@
 				5C0000000000000000000004 /* Sources */,
 				5C0000000000000000000005 /* Frameworks */,
 				5C0000000000000000000006 /* Resources */,
+				5C000000000000000000000E /* Bundle the native host and the extension */,
 			);
 			buildRules = (
 			);
@@ -140,6 +141,28 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		5C000000000000000000000E /* Bundle the native host and the extension */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Bundle the native host and the extension";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -euo pipefail\nhelpers=\"$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Helpers\"\nextension=\"$TARGET_BUILD_DIR/$CONTENTS_FOLDER_PATH/Resources/Extension\"\npackage=\"$SRCROOT/Packages/WorkbenchCore\"\nconfiguration=$(echo \"$CONFIGURATION\" | tr '[:upper:]' '[:lower:]')\ncleanly() { env -i HOME=\"$HOME\" PATH=\"$PATH\" DEVELOPER_DIR=\"$DEVELOPER_DIR\" \"$@\"; }\ncleanly xcrun swift build --package-path \"$package\" -c \"$configuration\" --product workbench-pages\nbin=$(cleanly xcrun swift build --package-path \"$package\" -c \"$configuration\" --show-bin-path)\nmkdir -p \"$helpers\"\ncp \"$bin/workbench-pages\" \"$helpers/workbench-pages\"\ncodesign --force --sign \"${EXPANDED_CODE_SIGN_IDENTITY:--}\" --options runtime \"$helpers/workbench-pages\"\nmkdir -p \"$extension\"\nrsync -a --delete --exclude .DS_Store \"$SRCROOT/Extension/\" \"$extension/\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		5C0000000000000000000004 /* Sources */ = {

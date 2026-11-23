@@ -29,6 +29,12 @@ final class CaptureSettings {
 
     func set(_ kind: SourceKind, on: Bool) { change { $0.switches[kind] = on } }
 
+    var enabledBrowsers: Set<String> { Set(service.policy.browsers.keys) }
+
+    func set(_ browser: ChromiumBrowser, on: Bool) {
+        change { $0.browsers[browser.bundleID] = on ? browser.name : nil }
+    }
+
     /// The calendars among `all` that Today reads: every one until the person chooses.
     func calendarChoices(among all: [CalendarInfo]) -> [CalendarChoice] {
         let chosen = service.policy.allowList[.calendar]

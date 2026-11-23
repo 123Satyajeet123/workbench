@@ -26,7 +26,7 @@ public struct MailContext: Codable, Sendable, Equatable {
     /// A grant to keep mail of this label, or nil: mail is off, the label is not the named one, or the tab is not Gmail
     /// in a known browser.
     func grant(policy: CapturePolicy, at now: Date) -> CaptureGrant? {
-        guard CapturePolicy.browserBundleIDs.contains(browser), CapturePolicy.isSite(url, in: [Self.site]) else {
+        guard policy.isEnabled(browser: browser), CapturePolicy.isSite(url, in: [Self.site]) else {
             return nil
         }
         return policy.authorize(CaptureRequest(kind: .mail, label: label), at: now).grant
