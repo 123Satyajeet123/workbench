@@ -343,7 +343,36 @@ import WorkbenchCore
         #expect(InspectorWords.source(of: item(source: .typed), chat: nil, words).hasPrefix("Typed by you · "))
         #expect(
             InspectorWords.meta(of: item(fields: ["person": "Asha", "project": "Login"], dueDay: "2026-12-04"), words)
-                == "Asha · Login · due Fri 4 Dec")
+                == "Login · due Fri 4 Dec")
+    }
+
+    @Test func theInspectorOffersDealsOnlyToATeamThatKeepsDeals() {
+        #expect(InspectorMore.offersDeals(in: .fund))
+        #expect(!InspectorMore.offersDeals(in: .startupTeam))
+        #expect(!InspectorMore.offersDeals(in: .blank))
+    }
+
+    @Test func theSavedTeamTemplateDecidesWhetherTheInspectorOffersDeals() throws {
+        let store = try scratchStore()
+        let team = TeamModel(store: store, me: { "Kabir" })
+        team.template = .fund
+        team.save()
+        #expect(InspectorMore.offersDeals(in: TeamModel(store: store, me: { "Kabir" }).template))
+        team.template = .startupTeam
+        team.save()
+        #expect(!InspectorMore.offersDeals(in: TeamModel(store: store, me: { "Kabir" }).template))
+    }
+
+    @Test func theInspectorHeaderIsThePersonsQuoteAndTheMachinesTitleOnlyWithoutOne() async throws {
+        let scene = try await read()
+        let proof = ProofModel(
+            crew: scene.crew, store: scene.store, title: { _ in "Machine title" }, lines: { _ in [] })
+        let header = proof.card(for: scene.item).headline
+        #expect(header.words == scene.item.quote && header.person == scene.item["person"])
+        var bare = scene.item
+        bare.quote = ""
+        #expect(proof.card(for: bare).headline.words == "Machine title")
+        #expect(!proof.card(for: scene.item).meta.contains(header.person), "the person is not said twice")
     }
 
     @Test func theProofPlaceholderHasOneRowForEachLineAFiveLineProofShows() {

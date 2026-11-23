@@ -15,7 +15,7 @@ enum ProofContent: Equatable {
 
 /// Everything the inspector writes about one fact, as plain values.
 struct InspectorCard: Equatable {
-    var title: String
+    var headline: FactHeadline
     var meta: String
     var source: String
     var proof: ProofContent
@@ -129,7 +129,7 @@ final class ProofModel {
         let helper = helper(of: item)
         let chat = (helper?.source as? WhatsAppSource)?.chats.first { $0.jid == item.scope }?.name
         return InspectorCard(
-            title: titleOf(item), meta: InspectorWords.meta(of: item, words),
+            headline: FactHeadline(item: item, title: titleOf(item)), meta: InspectorWords.meta(of: item, words),
             source: InspectorWords.source(of: item, chat: chat, words), proof: content(for: item, words),
             history: known?.key == Key(item) ? (known?.history.sentences(of: item, words) ?? []) : [])
     }

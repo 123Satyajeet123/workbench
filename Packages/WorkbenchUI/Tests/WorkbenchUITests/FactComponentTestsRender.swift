@@ -21,7 +21,9 @@ import WorkbenchCore
     }
 
     private static let offered: [FactAction] = [.done, .snooze(days: 1), .notRelevant, .wrong]
-    private static let long = String(repeating: "Ask Meera for the signed offer letter and the bank details ", count: 4)
+    private static let long = String(
+        repeating: "kal subah Meera ko signed offer letter aur bank details bhej dena, warna payment ruk jayegi. ",
+        count: 3)
 
     private static func card(
         _ row: FactRow, selected: Bool = false, hovered: Bool = false, confirming: FactAction? = nil,
@@ -32,39 +34,41 @@ import WorkbenchCore
             now: FactFixture.now, hover: { _ in }, open: {}, act: { _ in })
     }
 
+    private static let asha = FactFixture.row(
+        1, chat: "Founders group", due: 0, quote: "login API aaj raat tak bhej dunga")
+    private static let meera = FactFixture.row(
+        5, person: "Meera", chat: "Hiring", due: -2, quote: "I will share the offer letter by Friday")
+
     private struct CardStates: View {
         var body: some View {
             VStack(alignment: .leading, spacing: Space.m) {
-                Labelled(label: "Rest") {
-                    FactComponentTestsRender.card(FactFixture.row(1, reason: .asksYou, due: 0))
-                }
-                Labelled(label: "Hover") {
-                    FactComponentTestsRender.card(FactFixture.row(2, reason: .asksYou, due: 0), hovered: true)
-                }
-                Labelled(label: "Selected") {
-                    FactComponentTestsRender.card(FactFixture.row(3, reason: .asksYou, due: 0), selected: true)
-                }
-                Labelled(label: "Audit pick") {
-                    FactComponentTestsRender.card(
-                        FactFixture.row(4, title: "Share the offer letter draft", person: "Meera", askedWith: 0.2))
-                }
-                Labelled(label: "Overdue") {
+                Labelled(label: "Rest") { FactComponentTestsRender.card(asha) }
+                Labelled(label: "Hover") { FactComponentTestsRender.card(asha, hovered: true) }
+                Labelled(label: "Selected") { FactComponentTestsRender.card(asha, selected: true) }
+                Labelled(label: "Random check, hover") {
                     FactComponentTestsRender.card(
                         FactFixture.row(
-                            5, title: "Share the offer letter draft", reason: .overdue, person: "Meera", due: -2))
+                            4, person: "Raj", chat: "Raj", askedWith: 0.2, quote: "payment kal tak kar dunga"),
+                        hovered: true, offered: [.right, .wrong])
                 }
-                Labelled(label: "Long title") {
-                    FactComponentTestsRender.card(FactFixture.row(6, title: long, reason: .asksYou, due: 3))
+                Labelled(label: "Late") { FactComponentTestsRender.card(meera) }
+                Labelled(label: "Long quote") {
+                    FactComponentTestsRender.card(FactFixture.row(6, chat: "Founders group", due: 3, quote: long))
+                }
+                Labelled(label: "Devanagari and emoji") {
+                    FactComponentTestsRender.card(
+                        FactFixture.row(10, person: "Priya", chat: "Team", quote: "कल सुबह तक भेज दूँगी 🙏🏽"))
                 }
                 Labelled(label: "No person") {
-                    FactComponentTestsRender.card(FactFixture.row(7, person: "", due: 1))
+                    FactComponentTestsRender.card(
+                        FactFixture.row(7, person: "", due: 1, quote: "pay the vendor in USD"))
                 }
-                Labelled(label: "Confirming done") {
-                    FactComponentTestsRender.card(FactFixture.row(8), confirming: .done)
+                Labelled(label: "No quote, no chat name, no project") {
+                    FactComponentTestsRender.card(
+                        FactFixture.row(11, title: "Send the signed offer letter", project: "", due: 1, quote: ""))
                 }
-                Labelled(label: "Confirming wrong") {
-                    FactComponentTestsRender.card(FactFixture.row(9), confirming: .wrong)
-                }
+                Labelled(label: "Confirming done") { FactComponentTestsRender.card(asha, confirming: .done) }
+                Labelled(label: "Confirming wrong") { FactComponentTestsRender.card(asha, confirming: .wrong) }
             }
         }
     }
@@ -73,25 +77,22 @@ import WorkbenchCore
         var body: some View {
             VStack(alignment: .leading, spacing: Space.m) {
                 Labelled(label: "Open fact") {
-                    MarkBar(actions: FactComponentTestsRender.offered, isChoosing: .constant(false), act: { _ in })
+                    MarkBar(actions: FactComponentTestsRender.offered, act: { _ in })
                 }
-                Labelled(label: "Audit pick or other item") {
-                    MarkBar(actions: [.right, .wrong], isChoosing: .constant(false), act: { _ in })
-                }
-                Labelled(label: "Machine page") {
-                    MarkBar(actions: [.done, .wrong], isChoosing: .constant(false), act: { _ in })
-                }
+                Labelled(label: "Random check") { MarkBar(actions: [.right, .wrong], act: { _ in }) }
+                Labelled(label: "Machine page") { MarkBar(actions: [.done, .wrong], act: { _ in }) }
             }
         }
     }
 
     private struct Lists: View {
         let rows = [
-            FactFixture.row(1, title: "Blocked on the signing key", reason: .asksYou, due: 0),
-            FactFixture.row(2, title: "Share the offer letter draft", reason: .overdue, person: "Meera", due: -2),
-            FactFixture.row(3, title: "Pay the vendor in USD or INR?", reason: .asksYou, person: "Raj"),
-            FactFixture.row(4, title: "Call the designer shortlist", person: "Meera", due: 3),
-            FactFixture.row(5, title: "Review the payments webhook", person: "Raj", askedWith: 0.2),
+            FactFixture.row(1, chat: "Founders group", due: 0, quote: "login API aaj raat tak bhej dunga"),
+            FactFixture.row(
+                2, person: "Meera", chat: "Hiring", due: -2, quote: "I will share the offer letter by Friday"),
+            FactFixture.row(3, person: "Raj", chat: "Raj", quote: "USD mein pay karun ya INR mein?"),
+            FactFixture.row(4, person: "Priya", chat: "Design", due: 3, quote: "shortlist Friday ko call karte hain"),
+            FactFixture.row(5, person: "Raj", askedWith: 0.2, quote: "webhook review kal kar dunga"),
         ]
 
         private func list(_ rows: [FactRow], limit: Int = 8) -> some View {
@@ -113,27 +114,10 @@ import WorkbenchCore
         }
     }
 
-    /// Draws through AppKit, which also draws menus and other native controls that `ImageRenderer` leaves blank.
     private func draw(_ name: String, mode: String, zoom: Double, view: some View) throws {
         let framed = view.padding(Space.l).frame(width: 720, alignment: .topLeading)
             .zoomed(Zoom(zoom)).background(.pageFill)
-        let host = NSHostingView(rootView: framed)
-        let appearance = NSAppearance(named: mode == "dark" ? .darkAqua : .aqua)
-        host.appearance = appearance
-        let window = NSWindow(
-            contentRect: CGRect(origin: .zero, size: host.fittingSize), styleMask: [], backing: .buffered, defer: false)
-        window.appearance = appearance
-        window.contentView = host
-        host.layoutSubtreeIfNeeded()
-        let bounds = host.bounds
-        let bitmap = try #require(
-            NSBitmapImageRep(
-                bitmapDataPlanes: nil, pixelsWide: Int(bounds.width) * 2, pixelsHigh: Int(bounds.height) * 2,
-                bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB,
-                bytesPerRow: 0, bitsPerPixel: 0))
-        bitmap.size = bounds.size
-        host.cacheDisplay(in: bounds, to: bitmap)
-        let png = try #require(bitmap.representation(using: .png, properties: [:]))
+        let png = try renderedPNG(of: framed, mode: mode)
         let folder =
             ProcessInfo.processInfo.environment["FACT_SHOTS_DIR"].map { URL(filePath: $0) }
             ?? FileManager.default.temporaryDirectory

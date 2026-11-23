@@ -1,55 +1,56 @@
 import SwiftUI
 
-/// The actions of one fact as small icon buttons, each with its key. A snooze opens a short list of its three lengths.
+/// The actions of one fact: the one question as buttons, each with its key, and the other actions in a "⋯" menu. A
+/// snooze opens its three lengths.
 struct MarkBar: View {
     let actions: [FactAction]
-    /// True while the list of snooze lengths is open, so the host keeps the bar on screen.
-    @Binding var isChoosing: Bool
     let act: (FactAction) -> Void
 
     var body: some View {
-        HStack(spacing: 0) {
-            ForEach(actions, id: \.self) { action in
+        let split = FactAction.split(actions)
+        HStack(spacing: Space.xs) {
+            ForEach(split.primary, id: \.self) { action in
                 Button {
-                    press(action)
+                    act(action)
                 } label: {
                     label(of: action)
                 }
                 .accessibilityLabel(action.title)
                 .accessibilityHint("Key \(action.key)")
-                .popover(isPresented: popover(for: action), arrowEdge: .bottom) { lengths }
             }
+            if !split.more.isEmpty { menu(split.more) }
         }
         .buttonStyle(.ghost)
         .fixedSize()
     }
 
-    private func press(_ action: FactAction) {
-        if case .snooze = action { isChoosing.toggle() } else { act(action) }
-    }
-
-    private func popover(for action: FactAction) -> Binding<Bool> {
-        guard case .snooze = action else { return .constant(false) }
-        return $isChoosing
-    }
-
-    private var lengths: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            ForEach(FactAction.snoozes, id: \.self) { length in
-                Button(length.choiceTitle) {
-                    isChoosing = false
-                    act(length)
+    private func menu(_ actions: [FactAction]) -> some View {
+        Menu {
+            ForEach(actions, id: \.self) { action in
+                if case .snooze = action {
+                    Menu("\(action.title) (\(action.key))") {
+                        ForEach(FactAction.snoozes, id: \.self) { length in
+                            Button(length.choiceTitle) { act(length) }
+                        }
+                    }
+                } else {
+                    Button("\(action.title) (\(action.key))") { act(action) }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
+        } label: {
+            Image(systemName: "ellipsis").frame(width: 20)
         }
-        .buttonStyle(.ghost)
-        .padding(Space.xs)
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .foregroundStyle(.supporting)
+        .tint(.supporting)
+        .accessibilityLabel("More actions")
     }
 
     private func label(of action: FactAction) -> some View {
         HStack(spacing: Space.xs) {
-            Image(systemName: action.symbol).frame(width: 20)
+            Image(systemName: action.symbol)
+            Text(action.title)
             KeyHint(action.key)
         }
         .help("\(action.title) (\(action.key))")

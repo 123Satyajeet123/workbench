@@ -14,6 +14,7 @@ import WorkbenchCore
         let proof: ProofContent
         var history: [String] = ["Found by Pip v3 on Thu 20 Nov.", "You marked it right on Fri.", "Due Fri 28 Nov."]
         var isHistoryOpen = false
+        var offersDeals = false
     }
 
     private let at = Date(timeIntervalSince1970: 1_790_000_000)
@@ -54,6 +55,8 @@ import WorkbenchCore
             + "aur salary band par baat karenge, warna baad mein dikkat hogi 🙏🏽 please confirm kar dena."
         let long = fact(longText.drop { $0 != ":" }.dropFirst(2).description)
         let missing = fact("deck bhej dunga")
+        let hindi = fact("कल सुबह तक deck भेज दूँगा 🙏🏽")
+        let noQuote = fact("")
         return [
             (Case(name: "one-line", proof: lines(["Aditya: deck bhej dunga Friday tak"], cited: 0, of: one)), one),
             (
@@ -63,8 +66,13 @@ import WorkbenchCore
                         [
                             "Shivansh: deck ka kya status hai?", "Shivansh: investors ko kal bhejna hai", partText,
                             "Founder: 👍", "Aditya: ok",
-                        ], cited: 2, of: part), isHistoryOpen: true), part
+                        ], cited: 2, of: part), isHistoryOpen: true, offersDeals: true), part
             ),
+            (
+                Case(name: "devanagari", proof: lines(["Aditya: कल सुबह तक deck भेज दूँगा 🙏🏽"], cited: 0, of: hindi)),
+                hindi
+            ),
+            (Case(name: "no-quote", proof: .notice(InspectorWords.notFound)), noQuote),
             (Case(name: "loading", proof: .loading(rows: 5)), one),
             (Case(name: "missing-source", proof: .notice(InspectorWords.notFound)), missing),
             (
@@ -79,18 +87,6 @@ import WorkbenchCore
                     history: []), one
             ),
         ]
-    }
-
-    private func png(of view: some View, mode: String) throws -> Data {
-        var data: Data?
-        NSAppearance(named: mode == "dark" ? .darkAqua : .aqua)?.performAsCurrentDrawingAppearance {
-            let renderer = ImageRenderer(
-                content: view.background(.pageFill).environment(\.colorScheme, mode == "dark" ? .dark : .light))
-            renderer.scale = 2
-            data = renderer.nsImage?.tiffRepresentation.flatMap { NSBitmapImageRep(data: $0) }?
-                .representation(using: .png, properties: [:])
-        }
-        return try #require(data)
     }
 
     private func folder() throws -> URL {
@@ -108,18 +104,19 @@ import WorkbenchCore
         for (shot, item) in cases {
             for width in [320.0, 420.0] {
                 let card = InspectorCard(
-                    title: "Aditya will send the deck to Fund X by Friday",
-                    meta: "Aditya · Fund X raise · due Fri 28 Nov",
+                    headline: FactHeadline(item: item, title: "Aditya will send the deck to Fund X by Friday"),
+                    meta: "Fund X raise · due Fri 28 Nov",
                     source: InspectorWords.source(of: item, chat: "Founders group", DateWords(now: at)),
                     proof: shot.proof, history: shot.history)
                 let view = InspectorContent(
-                    item: item, card: card, helper: helper, reason: "Asks you", isHistoryOpen: shot.isHistoryOpen
+                    item: item, card: card, helper: helper, offersDeals: shot.offersDeals,
+                    isHistoryOpen: shot.isHistoryOpen
                 ) {
-                    Text("marks go here").text(.meta).frame(maxWidth: .infinity, minHeight: 28).calloutBox()
+                    MarkBar(actions: [.done, .snooze(days: 1), .notRelevant, .wrong], act: { _ in })
                 }
                 .environment(ActionsModel(store: world.store, founder: { "Kabir" })).environment(world.deals)
                 .frame(width: width).fixedSize(horizontal: false, vertical: true).zoomed(Zoom(zoom))
-                let data = try png(of: view, mode: mode)
+                let data = try renderedPNG(of: view.background(.pageFill), mode: mode)
                 try data.write(to: folder().appending(path: "inspector-\(shot.name)-\(mode)-\(zoom)-\(Int(width)).png"))
                 #expect(data.count > 5_000)
             }
