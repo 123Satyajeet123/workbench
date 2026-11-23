@@ -47,9 +47,9 @@ import WorkbenchCore
             try await store.ingest(reader(chats), owner: WhatsAppEvidenceTests.owner, now: now)
         }
 
-        /// Rows of the evidence store, read from a copy of its file.
+        /// Rows of the evidence store, read through a read-only connection to its file.
         func rows(_ sql: String) throws -> [SQLiteRow] {
-            try SQLiteSnapshot(copying: store.directory.appending(path: "workbench.sqlite").path).rows(sql)
+            try ReadOnlyDatabase(path: store.directory.appending(path: "workbench.sqlite").path).rows(sql)
         }
 
         func count(_ sql: String) throws -> Int { Int(try rows(sql).first?.integer(0) ?? 0) }
@@ -382,19 +382,6 @@ import WorkbenchCore
         let report = try await rig.ingest()
         #expect(report.tombstones == 1 && report.erasedLines == 1)
         #expect(try rig.copies(of: secret) == 0)
-    }
-
-    // MARK: Memory
-
-    /// The copy of the other app's store lives in memory, whatever the system library does with an empty name (on this
-    /// Mac it keeps pages in memory too; a build with a file temp store would spill every chat to disk). SQLite shows
-    /// no difference to the caller, so the test pins the name and that a copy bigger than the cache still reads.
-    @Test func theCopyOfAStoreIsOpenedInMemory() throws {
-        #expect(SQLiteSnapshot.copyName == ":memory:")
-        let fixture = try WhatsAppFixture()
-        try fixture.run("CREATE TABLE ZPAD (x BLOB); INSERT INTO ZPAD VALUES (zeroblob(24000000));")
-        let snapshot = try SQLiteSnapshot(copying: fixture.container.appending(path: "ChatStorage.sqlite").path)
-        #expect(try snapshot.rows("SELECT length(x) FROM ZPAD").first?.integer(0) == 24_000_000)
     }
 
     // MARK: Consent

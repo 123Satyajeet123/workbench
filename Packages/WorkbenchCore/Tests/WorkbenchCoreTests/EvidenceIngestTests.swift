@@ -460,12 +460,15 @@ import Testing
         #expect(SourceRegistry.descriptor(named: "whatsapp.chat") == .whatsAppChat)
         #expect(SourceRegistry.descriptor(named: HelperSpec.Source.whatsappChat.rawValue) == .whatsAppChat)
         #expect(SourceRegistry.descriptor(named: "nonsense") == nil)
-        #expect(SourceRegistry.demanded(by: ["whatsapp_chat", "whatsapp.chat", "screen_sessions"]) == [.whatsAppChat])
+        #expect(
+            SourceRegistry.demanded(by: ["whatsapp_chat", "whatsapp.chat", "screen_sessions"]) == [
+                .whatsAppChat, .screenWindow,
+            ])
         #expect(SourceRegistry.demanded(by: [String]()).isEmpty, "a source no machine names never starts")
     }
 
     @Test func everyOldSourceNameIsPortedOrListedAsNot() {
-        let notPorted: Set<HelperSpec.Source> = [.screenSessions, .news, .webSearch]
+        let notPorted: Set<HelperSpec.Source> = [.news, .webSearch]
         for source in HelperSpec.Source.allCases {
             #expect((SourceRegistry.descriptor(named: source.rawValue) == nil) == notPorted.contains(source))
         }

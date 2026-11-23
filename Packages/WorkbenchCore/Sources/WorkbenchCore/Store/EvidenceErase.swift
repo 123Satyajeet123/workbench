@@ -13,19 +13,30 @@ public struct EvidenceErasure: Sendable, Equatable {
     public var grantPrefix: String?
     /// Lines whose `last_seen` is before this moment.
     public var lastSeenBefore: Date?
+    /// Lines the source tied to these ids of its own (`message_ref`).
+    public var messageRefs: [String]?
 
     public init(
-        source: SourceID? = nil, grant: String? = nil, grantPrefix: String? = nil, lastSeenBefore: Date? = nil
+        source: SourceID? = nil, grant: String? = nil, grantPrefix: String? = nil, lastSeenBefore: Date? = nil,
+        messageRefs: [String]? = nil
     ) {
         self.source = source
         self.grant = grant
         self.grantPrefix = grantPrefix
         self.lastSeenBefore = lastSeenBefore
+        self.messageRefs = messageRefs
     }
 
     /// The erasure of one chat, as a revoke of that chat asks for.
     public static func grant(kind: SourceKind, label: String) -> EvidenceErasure {
         EvidenceErasure(grant: Store.grantID(kind: kind, label: label))
+    }
+
+    /// The erasure of the screen lines made from these activity rows: a window's stretch and the text it showed.
+    static func screenRows(_ ids: [Int64]) -> EvidenceErasure {
+        EvidenceErasure(
+            grantPrefix: Store.grantID(kind: .screen, label: ""),
+            messageRefs: ids.flatMap { [ScreenEvidence.windowMark + String($0), ScreenEvidence.textMark + String($0)] })
     }
 
     /// The erasure of one consent kind, older than `cutoff` when given. Without an age the cursors go too.
@@ -109,6 +120,10 @@ extension Store {
             parts.append("last_seen < ?")
             arguments.append(UTCInstant(cutoff).milliseconds)
         }
+        if let refs = erasure.messageRefs {
+            parts.append("message_ref IN (SELECT value FROM json_each(?))")
+            arguments.append(try Coding.json(refs))
+        }
         guard !parts.isEmpty else { throw EvidenceError.erasureNamesNothing }
         return Condition(sql: parts.joined(separator: " AND "), arguments: StatementArguments(arguments))
     }
@@ -118,7 +133,7 @@ extension Store {
     private static func cursorKeys(of erasure: EvidenceErasure, _ condition: Condition, in db: Database) throws
         -> Set<String>
     {
-        guard erasure.lastSeenBefore == nil else { return [] }
+        guard erasure.lastSeenBefore == nil, erasure.messageRefs == nil else { return [] }
         var grants = try Set(
             String.fetchAll(
                 db, sql: "SELECT DISTINCT grant_id FROM evidence WHERE \(condition.sql)",

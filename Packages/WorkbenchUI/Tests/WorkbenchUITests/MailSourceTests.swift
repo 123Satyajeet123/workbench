@@ -39,26 +39,6 @@ import WorkbenchCore
         #expect(!source.isReady, "switched off in Settings means nothing is read")
     }
 
-    @Test func thePersonIsToldWhenTheGmailReaderFoundItsPageChangedAndWhenItReadsAgain() throws {
-        let store = try scratchStore(clock: { noon })
-        let source = MailSource(store: store, capture: try CaptureService(store: store))
-        let day = WorkDay(containing: noon)
-        try source.refresh(on: day)
-        #expect(source.readerProblem == nil)
-
-        _ = PageHost.answer(
-            Data(#"{"type":"adapter_state","site":"Gmail","stale":true}"#.utf8), store: store, browser: nil)
-        try source.refresh(on: day)
-        #expect(source.readerProblem == "Workbench cannot read Gmail now: the page changed.")
-
-        _ = PageHost.answer(
-            Data(#"{"type":"adapter_state","site":"Slack","stale":true}"#.utf8), store: store, browser: nil)
-        _ = PageHost.answer(
-            Data(#"{"type":"adapter_state","site":"Gmail","stale":false}"#.utf8), store: store, browser: nil)
-        try source.refresh(on: day)
-        #expect(source.readerProblem == nil, "a stale Slack reader is not a Gmail problem")
-    }
-
     @Test func dealIntakeRatesAMailPitchByTheCriteriaAndReadsNoOtherLabel() async throws {
         let now = noon
         let store = try scratchStore(clock: { now })
@@ -116,14 +96,10 @@ import WorkbenchCore
         let intake = HelperModel(
             machine: machine, source: source, store: store,
             makeModel: { _ in RecordedModel(scripted, store: store) }, notifier: FakeNotifier())
-        let marker = MachineKey.lastLine(machine.task, scope: source.scope, day: WorkDay(containing: now))
-        try marker.save(Int64.max, to: store)
-
         try open("Deals", thread: "T1", message: "m1", text: "First pitch words", in: store)
         intake.reload()
         await intake.read()
-        #expect(scripted.inputs.withLock { $0.count } == 1, "a marker past every line hides no stored line")
-        #expect(try marker.load(from: store) == Int64.max, "a mail reading never moves the marker")
+        #expect(scripted.inputs.withLock { $0.count } == 1, "the first read sends the stored line")
 
         await intake.read()
         #expect(scripted.inputs.withLock { $0.count } == 1, "nothing new: the run window says all was read")
@@ -133,7 +109,6 @@ import WorkbenchCore
         await intake.read()
         let inputs = scripted.inputs.withLock { $0 }
         #expect(inputs.count == 2 && inputs[1].contains("Second pitch words"))
-        #expect(try marker.load(from: store) == Int64.max)
     }
 
     @Test func aReadAfterTheLabelIsSwitchedOffReadsNothing() async throws {

@@ -39,7 +39,7 @@ public struct DriverGate: Sendable {
 
     /// Sites a machine never opens: the mail and chat clients, which page capture never keeps, and LinkedIn, which the
     /// founder ruled out.
-    static let neverRead: Set<String> = [MailContext.site, WebPage.whatsAppWebHost, "linkedin.com"]
+    static let neverRead: Set<String> = [MailContext.site, WebPage.whatsAppWebHost, WebPage.linkedInHost]
 
     public func refusal(for request: DriverRequest, at now: Date) -> DriverRefusal? {
         guard request.method == "GET" else { return .notGET(request.method) }

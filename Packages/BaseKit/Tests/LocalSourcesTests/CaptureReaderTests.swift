@@ -28,7 +28,8 @@ enum ActingScan {
 struct ReadOnlyTests {
     @Test func noReaderActsOnAnotherApp() throws {
         let files = ActingScan.readerFiles
-        #expect(Set(files.map(\.lastPathComponent)).isSuperset(of: ["ScreenReader.swift", "FileWatcher.swift"]))
+        #expect(
+            Set(files.map(\.lastPathComponent)).isSuperset(of: ["ScreenReader.swift", "WhatsAppStoreConnection.swift"]))
         for file in files {
             #expect(
                 ActingScan.hits(in: try String(contentsOf: file, encoding: .utf8)).isEmpty, "\(file.lastPathComponent)")

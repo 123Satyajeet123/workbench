@@ -8,9 +8,12 @@ extension WhatsAppChatReader {
     public func sightings(policy: CapturePolicy, now: Date) throws -> [ContainerSighting] {
         guard policy.mode != .off else { throw ReadError.denied(.captureOff) }
         guard policy.isEnabled(descriptor.consent) else { throw ReadError.denied(.sourceSwitchedOff) }
-        let snapshot = try Self.snapshot(container)
-        let members = try Self.activeMembers(in: snapshot)
-        return try snapshot.rows(
+        return try store.read { database in try sightings(in: database, now: now) }
+    }
+
+    private func sightings(in database: ReadOnlyDatabase, now: Date) throws -> [ContainerSighting] {
+        let members = try Self.activeMembers(in: database)
+        return try database.rows(
             """
             SELECT ZCONTACTJID, ZPARTNERNAME, ZSESSIONTYPE FROM ZWACHATSESSION
             WHERE ZCONTACTJID IS NOT NULL AND (ZSESSIONTYPE = ? OR (ZSESSIONTYPE = ? AND ZPARTNERNAME IS NOT NULL))
@@ -28,9 +31,9 @@ extension WhatsAppChatReader {
     }
 
     /// The active members of every group, by the group's id: ids only.
-    private static func activeMembers(in snapshot: SQLiteSnapshot) throws -> [String: [String]] {
+    private static func activeMembers(in database: ReadOnlyDatabase) throws -> [String: [String]] {
         var byGroup: [String: [String]] = [:]
-        let rows = try snapshot.rows(
+        let rows = try database.rows(
             """
             SELECT s.ZCONTACTJID, g.ZMEMBERJID FROM ZWAGROUPMEMBER g
             JOIN ZWACHATSESSION s ON s.Z_PK = g.ZCHATSESSION

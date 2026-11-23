@@ -4,8 +4,9 @@ import WorkbenchCore
 
 /// The reader as an evidence source (research 56 §1 WhatsApp reader row, research E-R3). One read of a chat gives the
 /// lines of every message of a type that has words, a tombstone for each message deleted for everyone, and the cursor
-/// that says where the next read starts. The reader asks the policy first, copies the store with the backup API (a
-/// read-only open of the other app's file), and checks the file header and the store's identity before it reads.
+/// that says where the next read starts. The reader asks the policy first. It reads the store through the one
+/// read-only connection (`WhatsAppStoreConnection`), all chats of a reading in one read transaction, and checks the
+/// store's identity before it reads.
 extension WhatsAppChatReader: EvidenceSource {
     public static let readerVersion = "whatsapp-store 1"
     /// The owner is a member of every audience (research E-R3 §6), and the `actor` of the owner's own lines.
@@ -24,46 +25,49 @@ extension WhatsAppChatReader: EvidenceSource {
             }
         }
         guard !grants.isEmpty else { return read }
-        let snapshot = try Self.evidenceSnapshot(container)
-        let storeID = try Self.storeID(snapshot)
-        for chat in chatJIDs {
-            guard let grant = grants[chat] else { continue }
-            do {
-                let plan = Scan.plan(
-                    state: try state(chat), storeID: storeID, now: now, window: descriptor.editWindow)
-                if let reading = try observe(
-                    chat, grant: grant, in: snapshot, storeID: storeID, plan: plan, now: now)
-                {
-                    read.readings.append(reading)
+        let fetched: [Fetched] = try store.read { database in
+            let storeID = try Self.storeID(database)
+            return chatJIDs.compactMap { chat -> Fetched? in
+                guard let grant = grants[chat] else { return nil }
+                do {
+                    let plan = Scan.plan(
+                        state: try state(chat), storeID: storeID, now: now, window: descriptor.editWindow)
+                    return try fetch(chat, grant: grant, in: database, storeID: storeID, plan: plan)
+                } catch {
+                    read.failures.append(LabelFailure(label: chat, error: error))
+                    return nil
                 }
-            } catch {
-                read.failures.append(LabelFailure(label: chat, error: error))
             }
         }
+        read.readings = fetched.map { reading(of: $0, now: now) }
         return read
     }
 
-    private static func evidenceSnapshot(_ container: URL) throws -> SQLiteSnapshot {
-        let snapshot = try Self.snapshot(container)
-        try snapshot.requireColumns(["ZSTANZAID"], in: "ZWAMESSAGE")
-        try snapshot.requireColumns(["ZMETADATA"], in: "ZWAMEDIAITEM")
-        try snapshot.requireColumns(["Z_UUID"], in: "Z_METADATA")
-        return snapshot
-    }
-
     /// The identity of the store: a new one means every row number means another row.
-    private static func storeID(_ snapshot: SQLiteSnapshot) throws -> String {
-        guard let id = try snapshot.rows("SELECT Z_UUID FROM Z_METADATA").first?.text(0), !id.isEmpty else {
+    private static func storeID(_ database: ReadOnlyDatabase) throws -> String {
+        guard let id = try database.rows("SELECT Z_UUID FROM Z_METADATA").first?.text(0), !id.isEmpty else {
             throw ReadError.unsupportedSchema
         }
         return id
     }
 
-    private func observe(
-        _ chat: String, grant: CaptureGrant, in snapshot: SQLiteSnapshot, storeID: String, plan: ScanPlan, now: Date
-    ) throws -> SourceReading? {
+    /// What one chat gave inside the read transaction. Nothing slow runs in the transaction: the photos are read after.
+    private struct Fetched {
+        var grant: CaptureGrant
+        var chat: String
+        var storeID: String
+        var plan: ScanPlan
+        var place: ChatPlace
+        var audience: AudienceDigest
+        var messages: [Message]
+        var replies: [String: MessageIdentity]
+    }
+
+    private func fetch(
+        _ chat: String, grant: CaptureGrant, in database: ReadOnlyDatabase, storeID: String, plan: ScanPlan
+    ) throws -> Fetched? {
         guard
-            let session = try snapshot.rows(
+            let session = try database.rows(
                 "SELECT Z_PK, ZSESSIONTYPE FROM ZWACHATSESSION WHERE ZCONTACTJID = ? AND ZSESSIONTYPE IN (?, ?)",
                 binding: [
                     .text(chat), .integer(Int64(SessionType.person)), .integer(Int64(SessionType.group)),
@@ -73,11 +77,11 @@ extension WhatsAppChatReader: EvidenceSource {
         let place = ChatPlace(
             jid: WhatsAppJID.canonical(chat), session: session.integer(0),
             isGroup: Int(session.integer(1)) == SessionType.group)
-        let audience = try audience(of: place, in: snapshot)
-        let rows = try snapshot.rows(
+        let audience = try audience(of: place, in: database)
+        let rows = try database.rows(
             """
             SELECT \(MessageIdentity.columns), m.ZMESSAGEDATE, m.ZMESSAGETYPE, m.ZTEXT, i.ZTITLE, i.ZMETADATA,
-                i.ZMEDIALOCALPATH
+                i.ZMEDIALOCALPATH, m.ZFLAGS
             \(MessageIdentity.tables)
             WHERE m.ZCHATSESSION = ?
                 AND (m.Z_PK > ? OR m.ZMESSAGEDATE >= ? OR m.ZMESSAGETYPE = ?)
@@ -88,9 +92,17 @@ extension WhatsAppChatReader: EvidenceSource {
                 .real(plan.rescanSince.timeIntervalSinceReferenceDate),
                 .integer(Int64(WhatsAppMessageType.revokedCode)),
             ])
-        let messages = rows.map(Message.init(row:)).map { readingPhoto($0, now: now) }
+        let messages = rows.map(Message.init(row:))
         let replies = try identities(
-            ofStanzas: Set(messages.compactMap(\.quotedStanza)), in: place, snapshot: snapshot)
+            ofStanzas: Set(messages.compactMap(\.quotedStanza)), in: place, database: database)
+        return Fetched(
+            grant: grant, chat: chat, storeID: storeID, plan: plan, place: place, audience: audience,
+            messages: messages, replies: replies)
+    }
+
+    private func reading(of fetched: Fetched, now: Date) -> SourceReading {
+        let (place, plan) = (fetched.place, fetched.plan)
+        let messages = fetched.messages.map { readingPhoto($0, now: now) }
         var lines: [ObservedLine] = []
         var census: [Int: TypeCensus] = [:]
         var unkeyed = 0
@@ -98,16 +110,16 @@ extension WhatsAppChatReader: EvidenceSource {
             census[message.typeCode, default: TypeCensus()].count(hasText: message.hasText)
             let treatment = message.type.treatment(hasText: message.hasText)
             guard treatment != .skipped else { continue }
-            guard let line = observedLine(message, treatment, in: place, replies: replies, plan: plan) else {
+            guard let line = observedLine(message, treatment, in: place, replies: fetched.replies, plan: plan) else {
                 unkeyed += 1
                 continue
             }
             lines.append(line)
         }
         return SourceReading(
-            grant: grant, label: chat, container: place.jid, audience: audience, lines: lines,
+            grant: fetched.grant, label: fetched.chat, container: place.jid, audience: fetched.audience, lines: lines,
             cursorAfter: Scan.cursor(
-                after: plan, storeID: storeID, highestRow: messages.map(\.identity.row).max(), readAt: now),
+                after: plan, storeID: fetched.storeID, highestRow: messages.map(\.identity.row).max(), readAt: now),
             mapsLegacyRefs: plan.mapsLegacyRefs, readerVersion: Self.readerVersion, census: census, unkeyed: unkeyed)
     }
 
@@ -152,16 +164,17 @@ extension WhatsAppChatReader: EvidenceSource {
             quality: message.identity.copies > 1 ? .derived : .stable, eventTime: message.time,
             actor: message.identity.actor(in: place), replyTo: tombstone ? nil : replyTo,
             messageRef: message.identity.stanza,
-            legacy: plan.mapsLegacyRefs ? LegacyRef(space: .whatsAppRow, ref: message.identity.row) : nil)
+            legacy: plan.mapsLegacyRefs ? LegacyRef(space: .whatsAppRow, ref: message.identity.row) : nil,
+            forwarded: message.forwarded && !tombstone)
     }
 
     /// Everyone who could read the chat now, by the one audience rule: the active members of a group from the store's
     /// table, or the other person of a direct chat, and the owner. A group with no active member fails closed.
-    private func audience(of place: ChatPlace, in snapshot: SQLiteSnapshot) throws -> AudienceDigest {
+    private func audience(of place: ChatPlace, in database: ReadOnlyDatabase) throws -> AudienceDigest {
         let membership =
             place.isGroup
             ? Membership(
-                members: try snapshot.rows(
+                members: try database.rows(
                     "SELECT ZMEMBERJID FROM ZWAGROUPMEMBER WHERE ZCHATSESSION = ? AND ZISACTIVE = 1 AND ZMEMBERJID <> ''",
                     binding: [.integer(place.session)]
                 ).compactMap { $0.text(0).map(WhatsAppJID.canonical) }, proof: .sourceTable) : nil
@@ -172,13 +185,13 @@ extension WhatsAppChatReader: EvidenceSource {
     }
 
     /// The identity of the message each stanza id names in this chat; the lowest row number when a stanza id repeats.
-    private func identities(ofStanzas stanzas: Set<String>, in place: ChatPlace, snapshot: SQLiteSnapshot) throws
+    private func identities(ofStanzas stanzas: Set<String>, in place: ChatPlace, database: ReadOnlyDatabase) throws
         -> [String: MessageIdentity]
     {
         var found: [String: MessageIdentity] = [:]
         for batch in Array(stanzas).chunked(by: 500) {
             let marks = Array(repeating: "?", count: batch.count).joined(separator: ",")
-            let rows = try snapshot.rows(
+            let rows = try database.rows(
                 """
                 SELECT \(MessageIdentity.columns) \(MessageIdentity.tables)
                 WHERE m.ZCHATSESSION = ? AND m.ZSTANZAID IN (\(marks)) ORDER BY m.Z_PK
@@ -257,6 +270,7 @@ private struct Message {
     var words: String
     var quotedStanza: String?
     var mediaPath: String?
+    var forwarded: Bool
 
     var type: WhatsAppMessageType { WhatsAppMessageType(code: typeCode) }
     var hasText: Bool { !words.isEmpty }
@@ -268,6 +282,7 @@ private struct Message {
         words = WhatsAppMessageText.compose(title: row.text(9), text: row.text(8))
         quotedStanza = row.blob(10).flatMap { WhatsAppReply.quotedStanzaID(metadata: $0) }
         mediaPath = row.text(11)
+        forwarded = WhatsAppMessageFlags.isForwarded(row.integer(12))
     }
 }
 

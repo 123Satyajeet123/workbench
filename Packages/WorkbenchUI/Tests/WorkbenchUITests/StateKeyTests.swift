@@ -57,7 +57,6 @@ import WorkbenchCore
         #expect(MachineKey.nudged("team").name == "team.nudged")
         #expect(MachineKey.watch("team").name == "team.watch")
         #expect(MachineKey.watched("team").name == "team.watched")
-        #expect(MachineKey.lastLine("team", scope: "g@g.us", day: day).name == "team.read.g@g.us.2026-11-20")
         #expect(MachineKey.trial("team").name == "team.trial")
         #expect(MachineKey.sites("scout").name == "scout.sites")
         #expect(MachineKey.chats("team").name == "team.chats")

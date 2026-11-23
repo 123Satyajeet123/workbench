@@ -50,7 +50,8 @@ enum AppLaunch {
             let store = try Store(directory: storeFolder)
             let owner = OwnerIdentity.result(secrets: KeychainSecrets())
             let service = try CaptureService(store: store, owner: owner)
-            let capture = CaptureSettings(service: service)
+            let capture = CaptureSettings(
+                service: service, staleSites: { (try? store.queries.staleAdapters()) ?? [] })
             let identity = IdentityModel(store: store)
             let notifications = Notifications()
             let pages = try PageHostListener(path: PagesSocket.path(in: storeFolder), store: store, owner: owner)

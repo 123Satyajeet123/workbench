@@ -67,16 +67,19 @@ public final class Store: Sendable {
         }
     }
 
-    public func record(_ batch: ActivityBatch) throws {
+    /// Writes the batch's rows and returns their ids, in the batch's order.
+    @discardableResult
+    public func record(_ batch: ActivityBatch) throws -> [Int64] {
         for kind in Set(batch.activities.map(\.kind.source)) { try check(batch.grant, kind: kind) }
-        try writer.write { db in
-            for activity in batch.activities {
+        return try writer.write { db in
+            try batch.activities.map { activity in
                 try db.execute(
                     sql: "INSERT INTO activity(ts, kind, app, bundle_id, title, document, text) VALUES (?,?,?,?,?,?,?)",
                     arguments: [
                         activity.at.stored, activity.kind.rawValue, activity.app, activity.bundleID, activity.title,
                         activity.document, activity.text,
                     ])
+                return db.lastInsertedRowID
             }
         }
     }

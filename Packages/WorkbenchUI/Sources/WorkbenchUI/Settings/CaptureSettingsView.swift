@@ -16,6 +16,7 @@ struct CaptureSettingsView: View {
                     capture.backgroundProblem ?? capture.failure?.localizedDescription
                         ?? "Everything stays on this Mac and is deleted after 30 days. Workbench never makes a sound.")
             }
+            SourceHealthSection()
             WebResearchSection()
             DenyListSection()
             Section {
@@ -51,6 +52,9 @@ struct CaptureSettingsView: View {
                 "The messages Workbench kept are deleted, with the facts read from them, your marks on those facts, their summaries and the text of the model calls that read them. Other sources stay. WhatsApp itself is not touched."
             )
         }
-        .onAppear(perform: capture.refreshLog)
+        .onAppear {
+            capture.refreshLog()
+            capture.refreshHealth()
+        }
     }
 }

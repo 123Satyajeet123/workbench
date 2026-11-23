@@ -54,12 +54,15 @@ public struct WhatsAppChatReader: Sendable {
     }
 
     let container: URL
+    /// The one open connection to the container's store, shared by every reader of it.
+    let store: WhatsAppStoreConnection
     /// The chats this reader may read; the policy must allow each one.
     public let chatJIDs: [String]
     let policy: any CapturePolicyProvider
 
     public init(container: URL = defaultContainer, chatJIDs: [String], policy: any CapturePolicyProvider) {
         self.container = container
+        store = .shared(for: container)
         self.chatJIDs = chatJIDs
         self.policy = policy
     }
@@ -72,7 +75,7 @@ public struct WhatsAppChatReader: Sendable {
     public func people(now: Date = .now) async throws -> WhatsAppPeople {
         for chat in chatJIDs { _ = try await policy.grant(for: .whatsapp, label: chat, at: now) }
         guard !chatJIDs.isEmpty else { return WhatsAppPeople(members: [], names: [:]) }
-        let (names, active, chats) = try memberNames(try Self.snapshot(container))
+        let (names, active, chats) = try store.read { try memberNames($0) }
         let members = active.compactMap { jid in
             names[jid].map { WhatsAppMember(jid: jid, name: $0, chats: chats[jid, default: []]) }
         }
@@ -83,11 +86,11 @@ public struct WhatsAppChatReader: Sendable {
     /// The name of everyone in the chats, by ID, the IDs of those in them now, and the chats each of those is in now:
     /// every member a group ever had, and the other person of each direct chat. Names come from the founder's address book as WhatsApp keeps it, then
     /// the name a person chose, then WhatsApp's contact name; see `MemberNames`.
-    private func memberNames(_ snapshot: SQLiteSnapshot) throws -> (
+    private func memberNames(_ database: ReadOnlyDatabase) throws -> (
         names: [String: String], active: [String], chats: [String: [String]]
     ) {
         let marks = Array(repeating: "?", count: chatJIDs.count).joined(separator: ",")
-        let groupRows = try snapshot.rows(
+        let groupRows = try database.rows(
             """
             SELECT g.ZMEMBERJID, g.ZCONTACTNAME, p.ZPUSHNAME, g.ZISACTIVE, s.ZCONTACTJID
             FROM ZWAGROUPMEMBER g
@@ -96,7 +99,7 @@ public struct WhatsAppChatReader: Sendable {
             WHERE s.ZCONTACTJID IN (\(marks)) AND s.ZSESSIONTYPE = ?
             """,
             binding: chatJIDs.map { .text($0) } + [.integer(Int64(SessionType.group))])
-        let directRows = try snapshot.rows(
+        let directRows = try database.rows(
             """
             SELECT s.ZCONTACTJID, s.ZPARTNERNAME, p.ZPUSHNAME, 1, s.ZCONTACTJID FROM ZWACHATSESSION s
             LEFT JOIN ZWAPROFILEPUSHNAME p ON p.ZJID = s.ZCONTACTJID
@@ -133,12 +136,12 @@ public struct WhatsAppChatReader: Sendable {
     /// when WhatsApp keeps none or changed the layout: then push names stand in.
     private static func addressBook(_ container: URL, for jids: [String]) -> [String: String] {
         guard !jids.isEmpty,
-            let snapshot = try? SQLiteSnapshot(copying: container.appending(path: "ContactsV2.sqlite").path),
-            (try? snapshot.requireColumns(["ZLID", "ZWHATSAPPID", "ZFULLNAME"], in: "ZWAADDRESSBOOKCONTACT")) != nil
+            let contacts = try? ReadOnlyDatabase(path: container.appending(path: "ContactsV2.sqlite").path),
+            (try? contacts.requireColumns(["ZLID", "ZWHATSAPPID", "ZFULLNAME"], in: "ZWAADDRESSBOOKCONTACT")) != nil
         else { return [:] }
         let marks = Array(repeating: "?", count: jids.count).joined(separator: ",")
         let rows =
-            (try? snapshot.rows(
+            (try? contacts.rows(
                 """
                 SELECT ZLID, ZWHATSAPPID, ZFULLNAME FROM ZWAADDRESSBOOKCONTACT
                 WHERE ZLID IN (\(marks)) OR ZWHATSAPPID IN (\(marks))
@@ -149,20 +152,6 @@ public struct WhatsAppChatReader: Sendable {
             for jid in [row.text(0), row.text(1)].compactMap({ $0 }) where !jid.isEmpty { book[jid] = name }
         }
         return book
-    }
-
-    static func snapshot(_ container: URL) throws -> SQLiteSnapshot {
-        let snapshot = try SQLiteSnapshot(copying: container.appending(path: "ChatStorage.sqlite").path)
-        try snapshot.requireColumns(
-            ["Z_PK", "ZCONTACTJID", "ZSESSIONTYPE", "ZPARTNERNAME", "ZLASTMESSAGEDATE"], in: "ZWACHATSESSION")
-        try snapshot.requireColumns(
-            ["Z_PK", "ZCHATSESSION", "ZMESSAGEDATE", "ZMESSAGETYPE", "ZTEXT", "ZISFROMME", "ZGROUPMEMBER"],
-            in: "ZWAMESSAGE")
-        try snapshot.requireColumns(["ZMESSAGE", "ZMEDIALOCALPATH", "ZTITLE"], in: "ZWAMEDIAITEM")
-        try snapshot.requireColumns(
-            ["Z_PK", "ZCHATSESSION", "ZMEMBERJID", "ZCONTACTNAME", "ZFIRSTNAME", "ZISACTIVE"], in: "ZWAGROUPMEMBER")
-        try snapshot.requireColumns(["ZJID", "ZPUSHNAME"], in: "ZWAPROFILEPUSHNAME")
-        return snapshot
     }
 }
 

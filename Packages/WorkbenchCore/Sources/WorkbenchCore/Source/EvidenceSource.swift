@@ -24,9 +24,12 @@ public enum EvidenceQuality: String, Sendable {
 public enum LegacySpace: String, Sendable {
     case whatsAppRow = "wa_zpk"
     case mailPart = "mail_part"
+    case activityRow = "activity"
 
     /// The old citation space of each consent kind whose facts cite row numbers of their own store.
-    static let byKind: [(SourceKind, LegacySpace)] = [(.whatsapp, .whatsAppRow), (.mail, .mailPart)]
+    static let byKind: [(SourceKind, LegacySpace)] = [
+        (.whatsapp, .whatsAppRow), (.mail, .mailPart), (.screen, .activityRow),
+    ]
 }
 
 /// What an old citation named: a row number of the source's own store.
@@ -106,11 +109,13 @@ public struct SourceReading: Sendable {
     public var unkeyed: Int
     /// How the container is laid out, written in the same transaction as the lines.
     public var structure: ContainerStructure?
+    /// Lines whose source gave no date of their own: their time is when they were first seen.
+    public var undated: Int
 
     public init(
         grant: CaptureGrant, label: String, container: String, audience: AudienceDigest, lines: [ObservedLine],
         cursorAfter: ScanCursor?, mapsLegacyRefs: Bool = false, readerVersion: String,
-        census: [Int: TypeCensus] = [:], unkeyed: Int = 0, structure: ContainerStructure? = nil
+        census: [Int: TypeCensus] = [:], unkeyed: Int = 0, structure: ContainerStructure? = nil, undated: Int = 0
     ) {
         self.grant = grant
         self.label = label
@@ -123,6 +128,7 @@ public struct SourceReading: Sendable {
         self.census = census
         self.unkeyed = unkeyed
         self.structure = structure
+        self.undated = undated
     }
 }
 

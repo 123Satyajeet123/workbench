@@ -62,6 +62,7 @@ extension MailMessage {
         guard let label = grant.label, !label.isEmpty, let audience = people.audience(thread: context.threadId)
         else { return nil }
         let time = UTCInstant(sent.map(Date.init(timeIntervalSince1970:)) ?? now)
+        let undated = sent == nil
         func line(_ words: String, id: String, forwarded: Bool) -> ObservedLine? {
             guard !words.isEmpty, let key = try? MailLineKey.message(thread: context.threadId, message: id) else {
                 return nil
@@ -78,7 +79,7 @@ extension MailMessage {
         guard !lines.isEmpty else { return nil }
         return SourceReading(
             grant: grant, label: label, container: context.threadId, audience: audience, lines: lines,
-            cursorAfter: nil, readerVersion: MailReader.version)
+            cursorAfter: nil, readerVersion: MailReader.version, undated: undated ? lines.count : 0)
     }
 }
 

@@ -43,11 +43,7 @@ public struct HelperSpec: Codable, Sendable, Equatable {
         var lines: String {
             switch self {
             case .whatsappChat: SourceDescriptor.whatsAppChat.grammar
-            case .screenSessions:
-                """
-                the windows the founder had in front, in order. Each line is `[number] HH:mm–HH:mm (minutes) app — \
-                window title — address`; the address is a web page or a file and can be missing.
-                """
+            case .screenSessions: SourceDescriptor.screenWindow.grammar
             case .mail: SourceDescriptor.gmailMail.grammar
             case .news:
                 """

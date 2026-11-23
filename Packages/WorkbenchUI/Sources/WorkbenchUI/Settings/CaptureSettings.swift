@@ -10,12 +10,22 @@ final class CaptureSettings {
         "password managers, the Health app, banking, health and password sites, private windows and password fields"
 
     private let service: CaptureService
+    private let staleSites: () -> [String]
+    private let installedBrowsers: () -> [InstalledBrowser]
     private(set) var log: [CaptureLogEntry] = []
     private(set) var failure: (any Error)?
+    /// What stops each source now, as last refreshed. The one place any page asks.
+    private(set) var sourceHealth: [SourceHealth] = []
 
-    init(service: CaptureService) {
+    init(
+        service: CaptureService, staleSites: @escaping () -> [String] = { [] },
+        installedBrowsers: @escaping () -> [InstalledBrowser] = BrowserRegistry.installedHere
+    ) {
         self.service = service
+        self.staleSites = staleSites
+        self.installedBrowsers = installedBrowsers
         refreshLog()
+        refreshHealth()
     }
 
     var status: CaptureStatus { service.status }
@@ -111,7 +121,22 @@ final class CaptureSettings {
 
     private func change(_ edit: (inout CapturePolicy) -> Void) {
         attempt { try service.update(edit) }
+        refreshHealth()
     }
+
+    /// Ends the open screen stretch before the app quits.
+    func endForQuit() { service.endForQuit() }
+
+    func refreshHealth() {
+        let policy = service.policy
+        sourceHealth = SourceHealthModel.health(
+            SourceHealthInputs(
+                policy: policy, fullDiskAccess: FullDiskAccess.isGranted(),
+                ownerKnown: (try? service.owner()) != nil, accessibilityGranted: ScreenReader.isTrusted,
+                staleSites: staleSites(), browsers: installedBrowsers().map { policy.health(ofBrowser: $0.browser) }))
+    }
+
+    func health(of source: SourceHealth.Source) -> SourceHealth? { sourceHealth.first { $0.source == source } }
 
     private func attempt(_ work: () throws -> Void) {
         do {

@@ -29,6 +29,8 @@ public struct IngestReport: Sendable {
     public var census: [Int: TypeCensus] = [:]
     /// Rows that should have been lines but could not be named.
     public var unkeyed = 0
+    /// Lines dated by when they were first seen, because the source gave no date of their own.
+    public var undated = 0
     /// Chats that were not read or not written, and why. The other chats were.
     public var failures: [LabelFailure] = []
     /// Chats whose saved cursor could not be read: each was read from the start.
@@ -44,6 +46,7 @@ public struct IngestReport: Sendable {
         flaggedItems += other.flaggedItems
         refusedAfterRevoke += other.refusedAfterRevoke
         unkeyed += other.unkeyed
+        undated += other.undated
         census.merge(other.census) {
             TypeCensus(rows: $0.rows + $1.rows, rowsWithText: $0.rowsWithText + $1.rowsWithText)
         }
@@ -124,7 +127,9 @@ extension Store {
     /// itself (what the person gave by hand needs no policy): a revoke between the read and the write writes nothing, and none can slip in between the check and the
     /// write. The lines, the erasure that a revoke asks for, the cursor (when the source has one) and the note that
     /// old ids were mapped commit together or not at all; then the log is truncated if any text was erased.
-    func record(_ reading: SourceReading, of descriptor: SourceDescriptor, owner: PersonID) throws -> IngestReport {
+    public func record(_ reading: SourceReading, of descriptor: SourceDescriptor, owner: PersonID) throws
+        -> IngestReport
+    {
         try check(reading.grant, kind: descriptor.consent, label: reading.label)
         let request = CaptureRequest(kind: descriptor.consent, label: reading.label)
         let source = try descriptor.sourceID(owner: owner)
@@ -152,6 +157,7 @@ extension Store {
         }
         report.census = reading.census
         report.unkeyed = reading.unkeyed
+        report.undated = reading.undated
         if report.erasedLines > 0 || report.flaggedItems > 0 { try truncateLog() }
         return report
     }

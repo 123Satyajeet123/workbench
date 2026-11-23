@@ -20,14 +20,15 @@ extension Queries {
         e.id = (SELECT v.id FROM evidence v WHERE v.entity_key = e.entity_key ORDER BY v.last_seen DESC, v.id DESC LIMIT 1)
         """
 
-    /// The mail lines first seen in `start..<end`, oldest first: the current version of each message and deck page.
+    /// The mail lines sent in `start..<end`, oldest first: the current version of each message and deck page. A line's
+    /// time is its message's own sent date; a message the page gave no date for is dated by when it was first seen.
     public func mailParts(from start: Date, to end: Date) throws -> [MailPart] {
         try reader.read { db in
             try StoredLine.fetchAll(
                 db,
                 sql: """
                     SELECT e.id AS number, \(StoredLine.columns) FROM evidence e
-                    WHERE \(Self.mailGrants) AND e.first_seen >= ? AND e.first_seen < ? AND \(Self.current)
+                    WHERE \(Self.mailGrants) AND e.event_time >= ? AND e.event_time < ? AND \(Self.current)
                     ORDER BY e.id
                     """, arguments: Self.mailPrefix + [start.millisecondsSince1970, end.millisecondsSince1970]
             ).compactMap(MailPart.init)

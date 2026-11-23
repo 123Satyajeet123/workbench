@@ -40,10 +40,13 @@ public final class CaptureService {
         let policy = try store.currentPolicy()
         self.policy = policy
         status = policy.status(accessibilityGranted: ScreenReader.isTrusted, at: store.clock())
-        loop = CaptureLoop(store: store, presence: presence)
+        loop = CaptureLoop(store: store, presence: presence, owner: try? owner.get())
         try store.closeInterruptedRecordings()
         try store.closeInterruptedRuns()
-        if case .success(let person) = owner { try store.moveMailPartsToEvidence(owner: person) }
+        if case .success(let person) = owner {
+            try store.moveMailPartsToEvidence(owner: person)
+            try store.moveScreenStretchesToEvidence(owner: person)
+        }
     }
 
     /// The owner of every source this Mac reads. Throws why there is none.
@@ -58,6 +61,17 @@ public final class CaptureService {
             }
         }
         power = PowerEvents { [weak self] event in self?.system(event) }
+    }
+
+    /// Writes the open stretch before the app quits, and waits for it, so a quit loses no stretch.
+    public func endForQuit() {
+        let (loop, policy, now) = (loop, policy, store.clock())
+        let done = DispatchSemaphore(value: 0)
+        Task.detached {
+            _ = await loop.stopStretch(policy: policy, at: now)
+            done.signal()
+        }
+        _ = done.wait(timeout: .now() + 2)
     }
 
     public func stop() {
@@ -163,11 +177,13 @@ public final class CaptureService {
         let isCapturing = status == .capturing || status == .needsPermission
         setWhatsAppWatch(
             on: isCapturing && policy.isEnabled(.whatsapp) && policy.allowList[.whatsapp]?.isEmpty == false)
-        guard status == .capturing, policy.isEnabled(.screen), let app = FrontApp.current() else {
+        let policy = policy
+        guard status == .capturing, policy.isEnabled(.screen) else {
+            Task { report(await loop.stopStretch(policy: policy, at: now)) }
             requestTrustOnce()
             return
         }
-        let policy = policy
+        guard let app = FrontApp.current() else { return }
         Task { report(await loop.capture(app, policy: policy, at: now)) }
     }
 
@@ -234,11 +250,19 @@ actor CaptureLoop {
     private let store: Store
     private let reader: any ScreenReading
     private let presence: any PresenceSource
+    private let owner: PersonID?
     private var engine = CaptureEngine()
+    private var screen = ScreenKeeper()
 
-    init(store: Store, presence: any PresenceSource, reader: sending any ScreenReading = ScreenReader()) {
+    /// `owner` is the person who uses this Mac. Without one the screen lines are not kept: the rows of the capture log
+    /// still are.
+    init(
+        store: Store, presence: any PresenceSource, owner: PersonID? = nil,
+        reader: sending any ScreenReading = ScreenReader()
+    ) {
         self.store = store
         self.presence = presence
+        self.owner = owner
         self.reader = reader
     }
 
@@ -247,7 +271,7 @@ actor CaptureLoop {
     func capture(_ app: FrontApp, policy: CapturePolicy, at now: Date) -> String? {
         let state = presence.state(idleAfter: engine.idleAfter)
         let snapshot = snapshot(of: app, presence: state, policy: policy, at: now)
-        return keep(engine.observe(snapshot, presence: state, policy: policy, at: now))
+        return keep(engine.observe(snapshot, presence: state, policy: policy, at: now), policy: policy, at: now)
     }
 
     private func snapshot(of app: FrontApp, presence: PresenceState, policy: CapturePolicy, at now: Date)
@@ -262,16 +286,31 @@ actor CaptureLoop {
     }
 
     func system(_ event: CaptureEngine.SystemEvent, policy: CapturePolicy, at now: Date) -> String? {
-        keep(engine.system(event, policy: policy, at: now))
+        keep(engine.system(event, policy: policy, at: now), policy: policy, at: now)
     }
 
     func forget(before cutoff: Date) -> String? {
         failure("delete old data") { try store.delete(.everything(before: cutoff)) }
     }
 
-    private func keep(_ batch: ActivityBatch?) -> String? {
-        guard let batch else { return nil }
-        return failure("save activity") { try store.record(batch) }
+    /// Ends the open stretch now, as when capture pauses or stops or the app quits. It is kept only if the app's consent
+    /// still holds.
+    func stopStretch(policy: CapturePolicy, at now: Date) -> String? {
+        failure("save activity") { try write(screen.writes(stoppingAt: now, policy: policy)) }
+    }
+
+    /// Keeps the batch in the capture log and, with an owner, the screen lines it gives. No batch is a quiet tick.
+    private func keep(_ batch: ActivityBatch?, policy: CapturePolicy, at now: Date) -> String? {
+        failure("save activity") {
+            guard let batch else { return try write(screen.writes(idleAt: now, policy: policy)) }
+            let ids = try store.record(batch)
+            try write(screen.writes(for: batch, ids: ids, policy: policy, at: now))
+        }
+    }
+
+    private func write(_ writes: [ScreenWrite]) throws {
+        guard let owner else { return }
+        for write in writes { _ = try store.record(write.reading, of: write.descriptor, owner: owner) }
     }
 
     private func failure(_ step: String, _ body: () throws -> Void) -> String? {

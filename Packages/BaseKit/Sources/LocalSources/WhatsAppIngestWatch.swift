@@ -3,42 +3,47 @@ import Kernel
 import WorkbenchCore
 
 /// Keeps our copy of the allowed WhatsApp chats current while the app runs: one ingest now, and one after WhatsApp's
-/// store or its write-ahead log changes. A message deleted for everyone is rewritten in that store, so an ingest after
-/// the change erases our copy of its text within `period`. It listens to file events only: it reads nothing of the
+/// store changes. It asks the store's one read-only connection for its change stamp every `pollInterval` (a cheap
+/// `PRAGMA data_version`, no copy and no open transaction). A message deleted for everyone is rewritten in that store,
+/// so an ingest after the change erases our copy of its text within `period` plus one poll. It reads nothing of the
 /// store until an ingest runs, and an ingest reads only the chats the person allowed.
 @MainActor
 public final class WhatsAppIngestWatch {
     public static let period: Duration = .seconds(5)
-    nonisolated static let storeFiles: Set<String> = ["ChatStorage.sqlite", "ChatStorage.sqlite-wal"]
+    public static let pollInterval: Duration = .seconds(2)
 
     private let throttle: ChangeThrottle
-    private var watcher: FileWatcher?
+    private var poller: Task<Void, Never>?
 
     /// `onIngest` gets what each ingest reported: the failures in plain words, or nil when it read and wrote cleanly.
     public init(
         store: Store, owner: PersonID, container: URL = WhatsAppChatReader.defaultContainer,
-        period: Duration = period,
-        latency: TimeInterval = 1.0, onIngest: @escaping @MainActor @Sendable (String?) -> Void = { _ in }
+        period: Duration = period, pollInterval: Duration = pollInterval,
+        onIngest: @escaping @MainActor @Sendable (String?) -> Void = { _ in }
     ) {
-        throttle = ChangeThrottle(period: period) {
+        let throttle = ChangeThrottle(period: period) {
             let failure = await Self.ingest(store: store, owner: owner, container: container)
             await onIngest(failure)
         }
-        watcher = FileWatcher(folders: [container], latency: latency) { [throttle] _, path in
-            guard Self.isStoreFile(path) else { return }
-            Task { await throttle.changed() }
+        self.throttle = throttle
+        let connection = WhatsAppStoreConnection.shared(for: container)
+        poller = Task.detached {
+            var last: StoreStamp?
+            while !Task.isCancelled {
+                let stamp = connection.stamp()
+                if stamp != last {
+                    last = stamp
+                    await throttle.changed()
+                }
+                try? await Task.sleep(for: pollInterval)
+            }
         }
-        Task { await throttle.changed() }
     }
 
     public func stop() {
-        watcher?.stop()
-        watcher = nil
+        poller?.cancel()
+        poller = nil
         Task { [throttle] in await throttle.stop() }
-    }
-
-    nonisolated static func isStoreFile(_ path: String) -> Bool {
-        storeFiles.contains(URL(fileURLWithPath: path).lastPathComponent)
     }
 
     /// Reads every allowed chat and writes what is new. Returns why it failed, or nil.

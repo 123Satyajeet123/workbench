@@ -8,12 +8,13 @@ import Lines
 /// kind, audience proof, cost class, a second cursor kind) in the change that reads them.
 public struct SourceDescriptor: Sendable, Equatable {
     /// How long lines live. The raw value is the `retention_class` of the line.
-    public enum Retention: String, Sendable { case chat, mail, page, file, note }
+    public enum Retention: String, Sendable { case chat, mail, page, file, note, screen }
 
     /// How the source gives its text. The raw value is the `obtained_by` of the line.
     public enum Obtained: String, Sendable {
         case db
         case domText = "dom_text"
+        case axValue = "ax_value"
     }
 
     /// The source's own name, unique across sources: the key of its `SourceID`.
@@ -86,11 +87,32 @@ extension SourceDescriptor {
         key: "file.dropped", aliases: [], consent: .dropped,
         grammar: "a file the person added to a deal. Each line is `[number] who — file page N: the text`.",
         retention: .file, obtainedBy: .db, editWindow: 0)
+
+    private static let screenWindowGrammar = """
+        the windows the founder had in front, in order. Each line is `[number] HH:mm–HH:mm (minutes) app — window \
+        title — address`; the address is a web page or a file and can be missing.
+        """
+
+    /// One stretch on one window, kept when it closes. The grant label is the app's bundle id.
+    public static let screenWindow = SourceDescriptor(
+        key: "screen.window", aliases: ["screen_sessions"], consent: .screen, grammar: screenWindowGrammar,
+        retention: .screen, obtainedBy: .axValue, editWindow: 0)
+
+    private static let screenTextGrammar = """
+        the text one window showed, one line for each line on screen. Each line is `[number] HH:mm text`.
+        """
+
+    /// The text a window showed at one walk. The grant label is the app's bundle id.
+    public static let screenText = SourceDescriptor(
+        key: "screen.text", aliases: [], consent: .screen, grammar: screenTextGrammar, retention: .screen,
+        obtainedBy: .axValue, editWindow: 0)
 }
 
 /// The sources this build knows. A source starts only when a machine names it.
 public enum SourceRegistry {
-    public static let all: [SourceDescriptor] = [.whatsAppChat, .gmailMail, .webPage, .typedNote, .droppedFile, .note]
+    public static let all: [SourceDescriptor] = [
+        .whatsAppChat, .gmailMail, .webPage, .typedNote, .droppedFile, .note, .screenWindow, .screenText,
+    ]
 
     /// The source with this key or alias, or nil when no ported source has it.
     public static func descriptor(named name: String) -> SourceDescriptor? {

@@ -24,6 +24,7 @@ let package = Package(
         .executableTarget(name: "WorkbenchPages", dependencies: ["PagesRelay"]),
         .executableTarget(name: "LifecycleDryRunTool", dependencies: ["WorkbenchCore"]),
         .executableTarget(name: "MailBackfillDryRunTool", dependencies: ["WorkbenchCore"]),
+        .executableTarget(name: "ScreenBackfillDryRunTool", dependencies: ["WorkbenchCore"]),
         .testTarget(
             name: "WorkbenchCoreTests",
             dependencies: [

@@ -31,7 +31,7 @@ final class HelperReading {
             let full = try await context.source.evidence(on: day)
             // A reading sends the lines no earlier reading saw: earlier lines go along as context only, so nothing is
             // read twice and nothing comes back reworded.
-            var evidence = full.marking(read: try numbersRead(in: full, scope: scope, day: day))
+            var evidence = full.marking(read: try numbersRead(in: full))
             for (set, names) in try recentLabels() { evidence.context[set] = names }
             let open = try store.queries.openItems(readBy: spec, asOf: day == context.today ? nil : day)
             // A machine that follows another reads each day once even when nobody wrote, while there are facts to
@@ -50,7 +50,6 @@ final class HelperReading {
                 day: day, scope: scope, evidence: evidence, marked: try context.marked(), open: open)
             try store.saveReading(
                 result, of: spec, day: day, scope: scope, grant: try await context.grant())
-            try keepCursor(of: full, scope: scope, day: day)
             if followsOpenFacts { try followedKey.save(day, to: store) }
             context.reloadIfShown(day)
             phase = .read(kept: result.kept, dropped: result.dropped)
@@ -65,21 +64,10 @@ final class HelperReading {
         }
     }
 
-    /// The numbers of the lines an earlier reading of this machine saw. A line the evidence store holds (WhatsApp, mail,
-    /// pages) was read when a finished run of this machine had it in its window, so a store that starts again from
-    /// number one loses nothing. Only the screen source keeps no stored line yet: a window of it was read when its
-    /// number is at most the last one a reading saw. This is the one place the position marker remains.
-    private func numbersRead(in full: EvidenceSet, scope: String, day: WorkDay) throws -> Set<Int64> {
-        let stored = full.lines.filter { $0.lineID != nil }.map(\.id)
-        let cursor = try MachineKey.lastLine(context.spec.task, scope: scope, day: day).load(from: context.store)
-        let past = full.lines.filter { $0.lineID == nil && $0.id <= (cursor ?? .min) }.map(\.id)
-        return try context.store.queries.numbersRead(by: context.spec.task, among: stored).union(past)
-    }
-
-    /// Where a reading of the screen's windows, which the evidence store does not hold yet, stopped.
-    private func keepCursor(of full: EvidenceSet, scope: String, day: WorkDay) throws {
-        guard let top = full.lines.filter({ $0.lineID == nil }).map(\.id).max() else { return }
-        try MachineKey.lastLine(context.spec.task, scope: scope, day: day).save(top, to: context.store)
+    /// The numbers of the lines an earlier reading of this machine saw: a line the evidence store holds was read when a
+    /// finished run of this machine had it in its window, so a store that starts again from number one loses nothing.
+    private func numbersRead(in full: EvidenceSet) throws -> Set<Int64> {
+        try context.store.queries.numbersRead(by: context.spec.task, among: full.lines.map(\.id))
     }
 
     /// The news machine reads articles, not days: one check fetches the feeds and reads each matched article.

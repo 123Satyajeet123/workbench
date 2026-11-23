@@ -63,6 +63,7 @@ public struct WebPage: Codable, Sendable, Equatable {
 
     /// WhatsApp Web text never reaches the store through page capture.
     static let whatsAppWebHost = "web.whatsapp.com"
+    static let linkedInHost = "linkedin.com"
 
     /// What this page gives the evidence store, or nil when the policy keeps no text of this page. Gmail and WhatsApp Web
     /// are never kept as pages: Gmail text comes only as mail from the label the person named. A frame's text is kept
@@ -71,7 +72,7 @@ public struct WebPage: Codable, Sendable, Equatable {
     public func reading(policy: CapturePolicy, at now: Date) -> SourceReading? {
         let addresses = [url] + (frame.map { [$0] } ?? [])
         guard policy.isEnabled(.screenText), policy.isEnabled(browser: browser), !text.isEmpty,
-            !addresses.contains(where: { CapturePolicy.isSite($0, in: [MailContext.site, Self.whatsAppWebHost]) }),
+            !addresses.contains(where: { CapturePolicy.isSite($0, in: Self.neverKept) }),
             addresses.allSatisfy({ keepGrant(for: $0, policy: policy, at: now) != nil }),
             let site = CapturePolicy.host(of: url), let address = CaptureEngine.address(url),
             let grant = policy.authorize(CaptureRequest(kind: .screenText, label: site), at: now).grant,
@@ -91,6 +92,9 @@ public struct WebPage: Codable, Sendable, Equatable {
     }
 
     static let readerVersion = "web-page 1"
+
+    /// The sites page capture never keeps. LinkedIn's terms ban extensions that read its pages.
+    static let neverKept: Set<String> = [MailContext.site, whatsAppWebHost, linkedInHost]
 
     /// The page with its text as one line when the extension sent no items.
     private var readable: WebPage {

@@ -35,42 +35,16 @@ struct SQLiteRow {
     func isNull(_ column: Int) -> Bool { values[column] == .null }
 }
 
-/// A private copy of a database that another app holds open, kept in memory only. The copy is transactionally
-/// consistent while the owner writes its WAL. It never touches the disk: an empty file name would make SQLite spill
-/// pages of every chat, allowed or not, to a temporary file.
-final class SQLiteSnapshot {
-    private static let copyDeadline: TimeInterval = 8
-    /// The name the copy is opened under. An empty name makes a private temporary database whose pages may go to a
-    /// temporary file; the system library decides by its build, so the name never leaves the choice open.
-    static let copyName = ":memory:"
-    var handle: OpaquePointer?
+/// A read-only connection to a database that another app writes. It never writes and never copies the file. The caller
+/// opens it once and keeps it: `dataVersion` shows that another connection committed, and `readTransaction` gives every
+/// read inside it one view of the file.
+final class ReadOnlyDatabase {
+    private var handle: OpaquePointer?
 
-    init(copying path: String) throws {
+    init(path: String) throws {
         try Self.checkAccess(path)
         try Self.checkHeader(path)
-        var source: OpaquePointer?
-        guard sqlite3_open_v2(path, &source, SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK else {
-            sqlite3_close(source)
-            throw ReadError.unreadableStore
-        }
-        defer { sqlite3_close(source) }
-        guard
-            sqlite3_open_v2(
-                Self.copyName, &handle, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX, nil)
-                == SQLITE_OK,
-            let copy = sqlite3_backup_init(handle, "main", source, "main")
-        else {
-            sqlite3_close(handle)
-            throw ReadError.unreadableStore
-        }
-        let deadline = Date().addingTimeInterval(Self.copyDeadline)
-        var status: Int32
-        repeat {
-            status = sqlite3_backup_step(copy, 256)
-            if status == SQLITE_BUSY || status == SQLITE_LOCKED { Thread.sleep(forTimeInterval: 0.02) }
-        } while [SQLITE_OK, SQLITE_BUSY, SQLITE_LOCKED].contains(status) && Date() < deadline
-        let finished = sqlite3_backup_finish(copy)
-        guard status == SQLITE_DONE, finished == SQLITE_OK else {
+        guard sqlite3_open_v2(path, &handle, SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK else {
             sqlite3_close(handle)
             throw ReadError.unreadableStore
         }
@@ -78,8 +52,18 @@ final class SQLiteSnapshot {
 
     deinit { sqlite3_close(handle) }
 
+    /// Changes with every commit by another connection. Meant to be asked outside a transaction.
+    func dataVersion() throws -> Int64 { try rows("PRAGMA data_version").first?.integer(0) ?? 0 }
+
+    /// Runs `body` inside one read transaction: every read in it sees the same file state. Nothing stays open after.
+    func readTransaction<T>(_ body: () throws -> T) throws -> T {
+        _ = try rows("BEGIN")
+        defer { _ = try? rows("COMMIT") }
+        return try body()
+    }
+
     // SQLite reports a refused file and a missing one as the same failure.
-    private static func checkAccess(_ path: String) throws {
+    static func checkAccess(_ path: String) throws {
         let file = open(path, O_RDONLY)
         guard file < 0 else {
             close(file)

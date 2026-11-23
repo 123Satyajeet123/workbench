@@ -9,6 +9,7 @@ import WorkbenchCore
 @MainActor @Suite(.timeLimit(.minutes(1))) struct WhatsAppIngestWatchTests {
     typealias Rig = WhatsAppEvidenceTests.Rig
     static let period = Duration.milliseconds(300)
+    static let poll = Duration.milliseconds(100)
 
     private func waitUntil(_ seconds: Double = 10, _ condition: () throws -> Bool) async throws -> Bool {
         let end = ContinuousClock.now + .seconds(seconds)
@@ -22,15 +23,7 @@ import WorkbenchCore
     private func watch(_ rig: Rig) -> WhatsAppIngestWatch {
         WhatsAppIngestWatch(
             store: rig.store, owner: WhatsAppEvidenceTests.owner, container: rig.fixture.container, period: Self.period,
-            latency: 0.1)
-    }
-
-    @Test func theStoreAndItsLogAreTheOnlyFilesThatCount() {
-        #expect(WhatsAppIngestWatch.isStoreFile("/x/ChatStorage.sqlite"))
-        #expect(WhatsAppIngestWatch.isStoreFile("/x/ChatStorage.sqlite-wal"))
-        #expect(!WhatsAppIngestWatch.isStoreFile("/x/ChatStorage.sqlite-shm"))
-        #expect(!WhatsAppIngestWatch.isStoreFile("/x/Message/Media/photo.jpg"))
-        #expect(!WhatsAppIngestWatch.isStoreFile("/x/ContactsV2.sqlite"))
+            pollInterval: Self.poll)
     }
 
     @Test func startingReadsTheAllowedChatsAndAChangeIsReadAgain() async throws {
@@ -59,7 +52,7 @@ import WorkbenchCore
                 try rig.copies(of: word) == 0 && rig.count("SELECT count(*) FROM evidence WHERE tombstone = 1") == 1
             })
         let took = ContinuousClock.now - revoked
-        #expect(took < Self.period + .seconds(2), "about one period plus FSEvents latency and one read, took \(took)")
+        #expect(took < Self.period + .seconds(2), "about one period plus one poll and one read, took \(took)")
     }
 
     @Test func aChangeToAnotherFileOfTheContainerReadsNothing() async throws {
@@ -67,7 +60,7 @@ import WorkbenchCore
         let reads = Counter()
         let watch = WhatsAppIngestWatch(
             store: rig.store, owner: WhatsAppEvidenceTests.owner, container: rig.fixture.container, period: Self.period,
-            latency: 0.1,
+            pollInterval: Self.poll,
             onIngest: { _ in reads.add() })
         defer { watch.stop() }
         #expect(try await waitUntil { reads.count == 1 }, "the one read at start")
@@ -81,7 +74,7 @@ import WorkbenchCore
         let reads = Counter()
         let watch = WhatsAppIngestWatch(
             store: rig.store, owner: WhatsAppEvidenceTests.owner, container: rig.fixture.container, period: Self.period,
-            latency: 0.1,
+            pollInterval: Self.poll,
             onIngest: { _ in reads.add() })
         #expect(try await waitUntil { reads.count == 1 })
         watch.stop()

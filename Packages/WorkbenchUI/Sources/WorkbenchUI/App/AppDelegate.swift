@@ -49,6 +49,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        if case .ready(let session) = launch { session.capture.endForQuit() }
         RunningChildren.terminateAll(grace: .seconds(2))
     }
 }

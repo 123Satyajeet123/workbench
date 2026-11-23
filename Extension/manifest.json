@@ -21,7 +21,8 @@
       ],
       "exclude_matches": [
         "https://mail.google.com/*",
-        "https://web.whatsapp.com/*"
+        "https://web.whatsapp.com/*",
+        "https://*.linkedin.com/*"
       ],
       "js": [
         "read/generic.js",

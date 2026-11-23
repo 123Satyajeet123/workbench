@@ -13,8 +13,6 @@ final class MailSource: MachineSource {
     private(set) var mailReading: (parts: [MailPart], leftOut: Int) = ([], 0)
     /// Threads of the named labels opened on the day, as last refreshed. Threads never opened cannot be known.
     private(set) var threadsOpened = 0
-    /// One sentence for the person when the extension's Gmail reader found its page changed; nil when it reads.
-    private(set) var readerProblem: String?
 
     @ObservationIgnored private let store: Store
     @ObservationIgnored private let capture: CaptureService
@@ -44,9 +42,6 @@ final class MailSource: MachineSource {
     func refresh(on day: WorkDay) throws {
         mailReading = try reading(on: day)
         threadsOpened = try labels.reduce(0) { $0 + (try store.queries.mailThreadsOpened(inLabel: $1)[day] ?? 0) }
-        readerProblem =
-            try store.queries.staleAdapters().contains(AdapterState.mailSite)
-            ? AdapterState.sentence(for: AdapterState.mailSite) : nil
     }
 
     func evidence(on day: WorkDay) throws -> EvidenceSet {

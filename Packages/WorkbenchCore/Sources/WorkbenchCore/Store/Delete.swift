@@ -87,6 +87,7 @@ extension Store {
                 let matched = try Int64.fetchAll(
                     db, sql: "SELECT id FROM activity WHERE \(clause.sql)", arguments: clause.arguments)
                 let doomed = matched + (try Self.screenTextRows(opened: matched, in: db))
+                _ = try Self.eraseEvidence(.screenRows(doomed), in: db)
                 try db.execute(
                     sql: "DELETE FROM activity WHERE id IN (SELECT value FROM json_each(?))",
                     arguments: [try Coding.json(doomed)])

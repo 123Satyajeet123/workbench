@@ -81,12 +81,3 @@ public struct EvidenceSet: Sendable, Equatable {
         return EvidenceSet(lines: seen + marked.newLines, context: self.context, read: read)
     }
 }
-
-extension ScreenSession {
-    public var evidence: Evidence {
-        Evidence(
-            id: id, start: start, end: end,
-            line: [app, title, document ?? ""].filter { !$0.isEmpty }.joined(separator: " — "),
-            quotable: [title, document ?? ""])
-    }
-}

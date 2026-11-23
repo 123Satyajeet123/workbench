@@ -13,10 +13,6 @@ enum MachineKey {
     /// The weekly search of an outbound machine, and the last time it ran.
     static func weekly(_ task: String) -> StateKey<WeeklySearch> { .json("\(task).weekly") }
     static func weeklyRan(_ task: String) -> StateKey<Date> { .moment("\(task).weeklyRan") }
-    /// The last window a reading of `day` saw, kept only for the screen source, whose windows are not stored lines.
-    static func lastLine(_ task: String, scope: String, day: WorkDay) -> StateKey<Int64> {
-        .text("\(task).read.\(scope).\(day)")
-    }
     /// The last day a machine that follows another read, with or without new lines.
     static func followedRead(_ task: String) -> StateKey<WorkDay> { .day("\(task).followedRead") }
     static func trial(_ task: String) -> StateKey<SavedTrial> { .json("\(task).trial") }
