@@ -87,6 +87,8 @@ import WorkbenchCore
             Issue.record("the scratch session did not start")
             return
         }
+        try session.store.seedMachines(MachineTemplate.seeded.map { ($0.spec, $0.name) })
+        session.crew.reload()
         try await TodaySample.populate(store: session.store, crew: session.crew, scope: teamJID)
         session.runs.refresh()
         let pip = try #require(session.crew.machines.first { $0.spec.task == HelperSpec.team.task })

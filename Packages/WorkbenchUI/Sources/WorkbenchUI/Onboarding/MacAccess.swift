@@ -18,11 +18,15 @@ final class MacAccess {
 }
 
 extension ConnectFacts {
-    init(access: MacAccess, capture: CaptureSettings, today: TodayModel, pip: HelperModel?) {
+    init(
+        access: MacAccess, capture: CaptureSettings, today: TodayModel, pip: HelperModel?, sourceRows: [ConnectRow]
+    ) {
         self.init(
-            readerFound: access.readerFound, screenOn: capture.isOn(.screen), screenTrusted: access.screenTrusted,
+            readerFound: access.readerFound, screenOn: capture.isOn(.screen), screenTextOn: capture.isOn(.screenText),
+            screenTrusted: access.screenTrusted,
             fullDiskAccess: access.fullDiskAccess, chats: (pip?.source as? WhatsAppSource)?.chats.map(\.name) ?? [],
             calendarOn: capture.isOn(.calendar), calendarRefused: today.meetings.refusal != nil,
-            callsOn: capture.isOn(.call), microphoneRefused: access.microphoneRefused)
+            callsOn: capture.isOn(.call), microphoneRefused: access.microphoneRefused, mailOn: capture.isOn(.mail),
+            webOn: capture.isOn(.web), sourceRows: sourceRows)
     }
 }

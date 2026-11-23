@@ -116,7 +116,7 @@ enum VCFixture {
         editor.form?.says = "Sells to banks"
         editor.commitForm()
         #expect(editor.isChanged && intake.spec.criteria == editor.saved, "nothing is saved before Save")
-        editor.save(into: crew)
+        editor.save { crew.setCriteria(intake, $0) }
         let after = HelperReader(
             spec: intake.spec, model: RecordedModel(ScriptedModel("{}"), store: try scratchStore()))
         #expect(!editor.isChanged && intake.spec.criteria?.rules.count == 3)
@@ -140,7 +140,7 @@ enum VCFixture {
         editor.form?.high = "9"
         editor.commitForm()
         #expect(editor.isChanged && editor.blocker == nil)
-        editor.save(into: crew)
+        editor.save { crew.setCriteria(intake, $0) }
         #expect(intake.spec.criteria?.rules.count == 3)
     }
 

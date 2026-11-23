@@ -49,13 +49,12 @@ enum AppLaunch {
             let owner = OwnerIdentity.result(secrets: KeychainSecrets())
             let service = try CaptureService(store: store, owner: owner)
             let identity = IdentityModel(store: store)
-            try store.seedMachines(MachineTemplate.seeded.map { ($0.spec, $0.name) })
-            let onboarding = OnboardingModel(store: store, identity: identity)
             let notifications = Notifications()
             let web = WebResearchSettings(store: store)
             let crew = Crew(
                 store: store, capture: service, founder: { identity.identity.name }, makeModel: nil,
                 notifications: notifications, openWebSession: { try web.openSession() })
+            let onboarding = OnboardingModel(store: store, identity: identity, teamStarted: crew.reload)
             let review = ReviewModel(store: store, crew: crew)
             let mochi = MochiModel(store: store, crew: crew)
             let catalog = TeamCatalogModel(store: store, crew: crew, author: { identity.identity.name })

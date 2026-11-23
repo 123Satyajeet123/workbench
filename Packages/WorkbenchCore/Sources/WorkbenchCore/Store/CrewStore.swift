@@ -12,10 +12,25 @@ extension Store {
         }
     }
 
-    /// Makes the machines of a team template for a store that never held a machine. A store that did is left as it is.
-    public func startTeam(from template: TeamTemplate) throws {
-        let isNew = try writer.read { db in try Int.fetchOne(db, sql: "SELECT 1 FROM machine LIMIT 1") == nil }
-        if isNew { try seedMachines(template.seeds) }
+    /// Makes the machines of a team template for a store that never held a machine, and puts each answer in the spec of
+    /// the machine it is for as a new version of that machine. A store that held a machine is left as it is.
+    @discardableResult
+    public func startTeam(from template: TeamTemplate, answers: SetupAnswers = [:]) throws -> TeamStart {
+        guard try !queries.holdsMachine() else { return TeamStart() }
+        try seedMachines(template.seeds)
+        let machines = try queries.machines()
+        var started = TeamStart(machines: machines.map(\.name))
+        for question in template.setupQuestions {
+            guard let answer = answers[question] else { continue }
+            for index in question.machines {
+                guard let machine = machines.first(where: { $0.task == template.seeds[index].spec.task }) else {
+                    continue
+                }
+                try apply(answer, to: machine)
+            }
+            started.answered += 1
+        }
+        return started
     }
 
     /// A new machine from a template, with its own task so its items, settings and trust are its own. The task is the
@@ -131,6 +146,11 @@ extension Store {
 }
 
 extension Queries {
+    /// Whether the store ever held a machine, deleted or not.
+    public func holdsMachine() throws -> Bool {
+        try reader.read { db in try Int.fetchOne(db, sql: "SELECT 1 FROM machine LIMIT 1") != nil }
+    }
+
     /// Every machine not deleted, oldest first.
     public func machines() throws -> [Machine] {
         try reader.read { db in

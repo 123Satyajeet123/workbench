@@ -3,6 +3,7 @@ import WorkbenchCore
 
 struct ConnectList: View {
     let facts: ConnectFacts
+    let needs: [SourceNeed]
     var isChecklist = false
 
     @Environment(MacAccess.self) private var access
@@ -33,25 +34,19 @@ struct ConnectList: View {
         }
     }
 
-    private var rows: [ConnectRow] { ConnectRow.allCases.filter { $0 != .whatsApp || crew.team != nil } }
+    private var rows: [ConnectRow] { ConnectRow.rows(for: needs) }
 
     private func source(of row: ConnectRow) -> CaptureSource? {
-        let kind: SourceKind? =
-            switch row {
-            case .screen: .screen
-            case .calendar: .calendar
-            case .calls: .call
-            case .reader, .whatsApp: nil
-            }
-        return CaptureSource.all.first { $0.source == kind }
+        CaptureSource.all.first { $0.source == row.kind }
     }
 
     private func name(of row: ConnectRow) -> String {
-        switch row {
-        case .reader: models.choice.kind == .claude ? "Claude Code" : "Codex"
-        case .whatsApp: "WhatsApp"
-        case .screen, .calendar, .calls: source(of: row)?.name ?? ""
-        }
+        row.sourceName ?? (models.choice.kind == .claude ? "Claude Code" : "Codex")
+    }
+
+    private func reason(of row: ConnectRow) -> String {
+        guard let need = needs.first(where: { ConnectRow($0.kind) == row }) else { return "" }
+        return "\(need.machine): \(need.reason)"
     }
 
     private func detail(of row: ConnectRow) -> String {
@@ -63,10 +58,9 @@ struct ConnectList: View {
         case .whatsApp:
             facts.status(of: .whatsApp) == .needsPermission(pane: "Privacy_AllFiles")
                 ? "Turn on Workbench in Full Disk Access. macOS then asks to quit and reopen; setup opens here again."
-                : "\(crew.team?.name ?? "Pip") reads the team group you choose, only the day you ask."
-        case .calls:
-            "Your microphone and the other side's audio, only when you record. macOS asks for each the first time."
-        case .screen, .calendar: source(of: row)?.reason ?? ""
+                : reason(of: row) + (crew.team == nil ? " You choose the group on its page after setup." : "")
+        case .mail: reason(of: row) + " You name the Gmail label on its page."
+        case .screen, .screenText, .web, .calendar, .calls: reason(of: row)
         }
     }
 
@@ -76,7 +70,8 @@ struct ConnectList: View {
         case .screen: Mascot(look: .mochi, size: 28)
         case .whatsApp: Mascot(look: .pip, size: 28)
         case .calls: Mascot(look: .echo, size: 28)
-        case .calendar: Image(systemName: source(of: row)?.symbol ?? "").foregroundStyle(.iconTint)
+        case .web: Image(systemName: "globe").foregroundStyle(.iconTint)
+        case .screenText, .mail, .calendar: Image(systemName: source(of: row)?.symbol ?? "").foregroundStyle(.iconTint)
         }
     }
 
@@ -86,12 +81,12 @@ struct ConnectList: View {
             .init(title: "Open System Settings", isPrimary: true) { SystemSettings.open(pane: pane) }
         case (.reader, .missing):
             .init(title: "Check again", isPrimary: false) { access.recheck(reader: models.choice.kind) }
-        case (.whatsApp, .off):
+        case (.whatsApp, .off) where crew.team != nil:
             .init(title: "Choose a group", isPrimary: true) { choosingChats = true }
         case (.whatsApp, .chosen):
             .init(title: "Change", isPrimary: false) { choosingChats = true }
         case (_, .off):
-            source(of: row).map { source in .init(title: "Turn on", isPrimary: true) { turnOn(source.source) } }
+            row.kindToTurnOn.map { kind in .init(title: "Turn on", isPrimary: true) { turnOn(kind) } }
         default: nil
         }
     }

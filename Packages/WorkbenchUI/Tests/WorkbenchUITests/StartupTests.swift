@@ -13,11 +13,40 @@ struct StartupTests {
             Issue.record("the store should open")
             return
         }
-        #expect(session.crew.machines.map(\.name) == ["Pip", "Timeline"])
-        #expect(session.crew.crew.map(\.name) == ["Pip"] && session.crew.crew.first?.isReady == false)
+        #expect(session.crew.machines.isEmpty, "the machines are made when onboarding finishes")
         #expect(session.runs.runs.isEmpty)
         #expect(!session.onboarding.isFinished)
         #expect(try session.store.queries.count(of: .activity) == 0)
+    }
+
+    private func launch(_ folder: URL) throws -> AppSession {
+        guard case .ready(let session) = AppLaunch.start(storeFolder: folder) else {
+            throw CocoaError(.fileReadUnknown)
+        }
+        return session
+    }
+
+    @Test(arguments: [TeamTemplate.fund, .startupTeam]) func aNewStoreHoldsExactlyTheMachinesOfTheChosenTemplate(
+        template: TeamTemplate
+    ) throws {
+        let session = try launch(scratchFolder())
+        session.team.template = template
+        session.onboarding.advance(to: .done)
+        session.onboarding.next()
+        let expected = template.seeds.map(\.name)
+        #expect(try session.store.queries.machines().map(\.name) == expected)
+        #expect(session.crew.machines.map(\.name) == expected)
+    }
+
+    @Test func anExistingStoreIsTheSameAfterALaunch() throws {
+        let folder = scratchFolder()
+        do {
+            let store = try Store(directory: folder)
+            try store.seedMachines([(.team, "Pip")])
+        }
+        let session = try launch(folder)
+        #expect(try session.store.queries.machines().map(\.name) == ["Pip"])
+        #expect(!session.onboarding.startsTeam)
     }
 
     @Test func aStoreFromANewerVersionShowsThePlainSentence() throws {

@@ -23,7 +23,8 @@ struct ConnectStatusTests {
 
     @Test func allowedSourcesAreReady() {
         let facts = ConnectFacts(
-            readerFound: true, screenOn: true, screenTrusted: true, calendarOn: true, callsOn: true)
+            readerFound: true, screenOn: true, screenTextOn: true, screenTrusted: true, calendarOn: true, callsOn: true,
+            mailOn: true, webOn: true)
         for row in ConnectRow.allCases where row != .whatsApp { #expect(facts.status(of: row) == .ready) }
     }
 

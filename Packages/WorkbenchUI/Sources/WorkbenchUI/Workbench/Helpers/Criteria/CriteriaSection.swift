@@ -19,7 +19,7 @@ struct CriteriaSection: View {
             "Criteria · \(model.draft.rules.count) \(model.draft.rules.count == 1 ? "rule" : "rules")",
             isExpanded: $isOpen
         ) {
-            CriteriaBody(model: model, save: { model.save(into: crew) })
+            CriteriaBody(model: model, save: { model.save { crew.setCriteria(helper, $0) } })
                 .padding(.top, Space.m)
         }
         .textStyle(.headline)
@@ -30,13 +30,15 @@ struct CriteriaSection: View {
 struct CriteriaBody: View {
     let model: CriteriaModel
     let save: () -> Void
+    var showsPreview = true
+    var saveTitle = "Save criteria"
 
     var body: some View {
         VStack(alignment: .leading, spacing: Space.m) {
             Text(
                 "Your thesis, as rules. The model judges each rule with a quote; code makes the call by the table below."
             )
-            .textStyle(.callout).foregroundStyle(.supporting)
+            .textStyle(.callout).foregroundStyle(.supporting).fixedSize(horizontal: false, vertical: true)
             ForEach(model.draft.rules) { RuleRow(model: model, rule: $0) }
             if let form = model.form {
                 RuleForm(
@@ -46,10 +48,10 @@ struct CriteriaBody: View {
                 Button("Add a rule", systemImage: "plus", action: model.add)
             }
             CombineTable(model: model)
-            PreviewNote(preview: model.preview, isChanged: model.isChanged)
+            if showsPreview { PreviewNote(preview: model.preview, isChanged: model.isChanged) }
             if let blocker = model.blocker { Text(blocker).textStyle(.callout).foregroundStyle(Tone.bad.color) }
             HStack {
-                Button("Save criteria", action: save).disabled(!model.isChanged || model.blocker != nil)
+                Button(saveTitle, action: save).disabled(!model.isChanged || model.blocker != nil)
                 Button("Discard changes", action: model.discard).disabled(!model.isChanged)
             }
         }

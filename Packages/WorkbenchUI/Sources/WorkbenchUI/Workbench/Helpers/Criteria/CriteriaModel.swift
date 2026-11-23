@@ -2,23 +2,31 @@ import Foundation
 import Observation
 import WorkbenchCore
 
-/// The criteria editor's state: the founder's unsaved edits to a machine's criteria, and what they would do to the
-/// deals already read. Nothing reaches the machine until `save`; saving is a new prompt version.
+/// The criteria editor's state: the founder's unsaved edits to criteria, and what they would do to the deals already
+/// read. Nothing is kept until `save`; saving a machine's criteria is a new prompt version.
 @Observable
 final class CriteriaModel {
     private(set) var draft: Criteria
+    private(set) var saved: Criteria
     var form: RuleDraft?
 
-    @ObservationIgnored private let helper: HelperModel
+    @ObservationIgnored private let title: String
+    @ObservationIgnored private let items: (Int) -> [Item]
     /// How far back the preview looks for deals already read.
     static let previewDays = 90
 
-    init(helper: HelperModel) {
-        self.helper = helper
-        draft = helper.spec.criteria ?? Criteria()
+    init(saved: Criteria, title: String, items: @escaping (Int) -> [Item] = { _ in [] }) {
+        self.saved = saved
+        self.title = title
+        self.items = items
+        draft = saved
     }
 
-    var saved: Criteria { helper.spec.criteria ?? Criteria() }
+    convenience init(helper: HelperModel) {
+        self.init(
+            saved: helper.spec.criteria ?? Criteria(), title: helper.spec.title, items: helper.items(since:))
+    }
+
     var isChanged: Bool { draft != saved }
     /// What stops the draft from being saved, in words; nil when it can be.
     var blocker: String? { draft.problem }
@@ -26,7 +34,7 @@ final class CriteriaModel {
     /// The effect of the unsaved edits on the deals already read, worked out in code with no model call.
     var preview: CriteriaPreview {
         CriteriaPreview(
-            items: helper.items(since: Self.previewDays), title: helper.spec.title, current: saved, edited: draft)
+            items: items(Self.previewDays), title: title, current: saved, edited: draft)
     }
 
     func add() { form = RuleDraft() }
@@ -55,9 +63,10 @@ final class CriteriaModel {
         form = nil
     }
 
-    func save(into crew: Crew) {
+    /// Keeps the draft as the saved criteria and hands it to `persist`. A draft with a problem is kept by nobody.
+    func save(_ persist: (Criteria) -> Void) {
         guard blocker == nil else { return }
-        crew.setCriteria(helper, draft)
-        draft = helper.spec.criteria ?? draft
+        saved = draft
+        persist(draft)
     }
 }

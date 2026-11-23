@@ -4,13 +4,16 @@ import WorkbenchCore
 
 @Observable
 final class OnboardingModel {
-    let screens = OnboardingScreen.allCases
     let identityModel: IdentityModel
     let teamModel: TeamModel
+    /// Whether finishing setup makes the template's machines: true for a store that never held a machine.
+    let startsTeam: Bool
+    private(set) var answers: SetupAnswers = [:]
     private(set) var index = 0 { didSet { save() } }
     private(set) var isFinished = false { didSet { save() } }
     private(set) var saveError: (any Error)?
     @ObservationIgnored private let store: Store?
+    @ObservationIgnored private let teamStarted: () -> Void
 
     private struct Saved: Codable {
         var index: Int
@@ -19,12 +22,17 @@ final class OnboardingModel {
 
     private static let stateKey = StateKey<Saved>.json("onboarding")
 
-    init(store: Store? = nil, identity: IdentityModel = IdentityModel(), team: TeamModel? = nil) {
+    init(
+        store: Store? = nil, identity: IdentityModel = IdentityModel(), team: TeamModel? = nil,
+        teamStarted: @escaping () -> Void = {}
+    ) {
         self.store = store
+        self.teamStarted = teamStarted
         identityModel = identity
         teamModel = team ?? TeamModel(store: store, me: { identity.identity.name })
+        startsTeam = (try? store?.queries.holdsMachine()) != true
         do {
-            guard let saved = try Self.savedState(in: store) else { return }
+            guard let saved = try savedState() else { return }
             index = saved.index
             isFinished = saved.isFinished
         } catch {
@@ -32,11 +40,9 @@ final class OnboardingModel {
         }
     }
 
-    private static func savedState(in store: Store?) throws -> Saved? {
-        guard let store, let saved = try stateKey.load(from: store) else { return nil }
-        guard OnboardingScreen.allCases.indices.contains(saved.index) else {
-            throw OnboardingError.savedStateUnreadable
-        }
+    private func savedState() throws -> Saved? {
+        guard let store, let saved = try Self.stateKey.load(from: store) else { return nil }
+        guard screens.indices.contains(saved.index) else { throw OnboardingError.savedStateUnreadable }
         return saved
     }
 
@@ -51,6 +57,12 @@ final class OnboardingModel {
         }
     }
 
+    var template: TeamTemplate { teamModel.template }
+    var needs: [SourceNeed] { template.sourceNeeds }
+    /// The questions of the template's machines, asked only when finishing setup makes those machines.
+    var questions: [SetupQuestion] { startsTeam ? template.setupQuestions : [] }
+    var screens: [OnboardingScreen] { OnboardingScreen.allCases.filter { $0 != .setup || !questions.isEmpty } }
+
     var screen: OnboardingScreen { screens[index] }
     var isFirst: Bool { index == 0 }
     var isLast: Bool { index == screens.count - 1 }
@@ -58,18 +70,42 @@ final class OnboardingModel {
         switch screen {
         case .you: identityModel.identity.hasName
         case .team: teamModel.team.name.cleaned != nil
-        case .welcome, .connect, .done: true
+        case .welcome, .connect, .setup, .done: true
         }
     }
+
+    func summary(connected: [String]) -> SetupSummary {
+        SetupSummary(
+            machines: startsTeam ? template.seeds.map(\.name) : [], keepsMachines: !startsTeam,
+            asksSources: !needs.isEmpty, connected: connected, answered: questions.filter { answers[$0] != nil }.count,
+            questions: questions.count)
+    }
+
+    func answer(_ question: SetupQuestion, with answer: SetupAnswer) { answers[question] = answer }
+
+    func useDefaults(for question: SetupQuestion) { answers[question] = nil }
+
+    /// The spec the template gives the first machine a question is about, before any answer.
+    func templateSpec(of question: SetupQuestion) -> HelperSpec { template.seeds[question.machines[0]].spec }
 
     func next() {
         guard canContinue else { return }
         if screen == .you { teamModel.reload() }
         if screen == .team { teamModel.save() }
         if isLast {
-            isFinished = true
+            finish()
         } else {
             index += 1
+        }
+    }
+
+    private func finish() {
+        do {
+            try store?.startTeam(from: template, answers: answers)
+            teamStarted()
+            isFinished = true
+        } catch {
+            saveError = OnboardingError.teamNotStarted(error.localizedDescription)
         }
     }
 
@@ -88,11 +124,13 @@ final class OnboardingModel {
 enum OnboardingError: Error, Equatable, LocalizedError {
     case savedStateUnreadable
     case notSaved(String)
+    case teamNotStarted(String)
 
     var errorDescription: String? {
         switch self {
         case .savedStateUnreadable: "Workbench could not read your saved setup, so setup starts again."
         case .notSaved(let reason): "Your setup was not saved: \(reason)"
+        case .teamNotStarted(let reason): "Your team’s machines were not made: \(reason)"
         }
     }
 }

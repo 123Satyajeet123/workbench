@@ -103,7 +103,16 @@ run "78 an erased line's words survive in a fact field" $C/Store/EvidenceCopies.
 run "79 a news feed the machine's spec does not list is fetched" $C/News/NewsFeed.swift 's/guard feeds\.contains\(feed\) else \{ throw FeedError\.notAFeed\(feed\.url\) \}\n//' WorkbenchCore
 run "80 a news feed host is named in code outside the template data" $C/News/NewsFeed.swift 's/The feeds are a list in the machine.s spec/The feeds, such as inc42.com, are a list in the machine'"'"'s spec/' WorkbenchCore
 run "81 a claim type the spec does not list is kept" $C/Claims/ClaimExtractor.swift 's/\.enumeration\(types\.map\(\\\.id\)\)/.string/' WorkbenchCore
-run "82 a store that has machines is started from a template again" $C/Store/CrewStore.swift 's/if isNew \{ try seedMachines/if true { try seedMachines/' WorkbenchCore
-run "83 a template asks for one source twice" $C/Templates/TeamTemplate.swift 's/if !kinds\.contains\(kind\) \{ kinds\.append\(kind\) \}/kinds.append(kind)/' WorkbenchCore
+run "82 a store that has machines is started from a template again" $C/Store/CrewStore.swift 's/guard try !queries\.holdsMachine\(\) else \{ return TeamStart\(\) \}\n//' WorkbenchCore
+run "83 a template asks for one source twice" $C/Templates/TeamTemplate.swift 's/if !needs\.contains\(where: \{ \$0\.kind == kind \}\) \{/if true {/' WorkbenchCore
 run "84 an existing machine loses the feeds of its template" $C/Templates/MachineTemplate.swift 's/spec\.feeds = feeds \?\? template\?\.feeds/spec.feeds = feeds/' WorkbenchCore WorkbenchUI
+run "85 a setup answer is not saved into its machine's spec" $C/Store/CrewStore.swift 's/            try apply\(answer, to: machine\)\n//' WorkbenchCore WorkbenchUI
+run "86 a claim type list with no type is saved" $C/Store/SpecListStore.swift 's/guard !types\.isEmpty, /guard /' WorkbenchCore
+run "87 a news feed with no name is saved" $C/Store/SpecListStore.swift 's/guard feeds\.allSatisfy\(\{ \$0\.name\.cleaned != nil \}\) else \{ return \}\n//' WorkbenchCore
+run "88 the set-up step is asked when no machine has a field" WorkbenchUI/Sources/WorkbenchUI/Onboarding/OnboardingModel.swift 's/\{ \$0 != \.setup \|\| !questions\.isEmpty \}/{ _ in true }/' WorkbenchUI
+run "89 connect lists a source no machine needs" WorkbenchUI/Sources/WorkbenchUI/Onboarding/ConnectStatus.swift 's/\[\.reader\] \+ needs\.compactMap \{ Self\(\$0\.kind\) \}/[.reader] + Self.sources/' WorkbenchUI
+run "90 finishing setup makes no machine" WorkbenchUI/Sources/WorkbenchUI/Onboarding/OnboardingModel.swift 's/            try store\?\.startTeam\(from: template, answers: answers\)\n//' WorkbenchUI
+run "91 questions are asked for a store that holds machines" WorkbenchUI/Sources/WorkbenchUI/Onboarding/OnboardingModel.swift 's/startsTeam \? template\.setupQuestions : \[\]/template.setupQuestions/' WorkbenchUI
+run "92 the app seeds Pip and Timeline at launch, before the chosen template" WorkbenchUI/Sources/WorkbenchUI/Data/AppLaunch.swift 's/(let identity = IdentityModel\(store: store\)\n)/$1            try store.seedMachines(MachineTemplate.seeded.map { (\$0.spec, \$0.name) })\n/' WorkbenchUI
+run "93 machines with different template values share one setup question" $C/Templates/TeamSetup.swift 's/\$0\.kind == kind && \$0\.templateValue == value/\$0.kind == kind/' WorkbenchCore WorkbenchUI
 echo DONE

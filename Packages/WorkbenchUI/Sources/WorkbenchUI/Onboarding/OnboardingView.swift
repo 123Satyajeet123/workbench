@@ -23,7 +23,9 @@ struct OnboardingView: View {
             ScrollView {
                 OnboardingStep(
                     screen: model.screen,
-                    facts: ConnectFacts(access: access, capture: capture, today: today, pip: crew.team)
+                    facts: ConnectFacts(
+                        access: access, capture: capture, today: today, pip: crew.team,
+                        sourceRows: ConnectRow.rows(for: model.needs).filter { $0 != .reader })
                 )
                 .padding(.horizontal, Space.page)
                 .padding(.bottom, Space.l)
@@ -72,6 +74,7 @@ struct OnboardingView: View {
         switch model.screen {
         case .welcome: "Get started"
         case .done: "Open Workbench"
+        case .setup: model.answers.isEmpty ? "Skip" : "Continue"
         case .you, .team, .connect: "Continue"
         }
     }
