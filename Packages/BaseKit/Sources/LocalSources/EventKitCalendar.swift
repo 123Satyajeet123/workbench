@@ -11,13 +11,17 @@ public final class EventKitCalendar: CalendarEvents, @unchecked Sendable {
     public func requestAccess() async -> SystemAccess { await EventKitAccess.request(.event) }
 
     public func calendars() -> [CalendarInfo] {
-        store.calendars(for: .event).map { CalendarInfo(id: $0.calendarIdentifier, title: $0.title) }
+        store.calendars(for: .event).map {
+            CalendarInfo(
+                id: $0.calendarIdentifier, title: $0.title,
+                isMeetingCalendar: $0.type != .birthday && $0.type != .subscription)
+        }
     }
 
     public func meetings(during interval: DateInterval, in calendarIDs: [String]) -> [Meeting] {
         let chosen = store.calendars(for: .event).filter { calendarIDs.contains($0.calendarIdentifier) }
         let predicate = store.predicateForEvents(withStart: interval.start, end: interval.end, calendars: chosen)
-        return store.events(matching: predicate).filter { $0.status != .canceled }.map(Self.meeting)
+        return store.events(matching: predicate).filter { $0.status != .canceled && !$0.isAllDay }.map(Self.meeting)
     }
 
     private static func meeting(_ event: EKEvent) -> Meeting {

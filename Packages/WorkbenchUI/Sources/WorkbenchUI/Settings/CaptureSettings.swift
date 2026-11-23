@@ -55,17 +55,17 @@ final class CaptureSettings {
         change { $0.browsers[browser.bundleID] = on ? browser.name : nil }
     }
 
-    /// The calendars among `all` that Today reads: every one until the person chooses.
+    /// The calendars among `all` that Today reads: every meeting calendar until the person chooses.
     func calendarChoices(among all: [CalendarInfo]) -> [CalendarChoice] {
-        let chosen = service.policy.allowList[.calendar]
-        return all.map { CalendarChoice(id: $0.id, title: $0.title, isRead: chosen?.contains($0.id) ?? true) }
+        let read = Set(all.read(chosen: service.policy.allowList[.calendar]).map(\.id))
+        return all.map { CalendarChoice(id: $0.id, title: $0.title, isRead: read.contains($0.id)) }
     }
 
-    /// Reads or stops reading one calendar. Choosing every calendar again clears the choice.
+    /// Reads or stops reading one calendar. Choosing the meeting calendars again clears the choice.
     func toggle(_ calendar: CalendarChoice, among all: [CalendarInfo]) {
         var read = Set(calendarChoices(among: all).filter(\.isRead).map(\.id))
         if calendar.isRead { read.remove(calendar.id) } else { read.insert(calendar.id) }
-        change { $0.allowList[.calendar] = read.count == all.count ? nil : read }
+        change { $0.allowList[.calendar] = read == Set(all.read(chosen: nil).map(\.id)) ? nil : read }
     }
 
     var denyList: [DeniedPlace] { (service.policy.denyList[.screen] ?? []).sorted().map(DeniedPlace.init(label:)) }

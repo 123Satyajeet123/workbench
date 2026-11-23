@@ -44,7 +44,7 @@ public struct MeetingReader: Sendable {
         guard access == .allowed else { throw CalendarError.accessRefused(access) }
         let calendars = calendar.calendars()
         var chosen: [String] = []
-        for each in calendars {
+        for each in calendars.read(chosen: current.allowList[.calendar]) {
             switch current.authorize(CaptureRequest(kind: .calendar, label: each.id), at: now) {
             case .allow: chosen.append(each.id)
             case .deny(.labelNotAllowed), .deny(.labelDenied): continue

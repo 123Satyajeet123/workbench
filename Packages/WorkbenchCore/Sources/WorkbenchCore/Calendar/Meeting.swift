@@ -41,9 +41,19 @@ public struct Meeting: Sendable, Equatable, Identifiable {
 public struct CalendarInfo: Sendable, Equatable, Identifiable {
     public var id: String
     public var title: String
+    /// False for a calendar of birthdays or a subscribed feed, such as public holidays.
+    public var isMeetingCalendar: Bool
 
-    public init(id: String, title: String) {
+    public init(id: String, title: String, isMeetingCalendar: Bool = true) {
         self.id = id
         self.title = title
+        self.isMeetingCalendar = isMeetingCalendar
+    }
+}
+
+extension Sequence<CalendarInfo> {
+    /// The calendars that Today reads: the chosen ones, or every meeting calendar until the person chooses.
+    public func read(chosen: Set<String>?) -> [CalendarInfo] {
+        filter { chosen?.contains($0.id) ?? $0.isMeetingCalendar }
     }
 }
