@@ -107,8 +107,10 @@ public struct Mochi: FixedModelTask {
     }
 
     public let model: RecordedModel
+    public let zone: TimeZone
 
-    public init(model: RecordedModel) {
+    public init(model: RecordedModel, zone: TimeZone = .current) {
+        self.zone = zone
         self.model = model
     }
 
@@ -119,7 +121,7 @@ public struct Mochi: FixedModelTask {
     ) async throws -> Result {
         guard Self.days(in: blocks) >= Self.minimumDays else { return Result(proposals: [], dropped: 0, run: nil) }
         let (reply, run) = try await ask(
-            Self.input(blocks: blocks, roster: roster, templates: templates, earlier: earlier),
+            Self.input(blocks: blocks, roster: roster, templates: templates, earlier: earlier, zone: zone),
             holding: Set(blocks.map(\.source)))
         let byID = Dictionary(blocks.compactMap { item in item.id.map { ($0, item) } }, uniquingKeysWith: { a, _ in a })
         let views = Dictionary(templates.map { ($0.id, Set($0.views)) }, uniquingKeysWith: { a, _ in a })
@@ -139,13 +141,15 @@ public struct Mochi: FixedModelTask {
         return Result(proposals: kept, dropped: reply.proposals.count - kept.count, run: run)
     }
 
-    static func input(blocks: [Item], roster: [Machine], templates: [Template], earlier: [Proposal]) -> String {
-        let time = Date.FormatStyle(date: .omitted, time: .shortened).hour(.twoDigits(amPM: .omitted)).minute()
+    static func input(
+        blocks: [Item], roster: [Machine], templates: [Template], earlier: [Proposal], zone: TimeZone
+    ) -> String {
+        let time = { (date: Date) in ModelClock.time(date, in: zone) }
         let lines = blocks.compactMap { block -> String? in
             guard let id = block.id else { return nil }
             let minutes = Int(block.end.timeIntervalSince(block.start) / 60)
             let fields = block.fields.sorted { $0.key < $1.key }.map(\.value).filter { !$0.isEmpty }
-            return "[\(id)] \(block.day) \(block.start.formatted(time))–\(block.end.formatted(time)) (\(minutes)) "
+            return "[\(id)] \(block.day) \(time(block.start))–\(time(block.end)) (\(minutes)) "
                 + "\(fields.joined(separator: " — ")) — \"\(block.quote)\" — \(block.state.rawValue)"
         }
         let machines = roster.map { "- \($0.name) (\($0.template)): \($0.spec.brief.prefix(160))" }

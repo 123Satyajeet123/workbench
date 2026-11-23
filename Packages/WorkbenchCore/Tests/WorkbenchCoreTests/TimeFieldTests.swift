@@ -35,7 +35,7 @@ import Testing
     }
 
     @Test func theModelIsToldTheWeekdayOfTheWorkDay() {
-        let input = HelperReader.input(day: Days.first, evidence: EvidenceSet(lines: []))
+        let input = HelperReader.input(day: Days.first, evidence: EvidenceSet(lines: []), zone: .current)
         #expect(input.contains("Work day: \(Days.first) (\(Days.first.weekdayName))"))
         #expect(
             ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].contains(

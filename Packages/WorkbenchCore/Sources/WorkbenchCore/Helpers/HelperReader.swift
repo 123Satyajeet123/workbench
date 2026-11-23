@@ -82,7 +82,7 @@ public struct HelperReader: ModelTask {
         for part in Self.parts(of: evidence, budget: budget) {
             let (reply, partRun) = try await ask(
                 Self.examples(examples, spec: spec) + Self.open(open, spec: spec) + Self.places(places)
-                    + Self.input(day: day, evidence: part),
+                    + Self.input(day: day, evidence: part, zone: zone),
                 holding: [spec.source.kind],
                 window: part.lines.compactMap { line in line.lineID.map { WindowLine(number: line.id, lineID: $0) } })
             let verifier = Verifier(window: part, settings: try model.verifierSettings(), zone: zone)
@@ -307,15 +307,15 @@ public struct HelperReader: ModelTask {
             ]))
     }
 
-    static func input(day: WorkDay, evidence: EvidenceSet) -> String {
-        let time = Date.FormatStyle(date: .omitted, time: .shortened).hour(.twoDigits(amPM: .omitted)).minute()
+    static func input(day: WorkDay, evidence: EvidenceSet, zone: TimeZone) -> String {
+        let time = { (date: Date) in ModelClock.time(date, in: zone) }
         let context = evidence.context.sorted { $0.key < $1.key }.map {
             "\($0.key.prefix(1).uppercased() + $0.key.dropFirst()): \($0.value.joined(separator: ", "))"
         }
         let format = { (line: Evidence) -> String in
-            guard let end = line.end else { return "[\(line.id)] \(line.start.formatted(time)) \(line.line)" }
+            guard let end = line.end else { return "[\(line.id)] \(time(line.start)) \(line.line)" }
             let minutes = Int((end.timeIntervalSince(line.start) / 60).rounded())
-            return "[\(line.id)] \(line.start.formatted(time))–\(end.formatted(time)) (\(minutes)) \(line.line)"
+            return "[\(line.id)] \(time(line.start))–\(time(end)) (\(minutes)) \(line.line)"
         }
         guard evidence.hasBeenRead else {
             return (["Work day: \(day) (\(day.weekdayName))"] + context + [""] + evidence.lines.map(format)).joined(
