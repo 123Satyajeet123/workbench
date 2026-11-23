@@ -13,11 +13,23 @@ public struct CallSource: Equatable, Sendable {
 
     static let inPerson = CallSource(service: "In person")
 
-    private static let sites: [(host: String, path: String, service: String)] = [
-        ("meet.google.com", "", "Google Meet"), ("zoom.us", "", "Zoom"), ("teams.microsoft.com", "", "Microsoft Teams"),
-        ("teams.live.com", "", "Microsoft Teams"), ("app.slack.com", "/huddle", "Slack"),
-        ("discord.com", "", "Discord"),
-        ("web.whatsapp.com", "", "WhatsApp"), ("whereby.com", "", "Whereby"), ("web.telegram.org", "", "Telegram"),
+    /// Each web site of calls: its host, its service, where a call in a browser tab is (`callPath`), and the paths of
+    /// a link that joins a meeting (`invitePaths`; empty when the site gives none). The one table a call tab and a
+    /// calendar link are both named by.
+    static let sites: [CallSite] = [
+        CallSite("meet.google.com", "Google Meet", invitePaths: [""]),
+        CallSite("zoom.us", "Zoom", invitePaths: ["/j/", "/my/", "/w/", "/s/"]),
+        CallSite("teams.microsoft.com", "Microsoft Teams", invitePaths: ["/l/meetup-join", "/meet/"]),
+        CallSite("teams.live.com", "Microsoft Teams", invitePaths: ["/meet/"]),
+        CallSite("app.slack.com", "Slack", callPath: "/huddle", invitePaths: ["/huddle"]),
+        CallSite("webex.com", "Webex", invitePaths: [""]),
+        CallSite("facetime.apple.com", "FaceTime", invitePaths: ["/join"]),
+        CallSite("whereby.com", "Whereby", invitePaths: [""]),
+        CallSite("meet.jit.si", "Jitsi", invitePaths: [""]),
+        CallSite("discord.gg", "Discord", invitePaths: [""]),
+        CallSite("discord.com", "Discord"),
+        CallSite("web.whatsapp.com", "WhatsApp"),
+        CallSite("web.telegram.org", "Telegram"),
     ]
 
     private static let apps: [String: String] = [
@@ -42,10 +54,8 @@ public struct CallSource: Equatable, Sendable {
     }
 
     private static func site(of address: String) -> String? {
-        let url = URL(string: address.contains("://") ? address : "https://" + address)
-        guard let host = url?.host()?.lowercased() else { return nil }
-        let path = url?.path() ?? ""
-        return sites.first { (host == $0.host || host.hasSuffix("." + $0.host)) && path.hasPrefix($0.path) }?.service
+        guard let url = URL(string: address.contains("://") ? address : "https://" + address) else { return nil }
+        return sites.first { $0.hosts(url) && url.path().hasPrefix($0.callPath) }?.service
     }
 
     private static func cleanTitle(_ title: String, skipping skipped: Set<String>) -> String {
@@ -59,5 +69,31 @@ public struct CallSource: Equatable, Sendable {
 
     private static func isMeetingCode(_ part: String) -> Bool {
         part.wholeMatch(of: /[a-z]{3}-[a-z]{4}-[a-z]{3}/) != nil || part.wholeMatch(of: /[\d ]{9,13}/) != nil
+    }
+}
+
+/// A web site where calls happen. See `CallSource.sites`.
+struct CallSite: Sendable {
+    let host: String
+    let service: String
+    let callPath: String
+    let invitePaths: [String]
+
+    init(_ host: String, _ service: String, callPath: String = "", invitePaths: [String] = []) {
+        self.host = host
+        self.service = service
+        self.callPath = callPath
+        self.invitePaths = invitePaths
+    }
+
+    func hosts(_ url: URL) -> Bool {
+        guard let name = url.host()?.lowercased() else { return false }
+        return name == host || name.hasSuffix("." + host)
+    }
+
+    /// A link that joins a meeting here. A site whose every path invites still needs a path past its root.
+    func invites(_ url: URL) -> Bool {
+        let path = url.path()
+        return hosts(url) && invitePaths.contains { path.hasPrefix($0) } && !(invitePaths == [""] && path.count <= 1)
     }
 }
