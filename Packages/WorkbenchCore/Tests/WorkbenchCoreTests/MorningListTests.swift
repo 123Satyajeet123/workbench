@@ -48,6 +48,7 @@ func pickedNeeds(
     facts: [Item] = [], findings: [Item] = [], revisits: [Item] = [], news: [Item] = [], now: Date
 ) -> [Need] {
     var input = MorningInput(facts: facts, me: "Kabir")
+    input.ownerField = { _ in "person" }
     input.findings = findings
     input.revisits = revisits
     input.news = news
