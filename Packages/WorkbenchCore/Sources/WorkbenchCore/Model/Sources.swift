@@ -6,6 +6,9 @@ public enum SourceKind: String, Codable, CaseIterable, Sendable {
     /// What the person typed themselves, such as the action a deal waits for. It is not captured content: no switch,
     /// no grant, no run, and a delete of a source never removes it. See `Store.delete`.
     case typed
+    /// What the person wrote in a project note. It is their own writing: the capture switch and pause do not stop it,
+    /// and age does not erase it. Only the person's delete does. See `Store.saveNote`.
+    case note
     case whatsapp
     case call
     /// Gmail threads opened inside one named label, read by the browser extension.

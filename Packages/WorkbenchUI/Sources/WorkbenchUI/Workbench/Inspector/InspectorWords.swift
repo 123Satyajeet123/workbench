@@ -66,6 +66,7 @@ extension SourceKind {
         case .web: "Web"
         case .files: "Files"
         case .typed: "Typed by you"
+        case .note: "Your note"
         }
     }
 }

@@ -138,7 +138,13 @@ extension Store {
             }
             var report = IngestReport()
             for item in reading.lines { report.add(try EvidenceStamp.write(item, stamp, in: db)) }
-            if report.erasedLines > 0 { try db.execute(sql: EvidenceStamp.optimizeSearch) }
+            if let structure = reading.structure {
+                try EvidenceStamp.write(structure, of: reading.container, at: stamp.now, in: db)
+            }
+            if report.erasedLines > 0 {
+                try db.execute(sql: EvidenceStamp.optimizeSearch)
+                try EvidenceStamp.dropOrphanStructure(in: db)
+            }
             if let cursor = reading.cursorAfter {
                 try Self.saveCursor(cursor, grantID: grantID, in: db, at: clock())
                 if reading.mapsLegacyRefs { try Self.noteLegacyMapped(cursor, grantID: grantID, in: db) }

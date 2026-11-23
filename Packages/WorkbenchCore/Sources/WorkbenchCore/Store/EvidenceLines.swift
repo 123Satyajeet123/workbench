@@ -97,6 +97,7 @@ extension Queries {
                 sql: """
                     SELECT e.id AS number, \(StoredLine.columns) FROM evidence e
                     WHERE e.container IN (\(marks)) AND e.event_time >= ? AND e.event_time < ?
+                        AND NOT EXISTS (SELECT 1 FROM entity_supersede s WHERE s.entity_key = e.entity_key)
                         AND e.id = (SELECT v.id FROM evidence v WHERE v.entity_key = e.entity_key
                             ORDER BY v.last_seen DESC, v.id DESC LIMIT 1)
                     ORDER BY e.event_time, e.id

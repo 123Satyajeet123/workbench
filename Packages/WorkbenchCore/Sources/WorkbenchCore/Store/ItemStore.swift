@@ -50,7 +50,7 @@ extension Store {
             : try Queries.items(db, of: spec.task, day: day, scope: scope)
     }
 
-    private func insert(_ item: Item, day: WorkDay, scope: String, _ db: Database) throws -> Int64 {
+    func insert(_ item: Item, day: WorkDay, scope: String, _ db: Database) throws -> Int64 {
         try db.execute(
             sql: """
                 INSERT INTO item(task, run_id, day, scope, source, cite_first, cite_last, start_at, end_at, fields,

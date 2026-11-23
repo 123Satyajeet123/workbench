@@ -164,7 +164,7 @@ extension Store {
     }
 
     private func remove(_ db: Database, _ kind: SourceKind, before cutoff: Date) throws -> [String] {
-        guard kind != .typed else { return [] }
+        guard kind != .typed, kind != .note || cutoff == .distantFuture else { return [] }
         _ = try Self.eraseEvidence(.kind(kind, before: cutoff == .distantFuture ? nil : cutoff), in: db)
         try db.execute(
             sql: "DELETE FROM item WHERE source = ? AND start_at < ?", arguments: [kind.rawValue, cutoff.stored])
@@ -175,7 +175,7 @@ extension Store {
             try removeActivity(db, Activity.Kind.allCases.filter { $0 != .file }, before: cutoff)
         case .screenText: try removeActivity(db, [.text, .page], before: cutoff)
         case .files: try removeActivity(db, [.file], before: cutoff)
-        case .whatsapp, .typed: break
+        case .whatsapp, .typed, .note: break
         case .mail:
             try db.execute(sql: "DELETE FROM mail_part WHERE seen_at < ?", arguments: [cutoff.stored])
             try db.execute(sql: "DELETE FROM mail_open WHERE day < ?", arguments: [String(cutoff.stored.prefix(10))])

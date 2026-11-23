@@ -102,6 +102,11 @@ public struct EntityKey: Hashable, Sendable {
             kind: "web", [try field(site, "site"), try field(container, "container"), try field(itemID, "itemID")])
     }
 
+    /// A paragraph of a note the person writes: the note and the block, both named by the editor.
+    public static func note(noteID: String, blockID: String) throws(EntityKeyError) -> EntityKey {
+        EntityKey(kind: "note", [try field(noteID, "noteID"), try field(blockID, "blockID")])
+    }
+
     /// One occurrence of a calendar event: EventKit's `calendarItemExternalIdentifier` and the occurrence's start.
     public static func calendar(externalID: String, occurrence: UTCInstant) throws(EntityKeyError) -> EntityKey {
         EntityKey(kind: "calendar", [try field(externalID, "externalID"), occurrence.bytes])

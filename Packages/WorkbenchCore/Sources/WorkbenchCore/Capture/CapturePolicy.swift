@@ -107,6 +107,7 @@ public struct CapturePolicy: Codable, Sendable, Equatable {
     }
 
     public func authorize(_ request: CaptureRequest, at now: Date) -> CaptureDecision {
+        if request.kind == .note { return authorizeNote(request, at: now) }
         if mode == .off { return .deny(.captureOff) }
         guard isEnabled(request.kind) else { return .deny(.sourceSwitchedOff) }
         if let label = request.label, denyList[request.kind]?.contains(label) == true {
@@ -130,6 +131,15 @@ public struct CapturePolicy: Codable, Sendable, Equatable {
                 CaptureGrant(
                     kind: request.kind, label: request.label, expiresAt: now.addingTimeInterval(Self.grantLifetime)))
         }
+    }
+}
+
+extension CapturePolicy {
+    /// A note is what the person writes, not what a sensor reads: only a project the person put on the deny list stops it.
+    fileprivate func authorizeNote(_ request: CaptureRequest, at now: Date) -> CaptureDecision {
+        if let label = request.label, denyList[.note]?.contains(label) == true { return .deny(.labelDenied) }
+        return .allow(
+            CaptureGrant(kind: .note, label: request.label, expiresAt: now.addingTimeInterval(Self.grantLifetime)))
     }
 }
 
