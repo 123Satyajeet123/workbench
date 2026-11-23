@@ -1,13 +1,21 @@
 // Sends the open Gmail thread to Workbench, only while the person has it open inside the label they named in Workbench.
-// It listens and reads; it never clicks, types, focuses or changes the page. The host checks the consent again.
+// It listens and reads; it never clicks, types, focuses or changes the page. The host checks the consent again. When the
+// page lost the attributes the reader expects, it sends nothing but one report that the reader is stale.
 (() => {
   const { readThread, fetchDeck, splitIntoChunks } = globalThis.WorkbenchMail;
   const settleMilliseconds = 1500;
   const handled = new Set();
   let timer;
   let sending = false;
+  let reportedStale = null;
 
-  const ask = (message) => chrome.runtime.sendMessage({ mail: message });
+  const ask = (message) => chrome.runtime.sendMessage({ mail: message }).catch(() => undefined);
+
+  function report(site, stale) {
+    if (reportedStale === stale) return;
+    reportedStale = stale;
+    chrome.runtime.sendMessage({ adapter: { site, stale } }).catch(() => undefined);
+  }
 
   async function sendDecks(message, context, wanted) {
     for (const attachment of message.attachments.filter(({ name }) => wanted.includes(name))) {
@@ -33,8 +41,13 @@
 
   async function sendOpenThread() {
     if (sending || document.visibilityState !== "visible") return;
-    const thread = readThread(document, location.hash);
+    const thread = readThread(document, location);
     if (!thread) return;
+    if (thread.stale) {
+      report(thread.stale, true);
+      return;
+    }
+    report(thread.site, false);
     sending = true;
     try {
       const status = await ask({ type: "mail_status" });

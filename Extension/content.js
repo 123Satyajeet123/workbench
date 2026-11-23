@@ -1,48 +1,55 @@
-// Sends the text the person can see on this page to Workbench, through the extension's service worker. Only text on
-// screen, never what is typed in a field; at most once per interval, and only when it changed.
-const maximumCharacters = 20000;
-const interval = 10000;
-const skipped = "input, textarea, select, [contenteditable=''], [contenteditable='true'], script, style, noscript";
-let lastText = "";
-let lastSentAt = 0;
+// Sends the text the person can see in this frame to Workbench, through the extension's service worker. Only text on
+// screen, never what is typed in a field; at most once per interval, and only when it changed. Every frame of a page
+// runs this on its own; the service worker tags each frame's text with that frame's address. A single-page app that
+// changes its address is read again at once.
+(() => {
+  const { page, records } = globalThis.WorkbenchReader;
+  const interval = 10000;
+  const settleMilliseconds = 1500;
+  const reconnectMilliseconds = 5000;
+  let lastKey = "";
+  let lastSentAt = 0;
+  let reportedShape = null;
+  let timer;
 
-function isOnScreen(box) {
-  return box.width > 0 && box.height > 0 && box.bottom > 0 && box.right > 0 &&
-    box.top < window.innerHeight && box.left < window.innerWidth;
-}
+  const send = (message) => chrome.runtime.sendMessage(message).catch(() => undefined);
 
-function visibleText() {
-  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-  const range = document.createRange();
-  const parts = [];
-  let length = 0;
-  while (walker.nextNode() && length < maximumCharacters) {
-    const node = walker.currentNode;
-    const text = node.textContent.replace(/\s+/g, " ").trim();
-    if (!text || !node.parentElement || node.parentElement.closest(skipped)) continue;
-    range.selectNodeContents(node);
-    if (!isOnScreen(range.getBoundingClientRect())) continue;
-    parts.push(text);
-    length += text.length + 1;
+  function reportShape(shape) {
+    if (!shape || (reportedShape?.site === shape.site && reportedShape.stale === shape.stale)) return;
+    reportedShape = shape;
+    send({ adapter: shape });
   }
-  return parts.join("\n").slice(0, maximumCharacters);
-}
 
-function sendIfChanged() {
-  if (document.visibilityState !== "visible" || !document.body) return;
-  if (Date.now() - lastSentAt < interval) return;
-  const text = visibleText();
-  if (!text || text === lastText) return;
-  lastText = text;
-  lastSentAt = Date.now();
-  chrome.runtime.sendMessage({ url: location.href, title: document.title, text });
-}
+  function sendIfChanged({ afterNavigation = false } = {}) {
+    if (document.visibilityState !== "visible" || !document.body) return;
+    if (!afterNavigation && Date.now() - lastSentAt < interval) return;
+    const view = { width: window.innerWidth, height: window.innerHeight };
+    const reading = page.readPage({ doc: document, location, view, records });
+    reportShape(reading.shape);
+    const key = JSON.stringify([reading.text, reading.items]);
+    if (!reading.text || key === lastKey) return;
+    lastKey = key;
+    lastSentAt = Date.now();
+    send({ page: { title: document.title, text: reading.text, items: reading.items, container: reading.container } });
+  }
 
-let scrollTimer;
-window.addEventListener("scroll", () => {
-  clearTimeout(scrollTimer);
-  scrollTimer = setTimeout(sendIfChanged, 1500);
-}, { passive: true });
-document.addEventListener("visibilitychange", sendIfChanged);
-setInterval(sendIfChanged, interval);
-setTimeout(sendIfChanged, 2000);
+  function sendSoon(options) {
+    clearTimeout(timer);
+    timer = setTimeout(() => sendIfChanged(options), settleMilliseconds);
+  }
+
+  function listenForRereads() {
+    const port = chrome.runtime.connect({ name: "reread" });
+    port.onMessage.addListener(() => sendSoon({ afterNavigation: true }));
+    port.onDisconnect.addListener(() => setTimeout(listenForRereads, reconnectMilliseconds));
+  }
+
+  window.addEventListener("scroll", () => sendSoon(), { passive: true });
+  document.addEventListener("visibilitychange", () => sendIfChanged());
+  new MutationObserver(() => sendSoon()).observe(document.documentElement, {
+    childList: true, subtree: true, characterData: true,
+  });
+  setInterval(() => sendIfChanged(), interval);
+  setTimeout(() => sendIfChanged(), 2000);
+  listenForRereads();
+})();

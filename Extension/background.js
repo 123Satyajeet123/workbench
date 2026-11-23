@@ -1,51 +1,28 @@
-// Passes each page and each Gmail thread from a content script to the Workbench native host, which hands it to the
-// app; the app applies the person's capture policy. Pages go one message per host process; mail goes over one open
-// port, because a deck arrives in chunks the host must hold until the last one is in.
-const host = "com.hizen.workbench.pages";
-const isBrave = (navigator.userAgentData?.brands ?? []).some((entry) => entry.brand === "Brave");
-const browser = isBrave ? "com.brave.Browser" : "com.google.Chrome";
-const gmailOrigin = "https://mail.google.com";
+// Passes what the content scripts read to the Workbench native host, which hands it to the app; the app applies the
+// person's capture policy. Everything goes over one open port. The code that decides lives in background/.
+import { createHost, refusal } from "./background/host.js";
+import { toHostMessage } from "./background/messages.js";
+import { createRereads, rereadOnNavigation } from "./background/rereads.js";
 
-let port = null;
-let waiting = [];
+const hostName = "com.hizen.workbench.pages";
+const retryAfter = 5000;
 
-function openPort() {
-  port = chrome.runtime.connectNative(host);
-  port.onMessage.addListener((reply) => waiting.shift()?.(reply));
-  port.onDisconnect.addListener(() => {
-    const reason = chrome.runtime.lastError?.message ?? "the host closed";
-    port = null;
-    waiting.splice(0).forEach((answer) => answer({ kept: false, error: reason }));
-  });
-}
+const host = createHost({ connect: () => chrome.runtime.connectNative(hostName), now: Date.now, retryAfter });
+const rereads = createRereads();
 
-// The host answers each message in order, so the next reply belongs to the oldest waiting message.
-function askHost(message) {
-  return new Promise((answer) => {
-    try {
-      if (!port) openPort();
-      waiting.push(answer);
-      port.postMessage(message);
-    } catch (error) {
-      waiting = waiting.filter((waiter) => waiter !== answer);
-      answer({ kept: false, error: String(error) });
-    }
-  });
-}
+rereadOnNavigation(chrome.webNavigation, rereads);
 
-function fromTab(sender, origin) {
-  return Boolean(sender.tab) && !sender.tab.incognito && new URL(sender.tab.url).origin === origin;
-}
+chrome.runtime.onConnect.addListener((port) => {
+  const { tab } = port.sender ?? {};
+  if (port.name === "reread" && tab && !tab.incognito) rereads.register(port, port.sender);
+});
 
 chrome.runtime.onMessage.addListener((message, sender, respond) => {
-  if (!sender.tab || sender.tab.incognito) return;
-  if (message.mail) {
-    if (!fromTab(sender, gmailOrigin)) return;
-    const { context, ...rest } = message.mail;
-    askHost({ ...rest, ...(context && { context: { ...context, browser } }) }).then(respond);
-    return true;
+  const hostMessage = toHostMessage({ message, sender });
+  if (!hostMessage) {
+    respond(refusal("not sent"));
+    return;
   }
-  chrome.runtime.sendNativeMessage(host, { browser, url: message.url, title: message.title, text: message.text }, () => {
-    void chrome.runtime.lastError;
-  });
+  host.ask(hostMessage).then(respond);
+  return true;
 });

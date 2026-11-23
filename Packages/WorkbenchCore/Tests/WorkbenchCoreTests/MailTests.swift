@@ -23,10 +23,11 @@ import Testing
         return store
     }
 
-    private func send(_ value: some Encodable, to store: Store, decks: DeckAssembly = DeckAssembly()) throws
-        -> PageHost.Reply
-    {
-        PageHost.answer(try JSONEncoder().encode(value), store: store, decks: decks)
+    private func send(
+        _ value: some Encodable, to store: Store, browser: String = "com.brave.Browser",
+        decks: DeckAssembly = DeckAssembly()
+    ) throws -> PageHost.Reply {
+        PageHost.answer(try JSONEncoder().encode(value), store: store, browser: browser, decks: decks)
     }
 
     private func stored(_ store: Store) throws -> [MailPart] {
@@ -106,9 +107,8 @@ import Testing
             ("com.evil.app", "https://mail.google.com/mail/u/0/"),
         ] {
             var context = gmail
-            context.browser = browser
             context.url = url
-            #expect(try send(message(context), to: store).kept == false, "\(url) in \(browser)")
+            #expect(try send(message(context), to: store, browser: browser).kept == false, "\(url) in \(browser)")
         }
         #expect(try stored(store).isEmpty)
     }
@@ -146,12 +146,15 @@ import Testing
 
     @Test func theHostSaysWhichLabelsItReads() throws {
         let status = Data(#"{"type":"mail_status"}"#.utf8)
-        #expect(PageHost.answer(status, store: try store(policy: named)).labels == ["Deals"])
-        #expect(PageHost.answer(status, store: try store(policy: nil)).labels == [])
+        #expect(PageHost.answer(status, store: try store(policy: named), browser: nil).labels == ["Deals"])
+        #expect(PageHost.answer(status, store: try store(policy: nil), browser: nil).labels == [])
         #expect(
-            PageHost.answer(status, store: try store(policy: CapturePolicy(allowList: [.mail: ["Deals"]]))).labels
+            PageHost.answer(
+                status, store: try store(policy: CapturePolicy(allowList: [.mail: ["Deals"]])), browser: nil
+            ).labels
                 == [], "a label without the switch is not readable")
-        #expect(PageHost.answer(Data(#"{"type":"nope"}"#.utf8), store: try store(policy: named)).error != nil)
+        #expect(
+            PageHost.answer(Data(#"{"type":"nope"}"#.utf8), store: try store(policy: named), browser: nil).error != nil)
     }
 
     // MARK: decks

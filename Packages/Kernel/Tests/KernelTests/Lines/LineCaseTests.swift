@@ -21,6 +21,23 @@ import Testing
         #expect(throws: EntityKeyError.emptyField("container")) {
             try EntityKey.screen(container: "", content: ContentHash(text: "ok"), ordinal: 0)
         }
+        #expect(throws: EntityKeyError.emptyField("site")) { try EntityKey.web(site: "", container: "c", itemID: "i") }
+        #expect(throws: EntityKeyError.emptyField("container")) {
+            try EntityKey.web(site: "s", container: "", itemID: "i")
+        }
+        #expect(throws: EntityKeyError.emptyField("itemID")) {
+            try EntityKey.web(site: "s", container: "c", itemID: "")
+        }
+    }
+
+    /// A page item the site named itself: the same site, place and id are one entity; any one part changing is another.
+    @Test func aWebItemIsNamedByItsSiteItsPlaceAndItsId() throws {
+        let key = try EntityKey.web(site: "slack.com", container: "T1/C1", itemID: "1700000000.000100")
+        #expect(key == (try EntityKey.web(site: "slack.com", container: "T1/C1", itemID: "1700000000.000100")))
+        #expect(key != (try EntityKey.web(site: "slack.com", container: "T1/C2", itemID: "1700000000.000100")))
+        #expect(key != (try EntityKey.web(site: "slack.com", container: "T1/C1", itemID: "1700000000.000200")))
+        #expect(key != (try EntityKey.web(site: "other.example", container: "T1/C1", itemID: "1700000000.000100")))
+        #expect(key != (try EntityKey.gmail(messageID: "1700000000.000100")), "a web key is not a Gmail API key")
     }
 
     @Test func entityFieldsAreComparedInNFC() throws {

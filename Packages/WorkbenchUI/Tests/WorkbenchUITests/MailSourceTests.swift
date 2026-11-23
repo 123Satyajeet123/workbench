@@ -16,7 +16,7 @@ import WorkbenchCore
             browser: "com.brave.Browser", url: "https://mail.google.com/mail/u/0/#label/\(label)/\(thread)",
             label: label, threadId: thread, messageId: message)
         let sent = MailMessage(context: context, sender: "Ana <ana@acme.example>", subject: "Acme", text: text)
-        _ = PageHost.answer(try JSONEncoder().encode(sent), store: store)
+        _ = PageHost.answer(try JSONEncoder().encode(sent), store: store, browser: "com.brave.Browser")
     }
 
     @Test func namingALabelSwitchesMailOnForThatLabelOnly() throws {
@@ -33,6 +33,26 @@ import WorkbenchCore
         #expect(try store.currentPolicy().allowList[.mail] == ["Hot deals"])
         try capture.update { $0.switches[.mail] = false }
         #expect(!source.isReady, "switched off in Settings means nothing is read")
+    }
+
+    @Test func thePersonIsToldWhenTheGmailReaderFoundItsPageChangedAndWhenItReadsAgain() throws {
+        let store = try scratchStore(clock: { noon })
+        let source = MailSource(store: store, capture: try CaptureService(store: store))
+        let day = WorkDay(containing: noon)
+        try source.refresh(on: day)
+        #expect(source.readerProblem == nil)
+
+        _ = PageHost.answer(
+            Data(#"{"type":"adapter_state","site":"Gmail","stale":true}"#.utf8), store: store, browser: nil)
+        try source.refresh(on: day)
+        #expect(source.readerProblem == "Workbench cannot read Gmail now: the page changed.")
+
+        _ = PageHost.answer(
+            Data(#"{"type":"adapter_state","site":"Slack","stale":true}"#.utf8), store: store, browser: nil)
+        _ = PageHost.answer(
+            Data(#"{"type":"adapter_state","site":"Gmail","stale":false}"#.utf8), store: store, browser: nil)
+        try source.refresh(on: day)
+        #expect(source.readerProblem == nil, "a stale Slack reader is not a Gmail problem")
     }
 
     @Test func dealIntakeRatesAMailPitchByTheCriteriaAndReadsNoOtherLabel() async throws {

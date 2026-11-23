@@ -15,7 +15,7 @@ enum ExtensionFiles {
     }
 
     /// Calls and assignments that click, type, focus, scroll, dispatch an event or change the page, or reach another
-    /// tab or the page's own scripts. Comment lines are skipped. Only the background script may post to its host.
+    /// tab or the page's own scripts. Comment lines are skipped. Only the service worker's scripts may post to their host.
     static func drivingCalls(in code: String, file: String) -> [String] {
         let banned =
             [
@@ -26,7 +26,7 @@ enum ExtensionFiles {
                 #"\.(setAttribute|removeAttribute|appendChild|removeChild|append|prepend|remove|replaceWith)\("#,
                 #"\.insertAdjacent\w*\("#, #"classList\.(add|remove|toggle)"#, #"\.style\.\w+\s*="#,
                 #"document\.write"#, #"\bchrome\.(scripting|tabs|debugger|webRequest)\b"#,
-            ] + (file == "background.js" ? [] : [#"\.postMessage\("#])
+            ] + (file.hasPrefix("background") ? [] : [#"\.postMessage\("#])
         let body = code.split(separator: "\n").filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("//") }
             .joined(separator: "\n")
         return banned.filter { body.range(of: $0, options: .regularExpression) != nil }
@@ -49,7 +49,7 @@ enum ExtensionFiles {
         let mail = try entry(running: "mail/watch.js")
         #expect(mail["matches"] as? [String] == ["https://mail.google.com/*"])
         #expect(
-            (mail["js"] as? [String])?.allSatisfy { $0.hasPrefix("mail/") } == true,
+            (mail["js"] as? [String])?.allSatisfy { $0.hasPrefix("mail/") || $0.hasPrefix("read/") } == true,
             "page-text code never runs in the mail entry")
         for other in try contentScripts() where (other["js"] as? [String])?.contains("mail/watch.js") != true {
             #expect(
@@ -73,7 +73,7 @@ enum ExtensionFiles {
 
     @Test func noShippedScriptDispatchesAnEventOrChangesThePage() throws {
         let scripts = try ExtensionFiles.scripts()
-        let shipped: Set = ["content.js", "mail/watch.js"]
+        let shipped: Set = ["content.js", "mail/watch.js", "background.js", "background/host.js"]
         #expect(Set(scripts.keys).isSuperset(of: shipped))
         for (name, code) in scripts { #expect(ExtensionFiles.drivingCalls(in: code, file: name).isEmpty, "\(name)") }
     }

@@ -3,12 +3,11 @@ import Testing
 
 @testable import WorkbenchCore
 
-/// Runs the extension's Gmail reading and deck code in a headless Chromium against a saved fixture. The fixture was
-/// written to match the Gmail structure in `Extension/mail/selectors.js`; it is UNVERIFIED against a live Gmail tab.
-/// The run uses a throwaway browser profile and opens no network page.
-@Suite(.enabled(if: Chromium.binary != nil, "needs a Chromium: a Playwright headless shell, Chrome or Brave"))
-struct ExtensionReaderTests {
-    private func run(fixture: String) throws -> [String: Any] {
+/// Runs the extension's reading code in a headless Chromium against saved fixtures. The fixtures were written to match
+/// the structure that research 64 measured and the attributes the adapter records name; they are UNVERIFIED against
+/// live pages. The run uses a throwaway browser profile and opens no network page.
+enum ExtensionHarness {
+    static func run(fixture: String, attribute: String = "data-out") throws -> [String: Any] {
         let root = NoEgressTests.repo
         let scratch = temporaryDirectory()
         try FileManager.default.createDirectory(at: scratch, withIntermediateDirectories: true)
@@ -18,17 +17,36 @@ struct ExtensionReaderTests {
         try harness.replacingOccurrences(of: "{{ROOT}}", with: root.path)
             .replacingOccurrences(of: "<!--FIXTURE-->", with: body).write(to: page, atomically: true, encoding: .utf8)
         let dom = try Chromium.dump(page, profile: scratch.appending(path: "profile"))
-        let encoded = try #require(dom.firstMatch(of: #/data-out="([^"]+)"/#)?.1, "the harness wrote no result")
+        let encoded = try #require(
+            dom.firstMatch(of: try Regex("\(attribute)=\"([^\"]+)\""))?.output[1].substring,
+            "the harness wrote no \(attribute)")
         let json = try #require(Data(base64Encoded: String(encoded)))
         return try #require(try JSONSerialization.jsonObject(with: json) as? [String: Any])
     }
 
+    /// Whether two parsed JSON values are equal.
+    static func same(_ left: Any?, _ right: Any?) -> Bool {
+        guard let left = left as? NSObject, let right = right as? NSObject else { return false }
+        return left.isEqual(right)
+    }
+}
+
+@Suite(.enabled(if: Chromium.binary != nil, "needs a Chromium: a Playwright headless shell, Chrome or Brave"))
+struct ExtensionReaderTests {
+    private func run(fixture: String) throws -> [String: Any] { try ExtensionHarness.run(fixture: fixture) }
+
+    private func messages(of thread: Any?) throws -> [[String: Any]] {
+        try #require((thread as? [String: Any])?["messages"] as? [[String: Any]])
+    }
+
     @Test func theReaderFindsTheExpandedMessagesTheirSendersAndThePdfAttachment() throws {
-        let out = try run(fixture: "thread-with-deck.html")
+        let out = try run(fixture: "gmail-thread.html")
         let thread = try #require(out["thread"] as? [String: Any])
-        #expect(thread["label"] as? String == "Deals" && thread["threadId"] as? String == "FMfcgzQ")
+        #expect(thread["label"] as? String == "Deals")
+        #expect(thread["threadId"] as? String == "thread-f:1801000000000000000")
+        #expect(thread["threadVia"] as? String == "data-thread-id")
         #expect(thread["subject"] as? String == "Acme: seed round, deck attached")
-        let messages = try #require(thread["messages"] as? [[String: Any]])
+        let messages = try messages(of: thread)
         #expect(
             messages.map { $0["messageId"] as? String } == ["msg-f:1801000000000000001", "msg-f:1801000000000000003"],
             "the collapsed message has no body and is left out")
@@ -46,24 +64,133 @@ struct ExtensionReaderTests {
         #expect((messages[1]["attachments"] as? [Any])?.isEmpty == true)
     }
 
+    @Test func theThreadIdFallsBackFromTheNamedAttributesToTheAddress() throws {
+        let out = try run(fixture: "gmail-thread.html")
+        let legacy = try #require(out["threadWithoutThreadId"] as? [String: Any])
+        #expect(legacy["threadId"] as? String == "18c0a1b2c3d4e5f6")
+        #expect(legacy["threadVia"] as? String == "data-legacy-thread-id")
+        let address = try #require(out["threadFromTheAddress"] as? [String: Any])
+        #expect(address["threadId"] as? String == "FMfcgzQ" && address["threadVia"] as? String == "url")
+    }
+
+    @Test func aMessageWhoseIdCannotBeReadIsKeptWithoutAnIdNeverGivenAMadeUpOne() throws {
+        let out = try run(fixture: "gmail-thread.html")
+        let thread = try messages(of: out["threadWithOneUnnamedMessage"])
+        #expect(thread.map { $0["messageId"] as? String } == ["msg-f:1801000000000000003"])
+        let page = try #require(out["pageWithOneUnnamedMessage"] as? [String: Any])
+        let items = try #require(page["items"] as? [[String: Any]])
+        #expect(items.map { $0["id"] as? String } == [nil, "msg-f:1801000000000000002", "msg-f:1801000000000000003"])
+        #expect(items[0]["via"] is NSNull, "no source gave the first message an id")
+        #expect((items[0]["text"] as? String)?.isEmpty == false, "its words are still read, as a line with no id")
+    }
+
     @Test func onlyAThreadOpenInsideALabelIsRead() throws {
-        let out = try run(fixture: "thread-with-deck.html")
-        let hashes = try #require(out["hashes"] as? [String: Any])
-        func place(_ hash: String) -> [String: String]? { hashes[hash] as? [String: String] }
-        #expect(place("#label/Deals/FMfcgzQ") == ["label": "Deals", "threadId": "FMfcgzQ"])
-        #expect(place("#label/Hot+Deals/FMfcgzQ")?["label"] == "Hot Deals")
-        #expect(place("#label/Parent%2FChild/FMfcgzQ")?["label"] == "Parent/Child")
-        #expect(place("#label/Deals/FMfcgzQ?compose=new")?["threadId"] == "FMfcgzQ")
+        let out = try run(fixture: "gmail-thread.html")
+        let labels = try #require(out["labels"] as? [String: Any])
+        #expect(labels["#label/Deals/FMfcgzQ"] as? String == "Deals")
+        #expect(labels["#label/Hot+Deals/FMfcgzQ"] as? String == "Hot Deals")
+        #expect(labels["#label/Parent%2FChild/FMfcgzQ"] as? String == "Parent/Child")
+        #expect(labels["#label/Deals/FMfcgzQ?compose=new"] as? String == "Deals")
         for hash in [
             "#inbox", "#label/Deals", "#search/acme/FMfcgzQ", "#label/Deals/not%20an%20id", "", "#label//FMfcgzQ",
         ] {
-            #expect(place(hash) == nil, "\(hash) is not a thread in a label")
+            #expect(labels[hash] is NSNull, "\(hash) is not a thread in a label")
         }
         #expect((out["noThreadOutsideALabel"] as? [Any])?.allSatisfy { $0 is NSNull } == true)
     }
 
+    @Test func aGmailPageThatLostItsMessageAttributesIsStaleAndReadsNothing() throws {
+        let out = try run(fixture: "gmail-thread.html")
+        #expect(
+            ExtensionHarness.same(out["threadWithoutMessageIds"], ["stale": "Gmail"]),
+            "no thread, and the name of the site to report")
+        let page = try #require(out["pageWithoutItemAttributes"] as? [String: Any])
+        #expect(ExtensionHarness.same(page["shape"], ["site": "Gmail", "stale": true]))
+        #expect((page["items"] as? [Any])?.isEmpty == true, "a stale adapter gives no lines")
+        #expect(page["container"] is NSNull)
+        let shown = try #require(out["page"] as? [String: Any])
+        #expect(ExtensionHarness.same(shown["shape"], ["site": "Gmail", "stale": false]))
+        #expect((shown["items"] as? [Any])?.count == 3, "with its attributes the page reads")
+    }
+
+    @Test func theReaderDoesNotNeedClassNames() throws {
+        for fixture in ["gmail-thread.html", "slack-channel.html", "feed-no-record.html"] {
+            let out = try run(fixture: fixture)
+            #expect(ExtensionHarness.same(out["page"], out["pageWithoutClasses"]), "\(fixture): the page")
+            if fixture.hasPrefix("gmail") {
+                #expect(ExtensionHarness.same(out["thread"], out["threadWithoutClasses"]), "the thread")
+            }
+        }
+    }
+
+    @Test func theInterpreterRefusesToSelectByClass() throws {
+        let out = try run(fixture: "gmail-thread.html")
+        let counts = try #require(out["itemsNamedByAttribute"] as? [String: Int])
+        #expect(counts["data-message-id"] == 3, "a named attribute finds the three messages")
+        #expect(counts["class"] == 0 && counts["[class]"] == 0 && counts["data-message-id]"] == 0)
+    }
+
+    @Test func slackMessagesGetTheirIdFromTheRowAndTheirChannelFromTheAddress() throws {
+        let out = try run(fixture: "slack-channel.html")
+        let page = try #require(out["page"] as? [String: Any])
+        #expect(ExtensionHarness.same(page["container"], ["value": "T0123456789/C0123456789", "via": "url"]))
+        let items = try #require(page["items"] as? [[String: Any]])
+        #expect(items.map { $0["id"] as? String } == ["1700000000.000100", "1700000060.000200"])
+        #expect(items.allSatisfy { $0["via"] as? String == "id" })
+        #expect((items[0]["text"] as? String)?.contains("Term sheet is signed.") == true)
+        #expect(ExtensionHarness.same(page["shape"], ["site": "Slack", "stale": false]))
+        #expect(
+            (page["text"] as? String)?.contains("a draft the person is typing") == false,
+            "a typed draft is never read")
+    }
+
+    @Test func aSlackPageThatLostItsRowIdsIsStaleButItsTextIsStillRead() throws {
+        let out = try run(fixture: "slack-channel.html")
+        let page = try #require(out["pageWithoutItemAttributes"] as? [String: Any])
+        #expect(ExtensionHarness.same(page["shape"], ["site": "Slack", "stale": true]))
+        #expect((page["items"] as? [Any])?.isEmpty == true)
+        #expect((page["text"] as? String)?.contains("Term sheet is signed.") == true, "the generic text layer works")
+    }
+
+    @Test func aSiteWithNoRecordGivesLinesWithNoIdAndNoContainer() throws {
+        let out = try run(fixture: "feed-no-record.html")
+        let page = try #require(out["page"] as? [String: Any])
+        #expect(page["shape"] is NSNull && page["container"] is NSNull)
+        let items = try #require(page["items"] as? [[String: Any]])
+        #expect(items.count == 6)
+        #expect(items.allSatisfy { $0["id"] is NSNull && $0["via"] is NSNull }, "no id is made up")
+        #expect(items.compactMap { $0["text"] as? String }.joined().contains("Raised a seed round of 2M."))
+    }
+
+    @Test func theGenericReaderUsesAriaRolesNotClassNames() throws {
+        let out = try run(fixture: "feed-no-record.html")
+        let blocks = try #require(out["blocks"] as? [[String: String]])
+        #expect(blocks.map { $0["role"] } == ["heading", "listitem", "listitem", "row", "article", "text"])
+        #expect(blocks[1]["text"] == "Maya Iyer\nRaised a seed round of 2M.")
+        #expect(blocks[5]["text"] == "Loose text with a misleading name.", "a class named like a role gives no role")
+    }
+
+    @Test func theGenericReaderReadsOnlyWhatIsOnScreenAndNeverATypedField() throws {
+        let out = try run(fixture: "feed-no-record.html")
+        let seen = try #require(out["blocks"] as? [[String: String]]).compactMap { $0["text"] }
+            .joined(separator: "\n")
+        #expect(!seen.contains("Far below the screen") && !seen.contains("Hidden text"))
+        #expect(!seen.contains("typed secret") && !seen.contains("draft in an editor"))
+        let all = try #require(out["blocksWithoutAView"] as? [[String: String]]).compactMap { $0["text"] }
+            .joined(separator: "\n")
+        #expect(all.contains("Far below the screen"), "without a view, text off the screen is read")
+        #expect(!all.contains("Hidden text") && !all.contains("typed secret") && !all.contains("draft in an editor"))
+    }
+
+    @Test func eachFrameIsReadFromItsOwnDocument() throws {
+        let out = try run(fixture: "frames.html")
+        let frames = try #require(out["frames"] as? [String: String])
+        #expect(frames["top"] == "Top frame text.", "the top document does not include its frame's text")
+        #expect(frames["inner"] == "Text inside the frame.", "the frame's own script reads it")
+    }
+
     @Test func theDeckFetchStaysOnTheGmailOriginAndWithinItsLimits() throws {
-        let out = try run(fixture: "thread-with-deck.html")
+        let out = try run(fixture: "gmail-thread.html")
         let sameOrigin = try #require(out["sameOrigin"] as? [String: Bool])
         let allowed = sameOrigin.filter(\.value).keys.sorted()
         #expect(allowed == ["/mail/u/0?ui=2&view=att", "https://mail.google.com/mail/u/0?ui=2&view=att"])
@@ -84,10 +211,67 @@ struct ExtensionReaderTests {
     }
 
     @Test func aLargeDeckIsCutIntoChunksThatJoinBack() throws {
-        let out = try run(fixture: "thread-with-deck.html")
+        let out = try run(fixture: "gmail-thread.html")
         #expect(out["chunkCount"] as? Int == 3, "1.2 MB in chunks of 512 KiB")
         #expect(out["chunksRoundTrip"] as? Bool == true)
         #expect(out["smallestChunk"] as? Int == 0)
+    }
+}
+
+/// The service worker's modules, run in a headless Chromium with fake browser parts.
+@Suite(.enabled(if: Chromium.binary != nil, "needs a Chromium: a Playwright headless shell, Chrome or Brave"))
+struct ExtensionBackgroundTests {
+    private func run() throws -> [String: Any] {
+        try ExtensionHarness.run(fixture: "frames.html", attribute: "data-background")
+    }
+
+    @Test func oneOpenPortServesEveryReadAndTheHostBeingGoneFailsClosed() throws {
+        let host = try #require(try run()["host"] as? [String: Any])
+        #expect(host["connects"] as? Int == 1, "two messages, one port")
+        #expect((host["sent"] as? [[String: Int]])?.map { $0["n"] } == [1, 2])
+        let answers = try #require(host["answers"] as? [[String: Bool]])
+        #expect(answers.map { $0["kept"] } == [true, false], "each reply goes to the oldest waiting message")
+        for failed in ["whenTheHostDies", "askDuringTheWait", "whenNoHostIsInstalled"] {
+            let answer = try #require(host[failed] as? [String: Any])
+            #expect(answer["kept"] as? Bool == false && answer["error"] is String, "\(failed) is an error answer")
+        }
+        #expect(host["connectsDuringTheWait"] as? Int == 1, "no new port while the retry wait runs")
+        #expect(ExtensionHarness.same(host["afterTheWait"], ["kept": true]))
+        #expect(host["connectsAfterTheWait"] as? Int == 2, "the port opens again after the wait")
+        #expect(host["nothingWaitingAfterAFailure"] as? Bool == true)
+    }
+
+    @Test func eachFrameSendsItsTextTaggedWithItsOwnAddress() throws {
+        let messages = try #require(try run()["messages"] as? [String: Any])
+        let top = try #require(messages["top"] as? [String: Any])
+        #expect(top["url"] as? String == "https://app.example/view" && top["frame"] == nil)
+        #expect(top["browser"] == nil, "the message names no browser; the app learns it from the process tree")
+        let frame = try #require(messages["frame"] as? [String: Any])
+        #expect(frame["url"] as? String == "https://app.example/view")
+        #expect(frame["frame"] as? String == "https://widget.example/inside", "the frame is named by its own address")
+        #expect(frame["text"] as? String == "words")
+    }
+
+    @Test func nothingIsSentWhenTheSenderIsNotAnOpenTab() throws {
+        let messages = try #require(try run()["messages"] as? [String: Any])
+        for dropped in [
+            "frameWithoutTabAddress", "incognito", "noTab", "mailFromAnotherSite", "unknownKind",
+        ] {
+            #expect(messages[dropped] is NSNull, "\(dropped) sends nothing")
+        }
+        #expect(messages["topWithoutTabAddress"] is [String: Any], "a top frame is its own address")
+        let mail = try #require(messages["mailFromGmail"] as? [String: Any])
+        #expect(mail["type"] as? String == "mail")
+        #expect((mail["context"] as? [String: Any])?["browser"] == nil)
+        #expect(
+            ExtensionHarness.same(messages["adapter"], ["type": "adapter_state", "site": "Gmail", "stale": true]))
+    }
+
+    @Test func aNavigationInsideAPageAsksThatFrameToReadAgain() throws {
+        let posted = try #require(try run()["rereads"] as? [[Any]])
+        #expect(posted.count == 2, "a tab with no port and a closed port are not posted to")
+        #expect(posted.map { $0[0] as? String } == ["a", "b"])
+        #expect(posted.allSatisfy { $0[1] as? String == "reread" })
     }
 }
 

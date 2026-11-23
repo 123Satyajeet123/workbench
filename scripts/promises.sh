@@ -90,6 +90,11 @@ run "65 a stage may change its meaning" $C/Objects/ObjectType.swift 's/guard cha
 run "66 a machine moves a deal without citing the required fact" $C/Objects/ObjectMove.swift 's/if mover == \.machine \{/if mover == .machine, false {/' WorkbenchCore
 run "67 an old stage label no longer folds to its stage id" $C/Objects/ObjectType.swift 's/stages\.first \{ \$0\.label == text \}/stages.first { \$0.label == text + "!" }/' WorkbenchCore WorkbenchUI
 run "68 a deal in a won stage is not followed in the news" $C/News/WatchedCompany.swift 's/deal\.meanings\.contains\(\.won\) \? \.portfolio/deal.meanings.contains(.lost) ? .portfolio/' WorkbenchCore WorkbenchUI
+run "69 the reader misses iframe text" ../Extension/manifest.json 's/"all_frames": true,/"all_frames": false,/' WorkbenchCore
+run "70 an unknown browser is called Chrome" $C/Capture/PeerBrowser.swift 's/return bundleID\(ofExecutable: path\)\n/return bundleID(ofExecutable: path) ?? "com.google.Chrome"\n/' WorkbenchCore
+run "71 a stale adapter writes lines" ../Extension/read/page.js 's/\n    if \(shape\.stale\) return \{[^\n]*\n/\n/' WorkbenchCore
+run "72 a class-name selector is used" ../Extension/read/generic.js 's/querySelector\("h1, h2, h3, h4, h5, h6, \[role=.heading.\]"\)/querySelector("h2.hP")/' WorkbenchCore
+run "73 a line without an id gets a made-up id" ../Extension/read/page.js 's/id: null, via: null, text/id: text, via: "text", text/' WorkbenchCore
 run "74 a replace deletes a fact the founder closed" $C/Store/ItemStore.swift 's/(            let known = try knownItems)/            try db.execute(sql: "DELETE FROM item WHERE task = ? AND day = ?", arguments: [spec.task, day.description])\n$1/' WorkbenchCore
 run "75 a model close overrides the founder's later reopen" $C/Store/SchemaFactLifecycle.swift 's/(CREATE VIEW item_status.*?PARTITION BY item_id ORDER BY )valid_at DESC, recorded_at DESC, id DESC/$1id DESC/s' WorkbenchCore
 run "76 a changed date makes a new fact" $C/Helpers/HelperReader+Relations.swift 's/(case \.sameAs\(let id\):\n)/$1                items.append(item)\n/' WorkbenchCore

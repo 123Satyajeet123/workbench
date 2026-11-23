@@ -17,8 +17,12 @@ public final class PageHostListener: Sendable {
     private let source: any DispatchSourceRead
     private let sessions = Sessions()
 
-    /// Only a process of `user` may connect: the person who runs the app.
-    public init(path: String, store: Store, user: uid_t = geteuid()) throws {
+    /// Only a process of `user` may connect: the person who runs the app. `browserOf` names the browser behind a
+    /// connection; the default reads the process tree.
+    public init(
+        path: String, store: Store, user: uid_t = geteuid(),
+        browserOf: (@Sendable (Int32) -> String?)? = nil
+    ) throws {
         unlink(path)
         let descriptor = try Self.listen(on: path)
         self.path = path
@@ -26,7 +30,9 @@ public final class PageHostListener: Sendable {
         source = DispatchSource.makeReadSource(fileDescriptor: descriptor, queue: queue)
         let sessions = sessions
         source.setEventHandler {
-            Self.acceptAll(on: descriptor, user: user, sessions: sessions, store: store)
+            Self.acceptAll(
+                on: descriptor, user: user, sessions: sessions, store: store,
+                browserOf: browserOf ?? PeerBrowser.bundleID(ofPeer:))
         }
         source.setCancelHandler { close(descriptor) }
         source.resume()
@@ -75,7 +81,7 @@ public final class PageHostListener: Sendable {
     }
 
     private static func acceptAll(
-        on listener: Int32, user: uid_t, sessions: Sessions, store: Store
+        on listener: Int32, user: uid_t, sessions: Sessions, store: Store, browserOf: @Sendable (Int32) -> String?
     ) {
         while true {
             let client = accept(listener, nil, nil)
@@ -84,11 +90,15 @@ public final class PageHostListener: Sendable {
                 close(client)
                 continue
             }
+            let browser = browserOf(client)
+            if browser == nil {
+                fputs("workbench: a page host connected from a process that is not a browser app\n", stderr)
+            }
             sessions.begin(client)
             Thread.detachNewThread {
                 PageHost.serve(
                     read: { PagesSocket.read(client, count: $0) },
-                    write: { PagesSocket.write(client, $0) }, store: store)
+                    write: { PagesSocket.write(client, $0) }, store: store, browser: browser)
                 sessions.end(client)
             }
         }

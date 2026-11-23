@@ -2,10 +2,14 @@
 <html>
 <head><meta charset="utf-8"><title>Extension reader harness</title></head>
 <body>
-<!--FIXTURE-->
-<script src="file://{{ROOT}}/Extension/mail/selectors.js"></script>
+<div id="fixture"><!--FIXTURE--></div>
+<script src="file://{{ROOT}}/Extension/read/generic.js"></script>
+<script src="file://{{ROOT}}/Extension/read/records.js"></script>
+<script src="file://{{ROOT}}/Extension/read/interpret.js"></script>
+<script src="file://{{ROOT}}/Extension/read/page.js"></script>
 <script src="file://{{ROOT}}/Extension/mail/reader.js"></script>
 <script src="file://{{ROOT}}/Extension/mail/deck.js"></script>
 <script src="file://{{ROOT}}/ExtensionTests/harness.js"></script>
+<script type="module" src="file://{{ROOT}}/ExtensionTests/background-harness.js"></script>
 </body>
 </html>

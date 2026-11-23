@@ -95,6 +95,13 @@ public struct EntityKey: Hashable, Sendable {
         EntityKey(kind: "gmail", [try field(messageID, "messageID")])
     }
 
+    /// An item a web site named itself (a Slack message by its timestamp, a Gmail message by its page id): the site, the
+    /// place it is in (a channel, a thread) and its id there.
+    public static func web(site: String, container: String, itemID: String) throws(EntityKeyError) -> EntityKey {
+        EntityKey(
+            kind: "web", [try field(site, "site"), try field(container, "container"), try field(itemID, "itemID")])
+    }
+
     /// One occurrence of a calendar event: EventKit's `calendarItemExternalIdentifier` and the occurrence's start.
     public static func calendar(externalID: String, occurrence: UTCInstant) throws(EntityKeyError) -> EntityKey {
         EntityKey(kind: "calendar", [try field(externalID, "externalID"), occurrence.bytes])

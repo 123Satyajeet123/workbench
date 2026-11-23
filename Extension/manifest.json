@@ -1,14 +1,16 @@
 {
   "manifest_version": 3,
   "name": "Workbench pages",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Sends the text you see on a page, the Gmail threads you open inside the label you named, to Workbench on this Mac. Workbench keeps them only when its switches are on.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA9/HcJpZYRgOJNzLRnUbuVX4NppN7cTb9aKIcApVVjhv+W2x5ZqZAfXON+uiPwPYyRhBliREyhWPoe3+Zjj8YsGa49xSMD8gdEC858oB48ZxYEsozVPZo1I7A59iy0RwmWxVehY4PizCCSSeVoEJG0YpIvAasZQ7P+fhrwhBTRr8a8f3i8DmSEG+OHM0iQKlYBV+q3TqDAfkpXjrfP4dEWPxNZYUX8Jx51aCgI2HZijcAzU2kkZWw+pvVC2YAxI7nBqLfaIkxwaskIaIgqLhYeL1gY0ATA6D4w7ErlSab2tOtaX65oqiKcIMJQ3vMK/4NhZ/pAqypA/foosOjxKcUhQIDAQAB",
   "permissions": [
-    "nativeMessaging"
+    "nativeMessaging",
+    "webNavigation"
   ],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
   "content_scripts": [
     {
@@ -20,8 +22,13 @@
         "https://web.whatsapp.com/*"
       ],
       "js": [
+        "read/generic.js",
+        "read/records.js",
+        "read/interpret.js",
+        "read/page.js",
         "content.js"
       ],
+      "all_frames": true,
       "run_at": "document_idle"
     },
     {
@@ -29,7 +36,9 @@
         "https://mail.google.com/*"
       ],
       "js": [
-        "mail/selectors.js",
+        "read/generic.js",
+        "read/records.js",
+        "read/interpret.js",
         "mail/reader.js",
         "mail/deck.js",
         "mail/watch.js"

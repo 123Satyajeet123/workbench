@@ -15,6 +15,9 @@ public enum EvidenceQuality: String, Sendable {
     case stable
     /// The name needed a tie-break, such as a repeated stanza id.
     case derived
+    /// The source gave the line no name. Its identity is its content (the place and the text), so a changed text is a
+    /// new line, and no later step may treat it as the same statement.
+    case ephemeral
 }
 
 /// The id space of an old citation (`evidence_legacy.space`).

@@ -5,38 +5,86 @@ import Foundation
 /// page text to a read-only Accessibility client (measured on Brave, 2026-11-19), so the extension reads it in the
 /// page instead. A page is screen text from a browser: the same switch, private rules and deletion apply.
 public struct WebPage: Codable, Sendable, Equatable {
-    /// The browser's bundle id, such as com.brave.Browser.
-    public var browser: String
+    /// The browser's bundle id, such as com.brave.Browser. The app sets it from the process that sent the message,
+    /// never from the message.
+    public var browser = ""
     public var url: String
     public var title: String
     /// Only the text that was on screen.
     public var text: String
+    /// The address of the frame that gave this text, when it is not the page itself.
+    public var frame: String?
+    /// The lines of the page. Each carries the site's own id when a source gave one.
+    public var items: [Item]?
+    /// The place the items' ids belong to (a channel, a thread).
+    public var container: Container?
 
-    public init(browser: String, url: String, title: String, text: String) {
+    /// One line the extension read.
+    public struct Item: Codable, Sendable, Equatable {
+        /// The site's own id, or nil when no source gave one.
+        public var id: String?
+        /// Where the id came from (an attribute name or "url").
+        public var via: String?
+        public var text: String
+
+        public init(id: String?, via: String?, text: String) {
+            self.id = id
+            self.via = via
+            self.text = text
+        }
+    }
+
+    public struct Container: Codable, Sendable, Equatable {
+        public var value: String
+        public var via: String
+
+        public init(value: String, via: String) {
+            self.value = value
+            self.via = via
+        }
+    }
+
+    private enum CodingKeys: String, CodingKey { case url, title, text, frame, items, container }
+
+    public init(
+        browser: String, url: String, title: String, text: String, frame: String? = nil, items: [Item]? = nil,
+        container: Container? = nil
+    ) {
         self.browser = browser
         self.url = url
         self.title = title
         self.text = text
+        self.frame = frame
+        self.items = items
+        self.container = container
     }
 
     /// WhatsApp Web text never reaches the store through page capture.
     static let whatsAppWebHost = "web.whatsapp.com"
 
     /// The batch to keep, or nil when the policy keeps no text of this page. Gmail and WhatsApp Web are never kept as
-    /// pages: Gmail text comes only as mail from the label the person named.
+    /// pages: Gmail text comes only as mail from the label the person named. A frame's text is kept only when the
+    /// frame's own address passes the same rules as the page's.
     public func batch(policy: CapturePolicy, at now: Date) -> ActivityBatch? {
+        let addresses = [url] + (frame.map { [$0] } ?? [])
         guard policy.isEnabled(.screenText), CapturePolicy.browserBundleIDs.contains(browser), !text.isEmpty,
-            !CapturePolicy.isSite(url, in: [MailContext.site, Self.whatsAppWebHost])
+            !addresses.contains(where: { CapturePolicy.isSite($0, in: [MailContext.site, Self.whatsAppWebHost]) })
         else { return nil }
-        let snapshot = ScreenSnapshot(
-            app: browserName, bundleID: browser, windowID: 0, document: url, title: title, text: text)
-        guard case .keep(let grant) = policy.verdict(for: snapshot, at: now) else { return nil }
+        let grants = addresses.compactMap { keepGrant(for: $0, policy: policy, at: now) }
+        guard grants.count == addresses.count, let grant = grants.first else { return nil }
         return ActivityBatch(
             [
                 Activity(
                     at: now, kind: .page, app: browserName, bundleID: browser, title: title,
                     document: CaptureEngine.address(url), text: text)
             ], grant: grant)
+    }
+
+    private func keepGrant(for address: String, policy: CapturePolicy, at now: Date) -> CaptureGrant? {
+        let snapshot = ScreenSnapshot(
+            app: browserName, bundleID: browser, windowID: 0, document: address, title: title, text: text)
+        guard case .keep(let grant) = policy.verdict(for: snapshot, at: now) else { return nil }
+        return grant
     }
 
     private var browserName: String {
@@ -111,24 +159,38 @@ public enum PageHost {
         var type: String?
     }
 
-    /// Answers one message: keeps the page or mail if the policy allows. `decks` holds the chunks of decks still
-    /// arriving, so one value serves a whole session.
+    /// What the reply says when the browser behind the connection is not known: no page or mail is kept.
+    public static let unknownBrowser = "the browser of this connection is not known"
+
+    /// Answers one message: keeps the page or mail if the policy allows. `browser` is the bundle id the app found from
+    /// the connection's process tree; nil keeps nothing. `decks` holds the chunks of decks still arriving, so one value
+    /// serves a whole session.
     public static func answer(
-        _ message: Data, store: Store, decks: DeckAssembly = DeckAssembly()
+        _ message: Data, store: Store, browser: String?, decks: DeckAssembly = DeckAssembly()
     ) -> Reply {
         do {
             let decoder = JSONDecoder()
             switch try decoder.decode(Envelope.self, from: message).type {
             case nil:
-                let page = try decoder.decode(WebPage.self, from: message)
+                guard let browser else { return Reply(kept: false, error: unknownBrowser) }
+                var page = try decoder.decode(WebPage.self, from: message)
+                page.browser = browser
                 let batch = page.batch(policy: try store.currentPolicy(), at: store.clock())
                 if let batch { try store.record(batch) }
                 return Reply(kept: batch != nil)
+            case "adapter_state":
+                return try AdapterState.keep(try decoder.decode(AdapterState.Report.self, from: message), store: store)
             case "mail_status": return try MailIntake.status(store: store)
-            case "mail": return try MailIntake.keep(try decoder.decode(MailMessage.self, from: message), store: store)
+            case "mail":
+                guard let browser else { return Reply(kept: false, error: unknownBrowser) }
+                var mail = try decoder.decode(MailMessage.self, from: message)
+                mail.context.browser = browser
+                return try MailIntake.keep(mail, store: store)
             case "mail_deck":
-                return try MailIntake.keep(
-                    try decoder.decode(DeckChunk.self, from: message), decks: decks, store: store)
+                guard let browser else { return Reply(kept: false, error: unknownBrowser) }
+                var chunk = try decoder.decode(DeckChunk.self, from: message)
+                chunk.context.browser = browser
+                return try MailIntake.keep(chunk, decks: decks, store: store)
             case let other?: return Reply(kept: false, error: "unknown message type \(other)")
             }
         } catch {
@@ -140,7 +202,7 @@ public enum PageHost {
     /// pipe open until it has the answer, so the host must never wait for the end of the input before it answers.
     /// A broken or oversize frame is answered and ends the session.
     public static func serve(
-        read: (Int) -> Data, write: (Data) -> Void, store: Store
+        read: (Int) -> Data, write: (Data) -> Void, store: Store, browser: String?
     ) {
         let decks = DeckAssembly()
         while true {
@@ -150,13 +212,13 @@ public enum PageHost {
                 write(Reply(kept: false, error: "\(failure)").framed)
                 return
             case .message(let message):
-                write(answer(message, store: store, decks: decks).framed)
+                write(answer(message, store: store, browser: browser, decks: decks).framed)
             }
         }
     }
 
     /// Every message in `input`, each answered by one reply frame.
-    public static func receive(_ input: Data, store: Store) -> Data {
+    public static func receive(_ input: Data, store: Store, browser: String?) -> Data {
         var rest = input
         var out = Data()
         serve(
@@ -164,7 +226,7 @@ public enum PageHost {
                 let chunk = rest.prefix(count)
                 rest = rest.dropFirst(chunk.count)
                 return Data(chunk)
-            }, write: { out += $0 }, store: store)
+            }, write: { out += $0 }, store: store, browser: browser)
         return out
     }
 }

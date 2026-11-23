@@ -40,7 +40,8 @@ import Testing
         #expect(page("https://mail.google.com/mail/u/0/#label/Deals/FMfc").batch(policy: on, at: t0) == nil)
         let store = try makeStore()
         try store.savePolicy(on)
-        let reply = PageHost.answer(try JSONEncoder().encode(page("https://mail.google.com/")), store: store)
+        let reply = PageHost.answer(
+            try JSONEncoder().encode(page("https://mail.google.com/")), store: store, browser: "com.brave.Browser")
         #expect(reply == PageHost.Reply(kept: false))
         #expect(try store.queries.activities(since: .distantPast).isEmpty)
     }
@@ -51,7 +52,8 @@ import Testing
         #expect(page("https://whatsapp.com/").batch(policy: on, at: t0) != nil, "only the web client is excluded")
         let store = try makeStore()
         try store.savePolicy(on)
-        let reply = PageHost.answer(try JSONEncoder().encode(page("https://web.whatsapp.com/")), store: store)
+        let reply = PageHost.answer(
+            try JSONEncoder().encode(page("https://web.whatsapp.com/")), store: store, browser: "com.brave.Browser")
         #expect(reply == PageHost.Reply(kept: false))
         #expect(try store.queries.activities(since: .distantPast).isEmpty)
     }
@@ -61,7 +63,7 @@ import Testing
         try store.savePolicy(on)
         let pages = [page("https://mail.example.com/"), page("https://www.hdfcbank.com/")]
         let input = try pages.map { NativeMessage.frame(try JSONEncoder().encode($0)) }.reduce(Data(), +)
-        var output = PageHost.receive(input, store: store)
+        var output = PageHost.receive(input, store: store, browser: "com.brave.Browser")
         var replies: [PageHost.Reply] = []
         while let (message, used) = try NativeMessage.first(in: output) {
             replies.append(try JSONDecoder().decode(PageHost.Reply.self, from: message))
@@ -77,8 +79,10 @@ import Testing
         let huge = Data([0xFF, 0xFF, 0xFF, 0x7F])
         #expect(throws: NativeMessage.Failure.tooLong(0x7FFF_FFFF)) { try NativeMessage.first(in: huge) }
         #expect(throws: NativeMessage.Failure.truncated) { try NativeMessage.first(in: Data([5, 0, 0, 0, 1])) }
-        _ = PageHost.receive(huge + NativeMessage.frame(try JSONEncoder().encode(page("https://x.com/"))), store: store)
-        _ = PageHost.receive(NativeMessage.frame(Data("not json".utf8)), store: store)
+        _ = PageHost.receive(
+            huge + NativeMessage.frame(try JSONEncoder().encode(page("https://x.com/"))), store: store,
+            browser: "com.brave.Browser")
+        _ = PageHost.receive(NativeMessage.frame(Data("not json".utf8)), store: store, browser: "com.brave.Browser")
         #expect(try store.queries.activities(since: t0.addingTimeInterval(-1)).isEmpty)
     }
 

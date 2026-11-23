@@ -41,11 +41,13 @@ import Testing
         return replies
     }
 
-    private func app(policy: CapturePolicy) throws -> (store: Store, socket: String, listener: PageHostListener) {
+    private func app(
+        policy: CapturePolicy, browserOf: @escaping @Sendable (Int32) -> String? = { _ in "com.brave.Browser" }
+    ) throws -> (store: Store, socket: String, listener: PageHostListener) {
         let store = try Store(directory: temporaryDirectory())
         try store.savePolicy(policy)
         let socket = shortSocketPath()
-        return (store, socket, try PageHostListener(path: socket, store: store))
+        return (store, socket, try PageHostListener(path: socket, store: store, browserOf: browserOf))
     }
 
     @Test func theHostProcessStoresAnAllowedPageAndNothingFromABrokenFrame() throws {
@@ -147,7 +149,8 @@ import Testing
         }
 
         #expect(try ask().error == PagesRelay.notRunning)
-        var listener: PageHostListener? = try PageHostListener(path: socket, store: store)
+        var listener: PageHostListener? = try PageHostListener(
+            path: socket, store: store, browserOf: { _ in "com.brave.Browser" })
         #expect(try ask() == PageHost.Reply(kept: true))
         listener = nil
         #expect(try ask().error == PagesRelay.notRunning, "the app is gone: nothing is kept")
@@ -172,11 +175,66 @@ import Testing
         try store.savePolicy(CapturePolicy(switches: [.screen: true, .screenText: true]))
         let stale = shortSocketPath()
         FileManager.default.createFile(atPath: stale, contents: Data("left behind".utf8))
-        let listener = try PageHostListener(path: stale, store: store)
+        let listener = try PageHostListener(path: stale, store: store, browserOf: { _ in "com.brave.Browser" })
         let page = WebPage(browser: "com.brave.Browser", url: "https://site.example/", title: "t", text: "later")
         let frame = NativeMessage.frame(try JSONEncoder().encode(page))
         #expect(try replies(in: try run(frame, socket: stale)) == [PageHost.Reply(kept: true)])
         _ = listener
+    }
+
+    /// A stand-in browser: a copy of bash inside `Fake Browser.app`, with the bundle id Brave has. It starts the
+    /// host as its child, as a browser does, and the host reads the framed messages from a file.
+    private func runUnderFakeBrowser(_ input: Data, socket: String) throws -> Data {
+        let root = temporaryDirectory()
+        let contents = root.appending(path: "Fake Browser.app/Contents")
+        try FileManager.default.createDirectory(
+            at: contents.appending(path: "MacOS"), withIntermediateDirectories: true)
+        let plist: [String: Any] = ["CFBundleIdentifier": "com.brave.Browser", "CFBundleName": "Fake Browser"]
+        try (plist as NSDictionary).write(to: contents.appending(path: "Info.plist"))
+        let browser = contents.appending(path: "MacOS/Browser")
+        try FileManager.default.copyItem(at: URL(filePath: "/bin/bash"), to: browser)
+        let signer = Process()
+        signer.executableURL = URL(filePath: "/usr/bin/codesign")
+        signer.arguments = ["--force", "--sign", "-", browser.path]
+        signer.standardError = FileHandle.nullDevice
+        try signer.run()
+        signer.waitUntilExit()
+        let (inputFile, outputFile) = (root.appending(path: "in"), root.appending(path: "out"))
+        try input.write(to: inputFile)
+        let process = Process()
+        process.executableURL = browser
+        process.arguments = ["-c", "'\(Self.host.path)' < '\(inputFile.path)' > '\(outputFile.path)'; true"]
+        process.environment = ["WORKBENCH_PAGES_SOCKET": socket]
+        try process.run()
+        process.waitUntilExit()
+        return try Data(contentsOf: outputFile)
+    }
+
+    /// The live parent chain: the host's parent is the process of the browser app, found from the process tree.
+    @Test func theAppNamesTheBrowserFromTheProcessThatStartedTheHost() throws {
+        let (store, socket, listener) = try app(
+            policy: CapturePolicy(switches: [.screen: true, .screenText: true]),
+            browserOf: PeerBrowser.bundleID(ofPeer:))
+        defer { _ = listener }
+        let page = WebPage(
+            browser: "com.evil.app", url: "https://site.example/", title: "t", text: "from the fake browser")
+        let output = try runUnderFakeBrowser(NativeMessage.frame(try JSONEncoder().encode(page)), socket: socket)
+        let answers = try replies(in: output)
+        #expect(answers == [PageHost.Reply(kept: true)], "\(answers)")
+        let kept = try #require(try store.queries.activities(since: .distantPast).first)
+        #expect(kept.bundleID == "com.brave.Browser" && kept.app == "Brave Browser", "the bundle id of the parent app")
+    }
+
+    @Test func aHostNotStartedByABrowserAppKeepsNothingAndTheReplyNamesWhy() throws {
+        let (store, socket, listener) = try app(
+            policy: CapturePolicy(switches: [.screen: true, .screenText: true]),
+            browserOf: PeerBrowser.bundleID(ofPeer:))
+        defer { _ = listener }
+        let page = WebPage(browser: "com.brave.Browser", url: "https://site.example/", title: "t", text: "forged")
+        let output = try run(NativeMessage.frame(try JSONEncoder().encode(page)), socket: socket)
+        let reply = try #require(try replies(in: output).first)
+        #expect(reply.kept == false && reply.error == PageHost.unknownBrowser, "the test process is no browser app")
+        #expect(try store.queries.activities(since: .distantPast).isEmpty, "a message that says Brave changes nothing")
     }
 
     @Test func aSocketPathThatDoesNotFitIsRefusedWithItsLength() {
