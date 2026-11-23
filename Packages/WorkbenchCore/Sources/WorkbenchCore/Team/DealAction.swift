@@ -42,11 +42,11 @@ extension Store {
             try db.execute(
                 sql: """
                     INSERT INTO item(task, day, scope, source, cite_first, cite_last, start_at, end_at, fields, quote,
-                        created_at) VALUES (?,?,?,?,0,0,?,?,?,?,?)
+                        created_at, authority) VALUES (?,?,?,?,0,0,?,?,?,?,?,?)
                     """,
                 arguments: [
                     DealAction.task, WorkDay(containing: now).description, "", SourceKind.typed.rawValue,
-                    now.stored, now.stored, try Coding.json(fields), what, now.stored,
+                    now.stored, now.stored, try Coding.json(fields), what, now.stored, Authority.ownWords.rawValue,
                 ])
             return db.lastInsertedRowID
         }

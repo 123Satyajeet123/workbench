@@ -35,12 +35,15 @@ extension Store {
                 try db.execute(
                     sql: """
                         INSERT INTO item(task, run_id, day, scope, source, cite_first, cite_last, start_at, end_at, fields,
-                            quote, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+                            quote, created_at, quote_line, quote_part, quote_start, quote_end, label, authority)
+                        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                         """,
                     arguments: [
                         item.task, item.run, day.description, scope, item.source.rawValue, item.citeFirst,
                         item.citeLast, item.start.stored, item.end.stored, try Coding.json(item.fields), item.quote,
-                        clock().stored,
+                        clock().stored, item.quoteSpan?.line, item.quoteSpan?.part, item.quoteSpan?.start,
+                        item.quoteSpan?.end, try item.label.map { try Coding.json(StoredLabel($0)) },
+                        item.authority.rawValue,
                     ])
                 added.append(db.lastInsertedRowID)
             }
@@ -104,7 +107,8 @@ extension Store {
 extension Queries {
     static let itemColumns = """
         id, task, day, scope, source, cite_first, cite_last, start_at, end_at, fields, quote, state, run_id, asked_with,
-        status_kind, status_outcome, status_quote, status_at, hiding_kind, hiding_until, source_deleted
+        status_kind, status_outcome, status_quote, status_at, hiding_kind, hiding_until, source_deleted, quote_line,
+        quote_part, quote_start, quote_end, label, authority
         """
     /// Items with their mark, their latest close or reopen, and their latest hide, snooze or unhide.
     static let itemRows = """
@@ -225,6 +229,15 @@ extension Item {
             fields: try row.json("fields"), quote: try row.value("quote"), state: try row.enumeration("state"),
             run: try row.optionalValue("run_id"), askedWith: try row.optionalValue("asked_with"))
         isSourceDeleted = try row.value("source_deleted") as Int == 1
+        authority = try row.enumeration("authority")
+        label = try row.optionalValue("label").map { (text: String) in
+            try Coding.value(StoredLabel.self, from: text).label()
+        }
+        if let line: Int64 = try row.optionalValue("quote_line") {
+            quoteSpan = QuoteSpan(
+                line: line, part: try row.value("quote_part"), start: try row.value("quote_start"),
+                end: try row.value("quote_end"))
+        }
         if try row.optionalValue("status_kind") as String? == "close" {
             closed = Closed(
                 outcome: try row.value("status_outcome"), quote: try row.optionalValue("status_quote"),

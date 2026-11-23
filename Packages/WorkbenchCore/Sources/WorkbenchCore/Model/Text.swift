@@ -5,10 +5,8 @@ extension String {
     /// have two spellings (a Devanagari letter with a nukta is one code point or a base letter plus a nukta).
     public var nfc: String { precomposedStringWithCanonicalMapping }
 
-    /// `nfc`, lower-cased, with runs of white space made one space: the form two texts are compared in.
-    public var comparable: String {
-        nfc.lowercased().split(whereSeparator: \.isWhitespace).joined(separator: " ")
-    }
+    /// The form two texts are compared in: see `FoldedText`.
+    public var comparable: String { FoldedText(self).text }
 
     /// The text trimmed and in normal form C, or nil when nothing is left. Every text the founder types passes here.
     public var cleaned: String? {
@@ -16,9 +14,6 @@ extension String {
         return text.isEmpty ? nil : text
     }
 
-    /// Whether `quote` is in this text, ignoring spelling form, case and spacing.
-    public func contains(quote: String) -> Bool {
-        let quote = quote.comparable
-        return !quote.isEmpty && comparable.contains(quote)
-    }
+    /// Whether `quote` is in this text, ignoring spelling form, case, spacing and the kind of quotation mark.
+    public func contains(quote: String) -> Bool { span(of: quote) != nil }
 }

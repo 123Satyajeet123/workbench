@@ -46,6 +46,8 @@ struct SchemaTests {
         "a5d93f43c55d73a4f8a780a54a0de70a790bf4022d034c63a4f14ce6988e3f5f",
         // sourceDeleted (M1 erase of copies)
         "6ca6e0a4a421de0931bced06de235d5b6b455c99e3763ce09186dca9b48000d0",
+        // groundedFacts (M2 step 1)
+        "e265698c38c9b8aefcc5076135203bf698c3fdd46606c80a572ec664fca60606",
     ]
 
     @Test func aShippedStepNeverChanges() {

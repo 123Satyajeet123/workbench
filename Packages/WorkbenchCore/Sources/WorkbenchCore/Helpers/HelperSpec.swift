@@ -89,6 +89,8 @@ public struct HelperSpec: Codable, Sendable, Equatable {
             /// A short name that should stay the same over days, such as a project: the values this machine used
             /// before are shown under `set` for reuse, and a new one is allowed. Never empty.
             case label(of: String)
+            /// A work day written yyyy-MM-dd. A required field may not be empty.
+            case date(required: Bool)
             /// A choice that code sets from the spec's criteria. The model is never asked for it.
             case computed([String])
 
@@ -146,7 +148,7 @@ public struct HelperSpec: Codable, Sendable, Equatable {
             case .label:
                 views["by \(field.name)"] = .grouped(by: field.name)
                 if lifecycle != nil { views["open by \(field.name)"] = .checklist(by: field.name) }
-            case .text: break
+            case .text, .date: break
             }
         }
         if let lifecycle, !views.values.contains(where: { if case .checklist = $0 { true } else { false } }) {

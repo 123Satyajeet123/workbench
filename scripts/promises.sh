@@ -33,16 +33,16 @@ run() { # name file perl-expr packages...
   if [[ -n $unfinished ]]; then echo "$name | RUN FAILED, no count |$unfinished | partial: $failed"; return; fi
   echo "$name | caught by $n | $failed"
 }
-run "1 quote check off" $C/Helpers/Evidence.swift 's/quotable\.contains \{ \$0\.contains\(quote: quote\) \}/true/' WorkbenchCore WorkbenchUI ../Testing
+run "1 quote check off" $C/Verify/Verifier.swift 's/throw Refusal\(\.quoteNotInLines\)\n    \}\n\n    \/\/\/ Like/return QuoteSpan(line: lines.first?.id ?? 0, part: 0, start: 0, end: 1)\n    }\n\n    \/\/\/ Like/' WorkbenchCore WorkbenchUI ../Testing
 run "2 source switches ignored" $C/Capture/CapturePolicy.swift 's/switches\[kind\] \?\? false/true/' WorkbenchCore WorkbenchUI
 run "3 WhatsApp allow-list off" $C/Capture/CapturePolicy.swift 's/needsAllowList: Set<SourceKind> = \[\.whatsapp, \.mail\]/needsAllowList: Set<SourceKind> = [.mail]/' WorkbenchCore BaseKit WorkbenchUI
-run "4 team-member check off" $C/Helpers/HelperReader.swift 's/context\[set\]\?\.contains\(value\) == true/true/' WorkbenchCore WorkbenchUI
+run "4 team-member check off" $C/Verify/Verifier+Spec.swift 's/context\[set\]\?\.contains\(value\) == true/true/' WorkbenchCore WorkbenchUI
 run "5 deleting a source keeps its items" $C/Store/Delete.swift 's/"DELETE FROM item WHERE source = \? AND start_at < \?"/"DELETE FROM item WHERE 0 AND source = ? AND start_at < ?"/' WorkbenchCore
 run "6 no held-out days" $C/Runs/Quality.swift 's/Int\(first\) % 10 < Self\.heldOutTenths/false/' WorkbenchCore WorkbenchUI
 run "7 audit pick not recorded" $C/Store/ItemStore.swift 's/"UPDATE item SET asked_with = \? WHERE id = \?"/"UPDATE item SET asked_with = ? WHERE 0 AND id = ?"/' WorkbenchCore WorkbenchUI
 run "8 expired grants accepted" $C/Store/Store.swift 's/guard grant\.expiresAt > clock\(\) else/guard true else/' WorkbenchCore
 run "9 nudge more than once a day" WorkbenchUI/Sources/WorkbenchUI/Workbench/Helpers/NudgeSchedule.swift 's/guard isOn, lastSent != day,/guard isOn,/' WorkbenchUI
-run "10 overlapping timeline blocks kept" $C/Helpers/HelperReader.swift 's/spec\.citation == \.one\n\s+\|\| !kept\.contains/true || !kept.contains/' WorkbenchCore WorkbenchUI
+run "10 overlapping timeline blocks kept" $C/Helpers/HelperReader.swift 's/spec\.citation != \.one\n\s+&& kept\.contains/false \&\& kept.contains/' WorkbenchCore WorkbenchUI
 run "11 trust threshold loosened to 20%" $C/Runs/Certificate.swift 's/if bound <= Self\.allowedWrong/if bound <= 0.2/' WorkbenchCore
 run "13 screen text kept without its switch" $C/Capture/CaptureEngine.swift 's/if policy\.isEnabled\(\.screenText\), !snapshot/if true, !snapshot/' WorkbenchCore WorkbenchUI
 run "14 private windows not hidden" $C/Capture/CapturePolicy+Verdict.swift 's/return snapshot\.secureFocus \|\|/return false \&\& snapshot.secureFocus ||/' WorkbenchCore
@@ -73,4 +73,18 @@ run "46 AX reads while the person is idle" $C/Capture/Presence.swift 's/return i
 run "47 the loop reads before it checks presence" BaseKit/Sources/CaptureService/CaptureService.swift 's/guard presence == \.active, case/guard case/' BaseKit
 run "48 an app with no bundle id is read" $C/Capture/CapturePolicy+Verdict.swift 's/guard !bundleID\.isEmpty else \{ return bare\(\.screen, at: now\) \}\n//' WorkbenchCore BaseKit
 run "49 deleting a window deletes the next stretch of the same app" $C/Store/Delete.swift 's/AND text\.id < COALESCE\(\(SELECT MIN\(next\.id\) FROM activity next WHERE next\.id > window\.id\n\s+AND next\.kind IN \(.window.,.idle.,.sleep.,.skipped.,.wake.\)\), 9223372036854775807\)/AND 1/' WorkbenchCore
+run "50 a true quote with a curly apostrophe is dropped" $C/Model/QuoteFold.swift 's/append\(Self\.marks\[folded\] \?\? folded, from: offset\)/append(folded, from: offset)/' WorkbenchCore
+run "51 a dropped proposal leaves no reason" $C/Verify/DropStore.swift 's/\{ try store\.recordDrops\(drops, of: run\) \}/{ _ = drops }/' WorkbenchCore
+run "52 the model sets a fact's label" $C/Verify/Verifier+Spec.swift 's/label: standing\.label, authority/label: raw["label"] == nil ? standing.label : nil, authority/' WorkbenchCore
+run "53 a fact gets more authority than its weakest cited line" $C/Verify/Standing.swift 's/parts\.map\(\\\.authority\)\.min\(\)/parts.map(\\.authority).max()/' WorkbenchCore
+run "54 a quote that nearly matches is accepted" $C/Model/QuoteFold.swift 's/scalars\.firstRange\(of: quote\.scalars\)/scalars.firstRange(of: quote.scalars) ?? (scalars.isEmpty ? nil : 0..<1)/' WorkbenchCore
+run "55 a quote's offsets end one early" $C/Model/QuoteFold.swift 's/origins\[range\.upperBound - 1\] \+ 1\)/origins[range.upperBound - 1])/' WorkbenchCore
+run "56 a choice outside its values is kept" $C/Verify/Verifier+Spec.swift 's/case \.choice\(let values\): values\.contains\(value\)/case .choice: true/' WorkbenchCore
+run "57 a date that is not a day is kept" $C/Verify/Verifier+Spec.swift 's/WorkDay\(value\) != nil/true/' WorkbenchCore
+run "58 a failed check names no reason" $C/Verify/Verifier.swift 's/return \.dropped\(\.verifierError\)/return .dropped(.malformed)/' WorkbenchCore
+run "60 drop rows outlive the run text" $C/Store/SchemaGroundedFacts.swift 's/REFERENCES run_text\(run_id\) ON DELETE CASCADE/REFERENCES run_text(run_id) ON DELETE NO ACTION/' WorkbenchCore
+run "61 a line already read can be cited" $C/Verify/Verifier.swift 's/guard !window\.isRead\(number\), let line/guard let line/' WorkbenchCore
+run "62 a fact with an unlabelled line keeps a label" $C/Verify/Standing.swift 's/known\.count == parts\.count \?/true ?/' WorkbenchCore
+run "63 a fact's label ignores an uncited window line" $C/Verify/Standing.swift 's/\(lines \+ window\)\.map\(\\\.standing\)/lines.map(\\.standing)/' WorkbenchCore
+run "64 a fact the person typed is not their own words" $C/Team/DealAction.swift 's/Authority\.ownWords\.rawValue/Authority.unknown.rawValue/' WorkbenchCore
 echo DONE

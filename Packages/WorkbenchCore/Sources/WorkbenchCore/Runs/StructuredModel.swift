@@ -152,7 +152,7 @@ extension StructuredModelError: LocalizedError {
 }
 
 /// Any JSON value, for a reply whose shape is data rather than a Swift type.
-public enum JSONValue: Decodable, Sendable, Equatable {
+public enum JSONValue: Codable, Sendable, Equatable {
     case string(String)
     case number(Double)
     case bool(Bool)
@@ -174,6 +174,18 @@ public enum JSONValue: Decodable, Sendable, Equatable {
             self = .array(value)
         } else {
             self = .object(try container.decode([String: JSONValue].self))
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+        case .null: try container.encodeNil()
+        case .bool(let value): try container.encode(value)
+        case .number(let value): try container.encode(value)
+        case .string(let value): try container.encode(value)
+        case .array(let value): try container.encode(value)
+        case .object(let value): try container.encode(value)
         }
     }
 

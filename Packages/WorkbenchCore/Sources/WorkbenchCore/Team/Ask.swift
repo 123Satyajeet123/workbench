@@ -116,7 +116,7 @@ public struct Asker: Sendable {
         var cited: [MemoryEntry] = []
         for cite in reply.cites {
             guard let entry = byID[cite.id], let quote = cite.quote.cleaned,
-                entry.quote.contains(quote) || entry.text.contains(quote)
+                entry.quote.contains(quote: quote) || entry.text.contains(quote: quote)
             else { throw Refusal.badCitation(cite.id) }
             if !cited.contains(entry) { cited.append(entry) }
         }

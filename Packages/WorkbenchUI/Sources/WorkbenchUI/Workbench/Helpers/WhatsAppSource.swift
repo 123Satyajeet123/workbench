@@ -207,7 +207,7 @@ final class WhatsAppSource: MachineSource {
         let shown = words(of: stored)
         return Evidence(
             id: stored.number, start: stored.time ?? start, line: shown.line, quotable: shown.quote.map { [$0] } ?? [],
-            lineID: stored.lineID)
+            lineID: stored.lineID, provenance: stored.provenance)
     }
 
     /// A stored line as one line of text, and the words a quote may be taken from. A deleted message has no words.

@@ -13,10 +13,17 @@ public struct Evidence: Sendable, Equatable {
     /// The stored line behind this one, when its source keeps lines in the evidence store: a run records it, so the
     /// number a model cites resolves to this line later.
     public var lineID: Data?
+    /// Who may read the line and how far it is trusted, as the store recorded them. Nil when the source keeps no
+    /// stored line: the line then has no known label and its authority is unknown.
+    public var provenance: Provenance?
 
-    public init(id: Int64, start: Date, end: Date? = nil, line: String, quotable: [String], lineID: Data? = nil) {
+    public init(
+        id: Int64, start: Date, end: Date? = nil, line: String, quotable: [String], lineID: Data? = nil,
+        provenance: Provenance? = nil
+    ) {
         self.id = id
         self.lineID = lineID
+        self.provenance = provenance
         self.start = start
         self.end = end
         self.line = line.split(whereSeparator: \.isNewline).joined(separator: " ")

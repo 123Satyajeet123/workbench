@@ -1,5 +1,6 @@
 import Foundation
 import GRDB
+import Kernel
 import Lines
 
 /// A stored evidence line as the app reads it. The model's input and a proof card both show it, so what the model saw
@@ -17,9 +18,13 @@ public struct StoredLine: Sendable, Equatable {
     public var text: String
     /// The message was deleted for everyone: the line keeps its time and sender, and no words.
     public var isTombstone: Bool
+    /// Who may read the line and how far it is trusted. Nil when the stored label is not the label of its source: the
+    /// line is then read as unlabelled and of unknown authority.
+    public var provenance: Provenance?
 
     public init(
-        number: Int64, lineID: Data, container: String, time: Date?, actor: String?, text: String, isTombstone: Bool
+        number: Int64, lineID: Data, container: String, time: Date?, actor: String?, text: String, isTombstone: Bool,
+        provenance: Provenance? = nil
     ) {
         self.number = number
         self.lineID = lineID
@@ -28,17 +33,29 @@ public struct StoredLine: Sendable, Equatable {
         self.actor = actor
         self.text = text
         self.isTombstone = isTombstone
+        self.provenance = provenance
     }
 
     init(row: Row) {
         let milliseconds: Int64? = row["event_time"]
+        let actor: String? = row["actor"]
         self.init(
             number: row["number"], lineID: row["line_id"], container: row["container"],
-            time: milliseconds.map { Date(timeIntervalSince1970: Double($0) / 1000) }, actor: row["actor"],
-            text: row["text"], isTombstone: row["tombstone"] == 1)
+            time: milliseconds.map { Date(timeIntervalSince1970: Double($0) / 1000) }, actor: actor,
+            text: row["text"], isTombstone: row["tombstone"] == 1,
+            provenance: Self.provenance(source: row["source_id"], label: row["label_id"], actor: actor))
     }
 
-    static let columns = "e.line_id, e.container, e.event_time, e.actor, e.text, e.tombstone"
+    /// The label of a line is the label of its source alone, as the writer made it. A stored label id that this does
+    /// not give is a label this version cannot rebuild, so the line has none.
+    private static func provenance(source: Data, label: Data, actor: String?) -> Provenance? {
+        guard let source = SourceID(bytes: Array(source)) else { return nil }
+        let own = Label(source: source)
+        return own.id.bytes == Array(label)
+            ? Provenance(label: own, authority: Authority(actor: actor, owner: WhatsAppAudience.owner)) : nil
+    }
+
+    static let columns = "e.line_id, e.container, e.event_time, e.actor, e.text, e.tombstone, e.source_id, e.label_id"
 
     static func fetchAll(_ db: Database, sql: String, arguments: StatementArguments) throws -> [StoredLine] {
         try Row.fetchAll(db, sql: sql, arguments: arguments).map(StoredLine.init(row:))

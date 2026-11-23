@@ -4,7 +4,7 @@ import Foundation
 /// given and its quote is in that line.
 public struct ClaimExtractor: Sendable {
     struct Reply: Decodable, Sendable {
-        struct Raw: Decodable, Sendable {
+        struct Raw: Codable, Sendable {
             var line: Int64
             var text: String
             var type: ClaimType
@@ -50,15 +50,18 @@ public struct ClaimExtractor: Sendable {
         let (reply, run) = try await model.generate(
             Reply.self, schema: Self.schema, task: Self.task, instructions: Self.instructions,
             input: lines.map { "[\($0.id)] \($0.line)" }.joined(separator: "\n"), holding: [.mail])
-        let byID = Dictionary(lines.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-        var claims: [Claim] = []
-        for raw in reply.claims {
-            guard let line = byID[raw.line], let quote = raw.quote.cleaned, line.contains(quote: quote),
-                let text = raw.text.cleaned, let value = raw.value.cleaned,
-                !claims.contains(where: { $0.text.comparable == text.comparable })
-            else { continue }
-            claims.append(Claim(deal: deal, text: text, type: raw.type, value: value, quote: quote, line: raw.line))
-        }
-        return (claims, reply.claims.count - claims.count, run)
+        let verifier = Verifier(window: EvidenceSet(lines: lines), settings: try model.verifierSettings())
+        let found = try verifier.settle(
+            reply.claims, part: "claims",
+            check: { raw in
+                let line = try verifier.newLine(raw.line)
+                guard let quote = raw.quote.cleaned, let text = raw.text.cleaned, let value = raw.value.cleaned else {
+                    throw Refusal(.fieldKind)
+                }
+                _ = try verifier.quote(quote, in: [line])
+                return Claim(deal: deal, text: text, type: raw.type, value: value, quote: quote, line: raw.line)
+            }, isRepeat: { claim, kept in kept.contains { $0.text.comparable == claim.text.comparable } })
+        try model.record(found.drops, of: run)
+        return (found.kept, found.drops.count, run)
     }
 }

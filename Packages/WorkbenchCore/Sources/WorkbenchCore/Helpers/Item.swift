@@ -1,4 +1,5 @@
 import Foundation
+import Kernel
 
 /// One thing a helper proposed: its fields, the evidence it cites, the words it relied on, and the founder's mark.
 public struct Item: Sendable, Equatable, Identifiable {
@@ -27,6 +28,13 @@ public struct Item: Sendable, Equatable, Identifiable {
     public var closed: Closed?
     /// Set when the founder hid the item or snoozed it; nil otherwise. See `isHidden(at:)`.
     public var hiding: Hiding?
+    /// Where the quote is in the line it came from. Nil for an item whose quote is not from a line: a fact the person
+    /// typed, or a finding that quotes the words of a fact it cites.
+    public var quoteSpan: QuoteSpan?
+    /// Who may read it: the join of the labels of what it cites and of every line of its window. Nil when that is not known, which no reader satisfies.
+    public var label: Label?
+    /// How far it may be trusted: no more than the least trusted line it rests on.
+    public var authority: Authority
 
     /// The quote as a card shows it: in quotation marks, or why there is none.
     public var quotedWords: String { isSourceDeleted ? "The message this came from was deleted" : "“\(quote)”" }
@@ -46,7 +54,8 @@ public struct Item: Sendable, Equatable, Identifiable {
     public init(
         id: Int64? = nil, task: String, day: WorkDay, scope: String, source: SourceKind, citeFirst: Int64,
         citeLast: Int64, start: Date, end: Date, fields: [String: String], quote: String, state: Mark = .proposed,
-        run: RunID?, askedWith: Double? = nil
+        run: RunID?, askedWith: Double? = nil, quoteSpan: QuoteSpan? = nil, label: Label? = nil,
+        authority: Authority = .unknown
     ) {
         self.id = id
         self.task = task
@@ -62,6 +71,9 @@ public struct Item: Sendable, Equatable, Identifiable {
         self.state = state
         self.run = run
         self.askedWith = askedWith
+        self.quoteSpan = quoteSpan
+        self.label = label
+        self.authority = authority
     }
 
     /// Whether the founder's hide or snooze keeps the item off the Today, People and Projects lists at `now`: a
