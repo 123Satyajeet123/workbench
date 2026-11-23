@@ -24,6 +24,12 @@ let package = Package(
         .executableTarget(name: "WorkbenchPages", dependencies: ["PagesRelay"]),
         .executableTarget(name: "LifecycleDryRunTool", dependencies: ["WorkbenchCore"]),
         .executableTarget(name: "WorkObjectsDryRunTool", dependencies: ["WorkbenchCore"]),
+        .executableTarget(
+            name: "MachinePageDemo",
+            dependencies: [
+                "WorkbenchCore", .product(name: "GRDB", package: "GRDB.swift"),
+                .product(name: "Kernel", package: "Kernel"), .product(name: "Lines", package: "Kernel"),
+            ]),
         .executableTarget(name: "MailBackfillDryRunTool", dependencies: ["WorkbenchCore"]),
         .executableTarget(name: "ScreenBackfillDryRunTool", dependencies: ["WorkbenchCore"]),
         .testTarget(

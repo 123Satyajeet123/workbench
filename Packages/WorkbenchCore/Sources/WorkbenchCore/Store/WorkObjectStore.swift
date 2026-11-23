@@ -116,6 +116,13 @@ extension Queries {
         }
     }
 
+    /// The parent of `object`; nil for a root and for an object that is not there.
+    public func parent(of object: WorkObjectID) throws -> WorkObjectID? {
+        try reader.read { db in
+            try String.fetchOne(db, sql: "SELECT parent_id FROM work_object WHERE id = ?", arguments: [object])
+        }
+    }
+
     /// The machines whose page is a child of `object`: the machines that live in that folder.
     public func machines(in object: WorkObjectID) throws -> [Machine] {
         try reader.read { db in

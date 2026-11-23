@@ -290,6 +290,11 @@ struct EvidenceStamp {
                 sql: """
                     UPDATE run_window SET line_id = ? WHERE line_id IN (SELECT line_id FROM evidence WHERE \(Revoke.erased))
                     """, arguments: StatementArguments([lineID]) + revoke.arguments)
+            try db.execute(
+                sql: """
+                    UPDATE machine_block_cite SET line_id = ?
+                    WHERE line_id IN (SELECT line_id FROM evidence WHERE \(Revoke.erased))
+                    """, arguments: StatementArguments([lineID]) + revoke.arguments)
             try db.execute(sql: "DELETE FROM evidence WHERE \(Revoke.erased)", arguments: revoke.arguments)
             report.erasedLines = db.changesCount
         }

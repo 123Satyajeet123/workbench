@@ -55,17 +55,22 @@ public enum BlockEnding: Hashable, Sendable {
 }
 
 /// What the editor asks the store to save: the blocks that are new or changed, the blocks that ended, and the order of
-/// every block that has words.
+/// every block that has words. The editor of a machine's page also gives `pageOrder`, the order the person sees:
+/// the paragraphs of `order` and the live machine blocks between them. A plain note has none.
 public struct NoteChange: Equatable, Sendable {
     public var note: NoteID
     public var blocks: [NoteBlock]
     public var endings: [BlockEnding]
     public var order: [BlockID]
+    public var pageOrder: [PageBlockRef]?
 
-    public init(note: NoteID, blocks: [NoteBlock], endings: [BlockEnding], order: [BlockID]) {
+    public init(
+        note: NoteID, blocks: [NoteBlock], endings: [BlockEnding], order: [BlockID], pageOrder: [PageBlockRef]? = nil
+    ) {
         self.note = note
         self.blocks = blocks
         self.endings = endings
         self.order = order
+        self.pageOrder = pageOrder
     }
 }

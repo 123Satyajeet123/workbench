@@ -30,7 +30,8 @@ private struct Citing: FetchableRecord {
 
 extension Store {
     /// The one erase of copies. The model read the words of a line and kept them in the quote of each item that cites
-    /// it, in the text fields it wrote for that item, in the quotes of the events that cite the line and the quote its open event kept, in the text of the runs
+    /// it, in the words of the blocks it put on a page that cite the line or such an item, in the text fields it wrote
+    /// for that item, in the quotes of the events that cite the line and the quote its open event kept, in the text of the runs
     /// that read it or made those items, and in the summaries built from those items. They all go with the line: the
     /// quote and every text field of the item are emptied and the item flagged (it keeps its marks, its choices and its
     /// link to the tombstone), the quotes of its events are emptied, the run text is deleted (the run row stays as the
@@ -42,6 +43,7 @@ extension Store {
         let items = try citingItems(of: lines, in: db)
         let events = try citingEvents(of: lines, in: db)
         let itemIDs = try Coding.json(items.map(\.id))
+        try eraseMachineWords(citing: lines, orFacts: itemIDs, in: db)
         let eventIDs = try Coding.json(events.map(\.id))
         let windowRuns = try Int64.fetchAll(
             db, sql: "SELECT run_id FROM run_window WHERE line_id IN (\(lines.sql))", arguments: lines.arguments)

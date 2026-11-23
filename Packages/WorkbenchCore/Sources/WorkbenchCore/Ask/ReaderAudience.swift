@@ -5,8 +5,8 @@ import Kernel
 /// grant and no reader.
 struct ReaderAudience {
     let reader: PersonID
-    private let grants: Grants
-    private let roster: Kernel.Roster
+    let grants: Grants
+    let roster: Kernel.Roster
 
     init(reader: PersonID) throws {
         self.reader = reader
@@ -22,5 +22,13 @@ struct ReaderAudience {
     /// A line with no label of its own source is read as unlabelled, and no reader satisfies that.
     func admits(_ line: StoredLine) -> Bool {
         line.provenance?.label.admits([reader], grants: grants, roster: roster) ?? false
+    }
+}
+
+extension PageViewer {
+    /// The person who owns every source this app reads, as the reader of a page.
+    public init(owner: PersonID) throws {
+        let audience = try ReaderAudience(reader: owner)
+        self.init(audience: [owner], grants: audience.grants, roster: audience.roster)
     }
 }

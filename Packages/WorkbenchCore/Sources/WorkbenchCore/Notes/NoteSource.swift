@@ -99,7 +99,17 @@ extension Queries {
         return NotePlan(
             lines: written + tombstones,
             structure: ContainerStructure(
-                order: try change.order.map { try .block($0, of: note) }, supersessions: supersessions))
+                order: try orderKeys(of: change), supersessions: supersessions))
+    }
+
+    /// The keys of the order the person sees: the page order when the editor gave one, else the paragraphs.
+    private func orderKeys(of change: NoteChange) throws -> [EntityKey] {
+        try (change.pageOrder ?? change.order.map(PageBlockRef.note)).map { place in
+            switch place {
+            case .note(let block): try .block(block, of: change.note)
+            case .machine(let block): try .machineBlock(objectID: change.note.rawValue, blockID: block.rawValue)
+            }
+        }
     }
 
     private func erasePlan(of note: NoteID, at now: Date) throws -> NotePlan {

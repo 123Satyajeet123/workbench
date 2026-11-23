@@ -113,6 +113,11 @@ public struct EntityKey: Hashable, Sendable {
         EntityKey(kind: "note", [try field(noteID, "noteID"), try field(blockID, "blockID")])
     }
 
+    /// A block a machine put on a page: the page's work object and the block, named when the block is made.
+    public static func machineBlock(objectID: String, blockID: String) throws(EntityKeyError) -> EntityKey {
+        EntityKey(kind: "machine_block", [try field(objectID, "objectID"), try field(blockID, "blockID")])
+    }
+
     /// One occurrence of a calendar event: EventKit's `calendarItemExternalIdentifier` and the occurrence's start.
     public static func calendar(externalID: String, occurrence: UTCInstant) throws(EntityKeyError) -> EntityKey {
         EntityKey(kind: "calendar", [try field(externalID, "externalID"), occurrence.bytes])
