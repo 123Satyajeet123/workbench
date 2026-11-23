@@ -49,19 +49,7 @@ final class IslandPanel: NSPanel {
 
     convenience init(session: AppSession) {
         self.init(
-            state: { shows in
-                IslandState(
-                    recordingSince: session.capture.call?.startedAt,
-                    offering: session.callWatcher.offer?.source.service,
-                    reading: session.crew.machines.filter { $0.phase == .reading }.map {
-                        (name: $0.name, page: SidebarSelection.machine($0.machine.id))
-                    },
-                    needsYou: session.today.needs.map { session.crew.name(ofTask: $0.item.task) }
-                        + (session.review.question.map { [session.review.name(of: $0)] } ?? []),
-                    plan: session.models.billing == .plan
-                        ? session.planUsage.limits.flatMap { $0.fiveHour ?? $0.week } : nil,
-                    shows: shows)
-            },
+            state: session.alert(showing:),
             open: { NSWorkspace.shared.open($0.url) },
             act: { action in
                 switch action {

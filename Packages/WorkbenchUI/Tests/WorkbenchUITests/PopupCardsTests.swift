@@ -18,7 +18,7 @@ struct PopupCardsTests {
         let meetings = [meeting("Standup", at: 0), meeting("No link", at: 0, link: false), meeting("Later", at: 30)]
         func shown(_ minutes: Double) -> [String] {
             PopupCards.make(
-                recording: nil, offer: nil, meetings: meetings, dismissed: [],
+                alert: .idle, label: "", meetings: meetings, dismissed: [],
                 now: start.addingTimeInterval(minutes * 60)
             ).map(\.id)
         }
@@ -32,8 +32,8 @@ struct PopupCardsTests {
     @Test func aDismissedMeetingStaysAwayAndACallComesFirst() {
         let standup = meeting("Standup", at: 0)
         let cards = PopupCards.make(
-            recording: nil, offer: "Zoom", meetings: [standup, meeting("Sync", at: 1)], dismissed: ["meeting:Standup"],
-            now: start)
+            alert: .offer("Zoom"), label: "", meetings: [standup, meeting("Sync", at: 1)],
+            dismissed: ["meeting:Standup"], now: start)
         #expect(cards.map(\.id) == ["offer", "meeting:Sync"])
         #expect(PopupCards.when(standup, at: start.addingTimeInterval(-60)) == "Starts in 1 min")
         #expect(PopupCards.when(standup, at: start.addingTimeInterval(180)) == "Started 3 min ago")
@@ -47,7 +47,10 @@ struct PopupCardsTests {
         let call = try store.startRecording(
             app: "zoom.us", bundleID: "us.zoom.xos", source: CallSource(service: "Zoom", title: "Acme intro"),
             grant: grant)
-        let cards = PopupCards.make(recording: call, offer: "Zoom", meetings: [], dismissed: [], now: start)
+        let alert = IslandState(
+            recordingSince: call.startedAt, offering: "Zoom", reading: [], needsYou: [], shows: PopupCards.shows)
+        let cards = PopupCards.make(
+            alert: alert, label: call.source.label, meetings: [], dismissed: [], now: start)
         #expect(cards == [.recording(label: "Zoom · Acme intro", since: call.startedAt)])
     }
 

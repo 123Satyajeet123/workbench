@@ -116,3 +116,20 @@ struct IslandShows: Equatable {
     var needsYou = true
     var plan = false
 }
+
+extension AppSession {
+    /// The one alert state, from what the app knows now. The notch and the pop-up both render it; `shows` is what the
+    /// person chose to see.
+    func alert(showing shows: IslandShows) -> IslandState {
+        IslandState(
+            recordingSince: capture.call?.startedAt,
+            offering: callWatcher.offer?.source.service,
+            reading: crew.machines.filter { $0.phase == .reading }.map {
+                (name: $0.name, page: SidebarSelection.machine($0.machine.id))
+            },
+            needsYou: today.needs.map { crew.name(ofTask: $0.item.task) }
+                + (review.question.map { [review.name(of: $0)] } ?? []),
+            plan: models.billing == .plan ? planUsage.limits.flatMap { $0.fiveHour ?? $0.week } : nil,
+            shows: shows)
+    }
+}

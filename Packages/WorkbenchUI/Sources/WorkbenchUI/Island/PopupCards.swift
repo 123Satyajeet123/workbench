@@ -19,14 +19,20 @@ enum PopupCards {
     static let joinBefore: TimeInterval = 60
     static let joinAfter: TimeInterval = 5 * 60
 
+    /// What the pop-up shows of the alert state: only a call, recorded or offered. A recording is always shown, so a
+    /// call being recorded stays visible.
+    static let shows = IslandShows(recording: true, reading: false, needsYou: false, plan: false)
+
+    /// The cards of the alert state, then a Join card for each meeting with a link from a minute before it starts.
+    /// `label` names the call being recorded.
     static func make(
-        recording: Recording?, offer: String?, meetings: [Meeting], dismissed: Set<String>, now: Date
+        alert: IslandState, label: String, meetings: [Meeting], dismissed: Set<String>, now: Date
     ) -> [PopupCard] {
         var cards: [PopupCard] = []
-        if let recording {
-            cards.append(.recording(label: recording.source.label, since: recording.startedAt))
-        } else if let offer {
-            cards.append(.offer(service: offer))
+        switch alert {
+        case .recording(let since): cards.append(.recording(label: label, since: since))
+        case .offer(let service): cards.append(.offer(service: service))
+        case .idle, .plan, .reading, .needsYou: break
         }
         let due = meetings.filter { meeting in
             meeting.joinURL != nil && !dismissed.contains(PopupCard.meeting(meeting).id)

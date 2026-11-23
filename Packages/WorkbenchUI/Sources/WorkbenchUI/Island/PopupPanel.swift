@@ -94,7 +94,7 @@ struct PopupContent: View {
     private func cards(at now: Date) -> [PopupCard] {
         guard style == .popup else { return [] }
         return PopupCards.make(
-            recording: session.capture.call, offer: session.callWatcher.offer?.source.service,
+            alert: session.alert(showing: PopupCards.shows), label: session.capture.call?.source.label ?? "",
             meetings: session.today.meetings.meetings, dismissed: dismissed, now: now)
     }
 
