@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The name and icon of any page of the window: a fixed helper's face, a machine's symbol, a work object's kind.
+/// The name and icon of any page of the window: a fixed helper's or a machine's face, a work object's kind.
 struct PageLabel: View {
     let page: SidebarSelection
     @Environment(Crew.self) private var crew
@@ -10,8 +10,8 @@ struct PageLabel: View {
         Label {
             Text(title)
         } icon: {
-            if let look = page.look {
-                Mascot(look: look, size: 18)
+            if let look {
+                Mascot(look: look, size: SidebarRowFont.iconSize, mood: mood)
             } else {
                 Image(systemName: symbol)
             }
@@ -26,9 +26,16 @@ struct PageLabel: View {
         }
     }
 
+    private var helper: HelperModel? {
+        if case .machine(let id) = page { crew.helper(id: id) } else { nil }
+    }
+
+    private var look: Mascot.Look? { helper.map { .of($0.machine) } ?? page.look }
+
+    private var mood: Mascot.Mood { helper?.mood ?? .calm }
+
     private var symbol: String {
         switch page {
-        case .machine(let id): crew.helper(id: id)?.machine.symbol ?? "gearshape.2"
         case .page(let id): workspace.object(id)?.symbol ?? "doc.text"
         default: page.symbol
         }

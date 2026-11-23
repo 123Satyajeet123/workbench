@@ -14,11 +14,6 @@ extension WorkObject {
     ]
 }
 
-extension Machine {
-    /// The symbol of the gallery item the machine was made from.
-    var symbol: String { GalleryTemplate.of(id: template)?.icon ?? "gearshape.2" }
-}
-
 extension Crew {
     /// The machine whose page is `object`, if one is.
     func helper(page object: WorkObjectID) -> HelperModel? { machines.first { $0.machine.page == object } }

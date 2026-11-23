@@ -195,7 +195,7 @@ struct TabChip: View {
     @State private var isHovered = false
 
     var body: some View {
-        PageLabel(page: page).textStyle(.body).lineLimit(1)
+        PageLabel(page: page).labelStyle(.titleAndIcon).textStyle(.body).lineLimit(1)
             .foregroundStyle(isSelected ? Color.bodyText : .sidebarText)
             .padding(.leading, Space.m).padding(.trailing, canClose ? Space.xl : Space.m)
             .frame(

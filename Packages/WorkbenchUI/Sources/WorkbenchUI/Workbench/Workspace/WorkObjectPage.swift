@@ -74,7 +74,15 @@ private struct FolderPage: View {
                 Button {
                     open(crew.page(of: child))
                 } label: {
-                    Label(child.name, systemImage: crew.helper(page: child.id)?.machine.symbol ?? child.symbol)
+                    Label {
+                        Text(child.name)
+                    } icon: {
+                        if let helper = crew.helper(page: child.id) {
+                            Mascot(look: .of(helper.machine), size: SidebarRowFont.iconSize, mood: helper.mood)
+                        } else {
+                            Image(systemName: child.symbol)
+                        }
+                    }
                 }
                 .buttonStyle(.link)
             }

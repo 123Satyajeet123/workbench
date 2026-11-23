@@ -26,16 +26,16 @@ struct Sidebar: View {
         List(selection: listSelection) {
             Section {
                 mochiRow
-                Button(action: search) { Label("Search", systemImage: "magnifyingglass") }
+                Button(action: search) { Label("Search", systemImage: "magnifyingglass").sidebarRowFont() }
                     .buttonStyle(.plain).help("Search (⌘K)")
             }
             if !workspace.recents.isEmpty {
                 Section("Recents", isExpanded: $recentsShown) {
-                    ForEach(workspace.recents) { PageLabel(page: $0).tag($0) }
+                    ForEach(workspace.recents) { PageLabel(page: $0).sidebarRowFont().tag($0) }
                 }
             }
             if !workspace.favorites.isEmpty {
-                Section("Favorites") { ForEach(workspace.favorites) { PageLabel(page: $0).tag($0) } }
+                Section("Favorites") { ForEach(workspace.favorites) { PageLabel(page: $0).sidebarRowFont().tag($0) } }
             }
             Section {
                 tree(workspace.roots, under: nil)
@@ -103,8 +103,9 @@ struct Sidebar: View {
         Label {
             Text(SidebarSelection.mochi.title)
         } icon: {
-            Mascot(look: .mochi, size: 18, mood: mochiMood)
+            Mascot(look: .mochi, size: SidebarRowFont.iconSize, mood: mochiMood)
         }
+        .sidebarRowFont()
         .badge(today.needsCount)
         .help(SidebarSelection.day.role)
         .tag(SidebarSelection.day)
@@ -154,6 +155,7 @@ struct Sidebar: View {
                 Button("Settings", systemImage: "gearshape") { selection = .settings }.help("Settings (⌘,)")
             }
             .buttonStyle(.borderless)
+            .sidebarRowFont()
         }
         .padding(.horizontal, Space.m).padding(.vertical, Space.s)
     }
@@ -302,35 +304,27 @@ private struct TreeRow: View {
                     .onExitCommand { renaming = nil }
                     .onChange(of: isFocused) { _, focused in if !focused { rename(object, draft) } }
             } else {
-                HStack {
-                    Text(object.name)
-                    if let helper, helper.mood != .calm {
-                        Spacer()
-                        Circle().fill(dot(helper.mood)).frame(width: 7, height: 7)
-                            .accessibilityLabel(status(helper.mood))
-                    }
-                }
+                Text(object.name)
             }
         } icon: {
-            Image(systemName: helper?.machine.symbol ?? object.symbol)
-                .opacity(helper?.isPaused == true ? 0.5 : 1)
+            if let helper {
+                Mascot(look: .of(helper.machine), size: SidebarRowFont.iconSize, mood: helper.mood)
+                    .opacity(helper.isPaused ? 0.5 : 1)
+            } else {
+                Image(systemName: object.symbol)
+            }
         }
+        .sidebarRowFont()
         .help(helper?.role ?? object.type.noun.capitalized)
     }
+}
 
-    private func dot(_ mood: Mascot.Mood) -> Color {
-        switch mood {
-        case .working: .accentColor
-        case .trouble: Tone.bad.color
-        default: Tone.attention.color
-        }
-    }
+/// One text size for every row of the sidebar, the fixed ones at the foot too, at the window's zoom. The native list
+/// sets its own size for its rows, so each row states this one.
+enum SidebarRowFont {
+    static let iconSize: CGFloat = 18
+}
 
-    private func status(_ mood: Mascot.Mood) -> String {
-        switch mood {
-        case .working: "Reading"
-        case .trouble: "Has a problem"
-        default: "Needs you"
-        }
-    }
+extension View {
+    func sidebarRowFont() -> some View { textStyle(.body) }
 }
