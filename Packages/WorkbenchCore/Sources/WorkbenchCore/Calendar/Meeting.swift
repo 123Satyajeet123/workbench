@@ -20,10 +20,11 @@ public struct Meeting: Sendable, Equatable, Identifiable {
     public var end: Date
     public var attendees: [Attendee]
     public var notesLength: Int
+    public var joinURL: URL?
 
     public init(
         id: String, calendar: String, title: String, start: Date, end: Date, attendees: [Attendee] = [],
-        notesLength: Int = 0
+        notesLength: Int = 0, joinURL: URL? = nil
     ) {
         self.id = id
         self.calendar = calendar
@@ -32,7 +33,10 @@ public struct Meeting: Sendable, Equatable, Identifiable {
         self.end = end
         self.attendees = attendees
         self.notesLength = notesLength
+        self.joinURL = joinURL
     }
+
+    public var joinService: String? { joinURL.flatMap(MeetingLink.service(of:)) }
 
     public var guests: [Attendee] { attendees.filter { !$0.isMe } }
 }
