@@ -111,9 +111,11 @@ final class TodayModel {
         sections.isEmpty && team.isEmpty && unsummarized.isEmpty && projects.isEmpty && meetingCards.isEmpty
     }
 
-    private var factMachines: [Machine] { crew.factKeepers.map(\.machine) }
-    private var sentinelTask: String? {
-        crew.sentinel?.spec.task
+    /// The lifecycle of each fact Today lists, by task: each fact keeper's own, and the store's typed facts.
+    private var lifecycles: [String: HelperSpec.Lifecycle] {
+        HelperSpec.Lifecycle.ofTypedFacts.merging(
+            crew.factKeepers.compactMap { helper in helper.spec.lifecycle.map { (helper.spec.task, $0) } }
+        ) { typed, _ in typed }
     }
 
     func refresh() {
@@ -137,43 +139,39 @@ final class TodayModel {
     private func load() throws {
         let now = store.clock()
         today = WorkDay(containing: now)
-        let dealActions = try store.queries.openDealActions()
+        let keepers = crew.factKeepers.map(\.machine)
+        let lifecycles = self.lifecycles
+        let specs = Dictionary(keepers.map { ($0.task, $0.spec) }) { first, _ in first }
         let revisits = try store.queries.openRevisits()
-        let news = try store.queries.newsSignals(since: today.adding(days: 1 - Store.newsRetentionDays))
         passedNews = try passedNews(of: revisits, now: now)
-        var input = MorningInput(facts: dealActions, me: me())
+        let open = try keepers.flatMap { try store.queries.openItems(readBy: $0.spec) }
+        var input = MorningInput(facts: try store.queries.openDealActions() + open, me: me())
         input.revisits = revisits
-        input.news = news
+        input.news = try store.queries.newsSignals(since: today.adding(days: 1 - Store.newsRetentionDays))
         input.firedTimers = try store.queries.itemsWithFiredTimers()
-        guard let machine = factMachines.first else {
-            clear()
-            sections = MorningList.pick(input, now: now)
-            buildMeetingCards()
-            return
-        }
-        let lifecycle = machine.spec.lifecycleOrNone
+        input.findings = try crew.factReaders.flatMap { try store.queries.items(of: $0.spec.task, on: today) }
+        input.ownerField = { lifecycles[$0.task]?.owner }
+        input.askerField = { lifecycles[$0.task]?.asker }
+        sections = MorningList.pick(input, now: now)
+        backlog = try cutoffOffer(open)
         let since = today.adding(days: 1 - Self.days)
-        let open = try factMachines.flatMap { try store.queries.openItems(of: $0.task, lifecycle: lifecycle) }
-        let facts = try factMachines.flatMap { machine in
+        let facts = try keepers.flatMap { machine in
             try recentFacts(of: machine, open: open.filter { $0.task == machine.task }, since: since)
         }
         let listed = facts.filter { $0.isListed(at: now) }
-        input.facts += open
-        input.findings = try sentinelTask.map { try store.queries.items(of: $0, on: today) } ?? []
-        input.ownerField = lifecycle.owner ?? input.ownerField
-        input.askerField = lifecycle.asker
-        sections = MorningList.pick(input, now: now)
-        backlog = try cutoffOffer(open)
-        people = group(facts, by: machine.spec.memberField, lifecycle, now)
-        projectGroups = group(facts, by: machine.spec.labelField, lifecycle, now)
-        team = try factMachines.flatMap {
-            try rows(
-                machine.spec.memberField, of: $0, day: today, listed: listed, groups: people, countsOpen: false)
+        let lifecycle = { (fact: Item) in lifecycles[fact.task] }
+        let member = { (fact: Item) in specs[fact.task]?.memberField }
+        let label = { (fact: Item) in specs[fact.task]?.labelField }
+        people = FactGroups.make(facts, by: member, lifecycle: lifecycle, now: now)
+        projectGroups = FactGroups.make(facts, by: label, lifecycle: lifecycle, now: now)
+        team = try keepers.flatMap {
+            try rows($0.spec.memberField, of: $0, day: today, listed: listed, groups: people, countsOpen: false)
         }
-        unsummarized = withoutSummary(facts.filter { $0.day == today }, machine, lifecycle, now)
-        projects = try factMachines.flatMap {
-            try rows(
-                machine.spec.labelField, of: $0, day: today, listed: listed, groups: projectGroups, countsOpen: true)
+        unsummarized = FactGroups.unsummarized(
+            facts.filter { $0.day == today }, by: member, lifecycle: lifecycle, summarized: Set(team.map(\.subject)),
+            now: now)
+        projects = try keepers.flatMap {
+            try rows($0.spec.labelField, of: $0, day: today, listed: listed, groups: projectGroups, countsOpen: true)
         }
         buildMeetingCards()
     }
@@ -195,27 +193,11 @@ final class TodayModel {
         return found
     }
 
-    private func clear() {
-        sections = []
-        backlog = []
-        team = []
-        unsummarized = []
-        projects = []
-        people = []
-        projectGroups = []
-    }
-
     /// The facts of the window and every fact still open, however old.
     private func recentFacts(of machine: Machine, open: [Item], since day: WorkDay) throws -> [Item] {
         let recent = try store.queries.items(of: machine.task, since: day)
         let known = Set(recent.compactMap(\.id))
         return recent + open.filter { $0.id.map { !known.contains($0) } ?? false }
-    }
-
-    private func group(_ facts: [Item], by field: String?, _ lifecycle: HelperSpec.Lifecycle, _ now: Date)
-        -> [FactGroup]
-    {
-        field.map { FactGroups.make(facts, by: $0, lifecycle: lifecycle, now: now) } ?? []
     }
 
     private func rows(
@@ -228,14 +210,6 @@ final class TodayModel {
             let open = countsOpen ? groups.first { $0.name == summary.subject }?.open.count ?? 0 : 0
             return SummaryRow(summary: summary, line: line, facts: line.cites.compactMap { byID[$0] }, openCount: open)
         }
-    }
-
-    private func withoutSummary(_ facts: [Item], _ machine: Machine, _ lifecycle: HelperSpec.Lifecycle, _ now: Date)
-        -> [FactGroup]
-    {
-        guard let field = machine.spec.memberField else { return [] }
-        return FactGroups.unsummarized(
-            facts, by: field, lifecycle: lifecycle, summarized: Set(team.map(\.subject)), now: now)
     }
 
     /// Writes today's summaries when the fact machine has facts for today that lack them. Asks at most once for each
@@ -278,8 +252,8 @@ final class TodayModel {
     }
 
     func isClosable(_ item: Item) -> Bool {
-        guard let machine = factMachines.first(where: { $0.task == item.task }) else { return true }
-        return machine.spec.lifecycle.map { $0.open.contains(item[$0.field]) } ?? false
+        guard let lifecycle = lifecycles[item.task] else { return true }
+        return lifecycle.open.contains(item[lifecycle.field])
     }
 
     func isDone(_ items: [Item]) -> Bool {
@@ -374,15 +348,18 @@ final class TodayModel {
         }
     }
 
-    /// A fact closes with its lifecycle's outcome, a deal's action as done; a finding, which has no lifecycle, is
-    /// handled.
+    /// A fact closes with its own lifecycle's outcome; a finding, which has no lifecycle, is handled.
     private func closing(_ items: [Item]) -> [ItemAction: [Int64]] {
-        let tasks = Set(factMachines.map(\.task))
-        var plan = factMachines.first?.spec.lifecycle?.closing(items.filter { tasks.contains($0.task) }) ?? [:]
-        plan.merge(DealAction.lifecycle.closing(items.filter { $0.task == DealAction.task })) { $0 + $1 }
-        plan.merge(Revisit.lifecycle.closing(items.filter { $0.task == Revisit.task })) { $0 + $1 }
-        let own = tasks.union([DealAction.task, Revisit.task])
-        let findings = items.filter { !own.contains($0.task) && $0.closed == nil }.compactMap(\.id)
+        let lifecycles = self.lifecycles
+        var plan: [ItemAction: [Int64]] = [:]
+        var findings: [Int64] = []
+        for (task, items) in Dictionary(grouping: items, by: \.task) {
+            if let lifecycle = lifecycles[task] {
+                plan.merge(lifecycle.closing(items)) { $0 + $1 }
+            } else {
+                findings += items.filter { $0.closed == nil }.compactMap(\.id)
+            }
+        }
         if !findings.isEmpty { plan[.done(outcome: "handled")] = findings }
         return plan
     }

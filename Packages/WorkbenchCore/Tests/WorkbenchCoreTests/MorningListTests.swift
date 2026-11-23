@@ -38,7 +38,8 @@ private func sections(
     var input = MorningInput(facts: facts, me: me)
     input.findings = findings
     input.firedTimers = fired
-    input.askerField = asker
+    input.ownerField = { _ in "person" }
+    input.askerField = { _ in asker }
     return MorningList.pick(input, now: now)
 }
 

@@ -7,7 +7,7 @@ import GRDB
 public enum DealAction {
     public static let task = "vc.deal-actions"
     public static let lifecycle = HelperSpec.Lifecycle(
-        field: "kind", open: ["commitment"], outcomes: ["done", "dropped"])
+        field: "kind", open: ["commitment"], outcomes: ["done", "dropped"], owner: "person")
     public static let dealField = "deal"
     static let done = "done"
     static let dropped = "dropped"

@@ -40,7 +40,7 @@ private func closed(_ item: Item) -> Item {
     private let lifecycle = HelperSpec.team.lifecycle
 
     private func groups(_ facts: [Item], by field: String = "person") -> [FactGroup] {
-        FactGroups.make(facts, by: field, lifecycle: lifecycle, now: t0)
+        FactGroups.make(facts, by: { _ in field }, lifecycle: { _ in lifecycle }, now: t0)
     }
 
     @Test func factsAreGroupedByTheFieldWithOpenOnesFirstAndTheRestBelow() {
@@ -79,24 +79,26 @@ private func closed(_ item: Item) -> Item {
     @Test func withoutSummariesEveryListedFactOfAnUnsummarizedPersonIsKeptAndNoOtherPersonIs() {
         let facts = [fact(1, person: "Asha"), fact(2, person: "Raj", kind: "done"), fact(3, person: "Raj")]
         let result = FactGroups.unsummarized(
-            facts, by: "person", lifecycle: lifecycle, summarized: ["Asha"], now: t0)
+            facts, by: { _ in "person" }, lifecycle: { _ in lifecycle }, summarized: ["Asha"], now: t0)
         #expect(result.map(\.name) == ["Raj"])
         #expect(result[0].open.map(\.id) == [3] && result[0].rest.map(\.id) == [2])
-        let none = FactGroups.unsummarized(facts, by: "person", lifecycle: lifecycle, summarized: [], now: t0)
+        let none = FactGroups.unsummarized(
+            facts, by: { _ in "person" }, lifecycle: { _ in lifecycle }, summarized: [], now: t0)
         #expect(none.map(\.name) == ["Asha", "Raj"])
     }
 
     @Test func aFactWithNoPersonStillShowsInAGroupWithNoName() {
         let facts = [fact(1, person: ""), fact(2, person: "Asha"), hidden(fact(3, person: ""))]
-        let result = FactGroups.unsummarized(facts, by: "person", lifecycle: lifecycle, summarized: [], now: t0)
+        let result = FactGroups.unsummarized(
+            facts, by: { _ in "person" }, lifecycle: { _ in lifecycle }, summarized: [], now: t0)
         #expect(result.map(\.name) == ["Asha", ""] && result[1].rest.map(\.id) == [1])
         let allSummarized = FactGroups.unsummarized(
-            facts, by: "person", lifecycle: lifecycle, summarized: ["Asha"], now: t0)
+            facts, by: { _ in "person" }, lifecycle: { _ in lifecycle }, summarized: ["Asha"], now: t0)
         #expect(allSummarized.map(\.name) == [""])
     }
 
     @Test func aMachineWithNoLifecycleHasNoOpenFacts() {
-        let result = FactGroups.make([fact(1)], by: "person", lifecycle: nil, now: t0)
+        let result = FactGroups.make([fact(1)], by: { _ in "person" }, lifecycle: { _ in nil }, now: t0)
         #expect(result.first?.open.isEmpty == true && result.first?.rest.count == 1)
     }
 }

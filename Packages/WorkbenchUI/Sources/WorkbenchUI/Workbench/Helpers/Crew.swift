@@ -63,15 +63,15 @@ final class Crew {
 
     var team: HelperModel? { machines.first { $0.machine.template == HelperSpec.team.task } }
 
-    var factKeepers: [HelperModel] {
-        MachineTemplate.addable.flatMap { template in machines.filter { $0.machine.template == template.spec.task } }
-    }
+    /// The machines whose spec has a lifecycle, so their facts open and close.
+    var factKeepers: [HelperModel] { machines.filter { $0.spec.lifecycle != nil } }
 
-    var sentinel: HelperModel? { machines.first { $0.machine.template == HelperSpec.derailment.task } }
+    /// The machines that read open facts and write findings about them.
+    var factReaders: [HelperModel] { machines.filter(\.spec.needsFollowed) }
 
     var crew: [HelperModel] { machines.filter { $0 !== timeline } }
 
-    var followable: HelperModel? { machines.first { $0.spec.lifecycle != nil } }
+    var followable: HelperModel? { factKeepers.first }
 
     static let nothingToFollow =
         "Add Pip first. This machine follows its open plans, blockers, commitments, questions and decisions."

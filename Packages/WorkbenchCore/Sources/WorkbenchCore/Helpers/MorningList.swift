@@ -81,10 +81,11 @@ public struct MorningInput: Sendable {
     public var firedTimers: Set<Int64> = []
     /// The founder's name as the owner field of a fact writes it.
     public var me: String
-    /// The field that names who owns a fact.
-    public var ownerField = "person"
-    /// The field that names who asked for a fact; nil for a machine that has none.
-    public var askerField: String?
+    /// The field that names who owns a fact, from the lifecycle of the fact's own machine; nil when its facts name no
+    /// owner, so none is the person's own and none waits on someone.
+    public var ownerField: @Sendable (Item) -> String? = { _ in nil }
+    /// The field that names who asked for a fact, from the lifecycle of the fact's own machine; nil when it has none.
+    public var askerField: @Sendable (Item) -> String? = { _ in nil }
     public var attention: HelperSpec.Attention = .builtIn
 
     public init(facts: [Item], me: String) {
@@ -117,7 +118,7 @@ public enum MorningList {
             .map { Need(item: $0, reason: .news) }
         return MorningSection.Kind.allCases.compactMap { kind in
             if kind == .waitingOn {
-                let owners = owners(of: waiting, input.ownerField)
+                let owners = owners(of: waiting, input)
                 return owners.isEmpty ? nil : MorningSection(kind: kind, needs: [], owners: owners)
             }
             return sections[kind].flatMap { $0.isEmpty ? nil : MorningSection(kind: kind, needs: $0) }
@@ -132,8 +133,7 @@ public enum MorningList {
     private static func place(of fact: Item, _ input: MorningInput, now: Date) -> (
         section: MorningSection.Kind, need: Need
     ) {
-        let owner = fact.owner(in: input.ownerField)
-        let isMine = !input.me.isEmpty && owner.caseInsensitiveCompare(input.me) == .orderedSame
+        let isMine = !input.me.isEmpty && owner(of: fact, input)?.caseInsensitiveCompare(input.me) == .orderedSame
         let asksMe = fact.handedTo == nil && fact.carries(input.attention.asksMe)
         if let proposed = fact.proposedClose {
             return (.toConfirm, Need(item: fact, reason: .proposedClose(outcome: proposed.outcome)))
@@ -144,7 +144,8 @@ public enum MorningList {
         if fact.id.map(input.firedTimers.contains) == true { return (.slipped, Need(item: fact, reason: .timerFired)) }
         if asksMe { return (.owe, Need(item: fact, reason: .asks)) }
         if isMine { return (.owe, Need(item: fact, reason: .owned)) }
-        if let asker = input.askerField, !input.me.isEmpty, fact[asker].caseInsensitiveCompare(input.me) == .orderedSame
+        if let asker = input.askerField(fact), !input.me.isEmpty,
+            fact[asker].caseInsensitiveCompare(input.me) == .orderedSame
         {
             return (.owedToMe, Need(item: fact, reason: .owedToMe))
         }
@@ -165,12 +166,15 @@ public enum MorningList {
     }
 
     /// The facts by owner, owners by name. A fact with no owner named is left out: nobody is waited on.
-    private static func owners(of needs: [Need], _ field: String) -> [OwnerGroup] {
-        let named = Dictionary(grouping: needs.filter { !$0.item.owner(in: field).isEmpty }) {
-            $0.item.owner(in: field)
-        }
-        return named.map { OwnerGroup(owner: $0.key, needs: $0.value) }
+    private static func owners(of needs: [Need], _ input: MorningInput) -> [OwnerGroup] {
+        let owned = needs.compactMap { need in owner(of: need.item, input).map { (owner: $0, need: need) } }
+        return Dictionary(grouping: owned, by: \.owner).map { OwnerGroup(owner: $0.key, needs: $0.value.map(\.need)) }
             .sorted { $0.owner.localizedCaseInsensitiveCompare($1.owner) == .orderedAscending }
+    }
+
+    /// Who owns the fact by its own machine's owner field; nil when that machine names no owner or the fact names none.
+    private static func owner(of fact: Item, _ input: MorningInput) -> String? {
+        input.ownerField(fact).map(fact.owner(in:)).flatMap { $0.isEmpty ? nil : $0 }
     }
 
     /// Facts with a due time first, the soonest first, then by store id.

@@ -34,28 +34,33 @@ public struct FactGroup: Sendable, Equatable, Identifiable {
 }
 
 public enum FactGroups {
-    /// The listed facts grouped by the value of `field`, groups with open facts first, then by name. A fact with no
-    /// value in `field` belongs to no group.
+    /// The listed facts grouped by the value of their `field`, groups with open facts first, then by name. Each fact
+    /// is read with the field and lifecycle of its own machine. A fact with no field or no value in it belongs to no
+    /// group.
     public static func make(
-        _ facts: [Item], by field: String, lifecycle: HelperSpec.Lifecycle?, now: Date
+        _ facts: [Item], by field: (Item) -> String?, lifecycle: (Item) -> HelperSpec.Lifecycle?, now: Date
     ) -> [FactGroup] {
-        let named = Dictionary(grouping: facts.filter { $0.isListed(at: now) && !$0[field].isEmpty }) { $0[field] }
-        let groups = named.map { name, items in
-            let isOpen = { (item: Item) in item.isOpen(in: lifecycle, at: now) }
+        let valued = facts.compactMap { fact in field(fact).map { (name: fact[$0], fact: fact) } }
+        let named = Dictionary(grouping: valued.filter { $0.fact.isListed(at: now) && !$0.name.isEmpty }, by: \.name)
+        let groups = named.map { name, valued in
+            let items = valued.map { (fact: $0.fact, isOpen: $0.fact.isOpen(in: lifecycle($0.fact), at: now)) }
             return FactGroup(
-                name: name, open: items.filter(isOpen).sorted(by: soonestThenNewest),
-                rest: items.filter { !isOpen($0) }.sorted(by: newest))
+                name: name, open: items.filter(\.isOpen).map(\.fact).sorted(by: soonestThenNewest),
+                rest: items.filter { !$0.isOpen }.map(\.fact).sorted(by: newest))
         }
         return groups.sorted { ($0.open.isEmpty ? 1 : 0, $0.name) < ($1.open.isEmpty ? 1 : 0, $1.name) }
     }
 
     /// What a page shows for a day whose summaries are missing: the listed facts of the groups that have no summary,
-    /// without one. Facts with no value in `field` come last, in a group with an empty name, so no fact is lost.
+    /// without one. Facts with no value in their `field` come last, in a group with an empty name, so no fact is lost;
+    /// a fact whose machine has no such field is left out.
     public static func unsummarized(
-        _ facts: [Item], by field: String, lifecycle: HelperSpec.Lifecycle?, summarized: Set<String>, now: Date
+        _ facts: [Item], by field: (Item) -> String?, lifecycle: (Item) -> HelperSpec.Lifecycle?,
+        summarized: Set<String>, now: Date
     ) -> [FactGroup] {
         let groups = make(facts, by: field, lifecycle: lifecycle, now: now).filter { !summarized.contains($0.name) }
-        let unnamed = facts.filter { $0.isListed(at: now) && $0[field].isEmpty }.sorted(by: newest)
+        let unnamed = facts.filter { fact in fact.isListed(at: now) && field(fact).map { fact[$0].isEmpty } == true }
+            .sorted(by: newest)
         return unnamed.isEmpty ? groups : groups + [FactGroup(name: "", open: [], rest: unnamed)]
     }
 
