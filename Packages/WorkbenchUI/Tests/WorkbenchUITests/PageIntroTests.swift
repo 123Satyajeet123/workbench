@@ -23,12 +23,9 @@ struct PageIntroTests {
     }
 
     @Test func everySidebarPageHasANoteAndOtherPagesHaveNone() {
-        for case .page(let page, _) in SidebarLayout.sections.flatMap(\.entries) {
-            #expect(page.intro?.isEmpty == false, "\(page) has no note")
-        }
-        for case .helper(let page) in SidebarLayout.sections.flatMap(\.entries) {
-            #expect(page.intro?.isEmpty == false, "\(page) has no note")
-        }
+        let rows = SidebarPlan.sections(template: .fund, machines: [], today: 0, checks: 0).flatMap(\.rows)
+        for case .page(let page, _) in rows { #expect(page.intro?.isEmpty == false, "\(page) has no note") }
+        for page in [SidebarSelection.mochi, .crew] { #expect(page.intro?.isEmpty == false, "\(page) has no note") }
         #expect(SidebarSelection.advanced.intro == nil && SidebarSelection.machine(1).intro == nil)
     }
 }

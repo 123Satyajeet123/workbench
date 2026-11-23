@@ -95,4 +95,18 @@ extension FactAction {
     }
 
     func sameKind(as other: FactAction) -> Bool { key == other.key }
+
+    /// The one question a row asks with a button, and the rest, which stay on their keys and in the row's menu. An open
+    /// fact asks "Done"; a check asks "Right or wrong", which is one question.
+    static func split(_ offered: [FactAction]) -> (primary: [FactAction], more: [FactAction]) {
+        let primary: [FactAction]
+        if offered.contains(.done) {
+            primary = [.done]
+        } else if offered.contains(.right) && offered.contains(.wrong) {
+            primary = [.right, .wrong]
+        } else {
+            primary = []
+        }
+        return (primary, offered.filter { !primary.contains($0) })
+    }
 }

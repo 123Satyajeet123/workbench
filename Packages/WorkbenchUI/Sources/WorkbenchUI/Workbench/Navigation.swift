@@ -5,11 +5,13 @@ import Observation
 @Observable
 final class Navigation {
     var requested: SidebarSelection?
-    /// The fact the person chose in the menu bar. Today opens it in the inspector.
+    /// The fact the person chose in the menu bar. Today opens it in the right panel, and the window clears it.
     var requestedFact: Int64?
     var settingsTab = SettingsTab.general
+    /// ⌘K is open over the window.
+    var isPaletteOpen = false
 
-    /// Opens Today with `fact` in the inspector.
+    /// Opens Today with `fact` in the right panel.
     func show(fact: Int64) {
         requested = .day
         requestedFact = fact

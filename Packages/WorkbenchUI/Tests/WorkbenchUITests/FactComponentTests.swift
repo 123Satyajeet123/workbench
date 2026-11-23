@@ -221,7 +221,7 @@ import WorkbenchCore
     }
 
     @Test func theCardKeepsItsSizeWhenTheBarShowsAndWhenItConfirms() {
-        let row = FactFixture.row(1, reason: .asksYou, due: 0)
+        let row = FactFixture.row(1, due: 0)
         let rest = size(of: card(row))
         #expect(rest.height > 30 && rest.height < 80)
         #expect(size(of: card(row, isSelected: true)) == rest)
@@ -231,44 +231,83 @@ import WorkbenchCore
     }
 
     @Test func everyKindOfRowHasTheSameHeight() {
-        let rest = size(of: card(FactFixture.row(1, reason: .asksYou, due: 0)), width: 640).height
+        let rest = size(of: card(FactFixture.row(1, due: 0)), width: 640).height
         let long = String(repeating: "A very long title that cannot fit on one line ", count: 8)
         for row in [
-            FactFixture.row(2, title: long), FactFixture.row(3, person: ""), FactFixture.row(4, askedWith: 0.2),
-            FactFixture.row(5, reason: .overdue, due: -2),
+            FactFixture.row(2, quote: long), FactFixture.row(3, person: ""), FactFixture.row(4, askedWith: 0.2),
+            FactFixture.row(5, due: -2),
         ] {
             #expect(size(of: card(row), width: 640).height == rest, "row \(row.id)")
         }
         for zoom in [1.0, 1.5] {
             let scaled = size(of: card(FactFixture.row(6)), width: 640, zoom: zoom).height
-            #expect(size(of: card(FactFixture.row(7, title: long)), width: 640, zoom: zoom).height == scaled)
+            #expect(size(of: card(FactFixture.row(7, quote: long)), width: 640, zoom: zoom).height == scaled)
         }
     }
 
-    @Test func theCardSaysWhatAPersonNeedsToKnow() {
-        let row = FactFixture.row(1, reason: .asksYou, due: 0)
-        #expect(row.meta(now: FactFixture.now).hasPrefix("Asha · Login · WhatsApp · "))
-        #expect(row.due(today: FactFixture.today)?.tone == .attention)
-        #expect(FactFixture.row(2, due: -1).due(today: FactFixture.today)?.tone == .bad)
-        #expect(FactFixture.row(3, due: 2).due(today: FactFixture.today)?.tone == .neutral)
-        #expect(FactFixture.row(4).due(today: FactFixture.today) == nil)
-        #expect(FactFixture.row(5, askedWith: 0.2).reason == .picked)
-        #expect(FactFixture.row(6, reason: .asksYou, askedWith: 0.2).reason == .picked)
+    @Test func aFactIsCalledByItsQuoteAndTheTitleStandsInOnlyWithoutOne() {
+        let quoted = FactFixture.row(1, title: "Machine title")
+        #expect(quoted.headline.words == "login API aaj raat tak" && quoted.headline.isQuote)
+        #expect(quoted.headline.plain == "Asha: login API aaj raat tak")
+        let bare = FactFixture.row(2, title: "Machine title", quote: "")
+        #expect(bare.headline.words == "Machine title" && !bare.headline.isQuote)
+        #expect(FactFixture.row(3, title: "Machine title", quote: " \n ").headline.words == "Machine title")
+        #expect(FactFixture.row(4, quote: "kal\n  subah   bhejna").headline.words == "kal subah bhejna")
+        #expect(FactFixture.row(5, person: "", quote: "ok").headline.plain == "ok")
     }
 
-    @Test func voiceOverReadsTheTitleThePersonTheDueDayAndTheReason() {
-        let spoken = FactFixture.row(1, reason: .asksYou, due: 0).spoken(today: FactFixture.today)
-        #expect(spoken.hasPrefix("Ship the login API. Asha. Due "))
-        #expect(spoken.hasSuffix(". Asks you"))
-        #expect(FactFixture.row(2, person: "").spoken(today: FactFixture.today) == "Ship the login API")
+    @Test func theCardNamesTheChatThenTheProjectThenTheSource() {
+        let now = FactFixture.now
+        #expect(FactFixture.row(1, chat: "Founders group").said(now: now).hasPrefix("Founders group · "))
+        #expect(FactFixture.row(2).said(now: now).hasPrefix("Login · "), "no chat: the project")
+        #expect(FactFixture.row(3, project: "").said(now: now).hasPrefix("WhatsApp · "), "no chat, no project")
+        #expect(FactFixture.row(4, chat: "asha").said(now: now).hasPrefix("WhatsApp · "), "a chat named for the person")
+        #expect(!FactFixture.row(5, chat: "Founders group").said(now: now).contains("Login"))
+        #expect(FactFixture.row(6).said(now: now) == "Login · yesterday")
     }
 
-    @Test func aReasonComesFromNeedsYouAndAnOverdueFactIsTheOnlyDueOneThatHasAWord() {
+    @Test func theDueDayIsBadWhenLateAndAttentionToday() {
         let today = FactFixture.today
-        #expect(FactReason(.asks, today: today) == .asksYou)
-        #expect(FactReason(.due(today.adding(days: -1)), today: today) == .overdue)
-        #expect(FactReason(.due(today), today: today) == nil)
-        #expect(FactReason(.due(today.adding(days: 2)), today: today) == nil)
+        #expect(FactFixture.row(1, due: 0).due(today: today)?.text == "due today")
+        #expect(FactFixture.row(1, due: 0).due(today: today)?.tone == .attention)
+        #expect(FactFixture.row(2, due: -1).due(today: today)?.tone == .bad)
+        #expect(FactFixture.row(2, due: -1).due(today: today)?.text.hasPrefix("due ") == true)
+        #expect(FactFixture.row(3, due: 2).due(today: today)?.tone == .neutral)
+        #expect(FactFixture.row(4).due(today: today) == nil)
+    }
+
+    @Test func voiceOverReadsTheHeadlineThePlaceAndTheDueDay() {
+        let spoken = FactFixture.row(1, due: 0).spoken(now: FactFixture.now)
+        #expect(spoken.hasPrefix("Asha: login API aaj raat tak. Login · "))
+        #expect(spoken.hasSuffix(". due today"))
+        #expect(!FactFixture.row(2, person: "", quote: "").spoken(now: FactFixture.now).hasPrefix("."))
+    }
+
+    // MARK: One action in sight
+
+    @Test func anOpenFactShowsDoneAndKeepsTheRestInTheMenu() {
+        let split = FactAction.split([.done, .snooze(days: 1), .notRelevant, .wrong])
+        #expect(split.primary == [.done] && split.more == [.snooze(days: 1), .notRelevant, .wrong])
+        let machine = FactAction.split([.done, .wrong])
+        #expect(machine.primary == [.done] && machine.more == [.wrong])
+    }
+
+    @Test func aCheckShowsRightAndWrongTogetherAndHasNoMenu() {
+        let split = FactAction.split([.right, .wrong])
+        #expect(split.primary == [.right, .wrong] && split.more.isEmpty)
+    }
+
+    @Test func aFactWithNoQuestionKeepsEveryActionInTheMenu() {
+        #expect(FactAction.split([]) == ([], []))
+        let lone = FactAction.split([.wrong])
+        #expect(lone.primary.isEmpty && lone.more == [.wrong])
+        let all: [FactAction] = [.done, .snooze(days: 1), .notRelevant, .wrong, .right]
+        let split = FactAction.split(all)
+        #expect(Set(split.primary + split.more) == Set(all) && split.primary.count + split.more.count == all.count)
+    }
+
+    @Test func theConfirmationIsAFlashOfLightTint() {
+        #expect(FactCard.confirmationOpacity < Chip.fillOpacity)
     }
 
     // MARK: The list
@@ -337,7 +376,7 @@ import WorkbenchCore
         await rig.run(.done, on: 2)
         #expect(rig.acting.handled == [2])
         #expect(rig.manager.canUndo && rig.manager.undoActionName == "Done")
-        #expect(rig.toast.current?.text == "Done: Ship the login API" && rig.toast.current?.hasUndo == true)
+        #expect(rig.toast.current?.text == "Done: login API aaj raat tak" && rig.toast.current?.hasUndo == true)
     }
 
     @Test func theUndoMenuUndoesItAndTheToastGoesWithIt() async {

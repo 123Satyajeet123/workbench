@@ -81,7 +81,7 @@ final class FactFlow {
     }
 
     private func announce(_ action: FactAction, on row: FactRow, undo: @escaping () -> Void, in context: FactContext) {
-        let text = action.toastText(for: row.title)
+        let text = action.toastText(for: row.headline.words)
         guard let manager = context.undoManager else { return context.toast.show(text) }
         manager.registerUndo(withTarget: manager) { _ in MainActor.assumeIsolated { undo() } }
         manager.setActionName(action.title)

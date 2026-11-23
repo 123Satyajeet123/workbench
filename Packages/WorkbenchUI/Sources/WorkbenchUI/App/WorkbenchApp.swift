@@ -9,13 +9,17 @@ public struct WorkbenchApp: App {
 
     public init() {}
 
+    private var navigation: Navigation? {
+        if case .ready(let session) = appDelegate.launch { session.navigation } else { nil }
+    }
+
     public var body: some Scene {
         Window("Workbench", id: Self.mainWindowID) {
             switch appDelegate.launch {
             case .ready(let session):
                 Group {
                     if session.onboarding.isFinished {
-                        WorkbenchView()
+                        WorkbenchView(session: session)
                     } else {
                         OnboardingView()
                     }
@@ -31,8 +35,10 @@ public struct WorkbenchApp: App {
                 StartupErrorView(failure: failure)
             }
         }
-        .commands { ZoomCommands() }
-        .windowStyle(.hiddenTitleBar)
+        .commands {
+            ZoomCommands()
+            ShellCommands(navigation: navigation)
+        }
         .windowResizability(.contentSize)
         .defaultWindowPlacement { _, context in
             let visible = context.defaultDisplay.visibleRect

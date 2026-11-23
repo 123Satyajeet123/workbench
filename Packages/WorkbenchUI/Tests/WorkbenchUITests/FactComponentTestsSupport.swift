@@ -1,5 +1,7 @@
+import AppKit
 import CaptureService
 import Foundation
+import SwiftUI
 import Testing
 import WorkbenchCore
 
@@ -12,14 +14,15 @@ enum FactFixture {
 
     static func item(
         _ id: Int64, person: String = "Asha", project: String = "Login", due: Int? = nil,
-        state: Mark = .proposed, askedWith: Double? = nil, task: String = HelperSpec.team.task
+        state: Mark = .proposed, askedWith: Double? = nil, task: String = HelperSpec.team.task,
+        quote: String = "login API aaj raat tak"
     ) -> Item {
         var item = Item(
             id: id, task: task, day: today, scope: "sample", source: .whatsapp, citeFirst: id, citeLast: id,
             start: now.addingTimeInterval(-26 * 3600), end: now.addingTimeInterval(-26 * 3600),
             fields: [
                 "person": person, "project": project, "kind": "commitment", "text": "Ship the login API",
-            ], quote: "login API aaj raat tak", state: state, run: nil, askedWith: askedWith,
+            ], quote: quote, state: state, run: nil, askedWith: askedWith,
             due: due.map {
                 Due(
                     utc: today.adding(days: $0).start, zone: TimeZone.current.identifier, source: .stated,
@@ -30,11 +33,12 @@ enum FactFixture {
     }
 
     static func row(
-        _ id: Int64, title: String = "Ship the login API", reason: FactReason? = nil, person: String = "Asha",
-        due: Int? = nil, askedWith: Double? = nil
+        _ id: Int64, title: String = "Ship the login API", person: String = "Asha", project: String = "Login",
+        chat: String? = nil, due: Int? = nil, askedWith: Double? = nil, quote: String = "login API aaj raat tak"
     ) -> FactRow {
         FactRow(
-            item: item(id, person: person, due: due, askedWith: askedWith), title: title, reason: reason)!
+            item: item(id, person: person, project: project, due: due, askedWith: askedWith, quote: quote),
+            title: title, chat: chat)!
     }
 
     /// The sample day behind a Today model, a review queue and the fact machine's own model.
@@ -88,4 +92,25 @@ final class FakeActing: FactActing {
         handled += ids
         return { [self] in handled.removeAll { ids.contains($0) } }
     }
+}
+
+/// A view drawn through AppKit, which also draws menus and other native controls that `ImageRenderer` leaves blank.
+@MainActor func renderedPNG(of view: some View, mode: String) throws -> Data {
+    let host = NSHostingView(rootView: view)
+    let appearance = NSAppearance(named: mode == "dark" ? .darkAqua : .aqua)
+    host.appearance = appearance
+    let window = NSWindow(
+        contentRect: CGRect(origin: .zero, size: host.fittingSize), styleMask: [], backing: .buffered, defer: false)
+    window.appearance = appearance
+    window.contentView = host
+    host.layoutSubtreeIfNeeded()
+    let bounds = host.bounds
+    let bitmap = try #require(
+        NSBitmapImageRep(
+            bitmapDataPlanes: nil, pixelsWide: Int(bounds.width) * 2, pixelsHigh: Int(bounds.height) * 2,
+            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB,
+            bytesPerRow: 0, bitsPerPixel: 0))
+    bitmap.size = bounds.size
+    host.cacheDisplay(in: bounds, to: bitmap)
+    return try #require(bitmap.representation(using: .png, properties: [:]))
 }

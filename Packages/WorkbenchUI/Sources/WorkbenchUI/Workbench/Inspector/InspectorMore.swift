@@ -1,26 +1,34 @@
 import SwiftUI
 import WorkbenchCore
 
-/// What the founder can do with a fact beyond a mark: a drafted message, a reminder, a deal. Each is the founder's
-/// click; nothing is sent.
+/// What the founder can do with a fact beyond a mark: a reminder, and a deal when the team keeps deals. Each is the
+/// founder's click.
 struct InspectorMore: View {
     let item: Item
     let helper: HelperModel
+    let reminderTitle: String
+    let offersDeals: Bool
     @Environment(ActionsModel.self) private var actions
     @Environment(DealsModel.self) private var deals
     @Environment(\.uiScale) private var scale
     @State private var linked: String?
     @State private var isChoosing = false
 
+    /// A team that keeps deals has a deal kind in its template.
+    static func offersDeals(in template: TeamTemplate) -> Bool {
+        template.objectTypes.contains { $0.id == ObjectTypes.deal.id }
+    }
+
     private static let iconColumn: CGFloat = 16
 
     var body: some View {
         VStack(alignment: .leading, spacing: Space.xs) {
-            draft
             row("Add to Reminders", symbol: "checklist", action: remind)
-            row("New deal from this", symbol: "rectangle.stack.badge.plus", action: newDeal)
-            row("Add to a deal…", symbol: "rectangle.stack") { isChoosing = true }
-                .popover(isPresented: $isChoosing, arrowEdge: .leading) { dealList }
+            if offersDeals {
+                row("New deal from this", symbol: "rectangle.stack.badge.plus", action: newDeal)
+                row("Add to a deal…", symbol: "rectangle.stack") { isChoosing = true }
+                    .popover(isPresented: $isChoosing, arrowEdge: .leading) { dealList }
+            }
             if let linked {
                 Label(linked, systemImage: "checkmark.circle").foregroundStyle(Tone.good.color).text(.meta)
             }
@@ -28,24 +36,9 @@ struct InspectorMore: View {
             ActionNotice()
         }
         .onChange(of: item.id) { linked = nil }
-        .sheet(item: Binding(get: { actions.draft }, set: { actions.draft = $0 })) { DraftSheet(draft: $0) }
     }
 
     private var isActionable: Bool { item.id != nil && item.state != .rejected }
-
-    @ViewBuilder private var draft: some View {
-        if actions.drafting == item.id {
-            HStack(spacing: Space.s) {
-                ProgressView().controlSize(.small).frame(width: Self.iconColumn * scale)
-                Text("Drafting a message…")
-            }
-            .padding(.horizontal, Space.s).padding(.vertical, Space.xs)
-        } else {
-            row("Draft a message…", symbol: "square.and.pencil") {
-                Task { await actions.draft(item, from: helper.machine) }
-            }
-        }
-    }
 
     private func row(_ title: String, symbol: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
@@ -75,7 +68,7 @@ struct InspectorMore: View {
     }
 
     private func remind() {
-        Task { await actions.remind(item, from: helper.machine, title: item[helper.spec.title]) }
+        Task { await actions.remind(item, from: helper.machine, title: reminderTitle) }
     }
 
     private func newDeal() {

@@ -2,8 +2,9 @@ import CaptureService
 import Foundation
 import WorkbenchCore
 
-/// The pages of the main window: Today (the home), People, Projects, Echo (calls), Mochi, Crew, and one page per
-/// machine. A fixed page's name, role and face live here, the one place to rename it; a machine's come from its record.
+/// The pages of the main window: Today (the home), Checks, People, Projects, Calls, Deals, Team, Mochi, Crew, and one
+/// page per machine. A fixed page's name, role and symbol live here, the one place to rename it; a machine's come
+/// from its record.
 /// `advanced` is not a page of the window: it names Settings › Advanced, so an old `runs` link still opens it.
 enum SidebarSelection: Hashable, Identifiable, RawRepresentable {
     case day, people, projects, mochi, crew, review, calls, deals, catalog, advanced
@@ -77,8 +78,8 @@ enum SidebarSelection: Hashable, Identifiable, RawRepresentable {
         case .projects: "Projects"
         case .mochi: "Mochi"
         case .crew: "Crew"
-        case .review: "Review"
-        case .calls: "Echo"
+        case .review: "Checks"
+        case .calls: "Calls"
         case .deals: "Deals"
         case .catalog: "Team"
         case .advanced: "Advanced"
@@ -124,6 +125,23 @@ enum SidebarSelection: Hashable, Identifiable, RawRepresentable {
         case .catalog:
             "What your teammates shared with you: their days and their machines."
         case .advanced, .machine: nil
+        }
+    }
+
+    /// The symbol that stands beside the page's name in the sidebar and in ⌘K. A machine has a status dot instead.
+    var symbol: String {
+        switch self {
+        case .day: "sun.max"
+        case .review: "checkmark.circle"
+        case .people: "person.2"
+        case .projects: "square.stack.3d.up"
+        case .calls: "phone"
+        case .deals: "rectangle.3.group"
+        case .catalog: "person.crop.rectangle.stack"
+        case .mochi: "sparkles"
+        case .crew: "rectangle.grid.2x2"
+        case .advanced: "gearshape"
+        case .machine: "circle"
         }
     }
 

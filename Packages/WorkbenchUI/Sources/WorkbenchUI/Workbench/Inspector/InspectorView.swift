@@ -1,25 +1,24 @@
 import SwiftUI
 import WorkbenchCore
 
-/// One fact with its proof: why it is here, the chat lines it came from, the marks, what else to do with it, and how it
-/// came to be. It reads the proof of the fact it is given and follows the fact when it changes.
+/// One fact with its proof: the person's words, the chat lines they came from, the marks, what else to do with it, and
+/// how it came to be. It reads the proof of the fact it is given and follows the fact when it changes.
 struct InspectorView<Actions: View>: View {
     static var widths: ClosedRange<CGFloat> { 320...420 }
 
     let item: Item?
-    /// Why the fact is on the list, in a word: "Overdue", "Asks you".
-    var reason: String?
-    var reasonTone = Tone.attention
     var isHistoryOpen = false
     @ViewBuilder let actions: Actions
     @Environment(ProofModel.self) private var proof
+    @Environment(TeamModel.self) private var team
 
     var body: some View {
         ScrollView {
             if let item {
                 InspectorContent(
-                    item: item, card: proof.card(for: item), helper: proof.helper(of: item), reason: reason,
-                    reasonTone: reasonTone, isHistoryOpen: isHistoryOpen, actions: { actions }
+                    item: item, card: proof.card(for: item), helper: proof.helper(of: item),
+                    offersDeals: InspectorMore.offersDeals(in: team.template), isHistoryOpen: isHistoryOpen,
+                    actions: { actions }
                 )
                 .id(item.id)
             } else {
@@ -39,8 +38,7 @@ struct InspectorContent<Actions: View>: View {
     let item: Item
     let card: InspectorCard
     let helper: HelperModel?
-    var reason: String?
-    var reasonTone = Tone.attention
+    var offersDeals = false
     var isHistoryOpen = false
     @ViewBuilder let actions: Actions
 
@@ -48,16 +46,13 @@ struct InspectorContent<Actions: View>: View {
         VStack(alignment: .leading, spacing: Space.l) {
             header
             VStack(alignment: .leading, spacing: Space.s) {
-                Text("Where it came from").text(.sectionTitle)
                 Text(card.source).text(.meta)
                 ProofLines(content: card.proof)
             }
             actions
             if let helper {
-                VStack(alignment: .leading, spacing: Space.s) {
-                    Text("More").text(.sectionTitle)
-                    InspectorMore(item: item, helper: helper)
-                }
+                InspectorMore(
+                    item: item, helper: helper, reminderTitle: card.headline.plain, offersDeals: offersDeals)
             }
             if !card.history.isEmpty { history }
         }
@@ -68,10 +63,10 @@ struct InspectorContent<Actions: View>: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: Space.s) {
-            if let reason { Chip(reason, tone: reasonTone) }
-            Text(card.title).text(.rowTitle).lineLimit(3)
+            card.headline.text.textStyle(.body).foregroundStyle(.bodyText).lineLimit(3)
             if !card.meta.isEmpty { Text(card.meta).text(.meta) }
         }
+        .accessibilityElement(children: .combine)
     }
 
     private var history: some View {
