@@ -5,10 +5,13 @@ struct DealsPage: View {
     @Environment(DealsModel.self) private var deals
     @State private var open: String?
     @State private var newTitle = ""
-    @State private var asking: WorkObject?
-    @State private var passing: WorkObject?
 
     var body: some View {
+        DealMoving { move in board(move: move) }
+            .onAppear(perform: deals.refresh)
+    }
+
+    private func board(move: @escaping (WorkObject, StageID) -> Void) -> some View {
         Page(intro: .deals, title: SidebarSelection.deals.title, subtitle: subtitle) {
             ProblemSlotBanner(slot: deals.problems)
             AskBox()
@@ -30,17 +33,33 @@ struct DealsPage: View {
                 }
             }
         }
-        .onAppear(perform: deals.refresh)
-        .sheet(item: $asking) { deal in ActionRequiredForm(deal: deal, cancel: { asking = nil }) }
-        .sheet(item: $passing) { deal in PassedDealForm(deal: deal, cancel: { passing = nil }) }
     }
 
     private var subtitle: String {
         "\(deals.deals.count) deals. Your moves and notes go to your team's folder; items only to people who can already read them."
     }
 
-    /// A waiting stage asks what is needed first and a watch stage asks why and when to look again; every other
-    /// stage is a plain move. A deal already in the watch stage is not asked again.
+    private func create() {
+        open = deals.create(title: newTitle)
+        newTitle = ""
+    }
+}
+
+/// Gives its content the way to move a deal to a stage. A waiting stage asks what is needed first and a watch stage
+/// asks why and when to look again; every other stage is a plain move. A deal already in the watch stage is not asked
+/// again.
+struct DealMoving<Content: View>: View {
+    @ViewBuilder let content: (_ move: @escaping (WorkObject, StageID) -> Void) -> Content
+    @Environment(DealsModel.self) private var deals
+    @State private var asking: WorkObject?
+    @State private var passing: WorkObject?
+
+    var body: some View {
+        content(move)
+            .sheet(item: $asking) { deal in ActionRequiredForm(deal: deal, cancel: { asking = nil }) }
+            .sheet(item: $passing) { deal in PassedDealForm(deal: deal, cancel: { passing = nil }) }
+    }
+
     private func move(_ deal: WorkObject, to stage: StageID) {
         switch deals.meaning(of: stage) {
         case .waiting:
@@ -50,10 +69,5 @@ struct DealsPage: View {
         default:
             deals.move(deal, to: stage)
         }
-    }
-
-    private func create() {
-        open = deals.create(title: newTitle)
-        newTitle = ""
     }
 }

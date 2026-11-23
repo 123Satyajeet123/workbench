@@ -76,6 +76,7 @@ extension View {
             .environment(session.catalog)
             .environment(session.actions)
             .environment(session.deals)
+            .environment(session.workspace)
             .environment(session.memory)
             .environment(session.web)
             .environment(session.claims)

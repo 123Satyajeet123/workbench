@@ -27,6 +27,7 @@ struct AppSession {
     let catalog: TeamCatalogModel
     let actions: ActionsModel
     let deals: DealsModel
+    let workspace: WorkspaceModel
     let memory: MemoryModel
     let web: WebResearchSettings
     let claims: ClaimsModel
@@ -116,7 +117,8 @@ enum AppLaunch {
                 catalog: catalog,
                 actions: ActionsModel(
                     store: store, founder: { identity.identity.name }, reminders: profile.reminders),
-                deals: deals, memory: MemoryModel(store: store, crew: crew, deals: deals),
+                deals: deals, workspace: WorkspaceModel(store: store),
+                memory: MemoryModel(store: store, crew: crew, deals: deals),
                 web: web, claims: ClaimsModel(store: store, me: { catalog.me }, web: web, owner: owner),
                 runs: RunsModel(store: store),
                 pages: pages,

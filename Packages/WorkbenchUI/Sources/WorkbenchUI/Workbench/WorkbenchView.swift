@@ -9,6 +9,7 @@ struct WorkbenchView: View {
     @State private var tabs = PageTabs()
     @State private var isSearching = false
     @Environment(Crew.self) private var crew
+    @Environment(WorkspaceModel.self) private var workspace
     @Environment(TodayModel.self) private var today
     @Environment(Navigation.self) private var navigation
     @Environment(CaptureSettings.self) private var capture
@@ -32,8 +33,9 @@ struct WorkbenchView: View {
             minWidth: Self.minimumSize.width, idealWidth: Self.idealSize.width, minHeight: Self.minimumSize.height,
             idealHeight: Self.idealSize.height
         )
-        .onAppear { tabs = PageTabs(saved: savedTabs, isOpen: isRestorable) }
+        .onAppear { tabs = PageTabs(saved: savedTabs, isOpen: isOpen) }
         .onChange(of: tabs) { savedTabs = tabs.saved }
+        .onChange(of: tabs.page, initial: true) { _, page in workspace.visit(page) }
         .onChange(of: navigation.requested, initial: true) { _, page in
             guard let page else { return }
             show(page)
@@ -64,6 +66,7 @@ struct WorkbenchView: View {
         case .catalog: TeamCatalogPage(open: show)
         case .usage: UsagePage()
         case .settings: SettingsPage()
+        case .page(let id): WorkObjectPage(id: id, open: show, close: { tabs.goBack(isOpen: isOpen) })
         }
     }
 
@@ -96,7 +99,7 @@ struct WorkbenchView: View {
         QuickOpenPanel(
             entries: QuickOpen.entries(
                 pages: SidebarLayout.pages + [.usage, .settings],
-                machines: crew.crew.map { ($0.machine.id, $0.name) },
+                objects: workspace.everyObject().map { ($0.name, $0.noun, crew.page(of: $0)) },
                 people: today.people.map(\.name), projects: today.projectGroups.map(\.name),
                 settings: SettingsItem.all, switchTo: ProfileSwitch.available(from: capture.profile)),
             open: { entry, inNewTab in
@@ -116,11 +119,12 @@ struct WorkbenchView: View {
     private func show(_ page: SidebarSelection) { tabs.open(page) }
 
     private func isOpen(_ page: SidebarSelection) -> Bool {
-        if case .machine(let id) = page { return crew.helper(id: id) != nil }
-        return true
+        switch page {
+        case .machine(let id): crew.helper(id: id) != nil
+        case .page(let id): workspace.object(id) != nil
+        default: true
+        }
     }
-
-    private func isRestorable(_ page: SidebarSelection) -> Bool { isOpen(page) && SidebarLayout.lists(page) }
 }
 
 struct TabStrip: View {
@@ -189,7 +193,8 @@ struct TabChip: View {
     @State private var isHovered = false
 
     var body: some View {
-        PageCrumb(page: page, isSelected: isSelected)
+        PageLabel(page: page).textStyle(.body).lineLimit(1)
+            .foregroundStyle(isSelected ? Color.bodyText : .sidebarText)
             .padding(.leading, Space.m).padding(.trailing, canClose ? Space.xl : Space.m)
             .frame(
                 minWidth: Self.width.lowerBound, maxWidth: Self.width.upperBound, maxHeight: .infinity,
@@ -255,37 +260,6 @@ private struct TabMouse: NSViewRepresentable {
             if isDragging { drop(event.locationInWindow.x - start) } else { click() }
             self.start = nil
             isDragging = false
-        }
-    }
-}
-
-private struct PageCrumb: View {
-    let page: SidebarSelection
-    var isSelected = true
-    @Environment(Crew.self) private var crew
-
-    var body: some View {
-        HStack(spacing: Space.s) {
-            icon.frame(width: 18, height: 18)
-            Text(title).textStyle(.body).lineLimit(1)
-                .foregroundStyle(isSelected ? Color.bodyText : .sidebarText)
-        }
-        .accessibilityElement(children: .combine)
-    }
-
-    private var title: String {
-        if case .machine(let id) = page { return crew.helper(id: id)?.name ?? page.title }
-        return page.title
-    }
-
-    @ViewBuilder private var icon: some View {
-        if case .machine(let id) = page, let helper = crew.helper(id: id) {
-            Mascot(look: .of(helper.machine), size: 18)
-        } else if let look = page.look {
-            Mascot(look: look, size: 18)
-        } else {
-            Image(systemName: SidebarLayout.symbol(of: page) ?? "doc").font(.system(size: 15))
-                .foregroundStyle(.sidebarIcon)
         }
     }
 }

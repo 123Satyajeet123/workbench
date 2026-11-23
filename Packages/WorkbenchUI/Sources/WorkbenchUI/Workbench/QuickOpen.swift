@@ -4,7 +4,6 @@ enum QuickOpen {
     struct Entry: Identifiable, Equatable {
         enum Kind: String {
             case page = "Page"
-            case machine = "Machine"
             case person = "Person"
             case project = "Project"
             case setting = "Setting"
@@ -22,16 +21,19 @@ enum QuickOpen {
         var kind: Kind
         var target: Target
         var words = ""
-        var id: String { "\(kind.rawValue):\(title)" }
+        /// What the entry is, shown beside it, when the kind says too little: a work object's noun.
+        var noun: String?
+        var id: String { "\(kind.rawValue):\(title):\(target)" }
     }
 
+    /// `objects` are the work objects of the tree, each with the noun shown beside it and the page it opens.
     /// `switchTo` is the data the app can switch to now, if any; its entry is listed last.
     static func entries(
-        pages: [SidebarSelection], machines: [(id: Int64, name: String)], people: [String], projects: [String],
-        settings: [SettingsItem] = [], switchTo: Profile? = nil
+        pages: [SidebarSelection], objects: [(name: String, noun: String, page: SidebarSelection)], people: [String],
+        projects: [String], settings: [SettingsItem] = [], switchTo: Profile? = nil
     ) -> [Entry] {
         pages.map { Entry(title: $0.title, kind: .page, target: .page($0)) }
-            + machines.map { Entry(title: $0.name, kind: .machine, target: .page(.machine($0.id))) }
+            + objects.map { Entry(title: $0.name, kind: .page, target: .page($0.page), noun: $0.noun) }
             + people.map { Entry(title: $0, kind: .person, target: .page(.people)) }
             + projects.map { Entry(title: $0, kind: .project, target: .page(.projects)) }
             + settings.map {
@@ -70,7 +72,7 @@ struct QuickOpenPanel: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: Space.s) {
                 Image(systemName: "magnifyingglass").foregroundStyle(.supporting)
-                TextField("Search pages, machines, people and projects", text: $query)
+                TextField("Search pages, folders, machines, people and projects", text: $query)
                     .textFieldStyle(.plain).textStyle(.title3).focused($isFocused)
                     .onChange(of: query) { chosen = 0 }
                     .onKeyPress(.downArrow) { move(1, in: shown) }
@@ -94,7 +96,7 @@ struct QuickOpenPanel: View {
                 HStack {
                     Text(entry.title).lineLimit(1)
                     Spacer()
-                    Text(entry.kind.rawValue).textStyle(.callout).foregroundStyle(.supporting)
+                    Text(entry.noun ?? entry.kind.rawValue).textStyle(.callout).foregroundStyle(.supporting)
                 }
                 .padding(.horizontal, Space.m).padding(.vertical, Space.s)
                 .background(index == chosen ? Color.selectedFill : .clear, in: .rect(cornerRadius: Radius.control))

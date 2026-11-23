@@ -2,12 +2,14 @@ import CaptureService
 import Foundation
 import WorkbenchCore
 
-/// The pages of the main window: Today (the home), People, Projects, Echo (calls), Mochi, Crew, and one page per
-/// machine. A fixed page's name, role and face live here, the one place to rename it; a machine's come from its record.
+/// The pages of the main window: Today (the home), People, Projects, Echo (calls), Mochi, Crew, one page per machine and
+/// one per work object of the tree. A fixed page's name, role and face live here, the one place to rename it; a
+/// machine's and a work object's come from their records.
 /// `advanced` and `runs` are old names of the Usage page, so an old link still opens it.
 enum SidebarSelection: Hashable, Identifiable, RawRepresentable {
     case day, people, projects, mochi, crew, review, calls, deals, catalog, usage, settings
     case machine(Int64)
+    case page(WorkObjectID)
 
     static let fixed: [Self] = [
         .day, .people, .projects, .mochi, .crew, .review, .calls, .deals, .catalog, .usage, .settings,
@@ -27,10 +29,13 @@ enum SidebarSelection: Hashable, Identifiable, RawRepresentable {
         case "usage", "advanced", "runs": self = .usage
         case "settings": self = .settings
         default:
-            guard rawValue.hasPrefix("machine:"), let id = Int64(rawValue.dropFirst("machine:".count)) else {
+            if rawValue.hasPrefix("machine:"), let id = Int64(rawValue.dropFirst("machine:".count)) {
+                self = .machine(id)
+            } else if rawValue.hasPrefix("page:"), rawValue.count > "page:".count {
+                self = .page(String(rawValue.dropFirst("page:".count)))
+            } else {
                 return nil
             }
-            self = .machine(id)
         }
     }
 
@@ -48,6 +53,7 @@ enum SidebarSelection: Hashable, Identifiable, RawRepresentable {
         case .usage: "usage"
         case .settings: "settings"
         case .machine(let id): "machine:\(id)"
+        case .page(let id): "page:\(id)"
         }
     }
 
@@ -88,6 +94,7 @@ enum SidebarSelection: Hashable, Identifiable, RawRepresentable {
         case .usage: "Usage"
         case .settings: "Settings"
         case .machine: "Machine"
+        case .page: "Page"
         }
     }
 
@@ -104,7 +111,7 @@ enum SidebarSelection: Hashable, Identifiable, RawRepresentable {
         case .catalog: "Shared by your team"
         case .usage: "Model cost and Claude plan limits"
         case .settings: "Your name, model and what Workbench captures"
-        case .machine: ""
+        case .machine, .page: ""
         }
     }
 
@@ -129,7 +136,7 @@ enum SidebarSelection: Hashable, Identifiable, RawRepresentable {
             "Everything found that you haven't checked yet. Your marks teach each machine and decide when it can run on its own."
         case .catalog:
             "What your teammates shared with you: their days and their machines."
-        case .usage, .settings, .machine: nil
+        case .usage, .settings, .machine, .page: nil
         }
     }
 
@@ -139,7 +146,7 @@ enum SidebarSelection: Hashable, Identifiable, RawRepresentable {
         switch self {
         case .day, .mochi: .mochi
         case .calls: .echo
-        case .people, .projects, .crew, .review, .deals, .catalog, .usage, .settings, .machine: nil
+        case .people, .projects, .crew, .review, .deals, .catalog, .usage, .settings, .machine, .page: nil
         }
     }
 }

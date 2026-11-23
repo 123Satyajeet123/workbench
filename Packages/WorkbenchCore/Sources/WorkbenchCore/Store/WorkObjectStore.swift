@@ -35,21 +35,52 @@ extension Store {
         }
     }
 
-    /// Puts an object last under `parent`, or last among the roots.
-    public func move(_ id: WorkObjectID, under parent: WorkObjectID?) throws {
+    /// A person gives an object a new name. The events of a shared object keep its name.
+    public func rename(_ id: WorkObjectID, to name: String) throws {
+        guard let name = name.cleaned else { throw WorkObjectError.noName }
+        try writer.write { db in
+            try Queries.requireNotKeptByEvents(db, id)
+            try db.execute(sql: "UPDATE work_object SET name = ? WHERE id = ?", arguments: [name, id])
+        }
+    }
+
+    /// Puts an object under `parent` (nil: among the roots), just before `sibling`, or last when `sibling` is nil or
+    /// is not a child of `parent`.
+    public func move(_ id: WorkObjectID, under parent: WorkObjectID?, before sibling: WorkObjectID? = nil) throws {
         try writer.write { db in
             try Queries.require(db, id)
             if let parent {
                 try Queries.require(db, parent)
                 guard try !Queries.isSelfOrDescendant(db, parent, of: id) else { throw WorkObjectError.cycle(id) }
             }
+            let position =
+                try sibling.flatMap { try Self.position(db, of: id, before: $0, under: parent) }
+                ?? Double.fetchOne(
+                    db, sql: "SELECT COALESCE(MAX(position), 0) + 1 FROM work_object WHERE parent_id IS ? AND id <> ?",
+                    arguments: [parent, id]) ?? 1
             try db.execute(
-                sql: """
-                    UPDATE work_object SET parent_id = ?,
-                        position = COALESCE((SELECT MAX(position) FROM work_object WHERE parent_id IS ?), 0) + 1
-                    WHERE id = ?
-                    """, arguments: [parent, parent, id])
+                sql: "UPDATE work_object SET parent_id = ?, position = ? WHERE id = ?",
+                arguments: [parent, position, id])
         }
+    }
+
+    /// The position halfway between `sibling` and the child of `parent` before it, leaving `id` out. Nil when
+    /// `sibling` is not a child of `parent`.
+    private static func position(
+        _ db: Database, of id: WorkObjectID, before sibling: WorkObjectID, under parent: WorkObjectID?
+    ) throws -> Double? {
+        guard
+            let row = try Row.fetchOne(
+                db,
+                sql: """
+                    SELECT next.position AS next, (SELECT MAX(position) FROM work_object
+                        WHERE parent_id IS ? AND position < next.position AND id <> ?) AS previous
+                    FROM work_object next WHERE next.id = ? AND next.parent_id IS ?
+                    """, arguments: [parent, id, sibling, parent])
+        else { return nil }
+        let next: Double = row["next"]
+        let previous: Double = row["previous"] ?? next - 1
+        return (previous + next) / 2
     }
 }
 
@@ -60,6 +91,28 @@ extension Queries {
         try reader.read { db in
             try Self.workObjects(
                 db, where: "parent_id IS ? AND (? OR archived_at IS NULL)", [parent, includeArchived ? 1 : 0])
+        }
+    }
+
+    /// The object of this id, archived or not. Nil when there is none.
+    public func workObject(_ id: WorkObjectID) throws -> WorkObject? {
+        try reader.read { db in try Self.workObjects(db, where: "id = ?", [id]).first }
+    }
+
+    /// Every object of the tree, archived ones too, in the order of their parents and positions.
+    public func everyWorkObject() throws -> [WorkObject] {
+        try reader.read { db in try Self.workObjects(db, where: "1", [], order: "parent_id, position, rowid") }
+    }
+
+    /// The objects that have at least one child that is not archived.
+    public func workObjectsWithChildren() throws -> Set<WorkObjectID> {
+        try reader.read { db in
+            Set(
+                try String.fetchAll(
+                    db,
+                    sql:
+                        "SELECT DISTINCT parent_id FROM work_object WHERE parent_id IS NOT NULL AND archived_at IS NULL"
+                ))
         }
     }
 
