@@ -65,11 +65,14 @@ public struct ClaimChecker: Sendable {
         self.session = session
     }
 
+    /// Throws `WebBlock.labelUnknown` before any call when the claim has no known label: a query built from it never
+    /// leaves, whatever the provider.
     public func check(_ claim: Claim, company: String) async throws -> (check: ClaimCheck, run: RunID) {
+        guard claim.label != nil else { throw WebBlock.labelUnknown }
         let brief = Self.brief(of: claim, company: company)
         let (written, queryRun) = try await model.generate(
             Queries.self, schema: Self.queriesSchema, task: Self.queryTask, instructions: Self.queryInstructions,
-            input: brief, holding: [.mail])
+            input: Self.queryBrief(of: claim, company: company), holding: [.mail])
         let pages = try await fetchedPages(for: written.queries)
         guard !pages.isEmpty else { return (result(claim, .notFound, quote: "", url: ""), queryRun) }
         let (raw, run) = try await model.generate(
@@ -103,6 +106,11 @@ public struct ClaimChecker: Sendable {
             }
         }
         return pages.filter { !$0.text.isEmpty }
+    }
+
+    /// All the query writer sees: the company name and the claim text. No quote, value or other source text.
+    static func queryBrief(of claim: Claim, company: String) -> String {
+        "Company: \(company)\nClaim: \(claim.text)"
     }
 
     static func brief(of claim: Claim, company: String) -> String {

@@ -29,6 +29,55 @@ import WorkbenchCore
         #expect(throws: AgentCLIError.self) { try plan.validate() }
     }
 
+    private var searchCall: AgentCall {
+        var call = sampleCall
+        call.tools = .webSearch
+        return call
+    }
+
+    @Test func theSearchOnlyVariantOffersAndAllowsWebSearchAndNothingElse() throws {
+        let plan = makePlan(searchCall)
+        try plan.validate()
+        #expect(value(after: "--tools", in: plan) == "WebSearch")
+        #expect(value(after: "--allowedTools", in: plan) == "WebSearch")
+        #expect(value(after: "--permission-mode", in: plan) == "dontAsk")
+        #expect(value(after: "--mcp-config", in: plan) == #"{"mcpServers":{}}"#)
+        #expect(makePlan().arguments.contains("--allowedTools") == false, "a plain call allows no tool")
+    }
+
+    @Test(arguments: [
+        ["--tools", "WebSearch,WebFetch"], ["--tools", "WebSearch,Bash"], ["--tools", "WebFetch"],
+        ["--allowedTools", "WebSearch,Bash"], ["--allowedTools", "WebFetch"],
+    ])
+    func aWiderToolSetThanSearchAloneFailsValidation(change: [String]) throws {
+        var plan = makePlan(searchCall)
+        plan.arguments[try #require(plan.arguments.firstIndex(of: change[0])) + 1] = change[1]
+        #expect(throws: AgentCLIError.self) { try plan.validate() }
+    }
+
+    @Test(arguments: [["--tools", "Bash"], ["--allowedTools", "WebSearch"], ["--allowedTools", "Bash"]])
+    func aSecondToolFlagOrASearchAllowanceWithoutTheToolFailsValidation(extra: [String]) throws {
+        var searching = makePlan(searchCall)
+        searching.arguments += extra
+        #expect(throws: AgentCLIError.self) { try searching.validate() }
+        var plain = makePlan()
+        plain.arguments += extra
+        #expect(throws: AgentCLIError.self) { try plain.validate() }
+    }
+
+    @Test func aSearchVariantWithAnMCPServerFailsValidation() throws {
+        var plan = makePlan(searchCall)
+        plan.arguments[try #require(plan.arguments.firstIndex(of: "--mcp-config")) + 1] =
+            #"{"mcpServers":{"x":{"command":"/bin/sh"}}}"#
+        #expect(throws: AgentCLIError.self) { try plan.validate() }
+    }
+
+    @Test func codexHasNoSearchVariant() throws {
+        let plan = makePlan(searchCall, kind: .codex)
+        #expect(throws: AgentCLIError.self) { try plan.validate() }
+        try makePlan(kind: .codex).validate()
+    }
+
     /// Anthropic's route for programs is the user's own API key; a key from the shell must still never reach the CLI.
     @Test func onlyTheKeyTheFounderChoseReachesTheClaudeCLIAndOnlyAsChosen() throws {
         let chosen = ProcessPlan.make(

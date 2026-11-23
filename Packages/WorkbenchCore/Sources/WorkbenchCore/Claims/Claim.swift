@@ -1,4 +1,5 @@
 import Foundation
+import Kernel
 
 /// What a claim in a deck is about. It decides which source can settle it: a market size needs the named report, a
 /// funding claim a dated news report, a customer claim the customer's own page.
@@ -25,9 +26,13 @@ public struct Claim: Sendable, Equatable, Identifiable {
     public var quote: String
     /// The mail part the quote is in.
     public var line: Int64
+    /// Who may read the lines the claim rests on, as code computed it when the claim was read. Nil when not known:
+    /// then no search query is built from the claim.
+    public var label: Label?
 
     public init(
-        id: Int64? = nil, deal: String, text: String, type: ClaimType, value: String, quote: String, line: Int64
+        id: Int64? = nil, deal: String, text: String, type: ClaimType, value: String, quote: String, line: Int64,
+        label: Label? = nil
     ) {
         self.id = id
         self.deal = deal
@@ -36,6 +41,7 @@ public struct Claim: Sendable, Equatable, Identifiable {
         self.value = value
         self.quote = quote
         self.line = line
+        self.label = label
     }
 
     static let task = "vc.claims"

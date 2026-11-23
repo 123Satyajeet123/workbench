@@ -35,6 +35,8 @@ final class WebResearchSettings {
         refreshUsage()
     }
 
+    var needsKey: Bool { provider.needsKey }
+
     func key(for kind: SearchProviderKind) -> String? { secrets.read(kind.keyName) }
 
     func saveKey(_ key: String) {
@@ -53,12 +55,13 @@ final class WebResearchSettings {
     }
 
     /// A session for one check, opened through the consent gate: it throws a `WebBlock` and sends nothing when the
-    /// consent is off, the key is missing or the cap is reached.
+    /// consent is off, a key the provider needs is missing or the cap is reached.
     func openSession() throws -> WebSession {
         defer { refreshUsage() }
+        let search = ModelSearch(model: ModelChoice.searchModel(store: store, secrets: secrets))
         return try WebSession.open(
             store: store, key: { [secrets] in secrets.read($0.keyName) },
-            make: { makeWebSession(provider: $0, key: $1, grant: $2) })
+            make: { makeWebSession(provider: $0, key: $1, grant: $2, modelSearch: search) })
     }
 
     private func refreshKey() { hasKey = secrets.read(provider.keyName) != nil }

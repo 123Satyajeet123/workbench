@@ -4,6 +4,7 @@ import WorkbenchCore
 /// Brave Search API: GET /res/v1/web/search?q=&count=, key in `X-Subscription-Token`, results in `web.results`
 /// (Brave documentation, Web Search, Get started).
 public struct BraveSearch: SearchProvider {
+    static let host = "api.search.brave.com"
     let transport: WebTransport
     let key: String
 
@@ -15,7 +16,7 @@ public struct BraveSearch: SearchProvider {
     static func request(query: String, count: Int, key: String) -> URLRequest {
         var parts = URLComponents()
         parts.scheme = "https"
-        parts.host = SearchProviderKind.brave.host
+        parts.host = host
         parts.path = "/res/v1/web/search"
         parts.queryItems = [URLQueryItem(name: "q", value: query), URLQueryItem(name: "count", value: String(count))]
         return WebTransport.request(
@@ -48,6 +49,7 @@ public struct BraveSearch: SearchProvider {
 /// Exa Search API: POST /search with `{query, numResults, type}`, key in `x-api-key`, results in `results`
 /// (Exa documentation, API reference, Search). No `contents` is asked for: pages are fetched by Workbench itself.
 public struct ExaSearch: SearchProvider {
+    static let host = "api.exa.ai"
     let transport: WebTransport
     let key: String
 
@@ -58,7 +60,7 @@ public struct ExaSearch: SearchProvider {
 
     static func request(query: String, count: Int, key: String) throws -> URLRequest {
         var request = WebTransport.request(
-            URL(string: "https://\(SearchProviderKind.exa.host)/search")!, method: "POST",
+            URL(string: "https://\(host)/search")!, method: "POST",
             headers: ["x-api-key": key, "Content-Type": "application/json", "Accept": "application/json"])
         request.httpBody = try JSONSerialization.data(
             withJSONObject: ["query": query, "numResults": count, "type": "auto"] as [String: Any])
@@ -104,11 +106,13 @@ public struct WebPageFetcher: PageFetching {
     }
 }
 
-/// The provider and the fetcher for a session, built from a grant the consent gate gave.
+/// The provider and the fetcher for a session, built from a grant the consent gate gave. `modelSearch` is the
+/// provider for `.model`, which needs no key.
 public func makeWebSession(
-    provider: SearchProviderKind, key: String, grant: CaptureGrant
+    provider: SearchProviderKind, key: String, grant: CaptureGrant, modelSearch: ModelSearch
 ) -> (any SearchProvider, any PageFetching) {
     switch provider {
+    case .model: (modelSearch, WebPageFetcher(grant: grant))
     case .brave: (BraveSearch(key: key, grant: grant), WebPageFetcher(grant: grant))
     case .exa: (ExaSearch(key: key, grant: grant), WebPageFetcher(grant: grant))
     }

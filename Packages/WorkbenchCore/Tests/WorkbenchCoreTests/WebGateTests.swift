@@ -34,9 +34,19 @@ import Testing
         }
     }
 
-    @Test func withNoKeyItStopsBeforeAnyCall() throws {
+    @Test func aNewPersonSearchesThroughTheModelAndIsAskedForNoKey() throws {
         let store = try makeStore()
         try store.switchWeb(true)
+        #expect(try store.queries.webSettings().provider == .model)
+        _ = try WebSession.fake(store: store, search: FakeSearch(), pages: FakePages(), key: nil)
+        #expect(SearchProviderKind.allCases.filter(\.needsKey) == [.brave, .exa])
+    }
+
+    @Test(arguments: [SearchProviderKind.brave, .exa])
+    func aProviderThatNeedsAKeyStopsBeforeAnyCallWithNoKey(provider: SearchProviderKind) throws {
+        let store = try makeStore()
+        try store.switchWeb(true)
+        try store.saveWebSettings(WebSettings(provider: provider))
         let search = FakeSearch()
         #expect(throws: WebBlock.noKey) {
             try WebSession.fake(store: store, search: search, pages: FakePages(), key: nil)

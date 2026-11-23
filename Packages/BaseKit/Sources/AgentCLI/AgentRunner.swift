@@ -1,7 +1,7 @@
 import Foundation
 import WorkbenchCore
 
-/// A model behind an agent CLI, run as a child process with no tools.
+/// A model behind an agent CLI, run as a child process with no tools, or with only web search when `tools` says so.
 public struct AgentRunner: StructuredModel {
     public let kind: AgentCLIKind
     /// Nil when the CLI is not installed; a call then fails with `notInstalled`.
@@ -13,6 +13,7 @@ public struct AgentRunner: StructuredModel {
     public var apiKey: String?
     /// Billing is set to an API key, so a missing key stops the call instead of falling back to the sign-in.
     public var requiresAPIKey: Bool
+    public var tools: AgentTools
     private let launcher: any ProcessLauncher
     private let inheritedEnvironment: [String: String]
 
@@ -22,8 +23,9 @@ public struct AgentRunner: StructuredModel {
         kind: AgentCLIKind, model: String, effort: String, timeout: Duration,
         launcher: any ProcessLauncher = SystemProcessLauncher(), executable: URL? = nil,
         environment: [String: String] = ProcessInfo.processInfo.environment, apiKey: String? = nil,
-        requiresAPIKey: Bool = false
+        requiresAPIKey: Bool = false, tools: AgentTools = .none
     ) {
+        self.tools = tools
         self.apiKey = apiKey
         self.requiresAPIKey = requiresAPIKey
         self.kind = kind
@@ -40,7 +42,7 @@ public struct AgentRunner: StructuredModel {
     ) async throws -> ModelAnswer<T> {
         let call = AgentCall(
             prompt: input, instructions: instructions, schemaText: try schema.jsonText, model: model,
-            effort: effort, timeout: timeout)
+            effort: effort, timeout: timeout, tools: tools)
         let output = try await launch(call)
         let (answer, answeredBy, usage) = try kind == .claude ? claudeAnswer(output) : codexAnswer(output)
         do {

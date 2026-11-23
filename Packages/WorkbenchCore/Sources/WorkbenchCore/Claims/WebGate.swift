@@ -5,6 +5,7 @@ import GRDB
 public enum WebBlock: Error, Equatable {
     case consentOff
     case noKey
+    case labelUnknown
     case capReached(cap: Int)
     case grantExpired
 }
@@ -14,6 +15,8 @@ extension WebBlock: LocalizedError {
         switch self {
         case .consentOff: "Web research is off. Nothing was sent. Switch it on in Settings to check claims."
         case .noKey: "Web research has no search key. Nothing was sent. Add the key in Settings."
+        case .labelUnknown:
+            "Nobody is known to be allowed to read this claim's source, so it was not searched for. Nothing was sent."
         case .capReached(let cap): "The cap of \(cap) searches this month is reached. Nothing was sent."
         case .grantExpired: "The permission for this check ran out. Start the check again."
         }
@@ -29,8 +32,8 @@ public struct WebSession: Sendable {
     let provider: any SearchProvider
     let pages: any PageFetching
 
-    /// Opens a session when the consent is on, a key exists, and this month's cap is not reached. The provider and
-    /// the fetcher are built only after these checks pass, from the grant.
+    /// Opens a session when the consent is on, a key exists when the provider needs one, and this month's cap is not
+    /// reached. The provider and the fetcher are built only after these checks pass, from the grant.
     public static func open(
         store: Store, key: (SearchProviderKind) -> String?,
         make: (SearchProviderKind, String, CaptureGrant) -> (any SearchProvider, any PageFetching)
@@ -40,7 +43,8 @@ public struct WebSession: Sendable {
             throw WebBlock.consentOff
         }
         let settings = try store.queries.webSettings()
-        guard let secret = key(settings.provider)?.cleaned else { throw WebBlock.noKey }
+        let secret = key(settings.provider)?.cleaned ?? ""
+        guard !secret.isEmpty || !settings.provider.needsKey else { throw WebBlock.noKey }
         guard try store.queries.webQueriesSent(inMonthOf: now) < settings.monthlyCap else {
             throw WebBlock.capReached(cap: settings.monthlyCap)
         }

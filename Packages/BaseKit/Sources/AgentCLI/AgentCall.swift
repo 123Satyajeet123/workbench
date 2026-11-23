@@ -18,7 +18,15 @@ public enum AgentCLIKind: String, Sendable, CaseIterable, Codable {
     }
 }
 
-/// One call to an agent CLI: a prompt, the schema its answer must fit, no tools, no settings, no session.
+/// The tools a call may use. `webSearch` is the one search-only variant: the Claude CLI's search tool and nothing else.
+public enum AgentTools: Sendable, Equatable {
+    case none, webSearch
+
+    static let searchToolName = "WebSearch"
+}
+
+/// One call to an agent CLI: a prompt, the schema its answer must fit, no settings, no session, and no tool unless
+/// `tools` says the search-only variant.
 public struct AgentCall: Sendable {
     public var prompt: String
     public var instructions: String
@@ -26,9 +34,11 @@ public struct AgentCall: Sendable {
     public var model: String
     public var effort: String
     public var timeout: Duration
+    public var tools: AgentTools
 
     public init(
-        prompt: String, instructions: String, schemaText: String, model: String, effort: String, timeout: Duration
+        prompt: String, instructions: String, schemaText: String, model: String, effort: String, timeout: Duration,
+        tools: AgentTools = .none
     ) {
         self.prompt = prompt
         self.instructions = instructions
@@ -36,6 +46,7 @@ public struct AgentCall: Sendable {
         self.model = model
         self.effort = effort
         self.timeout = timeout
+        self.tools = tools
     }
 
     /// The rules, then how to treat the data: the system prompt (Anthropic, "Mitigate jailbreaks and prompt

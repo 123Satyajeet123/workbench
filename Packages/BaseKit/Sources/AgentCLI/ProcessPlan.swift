@@ -16,6 +16,7 @@ public struct ProcessPlan: Sendable, Equatable {
     /// documents for programs (code.claude.com/docs/en/legal-and-compliance). In `-p` mode the CLI always uses a
     /// key that is present (code.claude.com/docs/en/authentication). Nil: the founder's own Claude sign-in.
     public var apiKey: String?
+    public var tools: AgentTools = .none
 }
 
 extension ProcessPlan {
@@ -47,7 +48,7 @@ extension ProcessPlan {
             environment: environment, stdin: kind == .claude ? call.data : "\(call.systemPrompt)\n\n\(call.data)",
             workDirectory: workDirectory,
             inputFiles: kind == .codex ? [schemaFileName: call.schemaText] : [:],
-            answerFile: kind == .codex ? answerFileName : nil, apiKey: apiKey)
+            answerFile: kind == .codex ? answerFileName : nil, apiKey: apiKey, tools: call.tools)
     }
 
     static let apiKeyVariable = "ANTHROPIC_API_KEY"
@@ -65,11 +66,13 @@ extension ProcessPlan {
         switch kind {
         case .claude:
             try require(flags: ["--no-session-persistence", "--strict-mcp-config", "--disable-slash-commands"])
-            try refuse(flags: ["--resume", "--allowedTools"])
+            try refuse(flags: ["--resume"])
             try require(values: [
-                "--setting-sources": "", "--tools": "", "--permission-mode": "dontAsk", "--mcp-config": Self.noServers,
+                "--setting-sources": "", "--permission-mode": "dontAsk", "--mcp-config": Self.noServers,
             ])
+            try requireToolSurface()
         case .codex:
+            guard tools == .none else { throw AgentCLIError.unsafePlan("codex has no search variant") }
             try require(flags: ["--ephemeral", "--ignore-user-config"])
             try require(values: ["--sandbox": "read-only"])
             let disabled = Set(values(after: "--disable"))
@@ -83,6 +86,17 @@ extension ProcessPlan {
             if let server = settings.first(where: { $0.hasPrefix("mcp_servers.") }) {
                 throw AgentCLIError.unsafePlan("codex names a tool server: \(server)")
             }
+        }
+    }
+
+    /// No tool, or exactly the search tool both offered and allowed.
+    private func requireToolSurface() throws {
+        let offered = values(after: "--tools")
+        let allowed = values(after: "--allowedTools")
+        let noTool = offered == [""] && allowed.isEmpty
+        let searchOnly = offered == [AgentTools.searchToolName] && allowed == [AgentTools.searchToolName]
+        guard noTool || searchOnly else {
+            throw AgentCLIError.unsafePlan("tools must be none or only \(AgentTools.searchToolName)")
         }
     }
 
@@ -110,8 +124,16 @@ extension ProcessPlan {
         ["-p", "--output-format", "stream-json", "--verbose", "--model", call.model]
             + ["--effort", call.effort, "--setting-sources", "", "--disable-slash-commands"]
             + ["--no-session-persistence", "--strict-mcp-config", "--mcp-config", noServers]
-            + ["--permission-mode", "dontAsk", "--tools", "", "--json-schema", call.schemaText]
+            + ["--permission-mode", "dontAsk"] + toolArguments(call.tools)
+            + ["--json-schema", call.schemaText]
             + ["--system-prompt", call.systemPrompt]
+    }
+
+    private static func toolArguments(_ tools: AgentTools) -> [String] {
+        switch tools {
+        case .none: ["--tools", ""]
+        case .webSearch: ["--tools", AgentTools.searchToolName, "--allowedTools", AgentTools.searchToolName]
+        }
     }
 
     private static func codexArguments(_ call: AgentCall, workDirectory: URL) -> [String] {

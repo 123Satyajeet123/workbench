@@ -33,10 +33,27 @@ struct ModelChoice: Codable, Hashable, Identifiable {
     /// The runner for this choice, billed as the founder chose: their Claude sign-in, or their own API key. A key goes
     /// only to the Claude CLI; with billing set to a key and none saved, calls stop rather than use the sign-in.
     func model(store: Store, secrets: SecretStore = KeychainSecrets()) -> RecordedModel {
+        Self.recorded(
+            kind: kind, model: model, effort: "medium", timeout: .seconds(300), tools: .none, store: store,
+            secrets: secrets)
+    }
+
+    /// The Claude model that searches the web for `ModelSearch`, whatever model the founder picked for reading. It is
+    /// the model of the dev probe, billed as the founder chose.
+    static func searchModel(store: Store, secrets: SecretStore = KeychainSecrets()) -> RecordedModel {
+        recorded(
+            kind: .claude, model: "claude-sonnet-5-5", effort: "low", timeout: .seconds(120), tools: .webSearch,
+            store: store, secrets: secrets)
+    }
+
+    private static func recorded(
+        kind: AgentCLIKind, model: String, effort: String, timeout: Duration, tools: AgentTools, store: Store,
+        secrets: SecretStore
+    ) -> RecordedModel {
         let byKey = kind == .claude && Billing.saved(in: store) == .apiKey
         let runner = AgentRunner(
-            kind: kind, model: model, effort: "medium", timeout: .seconds(300),
-            apiKey: byKey ? secrets.read(Billing.keyName) : nil, requiresAPIKey: byKey)
+            kind: kind, model: model, effort: effort, timeout: timeout,
+            apiKey: byKey ? secrets.read(Billing.keyName) : nil, requiresAPIKey: byKey, tools: tools)
         return RecordedModel(runner, store: store)
     }
 }

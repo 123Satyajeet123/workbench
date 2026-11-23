@@ -1,23 +1,19 @@
 import Foundation
 
-/// The search services Workbench can send a query to. The founder picks one and gives its key.
+/// The search services Workbench can send a query to. `model` is the Claude CLI's own web search and needs no key;
+/// the others need the key the founder gives.
 public enum SearchProviderKind: String, Codable, CaseIterable, Sendable {
-    case brave, exa
+    case model, brave, exa
 
     public var title: String {
         switch self {
+        case .model: "Claude web search, no key"
         case .brave: "Brave Search"
         case .exa: "Exa"
         }
     }
 
-    /// The only host Workbench sends this provider's queries to.
-    public var host: String {
-        switch self {
-        case .brave: "api.search.brave.com"
-        case .exa: "api.exa.ai"
-        }
-    }
+    public var needsKey: Bool { self != .model }
 
     /// The name of the key in the Keychain.
     public var keyName: String { "web-search-\(rawValue)" }
@@ -60,7 +56,7 @@ public struct WebSettings: Codable, Sendable, Equatable {
     /// The most queries sent in one calendar month.
     public var monthlyCap: Int
 
-    public init(provider: SearchProviderKind = .brave, monthlyCap: Int = 100) {
+    public init(provider: SearchProviderKind = .model, monthlyCap: Int = 100) {
         self.provider = provider
         self.monthlyCap = monthlyCap
     }

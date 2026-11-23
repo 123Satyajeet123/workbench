@@ -1,4 +1,5 @@
 import Foundation
+import Kernel
 import Synchronization
 import Testing
 import WorkbenchCore
@@ -12,6 +13,8 @@ final class RepliesInOrder: StructuredModel, Sendable {
     let inputs = Mutex<[String]>([])
 
     init(_ replies: [String]) { self.replies = Mutex(replies) }
+
+    func append(_ more: [String]) { replies.withLock { $0 += more } }
 
     func generate<T: Decodable & Sendable>(_ type: T.Type, schema: JSONSchema, instructions: String, input: String)
         async throws -> ModelAnswer<T>
@@ -60,7 +63,7 @@ final class RecordingSearch: SearchProvider, PageFetching, Sendable {
 
     private func setup(
         web: Bool = true, mail: Bool = true, key: String? = "k", cap: Int = 100,
-        queries: String = #"["Acme seed round"]"#
+        queries: String = #"["Acme seed round"]"#, readsDeck: Bool = false
     )
         async throws -> Setup
     {
@@ -70,10 +73,11 @@ final class RecordingSearch: SearchProvider, PageFetching, Sendable {
             CapturePolicy(switches: [.web: web, .mail: mail], allowList: [.mail: ["Deals"]]))
         try fixture.store.saveWebSettings(WebSettings(provider: .brave, monthlyCap: cap))
         let search = RecordingSearch()
-        let model = RepliesInOrder([
-            Self.extraction, #"{"queries":\#(queries)}"#,
-            #"{"verdict":"contradicted","page":1,"quote":"raised $11 Mn in its seed"}"#,
-        ])
+        let model = RepliesInOrder(
+            (readsDeck ? [Self.extraction] : []) + [
+                #"{"queries":\#(queries)}"#,
+                #"{"verdict":"contradicted","page":1,"quote":"raised $11 Mn in its seed"}"#,
+            ])
         let store = fixture.store
         let part = deckPart
         let claims = fixture.makeClaims(
@@ -85,10 +89,45 @@ final class RecordingSearch: SearchProvider, PageFetching, Sendable {
         return Setup(fixture: fixture, deal: deal, claims: claims, search: search, model: model)
     }
 
-    private func choseTheClaim(_ s: Setup) async throws {
-        await s.claims.extract(from: s.deal)
+    private static let knownLabel = Label(
+        source: try! Source(owner: PersonID("me"), key: SourceKey("mail:deals")).id)
+
+    /// A claim read from the deck, with the label code computed for it, kept as extraction keeps it.
+    private func savedClaim(_ s: Setup, label: Label?, text: String = "Acme raised $20 million.") async throws {
+        let store = s.fixture.store
+        let (_, run) = try await RecordedModel(ScriptedModel("{}"), store: store).generate(
+            [String: WorkbenchCore.JSONValue].self, schema: .object([]), task: ClaimExtractor.task, instructions: "i",
+            input: "deck", holding: [.mail])
+        let mailGrant = try #require(
+            CapturePolicy(switches: [.mail: true], allowList: [.mail: ["Deals"]])
+                .authorize(CaptureRequest(kind: .mail, label: "Deals"), at: .now).grant)
+        let claim = Claim(
+            deal: s.deal.id, text: text, type: .funding, value: "$20 million",
+            quote: "raised $20 million", line: 11, label: label)
+        try store.saveClaims([claim], run: run, grant: mailGrant)
+        s.claims.refresh(s.deal)
+    }
+
+    private func choseTheClaim(_ s: Setup, label: Label? = knownLabel) async throws {
+        try await savedClaim(s, label: label)
         let claim = try #require(s.claims.state(of: s.deal).claims.first)
         s.claims.toggle(claim, in: s.deal)
+    }
+
+    @Test func anUnlabelledClaimInTheMiddleIsRefusedOnItsOwnAndTheLaterClaimsAreChecked() async throws {
+        let s = try await setup()
+        s.model.append(
+            [#"{"queries":["Acme team"]}"#, #"{"verdict":"not_found","page":0,"quote":""}"#])
+        try await savedClaim(s, label: Self.knownLabel, text: "First claim.")
+        try await savedClaim(s, label: nil, text: "Middle claim.")
+        try await savedClaim(s, label: Self.knownLabel, text: "Last claim.")
+        for claim in s.claims.state(of: s.deal).claims { s.claims.toggle(claim, in: s.deal) }
+        await s.claims.checkChosen(in: s.deal)
+        let checked = s.claims.state(of: s.deal).checks.map(\.claimText)
+        #expect(checked == ["First claim.", "Last claim."])
+        #expect(s.search.queries.withLock { $0 } == ["Acme seed round", "Acme team"])
+        #expect(s.claims.problems.text?.contains("Middle claim.") == true)
+        #expect(s.claims.problems.text?.contains("First claim.") == false)
     }
 
     @Test func claimsAreReadChosenCheckedAndShownWithTheirQuoteAndLink() async throws {
@@ -111,7 +150,25 @@ final class RecordingSearch: SearchProvider, PageFetching, Sendable {
         #expect(s.search.queries.withLock { $0 }.isEmpty && s.search.fetched.withLock { $0 }.isEmpty)
         #expect(s.claims.problems.text?.contains("Web research is off") == true)
         #expect(s.claims.state(of: s.deal).checks.isEmpty)
-        #expect(s.model.inputs.withLock { $0 }.count == 1, "only the deck reading ran, no check call")
+        #expect(s.model.inputs.withLock { $0 }.isEmpty, "no check call")
+    }
+
+    @Test func aClaimReadFromTheDeckHasNoKnownLabelYetSoItIsNotSearchedFor() async throws {
+        let s = try await setup(readsDeck: true)
+        await s.claims.extract(from: s.deal)
+        let claim = try #require(s.claims.state(of: s.deal).claims.first)
+        #expect(claim.label == nil)
+        s.claims.toggle(claim, in: s.deal)
+        await s.claims.checkChosen(in: s.deal)
+        #expect(s.search.queries.withLock { $0 }.isEmpty && s.model.inputs.withLock { $0 }.count == 1)
+        #expect(s.claims.problems.text?.contains("was not searched for") == true)
+    }
+
+    @Test func aClaimWithAKnownLabelIsSearchedForWhateverTheProvider() async throws {
+        let s = try await setup()
+        try await choseTheClaim(s)
+        await s.claims.checkChosen(in: s.deal)
+        #expect(s.search.queries.withLock { $0 } == ["Acme seed round"])
     }
 
     @Test func withNoKeyNothingIsSentAndTheCheckSaysWhy() async throws {
@@ -131,7 +188,7 @@ final class RecordingSearch: SearchProvider, PageFetching, Sendable {
     }
 
     @Test func withMailOffTheDeckIsNotRead() async throws {
-        let s = try await setup(mail: false)
+        let s = try await setup(mail: false, readsDeck: true)
         await s.claims.extract(from: s.deal)
         #expect(s.claims.state(of: s.deal).claims.isEmpty && s.model.inputs.withLock { $0 }.isEmpty)
         #expect(s.claims.problems.text?.contains("Mail is switched off") == true)
@@ -146,6 +203,17 @@ final class RecordingSearch: SearchProvider, PageFetching, Sendable {
         s.claims.markVerdict(check, as: .rejected, in: s.deal)
         let marked = try #require(s.claims.state(of: s.deal).checks.first)
         #expect(marked.quoteMark == .confirmed && marked.verdictMark == .rejected)
+    }
+
+    @Test func aNewPersonSearchesThroughTheModelWithNoKeyAndOnlyBraveAndExaAskForOne() throws {
+        let store = try scratchStore()
+        let web = WebResearchSettings(store: store, secrets: MemorySecrets())
+        #expect(web.provider == .model && !web.needsKey && SearchProviderKind.allCases.contains(.model))
+        try store.savePolicy(CapturePolicy(switches: [.web: true]))
+        _ = try web.openSession()
+        web.provider = .brave
+        #expect(web.needsKey)
+        #expect(throws: WebBlock.noKey) { try web.openSession() }
     }
 
     @Test func settingsKeepTheKeyOutOfTheStoreAndTheConsentOffByDefault() throws {

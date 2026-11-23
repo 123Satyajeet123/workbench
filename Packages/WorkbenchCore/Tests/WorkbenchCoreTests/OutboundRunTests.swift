@@ -43,6 +43,7 @@ import Testing
         let (search, model) = (FakeSearch(hits: [hit(roundup)]), OutboundModel())
         #expect(throws: WebBlock.consentOff) { try WebSession.fake(store: store, search: search, pages: FakePages()) }
         try store.switchWeb(true)
+        try store.saveWebSettings(WebSettings(provider: .brave))
         #expect(throws: WebBlock.noKey) {
             try WebSession.fake(store: store, search: search, pages: FakePages(), key: nil)
         }

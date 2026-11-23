@@ -92,21 +92,27 @@ final class ClaimsModel {
         refresh(deal)
     }
 
-    /// Checks each chosen claim. A block (consent off, no key, cap reached) stops at once and says why.
+    /// Checks each chosen claim. A block (consent off, no key, cap reached) stops at once and says why. A claim with
+    /// no known label is refused on its own, the refusal is shown, and the next claim is checked.
     func checkChosen(in deal: WorkObject) async {
         guard busy.insert(deal.id).inserted else { return }
         defer { busy.remove(deal.id) }
         let current = state(of: deal)
         let chosen = current.claims.filter { $0.id.map(current.chosen.contains) ?? false }
+        var refusals: [String] = []
         do {
             for claim in chosen {
                 let session = try openSession()
                 let checker = ClaimChecker(model: makeModel(try ModelChoice.saved(in: store)), session: session)
-                let done = try await checker.check(claim, company: deal.title)
-                try store.saveCheck(done.check, claimQuote: claim.quote, run: done.run, session: session)
+                do {
+                    let done = try await checker.check(claim, company: deal.title)
+                    try store.saveCheck(done.check, claimQuote: claim.quote, run: done.run, session: session)
+                } catch WebBlock.labelUnknown {
+                    refusals.append("\u{201C}\(claim.text)\u{201D}: \(WebBlock.labelUnknown.localizedDescription)")
+                }
                 refresh(deal)
             }
-            problems.dismiss()
+            if refusals.isEmpty { problems.dismiss() } else { problems.show(refusals.joined(separator: "\n")) }
         } catch let block as WebBlock {
             problems.show(block.localizedDescription)
         } catch {

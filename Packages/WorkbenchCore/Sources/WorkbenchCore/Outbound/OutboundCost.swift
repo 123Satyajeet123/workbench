@@ -10,10 +10,12 @@ public struct OutboundCost: Codable, Sendable, Equatable {
 
     public var totalUSD: Double { searchUSD + modelUSD }
 
-    /// Dollars for one search. Brave: 5 USD per 1,000 (provider page, research 39). Exa: 4 to 12 USD per 1,000
+    /// Dollars for one search. Claude web search: the first guess is the mean cost per search measured on 30 dev
+    /// claims at effort "low", not a price. Brave: 5 USD per 1,000 (provider page, research 39). Exa: 4 to 12 USD per 1,000
     /// depending on the search type; the middle of that range, not measured.
     public static func searchUSD(_ provider: SearchProviderKind) -> Double {
         switch provider {
+        case .model: 0.056
         case .brave: 0.005
         case .exa: 0.008
         }

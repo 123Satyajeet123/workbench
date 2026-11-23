@@ -1,4 +1,5 @@
 import Foundation
+import Kernel
 import Testing
 
 @testable import WorkbenchCore
@@ -6,9 +7,10 @@ import Testing
 @Suite struct ClaimCheckTests {
     private let article = "https://news.example/acme"
     private let pageText = "Acme has raised $11 Mn in its seed funding round, led by Blume. It was founded in 2022."
+    private static let knownLabel = Label(source: try! Source(owner: PersonID("me"), key: SourceKey("mail:deals")).id)
     private let claim = Claim(
         id: 7, deal: "deal-1", text: "Acme raised $20 million.", type: .funding, value: "$20 million",
-        quote: "raised $20 million", line: 3)
+        quote: "raised $20 million", line: 3, label: knownLabel)
 
     private func hits() -> FakeSearch {
         FakeSearch(hits: [SearchHit(title: "Acme", url: URL(string: article)!, snippet: "")])
@@ -91,6 +93,53 @@ import Testing
         let (result, _) = try await ClaimChecker(model: RecordedModel(model, store: store), session: session)
             .check(claim, company: "Acme")
         #expect(pages.fetched.withLock { $0 }.isEmpty && result.verdict == .notFound)
+    }
+
+    @Test(arguments: [SearchProviderKind.model, .brave, .exa])
+    func aClaimWithAKnownLabelIsSearchedForAndOneWithNoLabelNeverLeaves(provider: SearchProviderKind) async throws {
+        let store = try makeStore()
+        try store.switchWeb(true)
+        try store.saveWebSettings(WebSettings(provider: provider))
+        let search = hits()
+        let session = try WebSession.fake(store: store, search: search, pages: FakePages([article: pageText]))
+        let model = SequencedModel([
+            #"{"queries":["Acme seed round"]}"#, #"{"verdict":"not_found","page":0,"quote":""}"#,
+        ])
+        let checker = ClaimChecker(model: RecordedModel(model, store: store), session: session)
+
+        _ = try await checker.check(claim, company: "Acme")
+        #expect(search.queries.withLock { $0 } == ["Acme seed round"])
+
+        var unlabelled = claim
+        unlabelled.label = nil
+        await #expect(throws: WebBlock.labelUnknown) { try await checker.check(unlabelled, company: "Acme") }
+        #expect(search.queries.withLock { $0 }.count == 1, "no second query left")
+        #expect(model.inputs.withLock { $0 }.count == 2, "no query writer call for the unlabelled claim")
+    }
+
+    @Test func aClaimKeepsItsLabelThroughTheStore() throws {
+        let store = try makeStore()
+        let run = try store.beginRun(task: Claim.task, model: "m", prompt: "p", input: "deck", kinds: [.mail])
+        let ids = try store.saveClaims(
+            [claim, Claim(deal: "deal-1", text: "No label.", type: .other, value: "x", quote: "q", line: 4)], run: run,
+            grant: grant(.mail, label: "Deals"))
+        let kept = try store.queries.claims(of: "deal-1")
+        #expect(kept.map(\.label) == [Self.knownLabel, nil] && kept.count == ids.count)
+    }
+
+    @Test func theQueryWriterSeesOnlyTheCompanyNameAndTheClaimText() async throws {
+        let store = try makeStore()
+        try store.switchWeb(true)
+        let session = try WebSession.fake(store: store, search: hits(), pages: FakePages())
+        let model = SequencedModel([#"{"queries":["q"]}"#])
+        var deckClaim = claim
+        deckClaim.text = "Acme raised money."
+        deckClaim.quote = "a quote only the deck holds"
+        _ = try await ClaimChecker(model: RecordedModel(model, store: store), session: session)
+            .check(deckClaim, company: "Acme")
+        let input = try #require(model.inputs.withLock { $0 }.first)
+        #expect(input == "Company: Acme\nClaim: Acme raised money.")
+        #expect(!input.contains(deckClaim.quote) && !input.contains(deckClaim.value))
     }
 
     @Test func htmlBecomesVisibleText() {

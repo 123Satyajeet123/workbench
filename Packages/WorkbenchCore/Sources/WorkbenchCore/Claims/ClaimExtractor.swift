@@ -59,7 +59,10 @@ public struct ClaimExtractor: Sendable {
                     throw Refusal(.fieldKind)
                 }
                 _ = try verifier.quote(quote, in: [line])
-                return Claim(deal: deal, text: text, type: raw.type, value: value, quote: quote, line: raw.line)
+                let standing = Standing(citing: [line], facts: [], window: lines)
+                return Claim(
+                    deal: deal, text: text, type: raw.type, value: value, quote: quote, line: raw.line,
+                    label: standing.label)
             }, isRepeat: { claim, kept in kept.contains { $0.text.comparable == claim.text.comparable } })
         try model.record(found.drops, of: run)
         return (found.kept, found.drops.count, run)

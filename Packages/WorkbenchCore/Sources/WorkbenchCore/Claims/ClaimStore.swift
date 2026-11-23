@@ -1,5 +1,6 @@
 import Foundation
 import GRDB
+import Kernel
 
 /// Claims and their checks are items, so marks, privacy deletes and the retention treat them like every other fact: a
 /// claim is read from the deck (source `mail`), a check rests on web pages (source `web`).
@@ -18,7 +19,7 @@ extension Store {
                 ]
                 return try insertItem(
                     db, task: Claim.task, run: run, source: .mail, cite: claim.line, fields: fields,
-                    quote: claim.quote, at: now)
+                    quote: claim.quote, label: claim.label, at: now)
             }
         }
     }
@@ -41,16 +42,17 @@ extension Store {
 
     private func insertItem(
         _ db: Database, task: String, run: RunID, source: SourceKind, cite: Int64, fields: [String: String],
-        quote: String, at now: Date
+        quote: String, label: Label? = nil, at now: Date
     ) throws -> Int64 {
         try db.execute(
             sql: """
                 INSERT INTO item(task, run_id, day, scope, source, cite_first, cite_last, start_at, end_at, fields,
-                    quote, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+                    quote, created_at, label) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """,
             arguments: [
                 task, run, WorkDay(containing: now).description, "", source.rawValue, cite, cite, now.stored,
                 now.stored, try Coding.json(fields), quote, now.stored,
+                try label.map { try Coding.json(StoredLabel($0)) },
             ])
         return db.lastInsertedRowID
     }
@@ -78,7 +80,7 @@ extension Queries {
             try db.fetch(
                 "item",
                 """
-                SELECT id, cite_first, fields, quote FROM item WHERE task = ? AND json_extract(fields, '$.deal') = ?
+                SELECT id, cite_first, fields, quote, label FROM item WHERE task = ? AND json_extract(fields, '$.deal') = ?
                 ORDER BY id
                 """, [Claim.task, deal]
             ) { row in
@@ -86,7 +88,10 @@ extension Queries {
                 return Claim(
                     id: try row.value("id"), deal: deal, text: fields["text"] ?? "",
                     type: ClaimType(rawValue: fields["type"] ?? "") ?? .other, value: fields["value"] ?? "",
-                    quote: try row.value("quote"), line: try row.value("cite_first"))
+                    quote: try row.value("quote"), line: try row.value("cite_first"),
+                    label: try row.optionalValue("label").map { (text: String) in
+                        try Coding.value(StoredLabel.self, from: text).label()
+                    })
             }
         }
     }

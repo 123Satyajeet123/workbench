@@ -79,6 +79,7 @@ struct OutboundWorld {
                 ], quote: "has a team of 12"),
         ])
         let (store, model, web) = (fixture.store, model, web)
+        try store.saveWebSettings(WebSettings(provider: .brave))
         crew = Crew(
             store: store, capture: capture, founder: { "Aditya" },
             makeModel: { _ in RecordedModel(model, store: store) },
