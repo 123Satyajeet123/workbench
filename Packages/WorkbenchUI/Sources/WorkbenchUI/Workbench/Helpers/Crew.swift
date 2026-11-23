@@ -1,6 +1,7 @@
 import CaptureService
 import Foundation
 import Observation
+import TelegramReader
 import WorkbenchCore
 
 @Observable
@@ -16,25 +17,32 @@ final class Crew {
     @ObservationIgnored private let makeModel: ((ModelChoice) -> RecordedModel)?
     @ObservationIgnored private let alarm: VersionAlarm
     let notifications: Notifications
+    let telegram: TelegramAccount
 
     convenience init(
         store: Store, capture: CaptureService, founder: @escaping () -> String,
-        makeModel: ((ModelChoice) -> RecordedModel)? = nil, notifier: Notifier = SystemNotifier()
+        makeModel: ((ModelChoice) -> RecordedModel)? = nil, notifier: Notifier = SystemNotifier(),
+        telegram: TelegramAccount? = nil
     ) {
         self.init(
             store: store, capture: capture, founder: founder, makeModel: makeModel,
-            notifications: Notifications(notifier: notifier))
+            notifications: Notifications(notifier: notifier), telegram: telegram)
     }
 
     init(
         store: Store, capture: CaptureService, founder: @escaping () -> String,
-        makeModel: ((ModelChoice) -> RecordedModel)?, notifications: Notifications
+        makeModel: ((ModelChoice) -> RecordedModel)?, notifications: Notifications, telegram: TelegramAccount? = nil
     ) {
         self.store = store
         self.capture = capture
         self.founder = founder
         self.makeModel = makeModel
         self.notifications = notifications
+        self.telegram =
+            telegram
+            ?? TelegramAccount(
+                service: TDLibTelegram(folder: AppLaunch.defaultStoreFolder.appending(path: "Telegram")),
+                capture: capture)
         alarm = VersionAlarm(store: store, notifications: notifications, problems: problems)
         reload()
     }
@@ -183,6 +191,11 @@ final class Crew {
         return Set(others.flatMap(\.chats).map(\.jid))
     }
 
+    private func telegramChats(except task: String) -> Set<String> {
+        let others = machines.filter { $0.spec.task != task }.compactMap { $0.source as? TelegramSource }
+        return Set(others.compactMap(\.chat?.label))
+    }
+
     private func source(for machine: Machine) throws -> any MachineSource {
         switch machine.spec.source {
         case .screenSessions: ScreenSource(store: store)
@@ -192,6 +205,10 @@ final class Crew {
             try WhatsAppSource(
                 store: store, capture: capture, task: machine.task, founder: founder,
                 othersReading: { [weak self] in self?.whatsAppChats(except: machine.task) ?? [] })
+        case .telegramChat:
+            try TelegramSource(
+                store: store, capture: capture, account: telegram, task: machine.task, founder: founder,
+                othersReading: { [weak self] in self?.telegramChats(except: machine.task) ?? [] })
         }
     }
 }

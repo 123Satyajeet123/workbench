@@ -131,7 +131,7 @@ extension Store {
             try removeActivity(db, Activity.Kind.allCases.filter { $0 != .file }, before: cutoff)
         case .screenText: try removeActivity(db, [.text, .page], before: cutoff)
         case .files: try removeActivity(db, [.file], before: cutoff)
-        case .whatsapp, .typed: break
+        case .whatsapp, .telegram, .typed: break
         case .mail:
             try db.execute(sql: "DELETE FROM mail_part WHERE seen_at < ?", arguments: [cutoff.stored])
             try db.execute(sql: "DELETE FROM mail_open WHERE day < ?", arguments: [String(cutoff.stored.prefix(10))])

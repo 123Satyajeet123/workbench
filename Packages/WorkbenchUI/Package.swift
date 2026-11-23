@@ -19,12 +19,16 @@ let package = Package(
                 .product(name: "CaptureService", package: "BaseKit"),
                 .product(name: "LocalSources", package: "BaseKit"),
                 .product(name: "WebResearch", package: "BaseKit"),
+                .product(name: "TelegramReader", package: "BaseKit"),
             ],
             swiftSettings: [.defaultIsolation(MainActor.self)]
         ),
         .testTarget(
             name: "WorkbenchUITests",
-            dependencies: ["WorkbenchUI", .product(name: "AgentCLI", package: "BaseKit")],
+            dependencies: [
+                "WorkbenchUI", .product(name: "AgentCLI", package: "BaseKit"),
+                .product(name: "TelegramReader", package: "BaseKit"),
+            ],
             swiftSettings: [.defaultIsolation(MainActor.self)]
         ),
     ]

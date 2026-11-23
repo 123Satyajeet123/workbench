@@ -13,6 +13,11 @@ struct MachineTemplate: Identifiable, Hashable {
         detail:
             "Reads the WhatsApp chats you choose and keeps each person's plans, done work, blockers, commitments, decisions and questions, by project."
     )
+    static let teamTelegram = MachineTemplate(
+        spec: .teamTelegram, name: "Relay", role: "Team facts from Telegram",
+        detail:
+            "Reads one Telegram group whose members all agreed, and keeps each person's plans, done work, blockers, commitments, decisions and questions, by project."
+    )
     static let timeline = MachineTemplate(
         spec: .timeline, name: "Timeline", role: "Day timeline",
         detail: "Turns your screen sessions into blocks of work with the words they came from.")
@@ -35,7 +40,7 @@ struct MachineTemplate: Identifiable, Hashable {
         detail:
             "Follows the open commitments, questions and decisions of Pip and tells you what is overdue, quiet, blocked or drifting."
     )
-    static let all = [team, timeline, pages, derailment, dealIntake, founderCheck, companySignals]
+    static let all = [team, teamTelegram, timeline, pages, derailment, dealIntake, founderCheck, companySignals]
     static let seeded = [team, timeline]
 
     static func == (lhs: Self, rhs: Self) -> Bool { lhs.id == rhs.id }

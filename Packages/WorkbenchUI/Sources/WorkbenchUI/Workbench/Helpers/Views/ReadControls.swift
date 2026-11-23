@@ -37,6 +37,17 @@ struct ReadNote: View {
             if let source = model.source as? WhatsAppSource {
                 Button("Change chats", action: source.change)
             }
+            if let source = model.source as? TelegramSource {
+                HStack {
+                    Button("Change group", action: source.change)
+                    Button("Ask everyone again") {
+                        Task {
+                            do { try await source.askAgain() } catch { model.problems.report("ask again", error) }
+                        }
+                    }
+                    Button("Stop reading this group") { model.attempt("stop reading the group", source.stopReading) }
+                }
+            }
             if let source = model.source as? PageSource {
                 HStack {
                     if !capture.isOn(.screenText) {
@@ -52,6 +63,10 @@ struct ReadNote: View {
         if let screen = model.source as? ScreenSource { return screenNote(screen) }
         if let pages = model.source as? PageSource { return pageNote(pages) }
         if let mail = model.source as? MailSource { return mailNote(mail) }
+        if let telegram = model.source as? TelegramSource, let consent = telegram.consent {
+            return
+                "Reading sends this day's messages of \(telegram.chat?.title ?? "the group") to \(models.choice.title). Everyone in it agreed on \(consent.at.formatted(date: .abbreviated, time: .omitted)). If anyone stops agreeing, stop reading this group."
+        }
         return
             "Reading sends this day's messages, and the text in its photos (read on this Mac), to \(models.choice.title). Each call is listed in Settings › Advanced."
     }

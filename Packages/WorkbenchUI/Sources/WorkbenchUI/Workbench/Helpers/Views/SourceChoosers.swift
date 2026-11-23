@@ -12,6 +12,8 @@ struct SourceChooser: View {
             SiteChooser(model: model, source: source)
         } else if let source = model.source as? MailSource {
             LabelChooser(model: model, source: source)
+        } else if let source = model.source as? TelegramSource {
+            TelegramChooser(model: model, source: source)
         }
     }
 }

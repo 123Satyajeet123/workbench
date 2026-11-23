@@ -49,6 +49,13 @@ extension HelperSpec {
             field: "kind", open: ["plan", "blocker", "commitment", "question", "decision"],
             outcomes: ["kept", "answered", "resolved", "reversed", "dropped"]))
 
+    public static let teamTelegram: HelperSpec = {
+        var spec = team
+        spec.task = "team.telegram"
+        spec.source = .telegramChat
+        return spec
+    }()
+
     public static let timeline = HelperSpec(
         task: "day.timeline", source: .screenSessions,
         brief: """

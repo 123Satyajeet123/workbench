@@ -1,6 +1,7 @@
 import CaptureService
 import Foundation
 import LocalSources
+import TelegramReader
 import WorkbenchCore
 
 struct StartupFailure: Error, Equatable {
@@ -48,7 +49,9 @@ enum AppLaunch {
             let notifications = Notifications()
             let crew = Crew(
                 store: store, capture: service, founder: { identity.identity.name }, makeModel: nil,
-                notifications: notifications)
+                notifications: notifications,
+                telegram: TelegramAccount(
+                    service: TDLibTelegram(folder: storeFolder.appending(path: "Telegram")), capture: service))
             let review = ReviewModel(store: store, crew: crew)
             let mochi = MochiModel(store: store, crew: crew)
             let catalog = TeamCatalogModel(store: store, crew: crew, author: { identity.identity.name })

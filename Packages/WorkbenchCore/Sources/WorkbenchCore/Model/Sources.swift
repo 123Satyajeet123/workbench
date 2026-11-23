@@ -4,6 +4,7 @@ public enum SourceKind: String, Codable, CaseIterable, Sendable {
     case files
     case typed
     case whatsapp
+    case telegram
     case call
     case mail
     case calendar

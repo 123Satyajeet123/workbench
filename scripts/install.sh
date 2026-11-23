@@ -20,7 +20,7 @@ cp -R $BUILT $TARGET
 rm -rf $BUILT
 # Inside out: nested code first, then the app with its entitlements.
 find $TARGET/Contents -type f \( -name "*.dylib" -o -perm -u+x \) ! -path "*/MacOS/Workbench" -print0 \
-  | xargs -0 -I{} sh -c 'file -b "{}" | grep -q Mach-O && codesign --force --sign "'"$IDENTITY"'" "{}"'
+  | xargs -0 -n1 sh -c 'if file -b "$1" | grep -q Mach-O; then codesign --force --sign "$0" "$1"; fi' "$IDENTITY"
 find $TARGET/Contents -name "*.framework" -prune -print0 | xargs -0 -I{} codesign --force --sign "$IDENTITY" "{}"
 codesign --force --sign "$IDENTITY" --entitlements $REPO/Workbench.entitlements $TARGET
 codesign --verify --strict $TARGET

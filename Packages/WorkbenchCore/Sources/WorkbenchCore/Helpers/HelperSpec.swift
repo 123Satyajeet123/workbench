@@ -3,6 +3,7 @@ import Foundation
 public struct HelperSpec: Codable, Sendable, Equatable {
     public enum Source: String, Codable, Sendable, CaseIterable {
         case whatsappChat = "whatsapp_chat"
+        case telegramChat = "telegram_chat"
         case screenSessions = "screen_sessions"
         case pageText = "page_text"
         case mail = "mail_threads"
@@ -10,6 +11,7 @@ public struct HelperSpec: Codable, Sendable, Equatable {
         public var kind: SourceKind {
             switch self {
             case .whatsappChat: .whatsapp
+            case .telegramChat: .telegram
             case .screenSessions: .screen
             case .pageText: .screenText
             case .mail: .mail
@@ -18,7 +20,7 @@ public struct HelperSpec: Codable, Sendable, Equatable {
 
         public var lineNoun: String {
             switch self {
-            case .whatsappChat: "messages"
+            case .whatsappChat, .telegramChat: "messages"
             case .screenSessions: "windows"
             case .pageText: "pages"
             case .mail: "messages"
@@ -27,6 +29,11 @@ public struct HelperSpec: Codable, Sendable, Equatable {
 
         var lines: String {
             switch self {
+            case .telegramChat:
+                """
+                one work day of a Telegram group. Each line is `[number] HH:mm sender: text`. People write in Hindi, \
+                English and Hinglish.
+                """
             case .whatsappChat:
                 """
                 one work day of a WhatsApp group. Each line is `[number] HH:mm sender: text`. People write in Hindi, \

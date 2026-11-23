@@ -20,11 +20,15 @@ enum EgressScan {
         networkSymbolPatterns.filter { text.range(of: $0, options: .regularExpression) != nil }
     }
 
-    static let allowedHosts: Set<String> = ["mail.google.com", "api.search.brave.com", "api.exa.ai"]
+    static let allowedHosts: Set<String> = ["mail.google.com", "api.search.brave.com", "api.exa.ai", "my.telegram.org"]
 
     static let webFolder = "/Sources/WebResearch/"
     static let webTransportFile = "WebTransport.swift"
     static let webGuards = ["grant.kind == .web", "grant.expiresAt > Date()"]
+
+    static let telegramFile = "Packages/BaseKit/Sources/TelegramReader/TDLibTelegram.swift"
+    static let telegramGuard = "try TelegramGate.check(policy)"
+    static let telegramImport = #"(?m)^\s*(@preconcurrency\s+)?import\s+TDLib"#
 
     static func bannedHits(in text: String) -> [String] {
         bannedPatterns.filter { text.range(of: $0, options: [.regularExpression, .caseInsensitive]) != nil }
@@ -127,6 +131,23 @@ struct NoEgressTests {
             }
         }
         #expect(opening == [EgressScan.webTransportFile])
+    }
+
+    @Test func onlyTheTelegramReaderTalksToTelegramAndOnlyWithTelegramSwitchedOn() throws {
+        var importing: [String] = []
+        for package in ["WorkbenchCore", "BaseKit", "WorkbenchUI"] {
+            let sources = Self.repo.appending(path: "Packages/\(package)/Sources")
+            let walker = try #require(FileManager.default.enumerator(at: sources, includingPropertiesForKeys: nil))
+            for case let file as URL in walker where file.pathExtension == "swift" {
+                let text = try String(contentsOf: file, encoding: .utf8)
+                if text.range(of: EgressScan.telegramImport, options: .regularExpression) != nil {
+                    importing.append(file.path.replacingOccurrences(of: Self.repo.path + "/", with: ""))
+                }
+            }
+        }
+        #expect(importing == [EgressScan.telegramFile])
+        let connection = try String(contentsOf: Self.repo.appending(path: EgressScan.telegramFile), encoding: .utf8)
+        #expect(connection.contains(EgressScan.telegramGuard), "Telegram connects without checking its switch")
     }
 
     @Test func plantedNetworkSymbolIsCaughtAndPlainCodeIsNot() {

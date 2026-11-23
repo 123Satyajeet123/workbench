@@ -72,7 +72,7 @@ public struct CapturePolicy: Codable, Sendable, Equatable {
         self.allowList = allowList
     }
 
-    public static let needsAllowList: Set<SourceKind> = [.whatsapp, .mail]
+    public static let needsAllowList: Set<SourceKind> = [.whatsapp, .telegram, .mail]
 
     public func isEnabled(_ kind: SourceKind) -> Bool { switches[kind] ?? false }
 
