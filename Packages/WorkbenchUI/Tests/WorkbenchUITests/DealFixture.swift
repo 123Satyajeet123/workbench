@@ -43,7 +43,8 @@ final class DealFixture {
         let scripted = model ?? ScriptedModel("{}")
         return ClaimsModel(
             store: store, me: { "Aditya" }, web: WebResearchSettings(store: store, secrets: MemorySecrets()),
-            makeModel: { _ in RecordedModel(scripted, store: store) }, openSession: openSession, deckParts: deckParts)
+            makeModel: { _ in RecordedModel(scripted, store: store) }, openSession: openSession,
+            evidence: { try deckParts($0).compactMap(\.evidence) })
     }
 
     /// A deal made from an intake item the criteria rate from `reading`, captured from `source`.

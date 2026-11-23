@@ -9,6 +9,11 @@ final class OnboardingModel {
     /// Whether finishing setup makes the template's machines: true for a store that never held a machine.
     let startsTeam: Bool
     private(set) var answers: SetupAnswers = [:]
+    /// The optional machines of the template the person asked for, by machine template id.
+    private(set) var optionalChosen: Set<String> = []
+    private(set) var teamIsStarted = false
+    /// The person took the first look, so the step asks to continue and no longer to skip.
+    var hasLookedFirst = false
     private(set) var index = 0 { didSet { save() } }
     private(set) var isFinished = false { didSet { save() } }
     private(set) var saveError: (any Error)?
@@ -57,11 +62,21 @@ final class OnboardingModel {
         }
     }
 
-    var template: TeamTemplate { teamModel.template }
+    /// The chosen template with the optional machines the person asked for.
+    var template: TeamTemplate { teamModel.template.adding(optional: optionalChosen) }
     var needs: [SourceNeed] { template.sourceNeeds }
     /// The questions of the template's machines, asked only when finishing setup makes those machines.
     var questions: [SetupQuestion] { startsTeam ? template.setupQuestions : [] }
-    var screens: [OnboardingScreen] { OnboardingScreen.allCases.filter { $0 != .setup || !questions.isEmpty } }
+    var screens: [OnboardingScreen] {
+        OnboardingScreen.allCases.filter { screen in
+            switch screen {
+            case .setup: !questions.isEmpty
+            case .watchlist: startsTeam && template.watchesCompanies
+            case .firstLook: startsTeam && !template.seeds.isEmpty
+            case .welcome, .you, .team, .connect, .done: true
+            }
+        }
+    }
 
     var screen: OnboardingScreen { screens[index] }
     var isFirst: Bool { index == 0 }
@@ -70,7 +85,7 @@ final class OnboardingModel {
         switch screen {
         case .you: identityModel.identity.hasName
         case .team: teamModel.team.name.cleaned != nil
-        case .welcome, .connect, .setup, .done: true
+        case .welcome, .connect, .setup, .watchlist, .firstLook, .done: true
         }
     }
 
@@ -79,6 +94,10 @@ final class OnboardingModel {
             machines: startsTeam ? template.seeds.map(\.name) : [], keepsMachines: !startsTeam,
             asksSources: !needs.isEmpty, connected: connected, answered: questions.filter { answers[$0] != nil }.count,
             questions: questions.count)
+    }
+
+    func include(_ machine: TeamMachine, _ isIncluded: Bool) {
+        if isIncluded { optionalChosen.insert(machine.template) } else { optionalChosen.remove(machine.template) }
     }
 
     func answer(_ question: SetupQuestion, with answer: SetupAnswer) { answers[question] = answer }
@@ -94,19 +113,28 @@ final class OnboardingModel {
         if screen == .team { teamModel.save() }
         if isLast {
             finish()
-        } else {
+        } else if screens[index + 1] != .firstLook || startTeam() {
             index += 1
         }
     }
 
-    private func finish() {
+    /// Makes the template's machines once, so the first look has machines to read with.
+    @discardableResult
+    private func startTeam() -> Bool {
+        guard !teamIsStarted else { return true }
         do {
             try store?.startTeam(from: template, answers: answers)
             teamStarted()
-            isFinished = true
+            teamIsStarted = true
+            return true
         } catch {
             saveError = OnboardingError.teamNotStarted(error.localizedDescription)
+            return false
         }
+    }
+
+    private func finish() {
+        if startTeam() { isFinished = true }
     }
 
     func back() {

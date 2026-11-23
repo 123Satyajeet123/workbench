@@ -3,14 +3,15 @@ import GRDB
 import Kernel
 
 /// Claims and their checks are items, so marks, privacy deletes and the retention treat them like every other fact: a
-/// claim is read from the deck (source `mail`), a check rests on web pages (source `web`).
+/// claim has the source of the line it rests on, a check rests on web pages (source `web`).
 extension Store {
     static let checkTask = "vc.claim-checks"
 
-    /// Keeps the claims a model read from a deck. The grant is the mail consent the reading needed.
+    /// Keeps claims. The grant is the consent the lines they rest on needed, and its kind is their source. A claim a
+    /// person typed has no run.
     @discardableResult
-    public func saveClaims(_ claims: [Claim], run: RunID, grant: CaptureGrant) throws -> [Int64] {
-        try check(grant, kind: .mail)
+    public func saveClaims(_ claims: [Claim], run: RunID?, grant: CaptureGrant) throws -> [Int64] {
+        try check(grant, kind: grant.kind)
         let now = clock()
         return try writer.write { db in
             try claims.map { claim in
@@ -18,8 +19,8 @@ extension Store {
                     Claim.dealField: claim.deal, "text": claim.text, "type": claim.type, "value": claim.value,
                 ]
                 return try insertItem(
-                    db, task: Claim.task, run: run, source: .mail, cite: claim.line, fields: fields,
-                    quote: claim.quote, label: claim.label, at: now)
+                    db, task: Claim.task, run: run, source: grant.kind, cite: claim.line, fields: fields,
+                    quote: claim.quote, label: claim.label, authority: claim.authority, at: now)
             }
         }
     }
@@ -40,19 +41,19 @@ extension Store {
         }
     }
 
-    private func insertItem(
-        _ db: Database, task: String, run: RunID, source: SourceKind, cite: Int64, fields: [String: String],
-        quote: String, label: Label? = nil, at now: Date
+    func insertItem(
+        _ db: Database, task: String, run: RunID?, source: SourceKind, cite: Int64, fields: [String: String],
+        quote: String, label: Label? = nil, authority: Authority = .unknown, at now: Date
     ) throws -> Int64 {
         try db.execute(
             sql: """
                 INSERT INTO item(task, run_id, day, scope, source, cite_first, cite_last, start_at, end_at, fields,
-                    quote, created_at, label) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    quote, created_at, label, authority) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """,
             arguments: [
                 task, run, WorkDay(containing: now).description, "", source.rawValue, cite, cite, now.stored,
                 now.stored, try Coding.json(fields), quote, now.stored,
-                try label.map { try Coding.json(StoredLabel($0)) },
+                try label.map { try Coding.json(StoredLabel($0)) }, authority.rawValue,
             ])
         return db.lastInsertedRowID
     }
@@ -80,7 +81,7 @@ extension Queries {
             try db.fetch(
                 "item",
                 """
-                SELECT id, cite_first, fields, quote, label FROM item WHERE task = ? AND json_extract(fields, '$.deal') = ?
+                SELECT id, cite_first, fields, quote, label, source FROM item WHERE task = ? AND json_extract(fields, '$.deal') = ?
                 ORDER BY id
                 """, [Claim.task, deal]
             ) { row in
@@ -91,7 +92,7 @@ extension Queries {
                     quote: try row.value("quote"), line: try row.value("cite_first"),
                     label: try row.optionalValue("label").map { (text: String) in
                         try Coding.value(StoredLabel.self, from: text).label()
-                    })
+                    }, source: try row.enumeration("source"))
             }
         }
     }

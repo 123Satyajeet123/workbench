@@ -27,7 +27,7 @@ struct DealsPage: View {
                     }
                 }
                 if let id = open, let deal = deals.deal(id) {
-                    DealDetail(deal: deal, move: move, close: { open = nil }).frame(width: 360)
+                    DealDetail(deal: deal, move: move, close: { open = nil }).frame(width: 560)
                 }
             }
         }

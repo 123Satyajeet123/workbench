@@ -72,7 +72,7 @@ enum MailBackfill {
     }
 
     private static func line(of part: OldMailPart, key: EntityKey, actor: String?) -> ObservedLine? {
-        let place = part.isDeck ? try? Coding.json(MailPlace(file: part.file, page: part.page)) : nil
+        let place = part.isDeck ? try? Coding.json(FilePlace(file: part.file, page: part.page)) : nil
         return ObservedLine(
             line: Line(entity: key, text: part.text, readerVersion: MailReader.version),
             eventTime: UTCInstant(part.sentAt), actor: actor, messageRef: part.messageID,

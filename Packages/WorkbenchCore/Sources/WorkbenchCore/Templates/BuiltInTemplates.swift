@@ -17,6 +17,16 @@ extension MachineTemplate {
     public static let dealIntake = MachineTemplate(
         spec: .dealIntake.setting(claimTypes: claimTypes), name: "Deal intake", role: "Deal intake",
         detail: "Reads your mail pages and lists each inbound startup, rated hot, warm or cold by your own criteria.")
+    public static let dealsFromChats = MachineTemplate(
+        spec: .dealIntake.reading(
+            .whatsappChat, as: "vc.deals-chats",
+            brief: """
+                You read inbound deals for a venture investor from the WhatsApp chats they chose. For each startup \
+                that someone pitches, asks the investor to meet or introduces, give one item with what the chat says \
+                about it.
+                """
+        ).setting(claimTypes: claimTypes), name: "Deals from chats", role: "Deal intake from chats",
+        detail: "Reads the WhatsApp chats you choose and lists each inbound startup, rated by your own criteria.")
     public static let outbound = MachineTemplate(
         spec: .outbound, name: "Outbound", role: "Startup search",
         detail:
@@ -40,7 +50,8 @@ extension MachineTemplate {
             "Follows the open commitments, questions and decisions of Pip and tells you what is overdue, quiet, blocked or drifting."
     )
     public static let all = [
-        team, timeline, pages, derailment, dealIntake, outbound, founderCheck, newsSignals, companySignals,
+        team, timeline, pages, derailment, dealIntake, dealsFromChats, outbound, founderCheck, newsSignals,
+        companySignals,
     ]
     /// The machines a store made before team templates starts with; the others are made on request or from Mochi's
     /// proposals.
@@ -67,6 +78,15 @@ extension MachineTemplate {
 }
 
 extension HelperSpec {
+    /// The same machine over another source: its own task and brief.
+    fileprivate func reading(_ source: Source, as task: String, brief: String) -> HelperSpec {
+        var spec = self
+        spec.source = source
+        spec.task = task
+        spec.brief = brief
+        return spec
+    }
+
     fileprivate func setting(feeds: [NewsFeed]? = nil, claimTypes: [ClaimType]? = nil) -> HelperSpec {
         var spec = self
         spec.feeds = feeds
@@ -97,6 +117,9 @@ extension TeamTemplate {
             TeamMachine(template: MachineTemplate.outbound.id, name: MachineTemplate.outbound.name),
             TeamMachine(template: MachineTemplate.founderCheck.id, name: MachineTemplate.founderCheck.name),
             TeamMachine(template: MachineTemplate.newsSignals.id, name: MachineTemplate.newsSignals.name),
+        ],
+        optionalMachines: [
+            TeamMachine(template: MachineTemplate.dealsFromChats.id, name: MachineTemplate.dealsFromChats.name)
         ])
 
     public static let startupTeam = TeamTemplate(

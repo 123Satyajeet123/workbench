@@ -1,5 +1,5 @@
 enum OnboardingScreen: String, CaseIterable, Identifiable {
-    case welcome, you, team, connect, setup, done
+    case welcome, you, team, connect, setup, watchlist, firstLook, done
 
     var id: String { rawValue }
 
@@ -10,6 +10,8 @@ enum OnboardingScreen: String, CaseIterable, Identifiable {
         case .team: "Your team"
         case .connect: "Connect Workbench"
         case .setup: "Set up your machines"
+        case .watchlist: "Companies you follow"
+        case .firstLook: "A first look"
         case .done: "You’re set"
         }
     }
@@ -24,13 +26,17 @@ enum OnboardingScreen: String, CaseIterable, Identifiable {
             "Turn on what your team’s machines read. Each stays off until you turn it on, and you can change it later in Settings."
         case .setup:
             "Answer what you want. Skip keeps the values the template gives. You can change each one later on the machine’s page."
+        case .watchlist:
+            "Name the companies you invested in and the ones you passed on. Workbench watches the news for them."
+        case .firstLook:
+            "See what your machines find in your last few days, so you do not start with an empty page. Mark a few to teach them."
         case .done: "Open \(SidebarSelection.day.title) to read your first day."
         }
     }
 
     var look: Mascot.Look? {
         switch self {
-        case .you, .setup, .done: .mochi
+        case .you, .setup, .watchlist, .firstLook, .done: .mochi
         case .team: .pip
         case .welcome, .connect: nil
         }

@@ -98,7 +98,7 @@ extension StoredMessage {
         guard let label = grant.label, let audience = AudienceDigest(bytes: Array(audience)) else { return nil }
         let lines: [ObservedLine] = pages.compactMap { page in
             guard let key = try? MailLineKey.deckPage(thread: thread, message: message, file: file, page: page.page),
-                let place = try? Coding.json(MailPlace(file: file, page: page.page))
+                let place = try? Coding.json(FilePlace(file: file, page: page.page))
             else { return nil }
             return ObservedLine(
                 line: Line(entity: key, text: page.text, readerVersion: MailReader.version),

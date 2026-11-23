@@ -33,10 +33,15 @@ public struct Claim: Sendable, Equatable, Identifiable {
     /// Who may read the lines the claim rests on, as code computed it when the claim was read. Nil when not known:
     /// then no search query is built from the claim.
     public var label: Label?
+    /// How far the lines the claim rests on may be trusted.
+    public var authority: Authority
+    /// The kind of source of the line the claim rests on. Nil when not known: the model calls that hold its words
+    /// then count as holding data of an unknown kind.
+    public var source: SourceKind?
 
     public init(
         id: Int64? = nil, deal: String, text: String, type: String, value: String, quote: String, line: Int64,
-        label: Label? = nil
+        label: Label? = nil, authority: Authority = .unknown, source: SourceKind? = nil
     ) {
         self.id = id
         self.deal = deal
@@ -46,7 +51,12 @@ public struct Claim: Sendable, Equatable, Identifiable {
         self.quote = quote
         self.line = line
         self.label = label
+        self.authority = authority
+        self.source = source
     }
+
+    /// The consent kinds a model call that holds this claim's words holds.
+    var holding: Set<SourceKind> { source.map { [$0] } ?? [] }
 
     static let task = "vc.claims"
     static let dealField = "deal"

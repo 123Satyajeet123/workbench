@@ -8,7 +8,7 @@ import Lines
 /// kind, audience proof, cost class, a second cursor kind) in the change that reads them.
 public struct SourceDescriptor: Sendable, Equatable {
     /// How long lines live. The raw value is the `retention_class` of the line.
-    public enum Retention: String, Sendable { case chat, mail, page }
+    public enum Retention: String, Sendable { case chat, mail, page, file }
 
     /// How the source gives its text. The raw value is the `obtained_by` of the line.
     public enum Obtained: String, Sendable {
@@ -27,6 +27,9 @@ public struct SourceDescriptor: Sendable, Equatable {
     public let obtainedBy: Obtained
     /// How far before its last read a reader looks again for edited messages.
     public let editWindow: TimeInterval
+    /// How many lines on each side of a line a fact cites belong to its evidence. Nil: the whole container, because
+    /// the container is one subject, such as a mail thread.
+    public var evidenceReach: Int?
 
     /// The id of this source for one owner. Two owners never share one.
     public func sourceID(owner: PersonID) throws(IdentifierError) -> SourceID {
@@ -42,7 +45,7 @@ extension SourceDescriptor {
 
     public static let whatsAppChat = SourceDescriptor(
         key: "whatsapp.chat", aliases: ["whatsapp_chat"], consent: .whatsapp, grammar: whatsAppGrammar,
-        retention: .chat, obtainedBy: .db, editWindow: Scan.chatEditWindow)
+        retention: .chat, obtainedBy: .db, editWindow: Scan.chatEditWindow, evidenceReach: 20)
 }
 
 extension SourceDescriptor {
@@ -71,14 +74,31 @@ extension SourceDescriptor {
         obtainedBy: .domText, editWindow: 0)
 }
 
+extension SourceDescriptor {
+    /// The words the person typed on a deal. The person's act is the consent.
+    public static let typedNote = SourceDescriptor(
+        key: "note.typed", aliases: [], consent: .typed,
+        grammar: "what the person typed on a deal. Each line is `[number] who: the words`.", retention: .file,
+        obtainedBy: .db, editWindow: 0)
+
+    /// A file the person added to a deal: the text of its pages. The person's act is the consent.
+    public static let droppedFile = SourceDescriptor(
+        key: "file.dropped", aliases: [], consent: .dropped,
+        grammar: "a file the person added to a deal. Each line is `[number] who — file page N: the text`.",
+        retention: .file, obtainedBy: .db, editWindow: 0)
+}
+
 /// The sources this build knows. A source starts only when a machine names it.
 public enum SourceRegistry {
-    public static let all: [SourceDescriptor] = [.whatsAppChat, .gmailMail, .webPage]
+    public static let all: [SourceDescriptor] = [.whatsAppChat, .gmailMail, .webPage, .typedNote, .droppedFile]
 
     /// The source with this key or alias, or nil when no ported source has it.
     public static func descriptor(named name: String) -> SourceDescriptor? {
         all.first { $0.key == name || $0.aliases.contains(name) }
     }
+
+    /// The source that reads under this consent kind, or nil when none does.
+    public static func descriptor(consent: SourceKind) -> SourceDescriptor? { all.first { $0.consent == consent } }
 
     /// The sources that these names ask for, each once, in the order first named. A name no ported source has asks for
     /// nothing.

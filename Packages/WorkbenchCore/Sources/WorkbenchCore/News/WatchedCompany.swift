@@ -8,22 +8,25 @@ public struct WatchEntry: Codable, Sendable, Equatable, Identifiable {
     public var aliases: [String]
     public var domain: String?
     public var deal: String?
+    /// For a company added by hand: nil means portfolio.
+    public var status: WatchedCompany.Status?
 
     public init(
         id: String = UUID().uuidString, name: String = "", aliases: [String] = [], domain: String? = nil,
-        deal: String? = nil
+        deal: String? = nil, status: WatchedCompany.Status? = nil
     ) {
         self.id = id
         self.name = name
         self.aliases = aliases
         self.domain = domain
         self.deal = deal
+        self.status = status
     }
 }
 
 /// A company the investor follows in the news: a deal they invested in or passed on, or one added by hand.
 public struct WatchedCompany: Sendable, Equatable, Identifiable {
-    public enum Status: String, Sendable {
+    public enum Status: String, Codable, Sendable {
         case portfolio, passed
     }
 
@@ -54,11 +57,18 @@ public struct WatchedCompany: Sendable, Equatable, Identifiable {
         }
         let byHand = entries.filter { $0.deal == nil && $0.name.cleaned != nil }.map {
             WatchedCompany(
-                id: $0.id, name: $0.name, aliases: $0.aliases, domain: $0.domain, status: .portfolio, isDeal: false)
+                id: $0.id, name: $0.name, aliases: $0.aliases, domain: $0.domain, status: $0.status ?? .portfolio,
+                isDeal: false)
         }
         var domains: Set<String> = []
         return (fromDeals + byHand).filter { company in company.domain.map { domains.insert($0).inserted } ?? true }
     }
+}
+
+extension WatchedCompany {
+    /// The companies of deals that stand in a stage of meaning won (portfolio) or watch (passed), by what the stage
+    /// means, never by its label.
+    public static func inStages(of deals: [WorkObject]) -> [WatchedCompany] { list(deals: deals, entries: []) }
 }
 
 extension Store {
@@ -66,6 +76,27 @@ extension Store {
 
     public func saveWatchEntries(_ entries: [WatchEntry]) throws {
         try saveState(try Coding.json(entries), forKey: Self.watchEntriesKey)
+    }
+
+    /// Follows a company the person names, with its web address when they give one. A name already followed is kept
+    /// once.
+    public func follow(_ name: String, domain: String?, status: WatchedCompany.Status) throws {
+        guard let name = name.cleaned else { return }
+        let entries = try queries.watchEntries()
+        guard !entries.contains(where: { CompanyName.normal($0.name) == CompanyName.normal(name) }) else { return }
+        try saveWatchEntries(
+            entries + [WatchEntry(name: name, domain: domain.flatMap(CompanyName.domain), status: status)])
+    }
+
+    /// Pins the companies of deals that stand in a won or watch stage, so the person can add their web addresses.
+    /// Returns how many were new.
+    @discardableResult
+    public func followDeals(_ deals: [WorkObject]) throws -> Int {
+        let entries = try queries.watchEntries()
+        let known = Set(entries.compactMap(\.deal))
+        let fresh = WatchedCompany.inStages(of: deals).filter { !known.contains($0.id) }
+        try saveWatchEntries(entries + fresh.map { WatchEntry(deal: $0.id) })
+        return fresh.count
     }
 }
 

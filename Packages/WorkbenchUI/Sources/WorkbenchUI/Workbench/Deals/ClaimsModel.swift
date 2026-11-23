@@ -1,15 +1,22 @@
 import Foundation
+import Kernel
 import Observation
 import WorkbenchCore
 
-/// A deal's claims: read from its deck, chosen by the founder, checked on the web one by one. A check runs only through
-/// `WebResearchSettings.openSession`, so the consent, the key and the cap come first.
+/// A deal's checkable work, over the evidence of the deal from any source: the claims read from it, typed by hand or
+/// taken from a file added to it, the checks of chosen claims on the web, and the rating against the team's thesis. A
+/// check runs only through `WebResearchSettings.openSession`, so the consent, the key and the cap come first.
 @Observable
 final class ClaimsModel {
     struct DealClaims: Equatable {
         var claims: [Claim] = []
         var chosen: Set<Int64> = []
         var checks: [ClaimCheck] = []
+        /// The items behind the claims, the checks and the rating, by id, for the rows that show them.
+        var items: [Int64: Item] = [:]
+        /// The latest rating fact of the deal, and the call the team's criteria make from it now.
+        var rating: Item?
+        var triage: Triage?
 
         func check(of claim: Claim) -> ClaimCheck? { checks.first { $0.claim == claim.id } }
     }
@@ -20,35 +27,51 @@ final class ClaimsModel {
 
     @ObservationIgnored private let store: Store
     @ObservationIgnored private let me: () -> String
+    @ObservationIgnored private let owner: Result<PersonID, any Error>
     @ObservationIgnored private let makeModel: (ModelChoice) -> RecordedModel
     @ObservationIgnored private let openSession: () throws -> WebSession
-    @ObservationIgnored private let deckParts: (WorkObject) throws -> [MailPart]
+    @ObservationIgnored private let evidence: (WorkObject) throws -> [Evidence]
 
     init(
         store: Store, me: @escaping () -> String, web: WebResearchSettings,
-        makeModel: ((ModelChoice) -> RecordedModel)? = nil, openSession: (() throws -> WebSession)? = nil,
-        deckParts: ((WorkObject) throws -> [MailPart])? = nil
+        owner: Result<PersonID, any Error> = PageHost.noOwner, makeModel: ((ModelChoice) -> RecordedModel)? = nil,
+        openSession: (() throws -> WebSession)? = nil, evidence: ((WorkObject) throws -> [Evidence])? = nil
     ) {
         self.store = store
         self.me = me
+        self.owner = owner
         self.makeModel = makeModel ?? { $0.model(store: store) }
         self.openSession = openSession ?? { try web.openSession() }
-        self.deckParts =
-            deckParts ?? { deal in
-                let mine = deal.items.filter { $0.event.author == me() && $0.item.source == .mail }
-                return try mine.compactMap(\.item.itemID).flatMap { try store.queries.threadParts(ofItem: $0) }
-            }
+        self.evidence = evidence ?? { try store.queries.evidence(of: $0, author: me()) }
     }
 
     func state(of deal: WorkObject) -> DealClaims { byDeal[deal.id] ?? DealClaims() }
 
     func refresh(_ deal: WorkObject) {
         problems.attempt("read the claims") {
+            let claims = try store.queries.claims(of: deal.id)
+            let checks = try store.queries.claimChecks(of: deal.id)
+            let rating = try store.queries.rating(of: deal.id)
+            let triage = try rating.flatMap { rating in try store.queries.thesis()?.triage(rating.fields) }
+            let items = try store.queries.items(
+                ids: claims.compactMap(\.id) + checks.compactMap(\.id) + [rating?.id].compactMap { $0 })
             byDeal[deal.id] = DealClaims(
-                claims: try store.queries.claims(of: deal.id),
-                chosen: Set(try store.queries.chosenClaims(of: deal.id)),
-                checks: try store.queries.claimChecks(of: deal.id))
+                claims: claims, chosen: Set(try store.queries.chosenClaims(of: deal.id)), checks: checks,
+                items: Dictionary(items.compactMap { item in item.id.map { ($0, item) } }) { first, _ in first },
+                rating: rating, triage: triage)
         }
+    }
+
+    /// The proof model of the section's rows: a fact's lines are the ones its run read, from any source.
+    func proofModel(crew: Crew) -> ProofModel {
+        let store = store
+        return ProofModel(
+            crew: crew, store: store, title: { $0["text"] },
+            lines: { item in
+                try store.queries.proofLines(of: item).map {
+                    ChatLine(id: $0.line.number, time: $0.line.time, text: $0.line.evidence.line, isCited: $0.isCited)
+                }
+            })
     }
 
     func toggle(_ claim: Claim, in deal: WorkObject) {
@@ -58,41 +81,103 @@ final class ClaimsModel {
         refresh(deal)
     }
 
-    /// Reads the deck's claims with one model call. The mail consent must still allow the thread's label.
+    /// Adds a file to the deal: its text becomes lines of the deal's evidence, written by the person.
+    func addFile(_ url: URL, to deal: WorkObject) {
+        do {
+            let pages = try store.addFile(
+                try Data(contentsOf: url), named: url.lastPathComponent, to: deal.id, owner: try owner.get())
+            if pages == 0 {
+                problems.show("No text could be read from \(url.lastPathComponent).")
+            } else {
+                problems.dismiss()
+            }
+        } catch {
+            problems.report("add the file", error)
+        }
+        refresh(deal)
+    }
+
+    /// Types a claim on the deal. It can be chosen and checked like a claim read from a file.
+    func addClaim(_ words: String, to deal: WorkObject) {
+        problems.attempt("add the claim", clearing: true) {
+            try store.addTypedClaim(words, to: deal.id, owner: try owner.get())
+        }
+        refresh(deal)
+    }
+
+    /// Reads the claims of the deal's evidence with one model call. The consent of every source of its lines must
+    /// still allow it.
     func extract(from deal: WorkObject) async {
         guard busy.insert(deal.id).inserted else { return }
         defer { busy.remove(deal.id) }
         do {
-            let parts = Array(Dictionary(grouping: try deckParts(deal), by: \.id).values.compactMap(\.first))
-                .sorted { ($0.id ?? 0) < ($1.id ?? 0) }
-            guard let label = parts.first?.label else {
-                problems.show("This deal has no deck or mail text on this Mac to read claims from.")
+            let lines = try evidence(deal)
+            guard !lines.isEmpty else {
+                problems.show("This deal has no evidence on this Mac to read claims from. Add a file or link an item.")
                 return
             }
-            guard
-                let grant = try store.currentPolicy().authorize(
-                    CaptureRequest(kind: .mail, label: label), at: store.clock()
-                )
-                .grant
-            else {
-                problems.show("Mail is switched off for the \(label) label, so its text is not read.")
-                return
-            }
+            let grants = try store.grants(for: lines)
             guard let types = try store.queries.claimTypes() else {
                 problems.show("No machine lists claim types, so there is nothing to read claims for.")
                 return
             }
             let extractor = ClaimExtractor(model: makeModel(try ModelChoice.saved(in: store)), types: types)
-            let found = try await extractor.extract(deal: deal.id, lines: parts.compactMap(\.evidence))
+            let found = try await extractor.extract(deal: deal.id, lines: lines)
             if let run = found.run, !found.claims.isEmpty {
                 let known = Set(try store.queries.claims(of: deal.id).map { $0.text.comparable })
-                try store.saveClaims(
-                    found.claims.filter { !known.contains($0.text.comparable) }, run: run, grant: grant)
+                for claim in found.claims where !known.contains(claim.text.comparable) {
+                    guard let consent = lines.first(where: { $0.id == claim.line })?.consent,
+                        let grant = grants[consent]
+                    else { continue }
+                    try store.saveClaims([claim], run: run, grant: grant)
+                }
             }
             problems.dismiss()
+        } catch let block as ReadBlock {
+            problems.show(block.localizedDescription)
         } catch {
             problems.report("read the claims", error)
         }
+        refresh(deal)
+    }
+
+    /// Rates the deal against the team's thesis, over the deal's evidence from any source. The rating is a fact on the
+    /// deal that the person can mark.
+    func rate(_ deal: WorkObject) async {
+        guard busy.insert(deal.id).inserted else { return }
+        defer { busy.remove(deal.id) }
+        do {
+            let lines = try evidence(deal)
+            guard !lines.isEmpty else {
+                problems.show("This deal has no evidence on this Mac to rate. Add a file or link an item.")
+                return
+            }
+            guard let criteria = try store.queries.thesis() else {
+                problems.show("No machine has criteria, so there is no thesis to rate against.")
+                return
+            }
+            let grants = try store.grants(for: lines)
+            let rater = DealRater(model: makeModel(try ModelChoice.saved(in: store)), criteria: criteria)
+            if let rating = try await rater.rate(deal: deal.id, company: deal.title, lines: lines),
+                let grant = rating.source.flatMap({ kind in grants.first { $0.key.kind == kind }?.value })
+            {
+                try store.saveRating(rating, grant: grant)
+                problems.dismiss()
+            } else {
+                problems.show("Nothing in the evidence settles the rules, so the deal is not rated.")
+            }
+        } catch let block as ReadBlock {
+            problems.show(block.localizedDescription)
+        } catch {
+            problems.report("rate the deal", error)
+        }
+        refresh(deal)
+    }
+
+    /// Marks a fact of the deal: a claim, a verdict or the rating.
+    func mark(_ item: Item, as mark: Mark, in deal: WorkObject) {
+        guard let id = item.id else { return }
+        problems.attempt("save the mark") { try store.mark(item: id, as: mark) }
         refresh(deal)
     }
 

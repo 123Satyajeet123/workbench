@@ -84,7 +84,8 @@ struct OnboardingView: View {
         case .welcome: "Get started"
         case .done: "Open Workbench"
         case .setup: model.answers.isEmpty ? "Skip" : "Continue"
-        case .you, .team, .connect: "Continue"
+        case .you, .team, .connect, .watchlist: "Continue"
+        case .firstLook: model.hasLookedFirst ? "Continue" : "Skip"
         }
     }
 }

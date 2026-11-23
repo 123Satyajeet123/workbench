@@ -73,13 +73,14 @@ public struct ClaimChecker: Sendable {
         let brief = Self.brief(of: claim, company: company, type: types.first { $0.id == claim.type })
         let (written, queryRun) = try await model.generate(
             Queries.self, schema: Self.queriesSchema, task: Self.queryTask, instructions: Self.queryInstructions,
-            input: Self.queryBrief(of: claim, company: company), holding: [.mail])
+            input: Self.queryBrief(of: claim, company: company), holding: claim.holding,
+            holdingUnknown: claim.source == nil)
         let pages = try await fetchedPages(for: written.queries)
         guard !pages.isEmpty else { return (result(claim, .notFound, quote: "", url: ""), queryRun) }
         let (raw, run) = try await model.generate(
             RawVerdict.self, schema: Self.verdictSchema, task: Self.verdictTask,
             instructions: Self.verdictInstructions, input: brief + "\n\nPages:\n" + Self.numbered(pages),
-            holding: [.mail, .web])
+            holding: claim.holding.union([.web]), holdingUnknown: claim.source == nil)
         let settled = Self.settle(raw, pages: pages)
         return (result(claim, settled.verdict, quote: settled.quote, url: settled.url), run)
     }

@@ -54,10 +54,18 @@ struct DealDigestReader {
             touching += try machines.filter { $0.template == HelperSpec.derailment.task }.map { try stripMachine($0) }
         }
         return DealDigest(
-            triage: first, action: own.first { $0.isOpen(in: DealAction.lifecycle, at: store.clock()) },
+            triage: try ratedTriage(of: deal, machines: machines) ?? first,
+            action: own.first { $0.isOpen(in: DealAction.lifecycle, at: store.clock()) },
             story: DealStory.make(deal: deal, ratings: ratings, marks: marks, actions: own), machines: touching,
             signals: signals.filter { $0.signalCompany == deal.id && $0.isListed(at: store.clock()) },
             revisit: revisits.first { $0[Revisit.dealField] == deal.id && $0.closed == nil })
+    }
+
+    /// The call on the deal's own rating, when the person rated it and did not mark the rating wrong. It follows the
+    /// team's criteria as they are now.
+    private func ratedTriage(of deal: WorkObject, machines: [Machine]) throws -> Triage? {
+        guard let rating = try store.queries.rating(of: deal.id), rating.state != .rejected else { return nil }
+        return machines.lazy.compactMap(\.spec.criteria).first?.triage(rating.fields)
     }
 
     /// The marks on a linked item. The item's id means something only on the Mac of the person who linked it.

@@ -1,7 +1,7 @@
 import Foundation
 
-/// Where in a message a line is: the attached file and the page of a deck. A message line has none.
-struct MailPlace: Codable, Equatable {
+/// Where a line is in a file: the file and its page. A message line has none.
+struct FilePlace: Codable, Equatable {
     var file: String
     var page: Int
 }
@@ -56,7 +56,7 @@ extension MailPart {
     init?(_ line: StoredLine) {
         let prefix = Store.grantID(kind: .mail, label: "")
         guard !line.isTombstone, line.grantID.hasPrefix(prefix) else { return nil }
-        let place = line.coordinate.flatMap { try? Coding.value(MailPlace.self, from: $0) }
+        let place = line.coordinate.flatMap { try? Coding.value(FilePlace.self, from: $0) }
         self.init(
             id: line.number, lineID: line.lineID, provenance: line.provenance, threadID: line.container,
             label: String(line.grantID.dropFirst(prefix.count)), sender: line.actor, name: place?.file ?? "",

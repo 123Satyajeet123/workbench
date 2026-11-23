@@ -27,6 +27,16 @@ public struct CaptureGrant: Sendable, Equatable {
     }
 }
 
+extension CaptureGrant {
+    /// The grant of the person's own act, such as adding a file to a deal. The act is the consent, so no switch stands
+    /// behind it. Nil for a kind that needs the policy.
+    public static func byHand(_ kind: SourceKind, label: String, at now: Date) -> CaptureGrant? {
+        kind.isByHand
+            ? CaptureGrant(kind: kind, label: label, expiresAt: now.addingTimeInterval(CapturePolicy.grantLifetime))
+            : nil
+    }
+}
+
 public enum DenyReason: Sendable, Equatable {
     case captureOff, paused, privateMode, sourceSwitchedOff, labelDenied, labelNotAllowed
 }

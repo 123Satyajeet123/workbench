@@ -9,8 +9,8 @@ public enum DeleteSelector: Sendable {
     case activities(ActivityFilter)
     /// What one kind of source produced before the cutoff (all of it when nil): its activity, its recordings, the
     /// items helpers read from it, the summaries built from it, and the text of model runs that hold the kind, or hold
-    /// a kind that is unknown, and started before the cutoff. A call still being recorded stays. The kind `typed`
-    /// is not captured: this removes nothing of it.
+    /// a kind that is unknown, and started before the cutoff. A call still being recorded stays. The kinds `typed`
+    /// and the kind `dropped` are not captured: this removes nothing of them.
     case kind(SourceKind, before: Date?)
     /// One machine: its items and their marks, its summaries, its saved settings, the text of its runs and of every
     /// summary run (their input does not say which machine it came from), and a deleted state. Its trial's items and
@@ -112,7 +112,7 @@ extension Store {
                 return [String]()
             case .everything(let cutoff):
                 try removeRunText(db, before: cutoff)
-                try removeTyped(db, before: cutoff)
+                try removeByHand(db, before: cutoff)
                 return try SourceKind.captured.flatMap { try remove(db, $0, before: cutoff ?? .distantFuture) }
             }
         }
@@ -149,22 +149,24 @@ extension Store {
         throw StoreError.logNotTruncated
     }
 
-    /// What the person typed, with the copies of it in run text and summaries. Without a cutoff all of it goes; with
-    /// one, only the facts that are closed and started before it.
-    private func removeTyped(_ db: Database, before cutoff: Date?) throws {
+    /// What the person gave by hand, with the copies of it in run text and summaries. Without a cutoff all of it goes,
+    /// the lines of the files and notes they gave too; with one, only the facts that are closed and started before it.
+    private func removeByHand(_ db: Database, before cutoff: Date?) throws {
         let closed = cutoff == nil ? "" : "AND status_kind = 'close'"
+        let kinds = SourceKind.byHand.sorted { $0.rawValue < $1.rawValue }
         try db.execute(
             sql: """
-                DELETE FROM item WHERE source = ? AND start_at < ? AND id IN (
+                DELETE FROM item WHERE source IN (SELECT value FROM json_each(?)) AND start_at < ? AND id IN (
                     SELECT id FROM item_mark LEFT JOIN item_status ON item_status.item_id = item_mark.id
                     WHERE 1 = 1 \(closed))
-                """, arguments: [SourceKind.typed.rawValue, (cutoff ?? .distantFuture).stored])
-        try removeRunText(db, holding: [.typed], before: cutoff)
-        try removeSummaries(db, holding: [.typed], before: cutoff ?? .distantFuture)
+                """, arguments: [try Coding.json(kinds.map(\.rawValue)), (cutoff ?? .distantFuture).stored])
+        try removeRunText(db, holding: kinds, before: cutoff)
+        try removeSummaries(db, holding: kinds, before: cutoff ?? .distantFuture)
+        if cutoff == nil { for kind in kinds { _ = try Self.eraseEvidence(.kind(kind, before: nil), in: db) } }
     }
 
     private func remove(_ db: Database, _ kind: SourceKind, before cutoff: Date) throws -> [String] {
-        guard kind != .typed else { return [] }
+        guard !kind.isByHand else { return [] }
         _ = try Self.eraseEvidence(.kind(kind, before: cutoff == .distantFuture ? nil : cutoff), in: db)
         try db.execute(
             sql: "DELETE FROM item WHERE source = ? AND start_at < ?", arguments: [kind.rawValue, cutoff.stored])
@@ -175,7 +177,7 @@ extension Store {
             try removeActivity(db, Activity.Kind.allCases.filter { $0 != .file }, before: cutoff)
         case .screenText: try removeActivity(db, [.text, .page], before: cutoff)
         case .files: try removeActivity(db, [.file], before: cutoff)
-        case .whatsapp, .typed: break
+        case .whatsapp, .typed, .dropped: break
         case .mail:
             try db.execute(sql: "DELETE FROM mail_part WHERE seen_at < ?", arguments: [cutoff.stored])
             try db.execute(sql: "DELETE FROM mail_open WHERE day < ?", arguments: [String(cutoff.stored.prefix(10))])

@@ -11,7 +11,7 @@ extension MailPart {
         let place = isDeck ? " — \(name) page \(page)" : isQuoted ? " (quoted)" : ""
         return Evidence(
             id: id, start: sentAt, line: "\(sender ?? "Unknown")\(place): \(text)", quotable: [text], lineID: lineID,
-            provenance: provenance)
+            provenance: provenance, consent: Consent(kind: .mail, label: label))
     }
 
     /// The parts of a day a machine reads: only those of the named labels, a repeated text once, earliest first up to

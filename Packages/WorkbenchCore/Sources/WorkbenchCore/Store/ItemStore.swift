@@ -268,6 +268,16 @@ extension Queries {
             [task, day.description, scope], as: Item.init(row:))
     }
 
+    /// The items with these ids, oldest first.
+    public func items(ids: [Int64]) throws -> [Item] {
+        try reader.read { db in
+            try db.fetch(
+                "item",
+                "SELECT \(Self.itemColumns) FROM \(Self.itemRows) WHERE id IN (SELECT value FROM json_each(?)) ORDER BY id",
+                [try Coding.json(ids)], as: Item.init(row:))
+        }
+    }
+
     /// One machine's items on one day, in every chat scope, in time order.
     public func items(of task: String, on day: WorkDay) throws -> [Item] {
         try reader.read { db in

@@ -24,6 +24,21 @@ struct TeamStep: View {
                 }
                 .padding(.horizontal, Space.m)
                 .background(.calloutFill, in: .rect(cornerRadius: Radius.card))
+                ForEach(model.startsTeam ? model.teamModel.template.optionalMachines : [], id: \.template) { machine in
+                    Toggle(
+                        isOn: Binding(
+                            get: { model.optionalChosen.contains(machine.template) },
+                            set: { model.include(machine, $0) })
+                    ) {
+                        VStack(alignment: .leading, spacing: Space.xs / 2) {
+                            Text("Also add \(machine.name)")
+                            if let detail = MachineTemplate.of(id: machine.template)?.detail {
+                                Text(detail).textStyle(.callout).foregroundStyle(.supporting)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    }
+                }
             }
         }
     }

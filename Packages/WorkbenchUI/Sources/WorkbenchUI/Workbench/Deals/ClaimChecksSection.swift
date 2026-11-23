@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 import WorkbenchCore
 
 extension ClaimVerdict {
@@ -13,96 +14,116 @@ extension ClaimVerdict {
     }
 }
 
-/// A deal's claims, under the why card: pick the claims to check, then each verdict with the words and the link it
-/// rests on, and two marks: is the quote right, is the verdict right.
+/// What a deal holds that can be checked, over its evidence from any source: the rating against the team's thesis and
+/// the claims. Each fact is one row; the one question of a row is right or wrong. A file dropped on the section is added
+/// to the deal.
 struct ClaimChecksSection: View {
     let deal: WorkObject
     @Environment(ClaimsModel.self) private var claims
+    @Environment(Crew.self) private var crew
+    @State private var selected: Int64?
+    @State private var hovered: Int64?
+    @State private var typed = ""
+    @State private var isChoosingFile = false
+    @State private var proof: ProofModel?
 
     private var state: ClaimsModel.DealClaims { claims.state(of: deal) }
+    private var isBusy: Bool { claims.busy.contains(deal.id) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Space.s) {
-            HStack {
-                Text("Claims").textStyle(.headline)
-                Spacer()
-                Button(claims.busy.contains(deal.id) ? "Working…" : "Read claims from the deck") {
-                    Task { await claims.extract(from: deal) }
-                }
-                .disabled(claims.busy.contains(deal.id))
-            }
+            Text("Claims").textStyle(.headline)
             if let problem = claims.problems.text { ProblemBanner(text: problem, dismiss: claims.problems.dismiss) }
-            if state.claims.isEmpty {
-                Text("No claims yet. Read them from the deck, then choose which to check.").textStyle(.callout)
-                    .foregroundStyle(.supporting)
+            if let rating = state.rating, let triage = state.triage {
+                row(rating, title: "Rated \(triage.rating.rawValue)", shown: rating.shownAsRating(triage))
             }
-            ForEach(state.claims) { claim in ClaimRow(deal: deal, claim: claim) }
+            ForEach(state.claims) { claim in
+                if let item = claim.id.flatMap({ state.items[$0] }) {
+                    HStack(spacing: Space.s) {
+                        Toggle(
+                            "Check on the web",
+                            isOn: Binding(
+                                get: { claim.id.map(state.chosen.contains) ?? false },
+                                set: { _ in claims.toggle(claim, in: deal) })
+                        )
+                        .labelsHidden().toggleStyle(.checkbox)
+                        row(item, title: claim.text, shown: item)
+                    }
+                    if let check = state.check(of: claim), let verdict = check.id.flatMap({ state.items[$0] }) {
+                        row(verdict, title: claim.text, shown: verdict.shownAsVerdict(check))
+                            .padding(.leading, Space.l)
+                    }
+                }
+            }
+            if state.claims.isEmpty && state.rating == nil {
+                Text("Nothing yet. Add a file, type a claim, or read the claims in what is linked.")
+                    .textStyle(.callout).foregroundStyle(.supporting)
+            }
+            if let selected, let item = state.items[selected], let proof {
+                InspectorView(item: item) { EmptyView() }.environment(proof).frame(maxWidth: .infinity)
+            }
+            actions
+        }
+        .calloutBox(fillsWidth: true)
+        .onAppear {
+            claims.refresh(deal)
+            proof = claims.proofModel(crew: crew)
+        }
+        .dropDestination(for: URL.self) { urls, _ in
+            for url in urls { claims.addFile(url, to: deal) }
+            return !urls.isEmpty
+        }
+        .fileImporter(isPresented: $isChoosingFile, allowedContentTypes: [.pdf, .image]) { result in
+            if case .success(let url) = result { claims.addFile(url, to: deal) }
+        }
+    }
+
+    private var actions: some View {
+        VStack(alignment: .leading, spacing: Space.xs) {
+            Button("Add a file") { isChoosingFile = true }
+            TextField("Add a claim", text: $typed, prompt: Text("Type a claim, then press Return"))
+                .onSubmit {
+                    claims.addClaim(typed, to: deal)
+                    typed = ""
+                }
+            Button(isBusy ? "Working…" : "Read the claims") { Task { await claims.extract(from: deal) } }
+            Button(isBusy ? "Working…" : "Rate against our thesis") { Task { await claims.rate(deal) } }
             if !state.chosen.isEmpty {
                 Button("Check \(state.chosen.count) chosen on the web") { Task { await claims.checkChosen(in: deal) } }
-                    .disabled(claims.busy.contains(deal.id))
                 Text("Sends search queries about these claims to your search provider. See Settings › Capture.")
                     .textStyle(.callout).foregroundStyle(.supporting)
             }
         }
-        .calloutBox(fillsWidth: true)
-        .onAppear { claims.refresh(deal) }
-    }
-}
-
-private struct ClaimRow: View {
-    let deal: WorkObject
-    let claim: Claim
-    @Environment(ClaimsModel.self) private var claims
-
-    var body: some View {
-        let state = claims.state(of: deal)
-        VStack(alignment: .leading, spacing: Space.xs) {
-            Toggle(
-                isOn: Binding(
-                    get: { claim.id.map(state.chosen.contains) ?? false }, set: { _ in claims.toggle(claim, in: deal) })
-            ) {
-                Text(claim.text)
-            }
-            Text("\(claim.type.replacingOccurrences(of: "_", with: " ")) · “\(claim.quote)”")
-                .textStyle(.callout).foregroundStyle(.supporting)
-            if let check = state.check(of: claim) { VerdictView(deal: deal, check: check) }
-        }
-    }
-}
-
-private struct VerdictView: View {
-    let deal: WorkObject
-    let check: ClaimCheck
-    @Environment(ClaimsModel.self) private var claims
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Space.xs) {
-            Text(check.verdict.title).textStyle(.headline).foregroundStyle(check.verdict.tone.color)
-            if !check.quote.isEmpty {
-                Text("“\(check.quote)”").textSelection(.enabled)
-                if let link = URL(string: check.url) {
-                    Link(link.host() ?? check.url, destination: link).foregroundStyle(.linkText)
-                }
-                markRow("Quote", mark: check.quoteMark) { claims.markQuote(check, as: $0, in: deal) }
-            } else {
-                Text(
-                    check.verdict == .notFound
-                        ? "No page said anything about it. That is not a sign it is false."
-                        : "The pages did not settle it."
-                )
-                .textStyle(.callout).foregroundStyle(.supporting)
-            }
-            markRow("Verdict", mark: check.verdictMark) { claims.markVerdict(check, as: $0, in: deal) }
-        }
-        .padding(.leading, Space.m)
-    }
-
-    private func markRow(_ name: String, mark: Mark, set: @escaping (Mark) -> Void) -> some View {
-        HStack(spacing: Space.s) {
-            Text("\(name) right?").textStyle(.callout).foregroundStyle(.supporting)
-            Button("Right") { set(.confirmed) }.disabled(mark == .confirmed)
-            Button("Wrong") { set(.rejected) }.disabled(mark == .rejected)
-        }
+        .disabled(isBusy)
         .buttonStyle(.ghost)
+    }
+
+    @ViewBuilder private func row(_ item: Item, title: String, shown: Item) -> some View {
+        if let row = FactRow(item: shown, title: title), let id = item.id {
+            FactCard(
+                row: row, offered: FactAction.offered(for: item, isOpenFact: false), isSelected: selected == id,
+                isHovered: hovered == id,
+                hover: { inside in hovered = inside ? id : (hovered == id ? nil : hovered) },
+                open: { selected = selected == id ? nil : id },
+                act: { action in claims.mark(item, as: action == .right ? .confirmed : .rejected, in: deal) })
+        }
+    }
+}
+
+extension Item {
+    /// The rating fact as a row shows it: the call first, then the words it rests on.
+    fileprivate func shownAsRating(_ triage: Triage) -> Item {
+        var shown = self
+        shown.fields["person"] = triage.rating.rawValue.capitalized
+        return shown
+    }
+
+    /// A verdict as a row shows it: the verdict first, then the page's words, and the page's site.
+    fileprivate func shownAsVerdict(_ check: ClaimCheck) -> Item {
+        var shown = self
+        shown.fields["person"] = check.verdict.title
+        shown.fields["project"] = URL(string: check.url)?.host() ?? ""
+        shown.quote = check.quote
+        return shown
     }
 }

@@ -1,5 +1,16 @@
 import Foundation
 
+/// What the person agreed to for a line: the kind of source and its label, as the evidence store names them.
+public struct Consent: Sendable, Equatable, Hashable {
+    public var kind: SourceKind
+    public var label: String
+
+    public init(kind: SourceKind, label: String) {
+        self.kind = kind
+        self.label = label
+    }
+}
+
 /// One numbered line a helper's model reads: a message, a screen session. A quote must come from `quotable`.
 public struct Evidence: Sendable, Equatable {
     public var id: Int64
@@ -16,14 +27,17 @@ public struct Evidence: Sendable, Equatable {
     /// Who may read the line and how far it is trusted, as the store recorded them. Nil when the source keeps no
     /// stored line: the line then has no known label and its authority is unknown.
     public var provenance: Provenance?
+    /// The consent that let the line in. Nil when the source keeps no stored line.
+    public var consent: Consent?
 
     public init(
         id: Int64, start: Date, end: Date? = nil, line: String, quotable: [String], lineID: Data? = nil,
-        provenance: Provenance? = nil
+        provenance: Provenance? = nil, consent: Consent? = nil
     ) {
         self.id = id
         self.lineID = lineID
         self.provenance = provenance
+        self.consent = consent
         self.start = start
         self.end = end
         self.line = line.split(whereSeparator: \.isNewline).joined(separator: " ")

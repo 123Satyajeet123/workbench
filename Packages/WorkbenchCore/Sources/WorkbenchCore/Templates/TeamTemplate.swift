@@ -49,14 +49,30 @@ public struct TeamTemplate: Sendable, Equatable, Identifiable {
     public var purpose: String
     public var objectTypes: [ObjectType]
     public var machines: [TeamMachine]
+    /// Machines a team of this template may add: it starts without them unless the person asks (`adding(optional:)`).
+    public var optionalMachines: [TeamMachine]
 
-    public init(id: String, name: String, purpose: String, objectTypes: [ObjectType], machines: [TeamMachine]) {
+    public init(
+        id: String, name: String, purpose: String, objectTypes: [ObjectType], machines: [TeamMachine],
+        optionalMachines: [TeamMachine] = []
+    ) {
         self.id = id
         self.name = name
         self.purpose = purpose
         self.objectTypes = objectTypes
         self.machines = machines
+        self.optionalMachines = optionalMachines
     }
+
+    /// This template with the optional machines the person asked for, by machine template id, after its own.
+    public func adding(optional chosen: Set<String>) -> TeamTemplate {
+        var template = self
+        template.machines += optionalMachines.filter { chosen.contains($0.template) }
+        return template
+    }
+
+    /// Whether a machine of this template follows companies in the news.
+    public var watchesCompanies: Bool { seeds.contains { $0.spec.source == .news } }
 
     /// The machines to make, each with its spec set. A machine whose template is unknown is left out.
     public var seeds: [(spec: HelperSpec, name: String)] {

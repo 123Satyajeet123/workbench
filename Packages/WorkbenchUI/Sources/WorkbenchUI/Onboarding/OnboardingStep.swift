@@ -32,6 +32,8 @@ struct OnboardingStep: View {
                         .textStyle(.callout).foregroundStyle(.supporting)
                 }
             case .setup: SetupStep()
+            case .watchlist: WatchlistStep()
+            case .firstLook: FirstLookStep()
             case .done:
                 VStack(alignment: .leading, spacing: Space.xs) {
                     ForEach(model.summary(connected: connected).lines, id: \.self) { Text($0).textStyle(.callout) }

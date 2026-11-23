@@ -52,20 +52,3 @@ enum InspectorWords {
     static let deleted = "The message this came from was deleted."
     static func unreadable(_ reason: String) -> String { "Could not read the chat: \(reason)" }
 }
-
-extension SourceKind {
-    /// The source as a person names it.
-    var words: String {
-        switch self {
-        case .whatsapp: "WhatsApp"
-        case .mail: "Mail"
-        case .call: "Call"
-        case .calendar: "Calendar"
-        case .screen: "Screen"
-        case .screenText: "Web page you read"
-        case .web: "Web"
-        case .files: "Files"
-        case .typed: "Typed by you"
-        }
-    }
-}

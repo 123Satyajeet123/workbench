@@ -13,7 +13,7 @@ final class Crew {
     var problem: String? { problems.text }
 
     @ObservationIgnored private var itemListeners: [() -> Void] = []
-    @ObservationIgnored private let store: Store
+    @ObservationIgnored let store: Store
     @ObservationIgnored private let capture: CaptureService
     @ObservationIgnored private let founder: () -> String
     @ObservationIgnored private let makeModel: ((ModelChoice) -> RecordedModel)?

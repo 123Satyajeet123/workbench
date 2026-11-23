@@ -85,7 +85,7 @@ enum AppLaunch {
                 morning: morning,
                 catalog: catalog, actions: ActionsModel(store: store, founder: { identity.identity.name }),
                 deals: deals, memory: MemoryModel(store: store, crew: crew, deals: deals),
-                web: web, claims: ClaimsModel(store: store, me: { catalog.me }, web: web),
+                web: web, claims: ClaimsModel(store: store, me: { catalog.me }, web: web, owner: owner),
                 runs: RunsModel(store: store),
                 pages: pages,
                 browsers: BrowserSetup(

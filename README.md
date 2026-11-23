@@ -60,6 +60,13 @@ cd ~/Projects/workbench && git pull && scripts/install.sh
 - **Team**: your team's shared days and machines. A day goes only to teammates who can already read its source.
 - **Echo**: calls you record from the menu bar. **Runs**: every model call, its cost, and how often each machine
   was right.
+- **Each deal flow works on its own.** Add a deal by hand (Deals, *Add deal*). On its page: *Add a file* (a PDF or an
+  image; drop one on the page too), type a claim, *Read the claims* in the deal's evidence (files, notes and linked
+  items from any source), *Check on the web* for chosen claims, and *Rate against our thesis*. A mark of wrong on the
+  rating overrides it. Outbound's *Add to Deals*, the watchlist (*Add a company*) and Deals from chats (an optional
+  machine of the Fund template, chosen in setup) each start without the others.
+- **First look** (last setup step) reads the last days of what the template's machines read, shows the cost first,
+  and lets you mark a few results or skip it.
 - ⌘+ / ⌘− zoom.
 
 ## Code map
