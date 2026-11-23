@@ -42,7 +42,8 @@ final class Crew {
     ) {
         self.whatsAppContainer = whatsAppContainer
         self.store = store
-        self.openWebSession = openWebSession ?? { try WebResearchSettings(store: store).openSession() }
+        self.openWebSession =
+            openWebSession ?? { try WebResearchSettings(store: store, secrets: Profile.yours.secrets).openSession() }
         self.capture = capture
         self.founder = founder
         self.makeModel = makeModel
@@ -51,7 +52,7 @@ final class Crew {
             telegram
             ?? TelegramAccount(
                 service: TDLibTelegram(folder: store.directory.appending(path: "Telegram")),
-                capture: capture, store: store)
+                capture: capture, store: store, secrets: Profile.yours.secrets)
         alarm = VersionAlarm(store: store, notifications: notifications, problems: problems)
         reload()
     }

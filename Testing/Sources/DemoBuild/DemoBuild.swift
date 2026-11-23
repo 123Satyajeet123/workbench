@@ -87,7 +87,7 @@ public enum DemoBuild {
         try SyntheticWhatsApp.write(to: Profile.demo.whatsAppContainer(in: folder))
         let session: AppSession
         let clock = MovableClock()
-        switch AppLaunch.open(profile: .demo, storeFolder: folder, secrets: NoSecrets(), clock: { clock.now }) {
+        switch AppLaunch.open(profile: .demo, storeFolder: folder, secrets: Profile.demo.secrets, clock: { clock.now }) {
         case .ready(let opened): session = opened
         case .failed(let failure): throw BuildFailure.cannotOpen(failure.cause)
         }
@@ -100,7 +100,7 @@ public enum DemoBuild {
         let chat = try chooseChat(of: pip)
         try mail(of: intake).choose(MailFeed.label)
         session.capture.setBrowser(MailFeed.browser, named: MailFeed.browserName, on: true)
-        let kept = try MailFeed(owner: Profile.demo.owner(secrets: NoSecrets())).keep(
+        let kept = try MailFeed(owner: Profile.demo.owner(secrets: Profile.demo.secrets)).keep(
             letters, in: session.store, at: clock)
         clock.release()
         progress("mails kept \(kept.letters) of \(letters.count), decks kept \(kept.decks)")
@@ -216,15 +216,6 @@ public enum DemoBuild {
         try source.choose(group)
         return group
     }
-}
-
-/// A secret store that holds nothing, so the builder never reads the person's Keychain.
-struct NoSecrets: SecretStore {
-    func read(_ name: String) -> String? { nil }
-    func lookup(_ name: String) throws -> String? { nil }
-    func create(_ value: String, as name: String) throws -> Bool { false }
-    func save(_ value: String, as name: String) throws {}
-    func remove(_ name: String) throws {}
 }
 
 extension Calendar {

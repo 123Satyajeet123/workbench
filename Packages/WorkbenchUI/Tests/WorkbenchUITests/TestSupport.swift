@@ -252,21 +252,6 @@ func renderPNG(_ view: some View, named name: String, width: CGFloat = 640) thro
     try png.write(to: folder.appending(path: "\(name).png"))
 }
 
-final class MemorySecrets: SecretStore, Sendable {
-    let values = Mutex<[String: String]>([:])
-    func read(_ name: String) -> String? { values.withLock { $0[name] } }
-    func lookup(_ name: String) throws -> String? { values.withLock { $0[name] } }
-    func create(_ value: String, as name: String) throws -> Bool {
-        values.withLock { values in
-            guard values[name] == nil else { return false }
-            values[name] = value
-            return true
-        }
-    }
-    func save(_ value: String, as name: String) throws { values.withLock { $0[name] = value } }
-    func remove(_ name: String) throws { values.withLock { $0[name] = nil } }
-}
-
 extension TeamCatalogModel {
     /// Makes this Mac's person the founder of the chosen team folder, so sharing works.
     func foundTeam() {

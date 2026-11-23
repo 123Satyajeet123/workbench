@@ -16,9 +16,12 @@ final class PlanUsage {
     @ObservationIgnored private let probe: () -> RecordedModel
     @ObservationIgnored nonisolated(unsafe) private var listening: (any NSObjectProtocol)?
 
+    /// The smallest model, asked once to learn the plan's limits.
+    static let probeModel = ModelChoice(kind: .claude, model: "haiku")
+
     init(store: Store, probe: (() -> RecordedModel)? = nil) {
         self.store = store
-        self.probe = probe ?? { ModelChoice(kind: .claude, model: "haiku").model(store: store) }
+        self.probe = probe ?? { Self.probeModel.model(store: store, secrets: Profile.yours.secrets) }
         reload()
         listening = NotificationCenter.default.addObserver(forName: Self.changed, object: nil, queue: .main) {
             [weak self] _ in MainActor.assumeIsolated { self?.reload() }

@@ -38,7 +38,7 @@ struct ModelChoice: Codable, Hashable, Identifiable {
 
     /// The runner for this choice, billed as the founder chose: their Claude sign-in, or their own API key. A key goes
     /// only to the Claude CLI; with billing set to a key and none saved, calls stop rather than use the sign-in.
-    func model(store: Store, secrets: SecretStore = KeychainSecrets()) -> RecordedModel {
+    func model(store: Store, secrets: SecretStore) -> RecordedModel {
         Self.recorded(
             kind: kind, model: model, effort: "medium", timeout: .seconds(300), tools: .none, store: store,
             secrets: secrets)
@@ -46,7 +46,7 @@ struct ModelChoice: Codable, Hashable, Identifiable {
 
     /// The Claude model that searches the web for `ModelSearch`, whatever model the founder picked for reading. It is
     /// the model of the dev probe, billed as the founder chose.
-    static func searchModel(store: Store, secrets: SecretStore = KeychainSecrets()) -> RecordedModel {
+    static func searchModel(store: Store, secrets: SecretStore) -> RecordedModel {
         recorded(
             kind: .claude, model: searchModelName, effort: "low", timeout: .seconds(120), tools: .webSearch,
             store: store, secrets: secrets)
@@ -72,7 +72,7 @@ struct ModelMaker {
 
     init(store: Store, make: ((ModelChoice) -> RecordedModel)?) {
         self.store = store
-        self.make = make ?? { $0.model(store: store) }
+        self.make = make ?? { $0.model(store: store, secrets: Profile.yours.secrets) }
     }
 
     func callAsFunction(_ choice: ModelChoice) -> RecordedModel { make(choice) }
@@ -124,7 +124,7 @@ final class ModelSettings {
     @ObservationIgnored let store: Store
     @ObservationIgnored private let secrets: SecretStore
 
-    init(store: Store, secrets: SecretStore = KeychainSecrets()) {
+    init(store: Store, secrets: SecretStore) {
         self.store = store
         self.secrets = secrets
         billing = Billing.saved(in: store)

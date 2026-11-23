@@ -19,7 +19,7 @@ final class TelegramAccount {
     @ObservationIgnored private let store: Store
 
     init(
-        service: any TelegramService, capture: CaptureService, store: Store, secrets: SecretStore = KeychainSecrets()
+        service: any TelegramService, capture: CaptureService, store: Store, secrets: SecretStore
     ) {
         self.service = service
         self.capture = capture

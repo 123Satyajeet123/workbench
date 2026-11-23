@@ -27,7 +27,7 @@ final class WebResearchSettings {
     @ObservationIgnored private let browser: any DriverTransport
 
     /// `browser` reads the pages a plain fetch could not; the default reaches no browser.
-    init(store: Store, secrets: SecretStore = KeychainSecrets(), browser: any DriverTransport = NoBrowser()) {
+    init(store: Store, secrets: SecretStore, browser: any DriverTransport = NoBrowser()) {
         self.store = store
         self.secrets = secrets
         self.browser = browser

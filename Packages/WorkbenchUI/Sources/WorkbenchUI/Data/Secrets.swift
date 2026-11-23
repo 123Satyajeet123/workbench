@@ -1,5 +1,6 @@
 import Foundation
 import Security
+import Synchronization
 
 /// Where Workbench keeps a secret the founder typed: the founder's own Anthropic API key. Never the store, never a log.
 protocol SecretStore: Sendable {
@@ -10,6 +11,23 @@ protocol SecretStore: Sendable {
     func create(_ value: String, as name: String) throws -> Bool
     func save(_ value: String, as name: String) throws
     func remove(_ name: String) throws
+}
+
+/// Secrets held in memory for the life of the process.
+final class MemorySecrets: SecretStore, Sendable {
+    let values = Mutex<[String: String]>([:])
+
+    func read(_ name: String) -> String? { values.withLock { $0[name] } }
+    func lookup(_ name: String) throws -> String? { values.withLock { $0[name] } }
+    func create(_ value: String, as name: String) throws -> Bool {
+        values.withLock { values in
+            guard values[name] == nil else { return false }
+            values[name] = value
+            return true
+        }
+    }
+    func save(_ value: String, as name: String) throws { values.withLock { $0[name] = value } }
+    func remove(_ name: String) throws { values.withLock { $0[name] = nil } }
 }
 
 struct KeychainSecrets: SecretStore {

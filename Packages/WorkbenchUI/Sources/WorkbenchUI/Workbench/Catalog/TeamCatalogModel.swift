@@ -44,7 +44,7 @@ final class TeamCatalogModel {
     @ObservationIgnored private let crew: Crew
     @ObservationIgnored private let author: () -> String
 
-    init(store: Store, crew: Crew, author: @escaping () -> String, secrets: SecretStore = KeychainSecrets()) {
+    init(store: Store, crew: Crew, author: @escaping () -> String, secrets: SecretStore) {
         self.store = store
         self.crew = crew
         self.author = author

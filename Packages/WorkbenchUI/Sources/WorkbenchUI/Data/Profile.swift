@@ -41,6 +41,10 @@ enum Profile: String, CaseIterable {
 
     var startsCapture: Bool { !isDemo }
 
+    /// Where this profile keeps secrets: the Keychain for your data; memory for the demo, so the demo never reads the
+    /// Keychain and never asks for its password.
+    var secrets: SecretStore { isDemo ? MemorySecrets() : KeychainSecrets() }
+
     /// The WhatsApp data the machines read: this Mac's own, or the synthetic chats inside the demo folder.
     func whatsAppContainer(in folder: URL) -> URL {
         isDemo ? folder.appending(path: "WhatsApp") : WhatsAppChatReader.defaultContainer

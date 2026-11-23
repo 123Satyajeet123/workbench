@@ -20,7 +20,7 @@ import WorkbenchCore
         let world = try await found()
         let settings = WebResearchSettings(store: world.store, secrets: MemorySecrets())
         settings.refreshUsage()
-        let catalog = TeamCatalogModel(store: world.store, crew: world.crew, author: { "Aditya" })
+        let catalog = TeamCatalogModel(store: world.store, crew: world.crew, author: { "Aditya" }, secrets: MemorySecrets())
         let page = HelperContent(model: world.helper)
             .environment(ActionsModel(store: world.store, founder: { "Aditya" })).environment(world.crew)
             .environment(catalog).environment(world.fixture.deals).environment(settings)

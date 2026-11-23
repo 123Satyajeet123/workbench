@@ -25,7 +25,7 @@ final class CaptureSettings {
     init(
         service: CaptureService, profile: Profile = .yours, staleSites: @escaping () -> [String] = { [] },
         installedBrowsers: @escaping () -> [InstalledBrowser] = BrowserRegistry.installedHere,
-        telegramKeysKnown: @escaping () -> Bool = { TelegramAccount.keysSaved(in: KeychainSecrets()) }
+        telegramKeysKnown: @escaping () -> Bool = { TelegramAccount.keysSaved(in: Profile.yours.secrets) }
     ) {
         self.telegramKeysKnown = telegramKeysKnown
         self.service = service

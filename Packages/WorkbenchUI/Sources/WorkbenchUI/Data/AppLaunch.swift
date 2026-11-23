@@ -50,13 +50,13 @@ enum AppLaunch {
 
     /// Opens the profile's store folder. A profile that refuses its folder never creates it.
     static func start(
-        profile: Profile = .yours, storeFolder: URL? = nil, secrets: SecretStore = KeychainSecrets()
+        profile: Profile = .yours, storeFolder: URL? = nil
     ) -> AppLaunch {
         let folder = storeFolder ?? profile.defaultFolder
         if let refusal = profile.refusal(for: folder) {
             return .failed(StartupFailure(cause: refusal, storeFolder: folder, profile: profile))
         }
-        return open(profile: profile, storeFolder: folder, secrets: secrets)
+        return open(profile: profile, storeFolder: folder, secrets: profile.secrets)
     }
 
     static func open(
@@ -66,6 +66,7 @@ enum AppLaunch {
             let writerLock = try StoreLock(directory: storeFolder)
             let store = try Store(directory: storeFolder, clock: clock)
             let owner = profile.owner(secrets: secrets)
+            let makeModel: (ModelChoice) -> RecordedModel = { $0.model(store: store, secrets: secrets) }
             let service = try CaptureService(store: store, owner: owner)
             let capture = CaptureSettings(
                 service: service, profile: profile, staleSites: { (try? store.queries.staleAdapters()) ?? [] },
@@ -73,9 +74,9 @@ enum AppLaunch {
             let identity = IdentityModel(store: store)
             let notifications = Notifications(notifier: profile.notifier, defaults: profile.notificationDefaults)
             let pages = try PageHostListener(path: PagesSocket.path(in: storeFolder), store: store, owner: owner)
-            let web = WebResearchSettings(store: store, browser: pages)
+            let web = WebResearchSettings(store: store, secrets: secrets, browser: pages)
             let crew = Crew(
-                store: store, capture: service, founder: { identity.identity.name }, makeModel: nil,
+                store: store, capture: service, founder: { identity.identity.name }, makeModel: makeModel,
                 notifications: notifications, openWebSession: { try web.openSession() },
                 whatsAppContainer: profile.whatsAppContainer(in: storeFolder),
                 telegram: TelegramAccount(
@@ -83,8 +84,9 @@ enum AppLaunch {
                     store: store, secrets: secrets))
             let onboarding = OnboardingModel(store: store, identity: identity, teamStarted: crew.reload)
             let review = ReviewModel(store: store, crew: crew)
-            let mochi = MochiModel(store: store, crew: crew)
-            let catalog = TeamCatalogModel(store: store, crew: crew, author: { identity.identity.name })
+            let mochi = MochiModel(store: store, crew: crew, makeModel: makeModel)
+            let catalog = TeamCatalogModel(
+                store: store, crew: crew, author: { identity.identity.name }, secrets: secrets)
             let deals = DealsModel(store: store, catalog: catalog)
             crew.onItemsChanged { deals.refresh() }
             let today = TodayModel(
@@ -101,7 +103,7 @@ enum AppLaunch {
                 })
             let calls = CallNotes(
                 store: store, listener: CallNotes.appleListener(), founder: { identity.identity.name },
-                owner: owner.get)
+                owner: owner.get, makeModel: makeModel)
             capture.onCallSaved = { Task { await calls.processPending() } }
             let callWatcher = CallWatcher(
                 store: store, controls: capture,
@@ -116,15 +118,17 @@ enum AppLaunch {
                 morning: morning,
                 catalog: catalog,
                 actions: ActionsModel(
-                    store: store, founder: { identity.identity.name }, reminders: profile.reminders),
+                    store: store, founder: { identity.identity.name }, makeModel: makeModel,
+                    reminders: profile.reminders),
                 deals: deals, workspace: WorkspaceModel(store: store),
-                memory: MemoryModel(store: store, crew: crew, deals: deals),
-                web: web, claims: ClaimsModel(store: store, me: { catalog.me }, web: web, owner: owner),
+                memory: MemoryModel(store: store, crew: crew, deals: deals, makeModel: makeModel),
+                web: web, claims: ClaimsModel(
+                    store: store, me: { catalog.me }, web: web, owner: owner, makeModel: makeModel),
                 runs: RunsModel(store: store),
                 pages: pages,
                 browsers: BrowserSetup(
                     capture: capture, connectedBrowsers: { Set(pages.connectedBrowsers.map(\.browser)) }),
-                writerLock: writerLock, planUsage: PlanUsage(store: store), calls: calls, callWatcher: callWatcher)
+                writerLock: writerLock, planUsage: PlanUsage(store: store, probe: { makeModel(PlanUsage.probeModel) }), calls: calls, callWatcher: callWatcher)
             if profile.startsCapture { service.start() }
             Task { await calls.start() }
             session.reminders.start()
