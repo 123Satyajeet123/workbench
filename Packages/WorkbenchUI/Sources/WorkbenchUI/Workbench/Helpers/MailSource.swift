@@ -26,6 +26,7 @@ final class MailSource: MachineSource {
     /// The labels mail may be read in; empty while mail is off.
     var labels: [String] { capture.policy.isEnabled(.mail) ? (capture.policy.allowList[.mail] ?? []).sorted() : [] }
     var isReady: Bool { !labels.isEmpty }
+    var picks: String? { "a label" }
     var grantLabels: [String?] { labels }
 
     /// Switches mail on for one label, as typed in Gmail. An empty name is the default label. The one label replaces

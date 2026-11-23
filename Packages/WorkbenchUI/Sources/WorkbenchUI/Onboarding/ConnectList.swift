@@ -12,7 +12,6 @@ struct ConnectList: View {
     @Environment(Crew.self) private var crew
     @Environment(ModelSettings.self) private var models
     @Environment(BrowserSetup.self) private var browsers
-    @State private var choosingChats = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -29,14 +28,13 @@ struct ConnectList: View {
         }
         .padding(.horizontal, Space.m)
         .background(.calloutFill, in: .rect(cornerRadius: Radius.card))
-        .sheet(isPresented: $choosingChats) {
-            if let pip = crew.team, let source = pip.source as? WhatsAppSource {
-                ChatsSheet(pip: pip, source: source)
-            }
-        }
+        if !isChecklist, !choosers.isEmpty { SourceChoices(machines: choosers) }
     }
 
     private var rows: [ConnectRow] { ConnectRow.rows(for: needs) }
+
+    /// The machines already made whose source needs a pick; a new team's machines are made after setup.
+    private var choosers: [HelperModel] { crew.machines.filter { $0.source.picks != nil } }
 
     private func source(of row: ConnectRow) -> CaptureSource? {
         CaptureSource.all.first { $0.source == row.kind }
@@ -60,7 +58,7 @@ struct ConnectList: View {
         case .whatsApp:
             facts.status(of: .whatsApp) == .needsPermission(pane: .fullDiskAccess)
                 ? "Turn on Workbench in Full Disk Access. macOS then asks to quit and reopen; setup opens here again."
-                : reason(of: row) + (crew.team == nil ? " You choose the group on its page after setup." : "")
+                : reason(of: row) + (choosers.isEmpty ? " You choose its chats after setup." : "")
         case .mail: reason(of: row) + " You name the Gmail label on its page."
         case .screen, .screenText, .web, .calendar, .calls: reason(of: row)
         }
@@ -83,10 +81,6 @@ struct ConnectList: View {
             .init(title: "Open System Settings", isPrimary: true) { SystemSettings.open(pane: pane) }
         case (.reader, .missing):
             .init(title: "Check again", isPrimary: false) { access.recheck(reader: models.choice.kind) }
-        case (.whatsApp, .off) where crew.team != nil:
-            .init(title: "Choose a group", isPrimary: true) { choosingChats = true }
-        case (.whatsApp, .chosen):
-            .init(title: "Change", isPrimary: false) { choosingChats = true }
         case (_, .off):
             row.kindToTurnOn.map { kind in .init(title: "Turn on", isPrimary: true) { turnOn(kind) } }
         default: nil
@@ -176,45 +170,6 @@ struct ConnectRowView<Icon: View>: View {
         case .ready, .chosen: .good
         case .needsPermission, .missing, .waiting: .attention
         case .off: .neutral
-        }
-    }
-}
-
-private struct ChatsSheet: View {
-    let pip: HelperModel
-    let source: WhatsAppSource
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: Space.m) {
-                Mascot(look: .pip, size: 36)
-                Text("What \(pip.name) reads").textStyle(.title2, weight: .bold)
-            }
-            .padding(Space.l)
-            ScrollView {
-                VStack(alignment: .leading, spacing: Space.m) {
-                    ProblemSlotBanner(slot: pip.problems)
-                    GroupChooser(model: pip, source: source)
-                }
-                .padding([.horizontal, .bottom], Space.l)
-            }
-            .scrollBounceBehavior(.basedOnSize)
-            Divider()
-            HStack {
-                Spacer()
-                Button("Done") { dismiss() }.buttonStyle(.ghost).keyboardShortcut(.cancelAction)
-            }
-            .padding(.horizontal, Space.l)
-            .padding(.vertical, Space.m)
-        }
-        .frame(width: 520, height: 560)
-        .background(.pageFill)
-        .onChange(of: source.chats.map(\.id)) { dismiss() }
-        .task {
-            pip.problems.dismiss()
-            guard source.groups.isEmpty, source.direct.isEmpty else { return }
-            pip.attempt("list your WhatsApp chats", source.loadGroups)
         }
     }
 }

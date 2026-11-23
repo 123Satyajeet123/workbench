@@ -8,6 +8,8 @@ protocol MachineSource: AnyObject {
     var scope: String { get }
     /// A machine reads nothing until its source says it has what it needs.
     var isReady: Bool { get }
+    /// What the person picks for the source to read, such as "chats"; nil for a source that reads without a pick.
+    var picks: String? { get }
     var context: [String: [String]] { get }
     /// The labels the capture policy must grant before a read; nil is the source as a whole.
     var grantLabels: [String?] { get }
@@ -19,6 +21,7 @@ protocol MachineSource: AnyObject {
 
 extension MachineSource {
     var context: [String: [String]] { [:] }
+    var picks: String? { nil }
     var grantLabels: [String?] { [scope.isEmpty ? nil : scope] }
     func refresh(on day: WorkDay) throws {}
 }

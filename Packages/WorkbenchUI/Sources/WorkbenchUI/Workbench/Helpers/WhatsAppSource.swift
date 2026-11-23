@@ -55,6 +55,7 @@ final class WhatsAppSource: MachineSource {
 
     var scope: String { chat?.jid ?? "" }
     var isReady: Bool { !chats.isEmpty }
+    var picks: String? { "chats" }
     /// The people the founder expects to hear from: the teammates ticked on Pip's page or set up in Team setup, when
     /// any is linked to a WhatsApp ID. Otherwise everyone in one chat, or the people in the first of several chats.
     var expectedPeople: [WhatsAppMember] {

@@ -46,6 +46,7 @@ final class TelegramSource: MachineSource {
 
     var scope: String { chat?.label ?? "" }
     var isReady: Bool { chat != nil && consent?.chat == chat?.id }
+    var picks: String? { "a chat" }
     var context: [String: [String]] { ["members": members.map(\.name)] }
 
     func loadGroups() async throws {

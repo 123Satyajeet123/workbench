@@ -13,12 +13,7 @@ struct FirstLookStep: View {
                 FirstLookBody(look: look)
             }
         }
-        .task {
-            let model = FirstLookModel(
-                crew: crew, template: onboarding.template, today: WorkDay(containing: .now))
-            look = model
-            await model.estimate()
-        }
+        .task { look = FirstLookModel(crew: crew, template: onboarding.template, today: WorkDay(containing: .now)) }
     }
 }
 
@@ -42,10 +37,15 @@ struct FirstLookBody: View {
             }
         }
         .onChange(of: look.phase) { onboarding.hasLookedFirst = look.phase == .done }
+        .task(id: look.machines.map(\.machine.id)) { await look.estimate() }
     }
 
     private var plan: some View {
         VStack(alignment: .leading, spacing: Space.s) {
+            if !look.choosers.isEmpty {
+                Text("Choose what each machine reads.").textStyle(.callout).foregroundStyle(.supporting)
+                SourceChoices(machines: look.choosers)
+            }
             Stepper("The last \(look.days) days", value: $look.days, in: 1...FirstLook.defaultDays)
                 .onChange(of: look.days) { Task { await look.estimate() } }
             Text(Self.costLine(look.cost)).textStyle(.callout).foregroundStyle(.supporting)
@@ -67,19 +67,26 @@ struct FirstLookBody: View {
         if look.rows.isEmpty {
             Text("Nothing was found in these days.").textStyle(.callout).foregroundStyle(.supporting)
         } else {
-            Text("Mark a few right or wrong. They teach the machine.").textStyle(.callout)
+            Text("Mark a few right or wrong. They teach the machine that found them.").textStyle(.callout)
                 .foregroundStyle(.supporting)
         }
-        ForEach(look.rows) { row in
-            VStack(alignment: .leading, spacing: Space.xs) {
-                FactCard(
-                    row: row.fact, offered: FactAction.offered(for: row.fact.item, isOpenFact: false),
-                    isSelected: selected == row.id, isHovered: hovered == row.id,
-                    hover: { inside in hovered = inside ? row.id : (hovered == row.id ? nil : hovered) },
-                    open: { selected = row.id },
-                    act: { look.mark(row, as: $0 == .right ? .confirmed : .rejected) })
-                if let triage = row.triage { WhyDisclosure(triage: triage).padding(.leading, Space.m) }
+        ForEach(look.shown) { machine in
+            if look.shown.count > 1, !machine.rows.isEmpty {
+                Text(machine.name).textStyle(.headline).padding(.top, Space.s)
             }
+            ForEach(machine.rows) { card($0) }
+        }
+    }
+
+    private func card(_ row: FirstLookModel.Row) -> some View {
+        VStack(alignment: .leading, spacing: Space.xs) {
+            FactCard(
+                row: row.fact, offered: FactAction.offered(for: row.fact.item, isOpenFact: false),
+                isSelected: selected == row.id, isHovered: hovered == row.id,
+                hover: { inside in hovered = inside ? row.id : (hovered == row.id ? nil : hovered) },
+                open: { selected = row.id },
+                act: { look.mark(row, as: $0 == .right ? .confirmed : .rejected) })
+            if let triage = row.triage { WhyDisclosure(triage: triage).padding(.leading, Space.m) }
         }
     }
 }

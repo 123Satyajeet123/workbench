@@ -3,8 +3,8 @@ import Observation
 import WorkbenchCore
 
 /// The first look of a new team: the last days of what its machines read, read now through the same path as a normal
-/// reading (consent, labels, run records, the verifier), and shown as the main view of the template. Which machines
-/// read and what shows follow the template's data and each machine's spec.
+/// reading (consent, labels, run records, the verifier), and shown as each machine's own view. Which machines read and
+/// what shows follow the template's data and each machine's spec.
 @Observable
 final class FirstLookModel {
     enum Phase: Equatable {
@@ -20,9 +20,16 @@ final class FirstLookModel {
         var id: Int64 { fact.id }
     }
 
+    /// One machine's items of the window, as its own spec shows them.
+    struct Shown: Identifiable, Equatable {
+        let id: Int64
+        let name: String
+        let rows: [Row]
+    }
+
     private(set) var phase = Phase.ready
     private(set) var cost = FirstLookCost(calls: 0, measured: nil)
-    private(set) var rows: [Row] = []
+    private(set) var shown: [Shown] = []
     private(set) var problem: String?
     /// How many days back to read, from one to `FirstLook.defaultDays`: nothing older is kept.
     var days = FirstLook.defaultDays
@@ -42,10 +49,16 @@ final class FirstLookModel {
     /// The machines of the template that read day by day and have a source to read now. A news or search machine
     /// reads on its own schedule.
     var machines: [HelperModel] {
-        crew.machines.filter {
-            tasks.contains($0.machine.template) && !$0.isOutbound && !($0.source is NewsSource) && $0.isReady
-        }
+        seeded.filter { !$0.isOutbound && !($0.source is NewsSource) && $0.isReady }
     }
+
+    /// The machines of the template whose source needs a pick, such as the chats a chat machine reads.
+    var choosers: [HelperModel] { seeded.filter { $0.source.picks != nil } }
+
+    /// Every row shown, machine by machine.
+    var rows: [Row] { shown.flatMap(\.rows) }
+
+    private var seeded: [HelperModel] { crew.machines.filter { tasks.contains($0.machine.template) } }
 
     private var window: [WorkDay] { FirstLook.days(min(max(days, 1), FirstLook.defaultDays), endingOn: today) }
 
@@ -74,24 +87,22 @@ final class FirstLookModel {
             for machine in machines { await machine.reading.read(day) }
         }
         problem = machines.compactMap(\.problem).first
-        rows = shownRows()
+        shown = machines.map(shown)
         phase = .done
     }
 
-    /// The main view of the template: its first machine's items of the window, as that machine's spec shows them.
-    private func shownRows() -> [Row] {
-        guard let main = machines.first else { return [] }
-        let spec = main.spec
-        let items = main.items(since: window.count)
-        return FirstLook.shown(items, by: spec, at: now()).compactMap { item in
+    private func shown(_ machine: HelperModel) -> Shown {
+        let spec = machine.spec
+        let rows = FirstLook.shown(machine.items(since: window.count), by: spec, at: now()).compactMap { item in
             FactRow(item: item, title: item[spec.title]).map { Row(fact: $0, triage: spec.triage(of: item)) }
         }
+        return Shown(id: machine.machine.id, name: machine.name, rows: rows)
     }
 
-    /// Marks an item right or wrong, as on the machine's page; the marks of a learn day train the machine.
+    /// Marks an item right or wrong, as on its machine's page; the marks of a learn day train the machine.
     func mark(_ row: Row, as mark: Mark) {
-        guard let main = machines.first else { return }
-        main.mark(row.fact.item, as: mark)
-        rows = shownRows()
+        guard let machine = crew.helper(task: row.fact.item.task) else { return }
+        machine.mark(row.fact.item, as: mark)
+        shown = machines.map(shown)
     }
 }

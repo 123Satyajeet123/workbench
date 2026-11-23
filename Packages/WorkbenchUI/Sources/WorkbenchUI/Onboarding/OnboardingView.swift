@@ -25,7 +25,7 @@ struct OnboardingView: View {
                 OnboardingStep(
                     screen: model.screen,
                     facts: ConnectFacts(
-                        access: access, capture: capture, today: today, pip: crew.team,
+                        access: access, capture: capture, today: today, machines: crew.machines,
                         sourceRows: ConnectRow.rows(for: model.needs).filter { $0 != .reader },
                         browsers: browsers.facts, needsBrowser: ConnectRow.needsBrowser(for: model.needs))
                 )
