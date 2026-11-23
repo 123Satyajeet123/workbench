@@ -156,7 +156,8 @@ final class TeamCatalogModel {
                 author: me, machine: helper.machine, day: helper.day, items: helper.items,
                 audience: [me] + recipients.map(\.name), at: store.clock())
             guard try send([.day(day)]) == 0 else {
-                problems.show("A teammate has no confirmed key yet, so nothing was sent. Confirm their fingerprint first.")
+                problems.show(
+                    "A teammate has no confirmed key yet, so nothing was sent. Confirm their fingerprint first.")
                 return
             }
             try store.log(

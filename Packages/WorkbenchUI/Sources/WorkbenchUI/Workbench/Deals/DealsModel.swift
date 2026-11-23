@@ -118,7 +118,9 @@ final class DealsModel {
 
     func finishAction(of deal: WorkObject) {
         guard let action = digests[deal.id]?.action else { return }
-        problems.attempt("finish the action") { try store.apply(DealAction.lifecycle.closing([action]), surface: .deals) }
+        problems.attempt("finish the action") {
+            try store.apply(DealAction.lifecycle.closing([action]), surface: .deals)
+        }
         refresh()
     }
 

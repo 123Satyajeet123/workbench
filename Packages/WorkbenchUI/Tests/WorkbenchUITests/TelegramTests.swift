@@ -140,7 +140,8 @@ nonisolated private let apiHash = "0123456789abcdef0123456789abcdef"
                     id: 11, chat: team.id, date: noon, kind: .text, sender: "Asha", senderID: 1, isOutgoing: false,
                     text: "login API done"),
                 TelegramMessage(
-                    id: 12, chat: team.id, date: noon, kind: .document, sender: "Bharat", senderID: 2, isOutgoing: false,
+                    id: 12, chat: team.id, date: noon, kind: .document, sender: "Bharat", senderID: 2,
+                    isOutgoing: false,
                     text: "",
                     title: "spec.pdf"),
             ]
