@@ -31,3 +31,17 @@ extension ModelTask {
             holdingUnknown: holdingUnknown, window: window)
     }
 }
+
+/// The smallest call to a model, to make the Claude CLI report the plan's limits. Its reply holds nothing.
+public struct PlanProbe: ModelTask {
+    struct Reply: Decodable, Sendable { var ok: Bool }
+
+    public let model: RecordedModel
+    let task = "usage.refresh"
+    let instructions = "Set ok to true."
+    var schema: JSONSchema { .object([.init("ok", .boolean)]) }
+
+    public init(model: RecordedModel) { self.model = model }
+
+    public func ping() async throws { _ = try await ask("ok", holding: []) }
+}

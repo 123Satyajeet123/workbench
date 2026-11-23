@@ -39,9 +39,7 @@ final class PlanUsage {
     func refresh() async {
         isRefreshing = true
         await problems.attempt("check your Claude plan", clearing: true) {
-            _ = try await probe().generate(
-                Ping.self, schema: .object([.init("ok", .boolean)]), task: "usage.refresh",
-                instructions: "Set ok to true.", input: "ok", holding: [])
+            try await PlanProbe(model: probe()).ping()
         }
         reload()
         isRefreshing = false
@@ -50,6 +48,4 @@ final class PlanUsage {
     private func reload() {
         problems.attempt("read your Claude plan limits") { limits = try Self.key.load(from: store) }
     }
-
-    nonisolated private struct Ping: Decodable, Sendable { var ok: Bool }
 }
