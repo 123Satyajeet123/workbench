@@ -101,6 +101,24 @@ import WorkbenchCore
         #expect(!asha.open.contains { $0.id == 2 } && asha.rest.contains { $0.id == 2 })
     }
 
+    @Test func aClosedFactShowsAsDoneAndItsTickReopensIt() async throws {
+        let day = try await setup()
+        let blocker = try day.fact(2)
+        #expect(day.model.isClosable(blocker) && !day.model.isDone([blocker]))
+        day.model.perform(.done, on: [blocker], text: "Done")
+        #expect(day.model.isDone([try day.fact(2)]))
+        day.model.reopen([try day.fact(2)])
+        #expect(try day.fact(2).closed == nil && !day.model.isDone([try day.fact(2)]))
+        #expect(day.model.needs.contains { $0.id == 2 } && day.model.undoable == nil)
+    }
+
+    @Test func anUpdateThatAsksNothingHasNoTickButAFindingDoes() async throws {
+        let day = try await setup()
+        let finished = try day.fact(4)
+        #expect(finished["kind"] == "done" && !day.model.isClosable(finished) && !day.model.isDone([finished]))
+        #expect(day.model.isClosable(try #require(day.model.needs.first { $0.id == 8 }).item))
+    }
+
     @Test func undoReopensWhatDoneClosed() async throws {
         let day = try await setup()
         day.model.perform(.done, on: [try day.fact(3)], text: "Done")

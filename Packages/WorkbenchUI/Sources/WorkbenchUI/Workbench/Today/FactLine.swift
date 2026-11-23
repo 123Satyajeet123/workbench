@@ -22,6 +22,8 @@ struct FactLine: View {
                                 Text(flag).textStyle(.caption, weight: .semibold).foregroundStyle(flagTone.color)
                             }
                             Text(model.title(of: item)).multilineTextAlignment(.leading)
+                                .strikethrough(isDone, color: .secondary)
+                                .foregroundStyle(isDone ? Color.supporting : .bodyText)
                         }
                         if !meta.isEmpty { Text(meta).textStyle(.callout).foregroundStyle(.supporting) }
                     }
@@ -40,6 +42,8 @@ struct FactLine: View {
         }
         .padding(.vertical, Space.xs)
     }
+
+    private var isDone: Bool { model.isDone([item]) }
 
     private var meta: String {
         var parts = [item["person"], item["project"], item["company"], item["event"], item["feed"]].filter {

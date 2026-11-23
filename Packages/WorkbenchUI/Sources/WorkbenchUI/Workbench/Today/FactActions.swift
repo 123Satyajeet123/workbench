@@ -10,8 +10,14 @@ struct FactActions: View {
 
     var body: some View {
         HStack(spacing: Space.xs) {
-            Button("Done", systemImage: "checkmark.circle") { act(.done, "Done") }
-                .help("Done: close it")
+            if model.isDone(items) {
+                Button("Reopen", systemImage: "checkmark.circle.fill") { model.reopen(items) }
+                    .foregroundStyle(Tone.good.color)
+                    .help("Done. Click to reopen it")
+            } else if items.contains(where: model.isClosable) {
+                Button("Done", systemImage: "checkmark.circle") { act(.done, "Done") }
+                    .help("Done: close it")
+            }
             Menu("More", systemImage: "ellipsis.circle") {
                 Menu("Snooze", systemImage: "clock") {
                     ForEach(Self.snoozes, id: \.title) { snooze in
