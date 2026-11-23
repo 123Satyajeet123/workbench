@@ -1,4 +1,5 @@
 import AppKit
+import LocalSources
 import SwiftUI
 import Testing
 import UserNotifications

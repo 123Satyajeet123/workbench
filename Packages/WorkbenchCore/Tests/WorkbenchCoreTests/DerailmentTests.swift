@@ -82,7 +82,7 @@ private func reply(_ findings: String...) -> String { #"{"items":["# + findings.
         let relay = try store.createMachine(from: .teamTelegram, name: "Relay")
         let timeline = try store.createMachine(from: .timeline, name: "Timeline")
         let reply =
-            #"{"items":[{"kind":"blocker","text":"Waiting on the API keys","person":"Raj","project":"Payments","eta":"","asks":"founder","stance":"said","cite":1,"quote":"send the deck"}],"closes":[]}"#
+            #"{"items":[{"kind":"blocker","text":"Waiting on the API keys","person":"Raj","project":"Payments","when":{"direction":"unclear","offset_days":0,"weekday":"none","week":"none","part_of_day":"none","offset_minutes":0,"day_of_month":0,"month":0,"month_which":"none","year":0,"clock_hour":-1,"clock_minute":0,"meridiem":"none","precision":"none","ambiguous":false,"words":""},"asks":"founder","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":1,"quote":"send the deck"}]}"#
         let reader = HelperReader(spec: relay.spec, model: RecordedModel(ScriptedModel(reply), store: store))
         let result = try await reader.read(day: first, scope: "group", evidence: dayOne)
         try store.saveReading(

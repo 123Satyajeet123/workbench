@@ -53,7 +53,7 @@ private func read(
             Evidence(id: 3, start: t0, line: "Asha: login API done", quotable: ["login API done"]),
         ]
         let reply = #"""
-            {"items":[{"kind":"commitment","text":"Send the deck","person":"Asha","project":"Deck","eta":"","asks":"team","stance":"said","cite":1,"quote":"send the deck"},{"kind":"done","text":"Login API","person":"Asha","project":"Login","eta":"","asks":"team","stance":"said","cite":3,"quote":"login API done"}],"closes":[]}
+            {"items":[{"kind":"commitment","text":"Send the deck","person":"Asha","project":"Deck","when":{"direction":"unclear","offset_days":0,"weekday":"none","week":"none","part_of_day":"none","offset_minutes":0,"day_of_month":0,"month":0,"month_which":"none","year":0,"clock_hour":-1,"clock_minute":0,"meridiem":"none","precision":"none","ambiguous":false,"words":""},"asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":1,"quote":"send the deck"},{"kind":"done","text":"Login API","person":"Asha","project":"Login","when":{"direction":"unclear","offset_days":0,"weekday":"none","week":"none","part_of_day":"none","offset_minutes":0,"day_of_month":0,"month":0,"month_which":"none","year":0,"clock_hour":-1,"clock_minute":0,"meridiem":"none","precision":"none","ambiguous":false,"words":""},"asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":3,"quote":"login API done"}]}
             """#
         let store = try makeStore()
         let model = ScriptedModel(reply)

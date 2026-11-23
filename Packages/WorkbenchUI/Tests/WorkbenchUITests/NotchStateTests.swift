@@ -76,7 +76,7 @@ import WorkbenchCore
     }
 }
 
-@Suite struct PageLinkTests {
+@Suite struct NotchPageLinkTests {
     @Test func everyPageHasALinkThatOpensItAndAForeignLinkOpensNothing() {
         for page in SidebarSelection.fixed + [.machine(42)] {
             #expect(SidebarSelection(url: page.url) == page)

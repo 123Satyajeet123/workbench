@@ -360,7 +360,7 @@ import WorkbenchCore
         #expect(team.context["members"] == ["Asha", "Bharat"], "with nobody ticked Pip expects everyone again")
     }
 
-    @Test func changingChatsReplacesTheOldChatAndKeepingThemChangesNothing() throws {
+    @Test func changingChatsReplacesWhatTheMachineReadsAndKeepingThemChangesNothing() throws {
         let (team, _, capture, _, source) = try makeTeam()
         try source.loadGroups()
         try source.choose(try #require(source.groups.first { $0.jid == teamJID }))
@@ -373,21 +373,9 @@ import WorkbenchCore
         try source.loadGroups()
         try source.choose(try #require(source.groups.first { $0.jid == familyJID }))
         #expect(!team.isChoosingSource && source.chats.map(\.jid) == [familyJID])
-        #expect(capture.policy.allowList[.whatsapp] == [familyJID], "the old group may no longer be read")
-    }
-
-    @Test func changingChatsKeepsAChatAnotherMachineStillReads() throws {
-        let now = noon
-        let store = try scratchStore(clock: { now })
-        let capture = try CaptureService(store: store)
-        let source = try WhatsAppSource(
-            store: store, capture: capture, task: HelperSpec.team.task, founder: { "Kabir" },
-            container: try whatsApp(at: noon), othersReading: { [teamJID] })
-        try source.loadGroups()
-        try source.choose(try #require(source.groups.first { $0.jid == teamJID }))
-        try source.loadGroups()
-        try source.choose(try #require(source.groups.first { $0.jid == familyJID }))
-        #expect(capture.policy.allowList[.whatsapp] == [teamJID, familyJID])
+        #expect(
+            capture.policy.allowList[.whatsapp] == [teamJID, familyJID],
+            "the old group stays allowed until Stop reading, which warns and erases")
     }
 
     @Test func aSeveralChatSourceNamesEachLineSChatAndItsDayIsNotShared() async throws {

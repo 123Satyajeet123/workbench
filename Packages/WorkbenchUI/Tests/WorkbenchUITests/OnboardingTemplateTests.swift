@@ -109,7 +109,7 @@ private func onboarding(
         #expect(ConnectFacts(webOn: true).status(of: .web) == .ready)
         #expect(ConnectFacts().status(of: .web) == .off)
         #expect(
-            ConnectFacts(screenTextOn: true).status(of: .screenText) == .needsPermission(pane: "Privacy_Accessibility"))
+            ConnectFacts(screenTextOn: true).status(of: .screenText) == .needsPermission(pane: .accessibility))
         #expect(ConnectFacts(screenTextOn: true, screenTrusted: true).status(of: .screenText) == .ready)
         #expect(ConnectFacts(mailOn: true).status(of: .mail) == .ready && ConnectFacts().status(of: .mail) == .off)
     }
