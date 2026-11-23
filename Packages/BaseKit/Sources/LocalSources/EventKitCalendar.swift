@@ -21,7 +21,7 @@ public final class EventKitCalendar: CalendarEvents, @unchecked Sendable {
     public func meetings(during interval: DateInterval, in calendarIDs: [String]) -> [Meeting] {
         let chosen = store.calendars(for: .event).filter { calendarIDs.contains($0.calendarIdentifier) }
         let predicate = store.predicateForEvents(withStart: interval.start, end: interval.end, calendars: chosen)
-        return store.events(matching: predicate).filter { $0.status != .canceled && !$0.isAllDay }.map(Self.meeting)
+        return store.events(matching: predicate).filter { $0.status != .canceled }.map(Self.meeting)
     }
 
     private static func meeting(_ event: EKEvent) -> Meeting {

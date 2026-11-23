@@ -15,6 +15,8 @@ final class MeetingsModel {
     private(set) var offerDeclined: Bool
     /// One line saying why the calendar cannot be read, while macOS refuses it.
     private(set) var refusal: String?
+    /// Whether holidays, birthdays and other all-day events stay off Mochi's page and the pop-up: on until the
+    /// person turns it off. This is the one all-day filter; the reader returns every event with its `isAllDay`.
     var skipsAllDay: Bool {
         didSet { defaults.set(skipsAllDay, forKey: Self.skipsAllDayKey) }
     }
