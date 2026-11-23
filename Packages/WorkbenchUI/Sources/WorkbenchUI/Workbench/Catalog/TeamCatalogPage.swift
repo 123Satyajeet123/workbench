@@ -164,7 +164,7 @@ private struct SharedCard: View {
             switch r.trust {
             case .earned(let bound):
                 "trusted for \(machine.author): wrong at most \(bound.formatted(.percent.precision(.fractionLength(1))))"
-            case .needsMore(let more): "\(more) more right answers before trust"
+            case .needsMore(let more): "\(more) more clean checked runs before trust"
             }
         return "\(r.runs) runs, \(r.kept) kept, \(r.dropped) dropped · \(audited) · \(trust)"
     }

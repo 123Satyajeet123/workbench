@@ -46,3 +46,60 @@ for (policyName, policy) in policies {
         }
     }
 }
+
+func cell(_ text: String, _ width: Int) -> String { text.padding(toLength: width, withPad: " ", startingAt: 0) }
+func trimmed(_ value: Double) -> String { percent(value).trimmingCharacters(in: .whitespaces) }
+
+func printCorrelatedRuns() {
+    let simulation = CorrelatedRunSimulation()
+    print(
+        "\n== correlated runs: false certification at a true wrong rate of \(trimmed(allowed)); runs of size "
+            + "\(CorrelatedRuns.sizes), each item picked at \(AuditPolicy.pickChance), up to \(simulation.horizonSteps) "
+            + "steps, \(simulation.trials) trials, bar at most \(trimmed(1 - Certificate.confidence))"
+    )
+    print(cell("concentration", 16) + StepRule.allCases.map { cell($0.rawValue, 40) }.joined())
+    for concentration in [2.0, 10, 1000] {
+        let shares = StepRule.allCases.map { simulation.falseEarned($0, concentration: concentration) }
+        print(cell(String(Int(concentration)), 16) + shares.map { cell(percent($0), 40) }.joined())
+    }
+}
+
+func quantile(_ values: [Int?], _ share: Double) -> String {
+    let sorted = values.map { $0 ?? Int.max }.sorted()
+    let value = sorted[min(sorted.count - 1, Int(share * Double(sorted.count)))]
+    return value == Int.max ? "not in time" : String(value)
+}
+
+func printDrift(_ drift: DriftSimulation) {
+    let result = drift.run()
+    print(
+        "\n== drift: wrong \(drift.wrongBefore) until earned, then \(drift.wrongAfter); concentration "
+            + "\(Int(drift.concentration)), alarm bar 1/\(drift.delta), \(drift.trials) trials, "
+            + "\(result.alarmRuns.count) earned, up to \(drift.horizonRuns) audited runs after the jump"
+    )
+    print(cell("detector", 24) + "median runs   90th percentile   not detected")
+    for (name, runs) in [("drift alarm (e-CUSUM)", result.alarmRuns), ("plain certificate", result.certificateRuns)] {
+        let missed = Double(runs.filter { $0 == nil }.count) / Double(runs.count)
+        print(cell(name, 24) + cell(quantile(runs, 0.5), 14) + cell(quantile(runs, 0.9), 17) + percent(missed))
+    }
+    print(
+        "false alarm while earning at \(drift.wrongBefore): \(percent(Double(result.falseAlarmsBeforeJump) / Double(drift.trials)))"
+    )
+    for rate in [0.05, 0.10] {
+        let stable = drift.stable(wrongRate: rate)
+        print(
+            "stable \(rate), \(drift.horizonRuns) audited runs: drift alarm fires \(percent(stable.alarmed)); "
+                + "earned certificate falls below its bar \(percent(stable.lostEarned))"
+        )
+    }
+}
+
+printCorrelatedRuns()
+for concentration in [10.0, 1000] {
+    for delta in [0.1, 0.01, DriftAlarm.delta] {
+        var drift = DriftSimulation()
+        drift.concentration = concentration
+        drift.delta = delta
+        printDrift(drift)
+    }
+}

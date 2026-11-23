@@ -1,8 +1,8 @@
 import Foundation
 import WorkbenchCore
 
-/// Watches the version a founder switched to. Its held-out audit answers feed an always-valid alarm against "wrong
-/// more than 10% of the time" (research 20 §6, step 6). When it fires, the machine goes back to the brief it came
+/// Watches the version a founder switched to. Its held-out audit answers feed the certificate's drift alarm, one step
+/// per run, against "wrong at most 10% of the time" (research 20 §6, step 6). When it fires, the machine goes back to the brief it came
 /// from by itself, logs why and says so: the only change the app makes without the founder.
 struct VersionAlarm {
     let store: Store
@@ -16,11 +16,11 @@ struct VersionAlarm {
             HelperModel.Version(decision: switched) == HelperModel.Version(helper.spec),
             let answers = try? store.queries.auditAnswers(of: helper.spec.task, since: switched.at)
         else { return warnOfDrift(helper, since: decisions.first { $0.kind != .trial }?.at ?? .distantPast) }
-        let wrong = heldOutWrong(answers)
-        let evidence = EProcess.alarm(wrong)
-        guard evidence >= 1 / EProcess.level else { return }
+        let heldOut = heldOutAnswers(answers)
+        guard let evidence = Certificate(answers: heldOut).firstAlarm else { return }
+        let wrong = heldOut.filter(\.wrong).count
         let line =
-            "Back to \(helper.name)'s earlier brief: the new one was wrong on \(wrong.filter { $0 }.count) of \(wrong.count) checked items."
+            "Back to \(helper.name)'s earlier brief: the new one was wrong on \(wrong) of \(heldOut.count) checked items."
         revert(helper, HelperModel.Version(parentOf: switched))
         problems.attempt("log the rollback") {
             try store.log(
@@ -28,7 +28,7 @@ struct VersionAlarm {
                     at: store.clock(), task: helper.spec.task, kind: .rollback, by: .alarm, brief: switched.parentBrief,
                     parentBrief: switched.brief,
                     detail: [
-                        "wrong": String(wrong.filter { $0 }.count), "answers": String(wrong.count),
+                        "wrong": String(wrong), "answers": String(heldOut.count),
                         "evidence": String(format: "%.1f", evidence),
                     ]))
         }
@@ -40,20 +40,20 @@ struct VersionAlarm {
     /// work can change. It says so once per version and changes nothing; a trial is the founder's next step.
     private func warnOfDrift(_ helper: HelperModel, since: Date) {
         guard let answers = try? store.queries.auditAnswers(of: helper.spec.task, since: since) else { return }
-        let wrong = heldOutWrong(answers)
-        guard EProcess.alarm(wrong) >= 1 / EProcess.level else { return }
+        let heldOut = heldOutAnswers(answers)
+        guard Certificate(answers: heldOut).firstAlarm != nil else { return }
         let key = MachineKey.drift(helper.spec.task)
         let version = [helper.spec.brief, helper.spec.examples.map(String.init) ?? "", helper.spec.runner ?? ""]
             .joined(separator: "\n")
         guard ((try? key.load(from: store)) ?? nil) != version else { return }
         problems.attempt("remember the warning") { try key.save(version, to: store) }
         let line =
-            "\(helper.name) may have got worse: wrong on \(wrong.filter { $0 }.count) of \(wrong.count) checked items on the days set aside for testing. Try a change from your marks."
+            "\(helper.name) may have got worse: wrong on \(heldOut.filter(\.wrong).count) of \(heldOut.count) checked items on the days set aside for testing. Try a change from your marks."
         helper.improvement.notice = line
         notifications.announce(title: helper.name, body: line, page: .machine(helper.machine.id))
     }
 
-    private func heldOutWrong(_ answers: [(day: WorkDay, wrong: Bool)]) -> [Bool] {
-        answers.filter { EvalSplit($0.day) == .heldOut }.map(\.wrong)
+    private func heldOutAnswers(_ answers: [(day: WorkDay, answer: Certificate.Answer)]) -> [Certificate.Answer] {
+        answers.filter { EvalSplit($0.day) == .heldOut }.map(\.answer)
     }
 }

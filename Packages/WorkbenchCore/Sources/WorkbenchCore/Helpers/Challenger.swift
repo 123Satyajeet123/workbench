@@ -90,19 +90,5 @@ public enum EProcess {
         return .notSure
     }
 
-    /// The highest e-value against "wrong at most `target` of the time" over answers in order (true = wrong). An
-    /// alarm fires when it reaches 1/α.
-    public static func alarm(_ wrong: [Bool], target: Double = 0.1) -> Double {
-        let bets = grid.map { $0 / target }
-        var wealth = Array(repeating: 1.0, count: bets.count)
-        var highest = 1.0
-        for answer in wrong {
-            let x = answer ? 1.0 : 0.0
-            for (index, bet) in bets.enumerated() { wealth[index] *= 1 + bet * (x - target) }
-            highest = max(highest, mean(wealth))
-        }
-        return highest
-    }
-
     private static func mean(_ values: [Double]) -> Double { values.reduce(0, +) / Double(values.count) }
 }

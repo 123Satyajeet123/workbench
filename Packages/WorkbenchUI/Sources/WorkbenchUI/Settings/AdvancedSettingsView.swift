@@ -69,7 +69,7 @@ struct AdvancedSettingsView: View {
                             switch row.heldOutAudit.status {
                             case .earned:
                                 Label("Earned", systemImage: "checkmark.shield").foregroundStyle(Tone.good.color)
-                            case .needsMore(let more): Text("\(more) more").foregroundStyle(.supporting)
+                            case .needsMore(let more): Text("\(more) more clean runs").foregroundStyle(.supporting)
                             }
                         }
                     }

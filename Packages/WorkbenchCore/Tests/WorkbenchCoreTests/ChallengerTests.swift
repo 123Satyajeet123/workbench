@@ -58,13 +58,6 @@ import Testing
         #expect(EProcess.verdict([true, true, true, true, true, true, false, false], threshold: 20) == .notSure)
         #expect(EProcess.verdict([], threshold: 20) == .notSure)
     }
-
-    @Test func theAlarmFiresOnASteadyRunOfWrongAnswersAndNotOnRightOnes() {
-        #expect(EProcess.alarm([true, true]) >= 10)
-        #expect(EProcess.alarm(Array(repeating: false, count: 30)) == 1)
-        #expect(EProcess.alarm([true] + Array(repeating: false, count: 20)) < 10)
-        #expect(EProcess.alarm(Array(repeating: false, count: 7) + [true, true, true]) < 10)
-    }
 }
 
 @Suite struct TrialTaskTests {

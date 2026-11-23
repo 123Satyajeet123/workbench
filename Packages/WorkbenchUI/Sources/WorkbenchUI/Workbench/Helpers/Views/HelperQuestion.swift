@@ -37,7 +37,7 @@ struct TrustLine: View {
             .foregroundStyle(Tone.good.color).textStyle(.callout)
         case .needsMore(let more):
             Text(
-                "\(name) earns trust at most 10% wrong, 90% sure. It needs at least \(more) more right answers on the days set aside for testing."
+                "\(name) earns trust at most 10% wrong, 90% sure. It needs at least \(more) more checked runs with every checked item right, on the days set aside for testing."
             )
             .textStyle(.callout).foregroundStyle(.supporting)
         }

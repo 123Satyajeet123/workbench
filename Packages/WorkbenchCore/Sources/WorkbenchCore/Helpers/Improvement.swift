@@ -199,20 +199,27 @@ extension Queries {
     }
 
     /// The latest answer to each random audit pick among items the task produced in runs started after `since`, in
-    /// the order given:
-    /// true where the item was wrong, with the item's day. Items an earlier brief produced never count against a
-    /// later one.
-    public func auditAnswers(of task: String, since: Date) throws -> [(day: WorkDay, wrong: Bool)] {
+    /// the order given, with the item's day. Only runs whose audited items are all answered count. Items an earlier
+    /// brief produced never count against a later one.
+    public func auditAnswers(of task: String, since: Date) throws -> [(day: WorkDay, answer: Certificate.Answer)] {
         try reader.read { db in
             try db.fetch(
                 "item_mark",
                 """
-                SELECT answered.day, answered.state FROM item_mark answered JOIN run ON run.id = answered.run_id
+                SELECT answered.day, answered.state, answered.asked_with, answered.run_id
+                FROM item_mark answered JOIN run ON run.id = answered.run_id
                 WHERE answered.task = ? AND answered.asked_with IS NOT NULL AND answered.state <> 'proposed'
-                    AND run.started_at > ?
+                    AND run.started_at > ? AND \(Queries.everyAuditAnswered(in: "answered"))
                 ORDER BY (SELECT MAX(id) FROM mark WHERE mark.item_id = answered.id)
                 """, [task, since.stored]
-            ) { row in (day: try row.workDay(0), wrong: try row.enumeration(1) as Mark == .rejected) }
+            ) { row in
+                (
+                    day: try row.workDay(0),
+                    answer: Certificate.Answer(
+                        wrong: try row.enumeration(1) as Mark == .rejected, chance: try row.value(2),
+                        run: try row.value(3) as Int64)
+                )
+            }
         }
     }
 }

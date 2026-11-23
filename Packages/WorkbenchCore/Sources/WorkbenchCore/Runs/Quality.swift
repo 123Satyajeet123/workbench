@@ -71,7 +71,8 @@ public struct Quality: Sendable, Equatable, Identifiable {
     public var dev: Tally
     public var heldOut: Tally
     public var audited: AuditEstimate
-    /// Audit answers on held-out days only, in the order given: what the certificate is computed from.
+    /// Audit answers of fully answered runs on held-out days only, in the order given: what the certificate is
+    /// computed from.
     public var heldOutAudit: Certificate
     public var usage: Usage
 
@@ -147,6 +148,14 @@ extension Queries {
         }
     }
 
+    /// An SQL condition on item rows: every audited item of the item's run has an answer, so the run counts whole.
+    static func everyAuditAnswered(in item: String) -> String {
+        """
+        NOT EXISTS (SELECT 1 FROM item_mark waiting WHERE waiting.run_id = \(item).run_id
+            AND waiting.asked_with IS NOT NULL AND waiting.state = 'proposed')
+        """
+    }
+
     private static func key(_ task: String, _ model: String, _ prompt: String) -> String {
         "\(task)|\(model)|\(prompt)"
     }
@@ -181,15 +190,17 @@ extension Queries {
         let answers = try db.fetch(
             "item_mark",
             """
-            SELECT r.task, r.model, r.prompt, m.asked_with, m.state, m.day FROM run r JOIN item_mark m ON m.run_id = r.id
+            SELECT r.task, r.model, r.prompt, m.asked_with, m.state, m.day, m.run_id
+            FROM run r JOIN item_mark m ON m.run_id = r.id
             WHERE r.outcome = 'done' AND m.asked_with IS NOT NULL AND m.state <> 'proposed'
+                AND \(everyAuditAnswered(in: "m"))
             ORDER BY (SELECT MAX(id) FROM mark WHERE mark.item_id = m.id)
             """
         ) { row in
             (
                 key: try key(row), chance: try row.value(3) as Double,
                 right: try row.enumeration(4) as Mark == .confirmed,
-                split: EvalSplit(try row.workDay(5))
+                split: EvalSplit(try row.workDay(5)), run: try row.value(6) as Int64
             )
         }
         var audits: [String: AuditEstimate] = [:]
@@ -201,7 +212,7 @@ extension Queries {
             if answer.right { audits[answer.key, default: AuditEstimate()].rightWeight += weight }
             if answer.split == .heldOut {
                 certificates[answer.key, default: Certificate()].answers.append(
-                    Certificate.Answer(wrong: !answer.right, chance: answer.chance))
+                    Certificate.Answer(wrong: !answer.right, chance: answer.chance, run: answer.run))
             }
         }
         return (audits, certificates)
