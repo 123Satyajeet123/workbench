@@ -74,7 +74,7 @@ struct ReadNote: View {
                 "Reading sends this day's messages of \(telegram.chat?.title ?? "the group") to \(models.choice.title). Everyone in it agreed on \(consent.at.formatted(date: .abbreviated, time: .omitted)). If anyone stops agreeing, stop reading this group."
         }
         return
-            "Reading sends this day's messages, and the text in its photos (read on this Mac), to \(models.choice.title). Each call is listed in Settings › Advanced."
+            "Reading sends this day's messages, and the text in its photos (read on this Mac), to \(models.choice.title). Each call is listed on the Usage page."
     }
 
     private func pageNote(_ source: PageSource) -> String {

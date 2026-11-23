@@ -31,7 +31,10 @@ public struct WorkbenchApp: App {
                 StartupErrorView(failure: failure)
             }
         }
-        .commands { ZoomCommands() }
+        .commands {
+            ZoomCommands()
+            if case .ready(let session) = appDelegate.launch { SettingsCommand(navigation: session.navigation) }
+        }
         .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentSize)
         .defaultWindowPlacement { _, context in
@@ -51,12 +54,6 @@ public struct WorkbenchApp: App {
             switch appDelegate.launch {
             case .ready(let session): MenuBarLabel(session: session)
             case .failed: Image(systemName: "exclamationmark.triangle")
-            }
-        }
-
-        Settings {
-            if case .ready(let session) = appDelegate.launch {
-                SettingsView().zoomed(Zoom(zoom)).environment(session)
             }
         }
     }
@@ -84,6 +81,22 @@ extension View {
             .environment(session.claims)
             .environment(session.runs)
             .environment(session.browsers)
+            .environment(session.planUsage)
             .environment(session.navigation)
+    }
+}
+
+private struct SettingsCommand: Commands {
+    let navigation: Navigation
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some Commands {
+        CommandGroup(replacing: .appSettings) {
+            Button("Settings…") {
+                navigation.openSettings()
+                openWindow(id: WorkbenchApp.mainWindowID)
+            }
+            .keyboardShortcut(",")
+        }
     }
 }

@@ -45,6 +45,30 @@ import WorkbenchCore
                 == "@Member ·3333 build bhejo, @99999999 bhi")
     }
 
+    @Test func aTagOfTheFounderByNumberOrPrivacyIDNamesTheFounder() async throws {
+        let fixture = try WhatsAppFixture()
+        try fixture.run("INSERT INTO ZWAGROUPMEMBER VALUES (10, 4, '111111111@lid', 'Rahul', '', 1);")
+        try fixture.own(phone: "919000000001@s.whatsapp.net", lid: "555555555@lid")
+        let group = WhatsAppChatReader(
+            container: fixture.container, chatJID: groupJID, policy: whatsappOn, me: "Kabir (You)")
+        let people = try await group.people()
+        #expect(
+            MemberNames.mentions(in: "@555555555 approve karo, @919000000001 bhi, @111111111", names: people.names)
+                == "@Kabir (You) approve karo, @Kabir (You) bhi, @Rahul")
+    }
+
+    @Test func theFounderIsNotOneOfTheGroupsMembers() async throws {
+        let fixture = try WhatsAppFixture()
+        try fixture.run(
+            """
+            INSERT INTO ZWAGROUPMEMBER VALUES (10, 4, '555555555@lid', 'Kabir Rao', '', 1),
+                (11, 4, '919000000001@s.whatsapp.net', 'Kabir Rao', '', 0), (12, 4, '666666666@lid', 'Kabir Rao', '', 1);
+            """)
+        try fixture.own(phone: "919000000001@s.whatsapp.net", lid: "555555555@lid")
+        #expect(
+            try await reader(fixture, chat: groupJID).people().members.map(\.name) == ["Asha", "Bharat", "Kabir Rao"])
+    }
+
     @Test func withoutWhatsAppsAddressBookPushNamesStandIn() async throws {
         let fixture = try WhatsAppFixture()
         try fixture.run(

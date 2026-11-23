@@ -31,9 +31,7 @@ private struct FoldWithButton: View {
 @MainActor struct FoldTests {
     @Test func theTitleOpensAndClosesTheFoldWhileAButtonInItKeepsItsOwnClick() async throws {
         let state = FoldState()
-        let window = NSWindow(
-            contentRect: CGRect(x: 200, y: 200, width: 300, height: 60), styleMask: [.titled], backing: .buffered,
-            defer: false)
+        let window = HiddenWindow(size: CGSize(width: 300, height: 60))
         window.contentView = NSHostingView(rootView: FoldWithButton(state: state))
         window.makeKeyAndOrderFront(nil)
         defer { window.orderOut(nil) }

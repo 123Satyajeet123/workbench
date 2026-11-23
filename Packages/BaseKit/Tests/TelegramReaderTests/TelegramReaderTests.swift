@@ -14,6 +14,7 @@ private final class Recorded: TelegramService, @unchecked Sendable {
     var people: [TelegramMember] = []
     var history: [TelegramMessage] = []
     private(set) var asked: [Int64] = []
+    private(set) var tags: [String] = []
 
     func connect(_ keys: TelegramKeys, policy: CapturePolicy, onChange: @escaping @Sendable (TelegramLogin) -> Void)
         throws
@@ -21,11 +22,13 @@ private final class Recorded: TelegramService, @unchecked Sendable {
     func checkPassword(_ password: String) async throws {}
     func groups() async throws -> [TelegramChat] { [] }
     func members(of chat: Int64) async throws -> [TelegramMember] { people }
-    func messages(in chat: Int64, from start: Date, to end: Date) async throws -> [TelegramMessage] {
+    func messages(in chat: Int64, from start: Date, to end: Date, me: String) async throws -> [TelegramMessage] {
         asked.append(chat)
+        tags.append(me)
         return history
     }
     func signOut() async throws {}
+    func disconnect() {}
 }
 
 private let group: Int64 = -100_123
@@ -48,9 +51,11 @@ private func message(_ id: Int64, at offset: TimeInterval, chat: Int64 = group) 
         service.people = [asha, ravi]
         service.history = [message(3, at: 500), message(1, at: -10), message(2, at: 100), message(4, at: 86_400)]
         service.history.append(message(5, at: 200, chat: -100_999))
-        let reader = TelegramChatReader(service: service, chat: group, agreed: [1, 2], policy: chosen)
+        let reader = TelegramChatReader(
+            service: service, chat: group, agreed: [1, 2], policy: chosen, me: "Kabir (You)")
         let read = try await reader.read(from: start, to: end)
         #expect(read.messages.map(\.id) == [2, 3])
+        #expect(service.tags == ["Kabir (You)"])
         #expect(read.members == [asha, ravi])
     }
 

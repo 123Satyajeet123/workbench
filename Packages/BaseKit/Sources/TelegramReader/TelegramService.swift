@@ -59,6 +59,7 @@ public enum TelegramLogin: Sendable, Equatable {
     case scan(link: String)
     case password(hint: String)
     case ready(name: String)
+    case paused
     case failed(String)
 }
 
@@ -88,8 +89,9 @@ public protocol TelegramService: AnyObject, Sendable {
     func checkPassword(_ password: String) async throws
     func groups() async throws -> [TelegramChat]
     func members(of chat: Int64) async throws -> [TelegramMember]
-    func messages(in chat: Int64, from start: Date, to end: Date) async throws -> [TelegramMessage]
+    func messages(in chat: Int64, from start: Date, to end: Date, me: String) async throws -> [TelegramMessage]
     func signOut() async throws
+    func disconnect()
 }
 
 public enum TelegramGate {

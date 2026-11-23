@@ -45,6 +45,9 @@ public struct HelperReader: ModelTask {
         self.zone = zone
     }
 
+    /// How much new text one model call reads. A longer day is read in parts.
+    public static let charactersPerRequest = 40_000
+
     /// `marked` may hold any of the machine's items; only those the leave-one-day-out rule allows become examples.
     /// `open` are the items still open from earlier readings: the machine's own, or those of the machine it follows.
     /// The model sees them by handle (F1, F2, …), never by their store ids, so it cannot name an item that does not
@@ -52,24 +55,58 @@ public struct HelperReader: ModelTask {
     /// machine that follows another while the followed machine has open items: it still sees the date and the facts,
     /// because a commitment can fall due on a day nobody wrote.
     public func read(
-        day: WorkDay, scope: String, evidence: EvidenceSet, marked: [Item] = [], open: [Item] = []
+        day: WorkDay, scope: String, evidence: EvidenceSet, marked: [Item] = [], open: [Item] = [],
+        budget: Int = charactersPerRequest
     ) async throws -> Result {
         let open = spec.lifecycle == nil && spec.follows == nil ? [] : open
         let followsOpenFacts = spec.follows != nil && !open.isEmpty
         guard !evidence.lines.isEmpty || followsOpenFacts else { return Result(items: [], dropped: 0, run: nil) }
         let examples = Exemplars.pick(marked, for: day, count: spec.examples ?? 0)
-        let (reply, run) = try await ask(
-            Self.examples(examples, spec: spec) + Self.open(open, spec: spec) + Self.input(day: day, evidence: evidence),
-            holding: [spec.source.kind],
-            window: evidence.lines.compactMap { line in line.lineID.map { WindowLine(number: line.id, lineID: $0) } })
-        let verifier = Verifier(window: evidence, settings: try model.verifierSettings(), zone: zone)
-        let proposals = try verifier.settle(
-            reply.items, part: "items",
-            check: { try verifier.proposal($0, spec: spec, open: open, day: day, scope: scope, run: run) },
-            isRepeat: { isRepeat($0, among: $1) })
-        try model.record(proposals.drops, of: run)
-        let (items, links) = Self.apply(proposals.kept, spec: spec, open: open)
-        return Result(items: items, links: links, dropped: proposals.drops.count, run: run)
+        var proposals: [Verifier.Checked] = []
+        var drops = 0
+        var run: RunID?
+        for part in Self.parts(of: evidence, budget: budget) {
+            let (reply, partRun) = try await ask(
+                Self.examples(examples, spec: spec) + Self.open(open, spec: spec)
+                    + Self.input(day: day, evidence: part),
+                holding: [spec.source.kind],
+                window: part.lines.compactMap { line in line.lineID.map { WindowLine(number: line.id, lineID: $0) } })
+            let verifier = Verifier(window: part, settings: try model.verifierSettings(), zone: zone)
+            let settled = try verifier.settle(
+                reply.items, part: "items",
+                check: { try verifier.proposal($0, spec: spec, open: open, day: day, scope: scope, run: partRun) },
+                isRepeat: { isRepeat($0, among: proposals + $1) })
+            try model.record(settled.drops, of: partRun)
+            proposals += settled.kept
+            drops += settled.drops.count
+            run = partRun
+        }
+        let (items, links) = Self.apply(proposals, spec: spec, open: open)
+        return Result(items: items, links: links, dropped: drops, run: run)
+    }
+
+    /// The evidence cut into parts of about `budget` characters of new lines. Each part after the first starts with up
+    /// to `context` lines before it, shown and not citable, so a reply such as "done" keeps its question.
+    static func parts(of evidence: EvidenceSet, budget: Int, context: Int = 20) -> [EvidenceSet] {
+        let new = evidence.newLines
+        guard new.reduce(0, { $0 + $1.line.count }) > budget else { return [evidence] }
+        var chunks: [[Evidence]] = [[]]
+        var size = 0
+        for line in new {
+            if size + line.line.count > budget, !(chunks.last?.isEmpty ?? true) {
+                chunks.append([])
+                size = 0
+            }
+            chunks[chunks.count - 1].append(line)
+            size += line.line.count
+        }
+        var before = evidence.lines.filter { evidence.isRead($0.id) }
+        return chunks.map { chunk in
+            let seen = Array(before.suffix(context))
+            before = before + chunk
+            return EvidenceSet(
+                lines: seen + chunk, context: evidence.context, read: Set(seen.map(\.id)))
+        }
     }
 
     public var instructions: String {

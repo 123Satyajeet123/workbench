@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 import Testing
 import WorkbenchCore
 
@@ -53,6 +54,46 @@ import WorkbenchCore
         let plan = try #require(launcher.plans.first)
         #expect(plan.stdin == "rules\n\n\(AgentCall.dataRule)\n\n<data>\ninput\n</data>")
         #expect(!plan.arguments.contains("--system-prompt"))
+    }
+
+    @Test func eachClaudeCallHandsOnThePlanLimitsItReportedEvenWhenItFails() async throws {
+        let event = #"""
+            {"type":"rate_limit_event","rate_limit_info":{"status":"allowed","resetsAt":1795455600,"rateLimitType":"five_hour","unifiedWindows":{"five_hour":{"utilization":0.1,"resetsAt":1795455600,"status":"allowed"},"seven_day":{"utilization":0.39,"resetsAt":1795867200,"status":"allowed"}}}}
+            """#
+        let seen = Mutex<[PlanLimits]>([])
+        var runner = runner(
+            FakeLauncher(
+                output: ProcessOutput(
+                    stdout: event + "\n" + #"{"type":"result","is_error":false,"structured_output":{"label":"yes"}}"#)))
+        runner.onLimits = { limits in seen.withLock { $0.append(limits) } }
+        _ = try await runner.generate(Verdict.self, schema: Verdict.schema, instructions: "", input: "x")
+        let limits = try #require(seen.withLock { $0.first })
+        #expect(
+            limits.fiveHour
+                == PlanLimits.Window(used: 0.1, resetsAt: Date(timeIntervalSince1970: 1_795_455_600), isAtLimit: false))
+        #expect(limits.week?.used == 0.39 && limits.week?.resetsAt == Date(timeIntervalSince1970: 1_795_867_200))
+
+        let atLimit = #"""
+            {"type":"rate_limit_event","rate_limit_info":{"status":"rejected","resetsAt":1795455600,"rateLimitType":"seven_day","utilization":1.0}}
+            """#
+        runner = self.runner(
+            FakeLauncher(
+                output: ProcessOutput(
+                    stdout: atLimit + "\n" + #"{"type":"result","is_error":true,"result":"limit"}"#, status: 1)))
+        runner.onLimits = { limits in seen.withLock { $0.append(limits) } }
+        await #expect(throws: StructuredModelError.self) {
+            _ = try await runner.generate(Verdict.self, schema: Verdict.schema, instructions: "", input: "x")
+        }
+        let rejected = try #require(seen.withLock { $0.last })
+        #expect(rejected.fiveHour == nil && rejected.week?.isAtLimit == true && rejected.week?.used == 1)
+    }
+
+    @Test func aStreamWithoutLimitsHandsOnNothing() async throws {
+        let seen = Mutex(0)
+        var claude = runner(reply(#""is_error":false,"structured_output":{"label":"yes"}"#))
+        claude.onLimits = { _ in seen.withLock { $0 += 1 } }
+        _ = try await claude.generate(Verdict.self, schema: Verdict.schema, instructions: "", input: "x")
+        #expect(seen.withLock { $0 } == 0)
     }
 
     private func reply(_ fields: String) -> FakeLauncher {

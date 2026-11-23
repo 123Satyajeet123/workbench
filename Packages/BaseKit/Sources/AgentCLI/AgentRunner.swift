@@ -17,6 +17,7 @@ public struct AgentRunner: StructuredModel {
     /// The one empty folder every call runs in. The CLI keys its prompt cache on the folder, so a fixed folder lets
     /// calls reuse the cache.
     public var workDirectory: URL
+    public var onLimits: (@Sendable (PlanLimits) -> Void)?
     private let launcher: any ProcessLauncher
     private let inheritedEnvironment: [String: String]
 
@@ -29,10 +30,12 @@ public struct AgentRunner: StructuredModel {
         launcher: any ProcessLauncher = SystemProcessLauncher(), executable: URL? = nil,
         environment: [String: String] = ProcessInfo.processInfo.environment, apiKey: String? = nil,
         requiresAPIKey: Bool = false, tools: AgentTools = .none,
-        workDirectory: URL = URL.applicationSupportDirectory.appending(path: "Workbench/agent-work")
+        workDirectory: URL = URL.applicationSupportDirectory.appending(path: "Workbench/agent-work"),
+        onLimits: (@Sendable (PlanLimits) -> Void)? = nil
     ) {
         self.tools = tools
         self.workDirectory = workDirectory
+        self.onLimits = onLimits
         self.apiKey = apiKey
         self.requiresAPIKey = requiresAPIKey
         self.kind = kind
@@ -51,6 +54,7 @@ public struct AgentRunner: StructuredModel {
             prompt: input, instructions: instructions, schemaText: try schema.jsonText, model: model,
             effort: effort, timeout: timeout, tools: tools)
         let output = try await launch(call)
+        if kind == .claude, let limits = PlanLimits.last(inClaude: output.stdout, at: .now) { onLimits?(limits) }
         let (answer, answeredBy, usage) = try kind == .claude ? claudeAnswer(output) : codexAnswer(output)
         do {
             let value = try JSONDecoder().decode(T.self, from: Data(answer.utf8))

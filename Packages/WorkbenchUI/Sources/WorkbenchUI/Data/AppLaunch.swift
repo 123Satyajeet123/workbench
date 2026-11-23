@@ -34,6 +34,7 @@ struct AppSession {
     let browsers: BrowserSetup
     /// The right to write the store, held until the app ends.
     let writerLock: StoreLock
+    let planUsage: PlanUsage
     let navigation = Navigation()
 }
 
@@ -94,7 +95,7 @@ enum AppLaunch {
                 pages: pages,
                 browsers: BrowserSetup(
                     capture: capture, connectedBrowsers: { Set(pages.connectedBrowsers.map(\.browser)) }),
-                writerLock: writerLock)
+                writerLock: writerLock, planUsage: PlanUsage(store: store))
             service.start()
             session.reminders.start()
             session.morning.start()

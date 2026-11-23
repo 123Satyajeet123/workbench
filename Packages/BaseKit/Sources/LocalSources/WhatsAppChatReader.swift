@@ -61,34 +61,44 @@ public struct WhatsAppChatReader: Sendable {
     /// The chats this reader may read; the policy must allow each one.
     public let chatJIDs: [String]
     let policy: any CapturePolicyProvider
+    private let me: String
 
-    public init(container: URL = defaultContainer, chatJIDs: [String], policy: any CapturePolicyProvider) {
+    public init(
+        container: URL = defaultContainer, chatJIDs: [String], policy: any CapturePolicyProvider,
+        me: String = "You"
+    ) {
         self.container = container
         store = .shared(for: container)
         self.chatJIDs = chatJIDs
         self.policy = policy
+        self.me = me
     }
 
-    public init(container: URL = defaultContainer, chatJID: String, policy: any CapturePolicyProvider) {
-        self.init(container: container, chatJIDs: [chatJID], policy: policy)
+    public init(
+        container: URL = defaultContainer, chatJID: String, policy: any CapturePolicyProvider, me: String = "You"
+    ) {
+        self.init(container: container, chatJIDs: [chatJID], policy: policy, me: me)
     }
 
     /// The people in the chats now, and the name of everyone the chats ever had. Only names: no message is read.
     public func people(now: Date = .now) async throws -> WhatsAppPeople {
         for chat in chatJIDs { _ = try await policy.grant(for: .whatsapp, label: chat, at: now) }
         guard !chatJIDs.isEmpty else { return WhatsAppPeople(members: [], names: [:]) }
-        let (names, active, chats) = try store.read { try memberNames($0) }
+        let own = ownJIDs()
+        let (names, active, chats) = try store.read { try memberNames($0, except: Set(own)) }
         let members = active.compactMap { jid in
             names[jid].map { WhatsAppMember(jid: jid, name: $0, chats: chats[jid, default: []]) }
         }
         .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-        return WhatsAppPeople(members: members, names: names)
+        var tags = names
+        for jid in own { tags[jid] = me }
+        return WhatsAppPeople(members: members, names: tags)
     }
 
     /// The name of everyone in the chats, by ID, the IDs of those in them now, and the chats each of those is in now:
     /// every member a group ever had, and the other person of each direct chat. Names come from the founder's address book as WhatsApp keeps it, then
     /// the name a person chose, then WhatsApp's contact name; see `MemberNames`.
-    private func memberNames(_ database: ReadOnlyDatabase) throws -> (
+    private func memberNames(_ database: ReadOnlyDatabase, except own: Set<String>) throws -> (
         names: [String: String], active: [String], chats: [String: [String]]
     ) {
         let marks = Self.marks(chatJIDs.count)
@@ -112,7 +122,7 @@ public struct WhatsAppChatReader: Sendable {
         var order: [String] = []
         var chats: [String: [String]] = [:]
         for row in groupRows + directRows {
-            guard let jid = row.text(0) else { continue }
+            guard let jid = row.text(0), !own.contains(jid) else { continue }
             if row.integer(3) == 1, let chat = row.text(4), !chats[jid, default: []].contains(chat) {
                 chats[jid, default: []].append(chat)
             }
@@ -153,6 +163,15 @@ public struct WhatsAppChatReader: Sendable {
             for jid in [row.text(0), row.text(1)].compactMap({ $0 }) where !jid.isEmpty { book[jid] = name }
         }
         return book
+    }
+
+    /// The founder's own WhatsApp IDs, by phone number and by privacy ID, as the app keeps them in its settings.
+    private func ownJIDs() -> [String] {
+        let file = container.appending(path: "Library/Preferences/group.net.whatsapp.WhatsApp.shared.plist")
+        guard let data = try? Data(contentsOf: file),
+            let settings = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
+        else { return [] }
+        return ["OwnJabberID", "LastOwnJabberID", "lid"].compactMap { settings[$0] as? String }
     }
 }
 

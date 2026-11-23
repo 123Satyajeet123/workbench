@@ -13,9 +13,11 @@ public final class TDLibTelegram: TelegramService, @unchecked Sendable {
     private var isSignedIn = false
     private var isWaitingForKeys = false
     private var restartsWhenClosed = false
+    private var isPausing = false
     private var names: [Int64: String] = [:]
     private var me: Int64?
     private var myName: String?
+    private var myUsernames: [String] = []
 
     public init(folder: URL) { self.folder = folder }
 
@@ -55,8 +57,14 @@ public final class TDLibTelegram: TelegramService, @unchecked Sendable {
 
     public func groups() async throws -> [TelegramChat] {
         let client = try signedIn()
-        _ = try? await client.loadChats(chatList: .chatListMain, limit: 200)
-        let ids = try await call { try await $0.getChats(chatList: .chatListMain, limit: 200).chatIds }
+        let ids: [Int64]
+        do {
+            ids = try await Self.everyChat(
+                load: { _ = try await client.loadChats(chatList: $0, limit: 100) },
+                list: { try await client.getChats(chatList: $0, limit: 100_000).chatIds })
+        } catch {
+            throw TelegramFailure(Self.text(of: error))
+        }
         var chats: [TelegramChat] = []
         for id in ids {
             let chat = try await call { try await $0.getChat(chatId: id) }
@@ -73,6 +81,20 @@ public final class TDLibTelegram: TelegramService, @unchecked Sendable {
             }
         }
         return chats
+    }
+
+    static func everyChat(
+        load: (ChatList) async throws -> Void, list: (ChatList) async throws -> [Int64]
+    ) async throws -> [Int64] {
+        var ids: [Int64] = []
+        var seen: Set<Int64> = []
+        for chatList in [ChatList.chatListMain, .chatListArchive] {
+            for _ in 0..<1000 {
+                do { try await load(chatList) } catch let error as TDLibKit.Error where error.code == 404 { break }
+            }
+            for id in try await list(chatList) where seen.insert(id).inserted { ids.append(id) }
+        }
+        return ids
     }
 
     public func members(of chatID: Int64) async throws -> [TelegramMember] {
@@ -105,9 +127,10 @@ public final class TDLibTelegram: TelegramService, @unchecked Sendable {
         return people.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
-    public func messages(in chat: Int64, from start: Foundation.Date, to end: Foundation.Date) async throws
-        -> [TelegramMessage]
+    public func messages(in chat: Int64, from start: Foundation.Date, to end: Foundation.Date, me label: String)
+        async throws -> [TelegramMessage]
     {
+        let (me, usernames) = locked { (self.me, myUsernames) }
         var found: [TelegramMessage] = []
         var from: Int64 = 0
         for _ in 0..<200 {
@@ -123,7 +146,8 @@ public final class TDLibTelegram: TelegramService, @unchecked Sendable {
                     TelegramMessage(
                         id: message.id, chat: chat, date: date, kind: content.kind,
                         sender: try await name(of: message.senderId), isOutgoing: message.isOutgoing,
-                        text: content.text, title: content.title))
+                        text: Self.tagged(content.text, me: me, usernames: usernames, as: label),
+                        title: content.title))
             }
             if TimeInterval(oldest.date) < start.timeIntervalSince1970 { break }
             from = oldest.id
@@ -131,19 +155,49 @@ public final class TDLibTelegram: TelegramService, @unchecked Sendable {
         return found
     }
 
+    public func disconnect() {
+        let client: TDLibClient? = locked {
+            guard let client else { return nil }
+            restartsWhenClosed = false
+            isPausing = true
+            return client
+        }
+        try? client?.close { _ in }
+    }
+
     public func signOut() async throws {
         _ = try await call { try await $0.logOut() }
     }
 
-    static func plain(_ content: MessageContent) -> (kind: TelegramMessage.Kind, text: String, title: String?)? {
+    static func plain(_ content: MessageContent) -> (
+        kind: TelegramMessage.Kind, text: FormattedText, title: String?
+    )? {
         switch content {
-        case .messageText(let message): (.text, message.text.text, nil)
-        case .messagePhoto(let message): (.photo, message.caption.text, nil)
-        case .messageVideo(let message): (.video, message.caption.text, nil)
-        case .messageDocument(let message): (.document, message.caption.text, message.document.fileName)
-        case .messageVoiceNote(let message): (.voiceNote, message.caption.text, nil)
+        case .messageText(let message): (.text, message.text, nil)
+        case .messagePhoto(let message): (.photo, message.caption, nil)
+        case .messageVideo(let message): (.video, message.caption, nil)
+        case .messageDocument(let message): (.document, message.caption, message.document.fileName)
+        case .messageVoiceNote(let message): (.voiceNote, message.caption, nil)
         default: nil
         }
+    }
+
+    static func tagged(_ text: FormattedText, me: Int64?, usernames: [String], as label: String) -> String {
+        let mine = Set(usernames.map { "@" + $0.lowercased() })
+        var units = Array(text.text.utf16)
+        for entity in text.entities.sorted(by: { $0.offset > $1.offset }) {
+            let range = entity.offset..<(entity.offset + entity.length)
+            guard range.lowerBound >= 0, range.upperBound <= units.count else { continue }
+            let isMe: Bool
+            switch entity.type {
+            case .textEntityTypeMentionName(let mention): isMe = mention.userId == me
+            case .textEntityTypeMention:
+                isMe = mine.contains(String(decoding: units[range], as: UTF16.self).lowercased())
+            default: isMe = false
+            }
+            if isMe { units.replaceSubrange(range, with: Array("@\(label)".utf16)) }
+        }
+        return String(decoding: units, as: UTF16.self)
     }
 
     static func text(of error: Swift.Error) -> String {
@@ -195,6 +249,7 @@ public final class TDLibTelegram: TelegramService, @unchecked Sendable {
                     locked {
                         self.me = user.id
                         self.myName = name
+                        self.myUsernames = user.usernames?.activeUsernames ?? []
                         self.isSignedIn = true
                     }
                     report(.ready(name: name))
@@ -204,15 +259,19 @@ public final class TDLibTelegram: TelegramService, @unchecked Sendable {
         case .authorizationStateLoggingOut, .authorizationStateClosing:
             locked { isSignedIn = false }
         case .authorizationStateClosed:
-            let restarts = locked {
+            let (restarts, paused) = locked {
                 self.client = nil
                 self.isSignedIn = false
                 self.me = nil
                 self.myName = nil
-                defer { restartsWhenClosed = false }
-                return restartsWhenClosed
+                self.myUsernames = []
+                defer {
+                    restartsWhenClosed = false
+                    isPausing = false
+                }
+                return (restartsWhenClosed, isPausing)
             }
-            if restarts { start() } else { report(.signedOut) }
+            if restarts { start() } else { report(paused ? .paused : .signedOut) }
         default:
             report(.failed("Telegram asked for a sign-in step Workbench does not do. Sign in with the QR code again."))
         }

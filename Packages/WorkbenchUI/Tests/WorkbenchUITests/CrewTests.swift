@@ -56,7 +56,7 @@ import WorkbenchCore
     }
 
     @Test func aPageSurvivesARestartByItsRawValue() {
-        for page in [SidebarSelection.day, .calls, .crew, .advanced, .machine(42)] {
+        for page in [SidebarSelection.day, .calls, .crew, .usage, .settings, .machine(42)] {
             #expect(SidebarSelection(rawValue: page.rawValue) == page)
         }
         #expect(SidebarSelection(rawValue: "team") == nil && SidebarSelection(rawValue: "machine:x") == nil)

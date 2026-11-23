@@ -18,7 +18,7 @@ struct SettingsView: View {
                 NotificationSettingsView()
             }
             Tab("Advanced", systemImage: "gauge.with.dots.needle.33percent", value: SettingsTab.advanced) {
-                AdvancedSettingsView()
+                UsagePage()
             }
         }
         .frame(width: 640, height: 600)

@@ -16,9 +16,17 @@ import Testing
         #expect(SidebarSelection.fixed.prefix(3).map(\.title) == ["Today", "People", "Projects"])
     }
 
-    @Test func theOldRunsLinkOpensSettingsAdvancedAndCrewIsAPage() throws {
-        #expect(SidebarSelection(url: try #require(URL(string: "workbench://open?page=runs"))) == .advanced)
+    @Test func theOldRunsAndAdvancedLinksOpenUsageAndCrewIsAPage() throws {
+        #expect(SidebarSelection(url: try #require(URL(string: "workbench://open?page=runs"))) == .usage)
+        #expect(SidebarSelection(rawValue: "advanced") == .usage)
         #expect(SidebarSelection(rawValue: "crew") == .crew && SidebarSelection.crew.title == "Crew")
+    }
+
+    @Test func settingsIsAPageAndAskingForCaptureSettingsOpensItOnCapture() {
+        #expect(SidebarSelection(rawValue: "settings") == .settings && SidebarSelection.settings.title == "Settings")
+        let navigation = Navigation()
+        navigation.openSettings(.capture)
+        #expect(navigation.requested == .settings && navigation.settingsSection == .capture)
     }
 
     @Test func aPageThatDoesNotExistIsNotOne() {

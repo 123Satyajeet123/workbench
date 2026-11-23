@@ -43,6 +43,30 @@ private func read(
 }
 
 @Suite struct HelperReaderTests {
+    @Test func aDayBiggerThanOneRequestIsReadInPartsAndEachFactIsKeptFromItsOwnPart() async throws {
+        let day = WorkDay(containing: t0)
+        let lines = [
+            Evidence(
+                id: 1, start: t0, line: "Asha: I will send the deck by Friday",
+                quotable: ["I will send the deck by Friday"]),
+            Evidence(id: 2, start: t0, line: "Raj: do we hire a designer?", quotable: ["do we hire a designer?"]),
+            Evidence(id: 3, start: t0, line: "Asha: login API done", quotable: ["login API done"]),
+        ]
+        let reply = #"""
+            {"items":[{"kind":"commitment","text":"Send the deck","person":"Asha","project":"Deck","eta":"","asks":"team","stance":"said","cite":1,"quote":"send the deck"},{"kind":"done","text":"Login API","person":"Asha","project":"Login","eta":"","asks":"team","stance":"said","cite":3,"quote":"login API done"}],"closes":[]}
+            """#
+        let store = try makeStore()
+        let model = ScriptedModel(reply)
+        let result = try await HelperReader(spec: .team, model: RecordedModel(model, store: store)).read(
+            day: day, scope: "work", evidence: EvidenceSet(lines: lines, context: ["members": ["Asha", "Raj"]]),
+            budget: 70)
+        let inputs = model.inputs.withLock { $0 }
+        #expect(inputs.count == 2)
+        #expect(!inputs[0].contains("login API done") && inputs[1].contains("Read before"))
+        #expect(inputs[1].contains("Raj: do we hire a designer?") && inputs[1].contains("Members: Asha, Raj"))
+        #expect(result.items.map(\.quote) == ["send the deck", "login API done"] && result.dropped == 2)
+        #expect(try store.queries.runs().count == 2)
+    }
 
     @Test func fieldsMustFitTheirKinds() async throws {
         let (result, _) = try await read(

@@ -8,6 +8,8 @@ public struct MachineTemplate: Sendable, Identifiable, Hashable {
     /// What kind of machine it is, under its name.
     public let role: String
     public let detail: String
+    /// The app it reads, when the template is chosen by it.
+    public var reads: String?
 
     public var id: String { spec.task }
 

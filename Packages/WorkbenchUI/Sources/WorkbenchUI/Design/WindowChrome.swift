@@ -1,19 +1,13 @@
 import AppKit
 import SwiftUI
 
-/// Where macOS put the window's close, minimise and zoom buttons, measured from the window's top left corner, so a row
-/// beside them can line up with them exactly.
 struct WindowButtons: Equatable {
     var center: CGFloat
     var trailing: CGFloat
 
-    /// Where they sit in a unified title bar, until the window is measured.
-    static let unified = WindowButtons(center: 26, trailing: 74)
+    static let compact = WindowButtons(center: 20, trailing: 72)
 }
 
-/// Gives the main window Notion's title bar. An empty unified toolbar makes the bar 52 pt tall, and macOS then sets the
-/// window's buttons in from the corner and centres them in it, as Notion's are; the bar draws no title, no background
-/// and no line, so the sidebar and the page show through it. It reports where the buttons ended up.
 struct WindowChrome: NSViewRepresentable {
     let measured: (WindowButtons) -> Void
 
@@ -39,12 +33,10 @@ struct WindowChrome: NSViewRepresentable {
             window.titlebarSeparatorStyle = .none
             if window.toolbar == nil { window.toolbar = NSToolbar(identifier: "workbench.chrome") }
             window.toolbar?.allowsUserCustomization = false
-            window.toolbarStyle = .unified
-            // The title bar lays its buttons out after this call; measure once it has.
+            window.toolbarStyle = .unifiedCompact
             DispatchQueue.main.async { [weak self] in self?.measure() }
         }
 
-        /// The window lays its buttons out again after a resize or full screen; measure again, outside the layout pass.
         override func layout() {
             super.layout()
             DispatchQueue.main.async { [weak self] in self?.measure() }

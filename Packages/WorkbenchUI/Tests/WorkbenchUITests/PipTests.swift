@@ -13,7 +13,8 @@ import WorkbenchCore
     }()
 
     private func makeTeam(
-        reply: String = #"{"items":[]}"#, clock: TestClock? = nil, notifier: FakeNotifier = FakeNotifier()
+        reply: String = #"{"items":[]}"#, clock: TestClock? = nil, notifier: FakeNotifier = FakeNotifier(),
+        container: URL? = nil
     ) throws -> (HelperModel, Store, CaptureService, ScriptedModel, WhatsAppSource) {
         let now = noon
         let picksFirst: @Sendable (Int) -> Bool = { $0 == 0 }
@@ -24,7 +25,7 @@ import WorkbenchCore
         let model = ScriptedModel(reply)
         let source = try WhatsAppSource(
             store: store, capture: capture, task: HelperSpec.team.task, founder: { "Kabir" },
-            container: try whatsApp(at: noon))
+            container: try container ?? whatsApp(at: noon))
         let team = HelperModel(
             machine: .test(.team, "Pip"), source: source, store: store,
             makeModel: { _ in RecordedModel(model, store: store) }, notifier: notifier)
@@ -109,6 +110,61 @@ import WorkbenchCore
         #expect(try store.currentPolicy() == capture.policy)
     }
 
+    @Test func everyChatReadsAllChatsAndTakesInOnesStartedLater() async throws {
+        let container = try whatsApp(at: noon)
+        let (team, store, capture, model, source) = try makeTeam(container: container)
+        try source.chooseEveryChat()
+        #expect(source.readsEveryChat && team.isReady)
+        #expect(capture.policy.allowList[.whatsapp] == [teamJID, familyJID])
+        #expect(team.chosenSource == "Every WhatsApp chat")
+
+        try addChat(3, jid: "c@s.whatsapp.net", name: "Chitra", to: container)
+        await team.read()
+        #expect(capture.policy.allowList[.whatsapp] == [teamJID, familyJID, "c@s.whatsapp.net"])
+        let input = try #require(model.inputs.withLock { $0.first })
+        #expect(input.contains("[Family]") && input.contains("dinner at 8"))
+
+        try source.choose(try #require(source.chats.first { $0.jid == teamJID }))
+        #expect(!source.readsEveryChat && capture.policy.allowList[.whatsapp] == [teamJID])
+        let reopened = try WhatsAppSource(
+            store: store, capture: capture, task: HelperSpec.team.task, founder: { "Kabir" }, container: container)
+        #expect(!reopened.readsEveryChat && reopened.chats.map(\.jid) == [teamJID])
+    }
+
+    @Test func aTagOfTheFounderReachesTheModelAsTheFounder() async throws {
+        let container = try whatsApp(at: noon)
+        let preferences = container.appending(path: "Library/Preferences")
+        try FileManager.default.createDirectory(at: preferences, withIntermediateDirectories: true)
+        try PropertyListSerialization.data(
+            fromPropertyList: ["OwnJabberID": "919000000001@s.whatsapp.net"], format: .binary, options: 0
+        ).write(to: preferences.appending(path: "group.net.whatsapp.WhatsApp.shared.plist"))
+        try addMessage(20, "@919000000001 approve karo", at: noon.addingTimeInterval(120), to: container)
+        let (team, _, _, model, source) = try makeTeam(container: container)
+        try source.loadGroups()
+        try source.choose(try #require(source.groups.first))
+        await team.read()
+        let input = try #require(model.inputs.withLock { $0.first })
+        #expect(input.contains("Asha: @Kabir (You) approve karo"))
+        #expect(input.contains("Founder: Kabir (You)"))
+    }
+
+    @Test func whatTheFounderPromisesIsKeptAsTheirsWithoutExpectingAnUpdateFromThem() async throws {
+        let container = try whatsApp(at: noon)
+        try addMessage(
+            20, "I will send the deck by Friday", member: nil, at: noon.addingTimeInterval(120), to: container)
+        let reply = #"""
+            {"items":[{"person":"Kabir (You)","project":"Fundraise","kind":"commitment","text":"Send the deck","eta":"","asks":"team","stance":"said","cite":20,"quote":"send the deck by Friday"}],"closes":[]}
+            """#
+        let (team, _, _, model, source) = try makeTeam(reply: reply, container: container)
+        try source.loadGroups()
+        try source.choose(try #require(source.groups.first))
+        await team.read()
+        let input = try #require(model.inputs.withLock { $0.first })
+        #expect(input.contains("Members: Asha, Bharat, Kabir (You)"))
+        #expect(team.items.map(\.["person"]) == ["Kabir (You)"])
+        #expect(source.expectedPeople.map(\.name) == ["Asha", "Bharat"])
+    }
+
     @Test func readingADaySendsOnlyTheTeamGroupAndStoresCheckedEntriesWithTheirRun() async throws {
         let reply = #"""
             {"items":[
@@ -121,7 +177,7 @@ import WorkbenchCore
         await team.read()
 
         let input = try #require(model.inputs.withLock { $0.first })
-        #expect(input.contains("Kabir (founder): ki aaj kya kiya?"))
+        #expect(input.contains("Kabir (You): ki aaj kya kiya?"))
         #expect(input.contains("Asha: login API done"))
         #expect(!input.contains("dinner"))
         #expect(team.items.map(\.quote) == ["login API done"])

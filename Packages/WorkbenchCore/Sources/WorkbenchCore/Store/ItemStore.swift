@@ -227,10 +227,12 @@ extension Queries {
     /// follows and the actions deals wait for; as of `day` when given. None when it follows no machine that exists.
     public func openItems(readBy spec: HelperSpec, asOf day: WorkDay? = nil) throws -> [Item] {
         if let lifecycle = spec.lifecycle { return try openItems(of: spec.task, lifecycle: lifecycle, asOf: day) }
-        guard let follows = spec.follows,
-            let lifecycle = try machines().first(where: { $0.task == follows })?.spec.lifecycle
-        else { return [] }
-        return try openItems(of: follows, lifecycle: lifecycle, asOf: day) + openDealActions(asOf: day)
+        guard let follows = spec.follows else { return [] }
+        let machines = try machines()
+        guard let lifecycle = machines.first(where: { $0.task == follows })?.spec.lifecycle else { return [] }
+        let alike = machines.filter { $0.task != follows && $0.spec.lifecycle == lifecycle }.map(\.task)
+        return try ([follows] + alike).flatMap { try openItems(of: $0, lifecycle: lifecycle, asOf: day) }
+            + openDealActions(asOf: day)
     }
 
     /// A machine's items that ended (closed, replaced or withdrawn) between two times, by valid time, oldest first.

@@ -5,6 +5,7 @@ struct MochiPage: View {
     let open: (SidebarSelection) -> Void
 
     @Environment(Crew.self) private var crew
+    @Environment(Navigation.self) private var navigation
     @Environment(CaptureSettings.self) private var capture
     @Environment(RunsModel.self) private var runs
     @Environment(IdentityModel.self) private var identity
@@ -29,13 +30,13 @@ struct MochiPage: View {
             }
             Card(title: "Model use", symbol: "gauge.with.dots.needle.33percent") {
                 Text("\(runs.meter.today.tokensText) tokens · \(runs.meter.today.costText) today")
-                Button("Open Advanced") { open(.advanced) }
+                Button("Open \(SidebarSelection.usage.title)") { open(.usage) }
             }
             Card(title: "Capture", symbol: capture.status.symbol) {
                 Text(
                     "Capture is \(capture.status.title.lowercased()). \(capture.log.count) windows and files kept today."
                 )
-                SettingsLink { Text("Open capture settings") }
+                Button("Open capture settings") { navigation.openSettings(.capture) }
             }
         }
         .onAppear {
@@ -63,6 +64,7 @@ private struct TeamCard: View {
     let open: (SidebarSelection) -> Void
     @Environment(TeamModel.self) private var team
     @Environment(Crew.self) private var crew
+    @Environment(Navigation.self) private var navigation
 
     var body: some View {
         Card(title: team.team.name.cleaned ?? "Your team", symbol: "person.3") {

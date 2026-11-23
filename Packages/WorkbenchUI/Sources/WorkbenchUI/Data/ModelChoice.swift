@@ -29,6 +29,10 @@ struct ModelChoice: Codable, Hashable, Identifiable {
 
     func save(to store: Store) throws { try Self.stateKey.save(self, to: store) }
 
+    nonisolated private static func recordLimits(in store: Store) -> @Sendable (PlanLimits) -> Void {
+        { limits in Task { @MainActor in PlanUsage.record(limits, in: store) } }
+    }
+
     /// The runner for this choice, billed as the founder chose: their Claude sign-in, or their own API key. A key goes
     /// only to the Claude CLI; with billing set to a key and none saved, calls stop rather than use the sign-in.
     func model(store: Store, secrets: SecretStore = KeychainSecrets()) -> RecordedModel {
@@ -53,7 +57,8 @@ struct ModelChoice: Codable, Hashable, Identifiable {
         let runner = AgentRunner(
             kind: kind, model: model, effort: effort, timeout: timeout,
             apiKey: byKey ? secrets.read(Billing.keyName) : nil, requiresAPIKey: byKey, tools: tools,
-            workDirectory: store.directory.appending(path: "agent-work"))
+            workDirectory: store.directory.appending(path: "agent-work"),
+            onLimits: kind == .claude && !byKey ? Self.recordLimits(in: store) : nil)
         return RecordedModel(runner, store: store)
     }
 }

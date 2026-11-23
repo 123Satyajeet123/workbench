@@ -15,12 +15,17 @@ public struct TelegramChatReader: Sendable {
     private let chat: Int64
     private let agreed: Set<Int64>
     private let policy: any CapturePolicyProvider
+    private let me: String
 
-    public init(service: any TelegramService, chat: Int64, agreed: Set<Int64>, policy: any CapturePolicyProvider) {
+    public init(
+        service: any TelegramService, chat: Int64, agreed: Set<Int64>, policy: any CapturePolicyProvider,
+        me: String = "You"
+    ) {
         self.service = service
         self.chat = chat
         self.agreed = agreed
         self.policy = policy
+        self.me = me
     }
 
     public func members(now: Date = .now) async throws -> [TelegramMember] {
@@ -34,7 +39,7 @@ public struct TelegramChatReader: Sendable {
         let members = try await members(now: now)
         let newcomers = members.filter { !agreed.contains($0.id) }
         guard newcomers.isEmpty else { throw TelegramConsentMissing(people: newcomers) }
-        let messages = try await service.messages(in: chat, from: start, to: end)
+        let messages = try await service.messages(in: chat, from: start, to: end, me: me)
             .filter { $0.chat == chat && $0.date >= start && $0.date < end }
             .sorted { ($0.date, $0.id) < ($1.date, $1.id) }
         return (messages, members)

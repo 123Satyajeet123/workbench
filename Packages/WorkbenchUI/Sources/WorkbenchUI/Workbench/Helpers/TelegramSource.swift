@@ -112,18 +112,20 @@ final class TelegramSource: MachineSource {
         guard let chat, let consent, consent.chat == chat.id else { return EvidenceSet(lines: []) }
         try await account.waitUntilReady()
         let reader = TelegramChatReader(
-            service: account.service, chat: chat.id, agreed: Set(consent.people.map(\.id)), policy: store)
+            service: account.service, chat: chat.id, agreed: Set(consent.people.map(\.id)), policy: store,
+            me: founderLabel(founder()))
         let (messages, people) = try await reader.read(from: day.start, to: day.end)
         members = people
         let lines = messages.compactMap(line)
-        return EvidenceSet(lines: lines, context: ["members": people.map(\.name)])
+        return EvidenceSet(
+            lines: lines,
+            context: ["members": people.map(\.name) + [founderLabel(founder())], "founder": [founderLabel(founder())]])
     }
 
     private func line(_ message: TelegramMessage) -> Evidence? {
         let text = [message.title, message.text].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " — ")
         guard !text.isEmpty else { return nil }
-        let sender =
-            message.isOutgoing ? (founder().isEmpty ? "Founder" : "\(founder()) (founder)") : message.sender
+        let sender = message.isOutgoing ? founderLabel(founder()) : message.sender
         return Evidence(id: message.id, start: message.date, line: "\(sender): \(text)", quotable: [text])
     }
 }

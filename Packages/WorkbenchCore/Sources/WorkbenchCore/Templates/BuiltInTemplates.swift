@@ -4,12 +4,14 @@ extension MachineTemplate {
     public static let team = MachineTemplate(
         spec: .team, name: "Pip", role: "Team facts",
         detail:
-            "Reads the WhatsApp chats you choose and keeps each person's plans, done work, blockers, commitments, decisions and questions, by project."
+            "Reads the WhatsApp chats you choose and keeps each person's plans, done work, blockers, commitments, decisions and questions, by project.",
+        reads: "WhatsApp"
     )
     public static let teamTelegram = MachineTemplate(
-        spec: .teamTelegram, name: "Relay", role: "Team facts from Telegram",
+        spec: .teamTelegram, name: "Relay", role: "Team facts",
         detail:
-            "Reads one Telegram group whose members all agreed, and keeps each person's plans, done work, blockers, commitments, decisions and questions, by project."
+            "Reads one Telegram group whose members all agreed, and keeps each person's plans, done work, blockers, commitments, decisions and questions, by project.",
+        reads: "Telegram"
     )
     public static let timeline = MachineTemplate(
         spec: .timeline, name: "Timeline", role: "Day timeline",
@@ -68,6 +70,8 @@ extension MachineTemplate {
     /// The machines a store made before team templates starts with; the others are made on request or from Mochi's
     /// proposals.
     public static let seeded = [team, timeline]
+    /// The machines the sidebar offers to add: the ones that read a chat app.
+    public static let addable = [team, teamTelegram]
 
     private static let newsFeeds = [
         NewsFeed(name: "Inc42", url: URL(string: "https://inc42.com/feed/")!, trusted: true),

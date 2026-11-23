@@ -14,4 +14,11 @@ final class Navigation {
         requested = .day
         requestedFact = fact
     }
+
+    var settingsSection = SettingsSection.general
+
+    func openSettings(_ section: SettingsSection = .general) {
+        settingsSection = section
+        requested = .settings
+    }
 }

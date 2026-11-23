@@ -20,6 +20,7 @@ extension HelperModel {
     /// The chats or sites the founder chose, in words. Nil for the screen and for a source with nothing chosen.
     var chosenSource: String? {
         if let source = source as? WhatsAppSource {
+            if source.readsEveryChat { return "Every WhatsApp chat" }
             return source.isSeveral ? "\(source.chats.count) chats" : source.chat?.name
         }
         if let source = source as? TelegramSource, let chat = source.chat { return "Telegram · \(chat.title)" }

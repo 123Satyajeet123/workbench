@@ -16,6 +16,7 @@ enum Palette {
     static let sidebarText = dynamic("sidebarText", light: rgb(0x5F5E5B), dark: rgb(0xBDBBB7))
     static let sidebarSelectedText = dynamic("sidebarSelectedText", light: rgb(0x37352F), dark: rgb(0xEEEDEB))
     static let sidebarIcon = dynamic("sidebarIcon", light: rgb(0x6E6D69), dark: rgb(0xADA9A4))
+    static let sidebarHotIcon = dynamic("sidebarHotIcon", light: .black, dark: .white)
     static let sidebarLabel = dynamic("sidebarLabel", light: rgb(0x6B6A66), dark: rgb(0x96938E))
     static let divider = dynamic("divider", light: rgb(0x37352F, alpha: 0.09), dark: .white.withAlphaComponent(0.094))
     /// Symbols beside text: non-text contrast, at least 3:1.
@@ -51,6 +52,7 @@ extension ShapeStyle where Self == Color {
     static var sidebarText: Color { Color(nsColor: Palette.sidebarText) }
     static var sidebarSelectedText: Color { Color(nsColor: Palette.sidebarSelectedText) }
     static var sidebarIcon: Color { Color(nsColor: Palette.sidebarIcon) }
+    static var sidebarHotIcon: Color { Color(nsColor: Palette.sidebarHotIcon) }
     static var sidebarLabel: Color { Color(nsColor: Palette.sidebarLabel) }
     static var accentFill: Color { Color(nsColor: Palette.accent) }
     static var linkText: Color { Color(nsColor: Palette.link) }

@@ -22,6 +22,7 @@ final class WhatsAppSource: MachineSource {
     private(set) var isChanging = false
     /// The name of every person the chats ever had, by WhatsApp ID, as of the last read of the people.
     @ObservationIgnored private var names: [String: String] = [:]
+    private(set) var readsEveryChat = false
 
     @ObservationIgnored private let store: Store
     @ObservationIgnored private let capture: CaptureService
@@ -30,6 +31,7 @@ final class WhatsAppSource: MachineSource {
     @ObservationIgnored private var pulled: [ContainerSighting] = []
     @ObservationIgnored private let chatsKey: StateKey<[WhatsAppChat]>
     @ObservationIgnored private let membersKey: StateKey<[WhatsAppMember]>
+    @ObservationIgnored private let everyChatKey: StateKey<Bool>
 
     init(
         store: Store, capture: CaptureService, task: String, founder: @escaping () -> String,
@@ -41,6 +43,8 @@ final class WhatsAppSource: MachineSource {
         self.container = container
         chatsKey = MachineKey.chats(task)
         membersKey = MachineKey.members(task)
+        everyChatKey = MachineKey.everyChat(task)
+        readsEveryChat = try everyChatKey.load(from: store) ?? false
         chats = try chatsKey.load(from: store) ?? []
         members = try membersKey.load(from: store) ?? []
         try loadTeamHandles()
@@ -99,14 +103,23 @@ final class WhatsAppSource: MachineSource {
 
     func choose(_ group: WhatsAppChat) throws { try choose([group]) }
 
+    func chooseEveryChat() throws {
+        try loadGroups()
+        try choose(groups + direct, everyChat: true)
+    }
+
+    func choose(_ chosen: [WhatsAppChat]) throws { try choose(chosen, everyChat: false) }
+
     /// Choosing adds the chats to those WhatsApp may be read for; it never takes another machine's chat away.
-    func choose(_ chosen: [WhatsAppChat]) throws {
+    private func choose(_ chosen: [WhatsAppChat], everyChat: Bool) throws {
         try capture.update {
             $0.switches[.whatsapp] = true
             $0.allowList[.whatsapp, default: []].formUnion(chosen.map(\.jid))
         }
         try chatsKey.save(chosen, to: store)
+        try everyChatKey.save(everyChat, to: store)
         chats = chosen
+        readsEveryChat = everyChat
         keep()
     }
 
@@ -194,7 +207,9 @@ final class WhatsAppSource: MachineSource {
         try await loadMembers()
         let stored = try store.queries.currentLines(in: chats.map(\.container), from: day.start, to: day.end)
         let lines = stored.filter { !$0.isTombstone }.map { evidence($0, start: day.start) }
-        return EvidenceSet(lines: lines, context: ["members": members.map(\.name)])
+        return EvidenceSet(
+            lines: lines,
+            context: ["members": members.map(\.name) + [founderLabel(founder())], "founder": [founderLabel(founder())]])
     }
 
     /// The lines that prove a fact, as the run that made it saw them, with a deleted message shown as deleted. Reading
@@ -217,7 +232,7 @@ final class WhatsAppSource: MachineSource {
     private func reader() -> WhatsAppChatReader { reader(chatJIDs: chats.map(\.jid)) }
 
     private func reader(chatJIDs: [String]) -> WhatsAppChatReader {
-        WhatsAppChatReader(container: container, chatJIDs: chatJIDs, policy: store)
+        WhatsAppChatReader(container: container, chatJIDs: chatJIDs, policy: store, me: founderLabel(founder()))
     }
 
     private func evidence(_ stored: StoredLine, start: Date) -> Evidence {
@@ -242,7 +257,9 @@ final class WhatsAppSource: MachineSource {
 
     private func sender(of stored: StoredLine) -> String {
         guard let actor = stored.actor else { return "Unknown" }
-        if actor == WhatsAppChatReader.audienceOwner { return founder().isEmpty ? "Founder" : "\(founder()) (founder)" }
+        if actor == WhatsAppChatReader.audienceOwner { return founderLabel(founder()) }
         return names[actor] ?? MemberNames.fallback(for: actor)
     }
 }
+
+func founderLabel(_ name: String) -> String { name.isEmpty ? "You" : "\(name) (You)" }

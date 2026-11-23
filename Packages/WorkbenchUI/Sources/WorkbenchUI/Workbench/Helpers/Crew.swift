@@ -63,6 +63,10 @@ final class Crew {
 
     var team: HelperModel? { machines.first { $0.machine.template == HelperSpec.team.task } }
 
+    var factKeepers: [HelperModel] {
+        MachineTemplate.addable.flatMap { template in machines.filter { $0.machine.template == template.spec.task } }
+    }
+
     var sentinel: HelperModel? { machines.first { $0.machine.template == HelperSpec.derailment.task } }
 
     var crew: [HelperModel] { machines.filter { $0 !== timeline } }

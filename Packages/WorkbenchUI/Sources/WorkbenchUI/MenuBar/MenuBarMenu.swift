@@ -36,7 +36,12 @@ struct MenuBarMenu: View {
                 capture.mode = $0 ? .privateHour : .on
             })
         Divider()
-        SettingsLink { Text("Settings…") }.keyboardShortcut(",")
+        Button("Settings…") {
+            navigation.openSettings()
+            openWindow(id: WorkbenchApp.mainWindowID)
+            NSApp.activate()
+        }
+        .keyboardShortcut(",")
         Button("Quit Workbench") { NSApp.terminate(nil) }.keyboardShortcut("q")
     }
 
