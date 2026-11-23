@@ -5,7 +5,6 @@ import Foundation
 public struct SharedMachine: TeamFile, Equatable, Identifiable {
     public static let subfolder = ""
 
-    /// How the machine did for its author, in counts only.
     public struct Record: Codable, Sendable, Equatable {
         public var runs = 0
         public var kept = 0
@@ -74,7 +73,6 @@ public struct SharedMachine: TeamFile, Equatable, Identifiable {
     public var fileParts: [String] { [spec.task] }
 }
 
-/// Names in the team folder.
 public enum TeamFolder {
     /// Letters, digits, dash, dot and underscore only, with no leading dot: a name cannot leave its folder or hide.
     public static func safe(_ text: String) -> String {
@@ -142,7 +140,6 @@ public struct MachineReview: TeamFile, Equatable, Identifiable {
     public static let subfolder = "reviews"
 
     public var reviewer: String
-    /// The machine's author and task, and the version reviewed.
     public var author: String
     public var task: String
     public var version: String

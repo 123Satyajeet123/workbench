@@ -102,7 +102,6 @@ public struct CaptureEngine: Sendable {
         idle = false
     }
 
-    /// The letters and digits of a title: a spinner or a counter glyph in front of the same words is the same title.
     static func titleLetters(_ title: String) -> String {
         String(String.UnicodeScalarView(title.lowercased().unicodeScalars.filter(CharacterSet.alphanumerics.contains)))
     }

@@ -24,7 +24,6 @@ public struct Machine: Sendable, Equatable, Identifiable {
     }
 }
 
-/// The team the founder works with, and its people.
 public struct Team: Sendable, Equatable {
     public struct Person: Sendable, Equatable, Identifiable {
         public var id: Int64?

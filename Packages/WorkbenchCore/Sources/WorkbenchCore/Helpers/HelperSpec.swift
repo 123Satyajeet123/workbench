@@ -27,7 +27,6 @@ public struct HelperSpec: Codable, Sendable, Equatable {
             }
         }
 
-        /// What one line of this source is, for the founder.
         public var lineNoun: String {
             switch self {
             case .whatsappChat: "messages"
@@ -39,7 +38,6 @@ public struct HelperSpec: Codable, Sendable, Equatable {
             }
         }
 
-        /// What the model is told about the lines it reads.
         var lines: String {
             switch self {
             case .whatsappChat: SourceDescriptor.whatsAppChat.grammar
@@ -71,7 +69,6 @@ public struct HelperSpec: Codable, Sendable, Equatable {
             /// Free text. A required field may not be empty.
             case text(required: Bool)
             case choice([String])
-            /// A name from a context set the source gives, such as the group's members.
             case member(of: String)
             /// A short name that should stay the same over days, such as a project: the values this machine used
             /// before are shown under `set` for reuse, and a new one is allowed. Never empty.
@@ -96,7 +93,6 @@ public struct HelperSpec: Codable, Sendable, Equatable {
         }
 
         public var name: String
-        /// What the field holds, as the model is told.
         public var meaning: String
         public var kind: Kind
 
@@ -114,9 +110,7 @@ public struct HelperSpec: Codable, Sendable, Equatable {
     public enum View: Codable, Sendable, Equatable {
         /// One section per value of a field, with every name of a context set shown, even with no item.
         case board(groupBy: String, expected: String)
-        /// Items in time order with their span.
         case timeline
-        /// One row per item, one column per field.
         case table
         /// One section per value of a choice field, in the choice's order: hot, warm, cold.
         case grouped(by: String)
@@ -151,9 +145,7 @@ public struct HelperSpec: Codable, Sendable, Equatable {
     /// answered, a decision reversed (research 32).
     public struct Lifecycle: Codable, Sendable, Equatable {
         public var field: String
-        /// The values of `field` whose items stay open.
         public var open: [String]
-        /// How a line may close one.
         public var outcomes: [String]
         /// The field that names who owns a fact. A fact's identity is its owner and its deliverable: a `same_as`
         /// relation must name an open fact with the same owner. Nil: no owner check.
@@ -238,12 +230,9 @@ public struct HelperSpec: Codable, Sendable, Equatable {
     public var fields: [Field]
     public var citation: Citation
     public var view: View
-    /// The field shown as an item's main line, and the fields shown beside it.
     public var title: String
     public var badges: [String]
-    /// A choice value's tone, for the mark beside an item.
     public var tones: [String: Tone]
-    /// What one item is called on screen: "entries", "blocks".
     public var itemsNoun: String
     public var nudge: Nudge?
     /// Nil for a machine whose items are only things that happened.

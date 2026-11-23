@@ -1,7 +1,6 @@
 import Foundation
 import Kernel
 
-/// One thing a helper proposed: its fields, the evidence it cites, the words it relied on, and the founder's mark.
 public struct Item: Sendable, Equatable, Identifiable {
     public var id: Int64?
     public var task: String
@@ -34,7 +33,6 @@ public struct Item: Sendable, Equatable, Identifiable {
     /// The person the founder handed the fact to, who owns it from then on; nil when it was never handed off or was
     /// taken back.
     public var handedTo: String?
-    /// Set when the founder hid the item or snoozed it; nil otherwise. See `isHidden(at:)`.
     public var hiding: Hiding?
     /// Where the quote is in the line it came from. Nil for an item whose quote is not from a line: a fact the person
     /// typed, or a finding that quotes the words of a fact it cites.

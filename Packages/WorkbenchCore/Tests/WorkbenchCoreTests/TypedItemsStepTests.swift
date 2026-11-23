@@ -4,7 +4,6 @@ import Testing
 
 @testable import WorkbenchCore
 
-/// Step 7 lets a typed fact have no run, and moves the old deal actions, which a fake run stood for, to the kind `typed`.
 @Suite struct TypedItemsStepTests {
     private func storeAtStepSix() throws -> URL {
         let folder = temporaryDirectory()

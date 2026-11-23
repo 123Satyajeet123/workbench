@@ -4,7 +4,6 @@ import Foundation
 /// the overall call from the rule results (`Triage`); the model never does.
 public struct Criteria: Codable, Sendable, Equatable {
     public var rules: [Rule]
-    /// Points a deal needs to be hot (see `Criteria.table`).
     public var hotAt: Int
 
     public init(rules: [Rule] = [], hotAt: Int = 1) {
@@ -22,7 +21,6 @@ public struct Criteria: Codable, Sendable, Equatable {
     public func rule(_ id: String) -> Rule? { rules.first { $0.id == id } }
 }
 
-/// One thing the investor wants, avoids or measures, and what it means for the call.
 public struct Rule: Codable, Sendable, Equatable, Identifiable {
     /// What a rule does to the call. Must and deal-breaker act when the rule fails; plus when it passes; minus when
     /// it fails.
@@ -62,7 +60,6 @@ public struct Rule: Codable, Sendable, Equatable, Identifiable {
     /// A rule id never reused, so a judgment made for an earlier rule cannot be read as this one's.
     public static func newID() -> String { "r_" + UUID().uuidString.prefix(6).lowercased() }
 
-    /// The rule in the investor's words, for lists and the why card.
     public var summary: String {
         switch test {
         case .number(let number): number.summary
@@ -141,7 +138,6 @@ public struct TextTest: Codable, Sendable, Equatable {
 }
 
 extension Double {
-    /// A number without a trailing ".0".
     public var shown: String { rounded() == self ? String(Int(self)) : String(self) }
 }
 

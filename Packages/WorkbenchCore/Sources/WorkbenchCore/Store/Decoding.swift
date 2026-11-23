@@ -6,7 +6,6 @@ extension Date {
     var stored: String { ISO8601Format() }
 }
 
-/// A column of a row, named or counted from zero.
 protocol ColumnKey: CustomStringConvertible {
     func decode<T: DatabaseValueConvertible>(_ type: T.Type, from row: Row) throws -> T
 }
@@ -23,7 +22,6 @@ extension Int: ColumnKey {
     }
 }
 
-/// A value that is stored but not valid for its type: a date that is not ISO 8601, or an unknown case.
 struct StoredValueError: Error, CustomStringConvertible {
     let column: String
 
@@ -61,7 +59,6 @@ extension Row {
         return value
     }
 
-    /// A text column that holds JSON for `T`.
     func json<T: Decodable>(_ column: some ColumnKey, as type: T.Type = T.self) throws -> T {
         try Coding.value(type, from: try value(column))
     }

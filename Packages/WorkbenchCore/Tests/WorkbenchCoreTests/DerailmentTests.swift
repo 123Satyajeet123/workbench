@@ -36,7 +36,6 @@ private func finding(
 private func reply(_ findings: String...) -> String { #"{"items":["# + findings.joined(separator: ",") + "]}" }
 
 @Suite struct DerailmentTests {
-    /// A store with Pip holding two open facts from day one, and a Sentinel spec that follows it.
     private func watch() async throws -> (store: Store, sentinel: HelperSpec) {
         let store = try makeStore()
         let pip = try store.createMachine(from: .team, name: "Pip")

@@ -3,7 +3,6 @@ import Foundation
 /// The day's summaries of one machine's items, one per value of a field (a person or a project). Kept in the store and
 /// written again only for a scope whose items changed: a new reading, a mark or a close.
 public struct Summaries: Sendable {
-    /// A scope with what a kept summary of it must match to stay current.
     private struct Group {
         var scope: SummaryScope
         var fingerprint: String
@@ -78,12 +77,10 @@ public struct Summaries: Sendable {
 }
 
 extension HelperSpec {
-    /// The first field that names a member (a person).
     public var memberField: String? {
         fields.first { if case .member = $0.kind { true } else { false } }?.name
     }
 
-    /// The first field that names a label (a project).
     public var labelField: String? {
         fields.first { if case .label = $0.kind { true } else { false } }?.name
     }

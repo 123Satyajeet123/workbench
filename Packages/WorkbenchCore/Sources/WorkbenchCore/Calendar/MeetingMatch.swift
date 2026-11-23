@@ -1,12 +1,10 @@
 import Foundation
 
-/// What a meeting links to: a person Workbench has facts about, or a deal.
 public enum MeetingSubject: Sendable, Equatable {
     case person(String)
     case deal(String)
 }
 
-/// A deal as the matcher knows it: the names and the web domains it goes by.
 public struct DealIdentity: Sendable, Equatable {
     public var id: String
     public var names: [String]
@@ -51,7 +49,6 @@ public enum MeetingMatch {
         return found.reduce(into: []) { if !$0.contains($1) { $0.append($1) } }
     }
 
-    /// Every web domain written in `text`, as a bare domain or after the `@` of an email.
     public static func domains(in text: String) -> [String] {
         text.split { $0.isWhitespace || "<>,;()\"'".contains($0) }.compactMap { word in
             let host = word.split(separator: "@", omittingEmptySubsequences: false).last ?? ""

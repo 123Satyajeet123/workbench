@@ -6,7 +6,6 @@ import Synchronization
 /// The claim types the built-in deal intake machine lists.
 let fundClaimTypes = MachineTemplate.dealIntake.spec.claimTypes!
 
-/// Answers each call with the next reply in the list, and remembers each input.
 final class SequencedModel: StructuredModel, Sendable {
     let name = "sequenced"
     private let replies: Mutex<[String]>
@@ -25,7 +24,6 @@ final class SequencedModel: StructuredModel, Sendable {
     }
 }
 
-/// A search provider that records every query and answers with fixed hits.
 final class FakeSearch: SearchProvider, Sendable {
     let queries = Mutex<[String]>([])
     let hits: [SearchHit]
@@ -38,7 +36,6 @@ final class FakeSearch: SearchProvider, Sendable {
     }
 }
 
-/// A fetcher that records every address and answers from a table of pages.
 final class FakePages: PageFetching, Sendable {
     let fetched = Mutex<[URL]>([])
     let pages: [URL: String]

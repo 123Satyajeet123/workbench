@@ -87,7 +87,6 @@ extension Queries {
         }
     }
 
-    /// The names of the decks stored for a message.
     public func deckNames(ofMessage messageID: String) throws -> Set<String> {
         try reader.read { db in
             Set(

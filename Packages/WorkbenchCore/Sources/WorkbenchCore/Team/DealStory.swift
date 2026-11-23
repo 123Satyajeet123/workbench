@@ -17,7 +17,6 @@ public struct DealStory: Equatable, Sendable {
         public var text: String
     }
 
-    /// The counts the ribbon shows.
     public struct Ribbon: Equatable, Sendable {
         /// Where its items were captured from, once each, in the order they came.
         public var sources: [String]
@@ -40,7 +39,6 @@ public struct DealStory: Equatable, Sendable {
         }
     }
 
-    /// A mark of one item and when it was made.
     public struct Marked: Equatable, Sendable {
         public var state: Mark
         public var at: Date
@@ -142,7 +140,6 @@ public struct DealStory: Equatable, Sendable {
 }
 
 extension SourceKind {
-    /// Where an item came from, for a person.
     public var capturedFrom: String {
         switch self {
         case .whatsapp: "WhatsApp"

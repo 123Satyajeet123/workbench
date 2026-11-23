@@ -122,7 +122,6 @@ extension Queries {
             ?? WebSettings()
     }
 
-    /// The queries sent in the calendar month of `date`.
     public func webQueriesSent(inMonthOf date: Date) throws -> Int {
         try state(forKey: Store.webQueryKey(date)).flatMap { Int($0) } ?? 0
     }

@@ -1,7 +1,6 @@
 import Foundation
 import Testing
 
-/// The shipped extension's scripts, by path inside the Extension folder.
 enum ExtensionFiles {
     static let folder = NoEgressTests.repo.appending(path: "Extension")
 

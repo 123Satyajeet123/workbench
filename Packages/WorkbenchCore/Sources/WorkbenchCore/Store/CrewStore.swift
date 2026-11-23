@@ -177,7 +177,6 @@ extension Queries {
 }
 
 extension Machine {
-    /// A row of `machine_now`.
     init(row: Row) throws {
         let template: String = try row.value("template")
         self.init(

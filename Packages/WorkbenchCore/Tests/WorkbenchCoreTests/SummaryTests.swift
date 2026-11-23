@@ -36,7 +36,6 @@ private struct Fixture {
         (try? store.writer.read { try Int.fetchOne($0, sql: "SELECT COUNT(*) FROM summary") }) ?? -1
     }
 
-    /// Adds one item of `person`, found in `source`.
     func plant(_ person: String, _ text: String, in source: SourceKind = .whatsapp, line: Int64) throws {
         let run = try store.beginRun(task: "probe", model: "m", prompt: "p", input: text, kinds: [source])
         let item = Item(

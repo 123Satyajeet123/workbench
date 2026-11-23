@@ -25,7 +25,6 @@ func grant(_ kind: SourceKind, label: String? = nil, at now: Date = t0) -> Captu
         .authorize(CaptureRequest(kind: kind, label: label), at: now).grant!
 }
 
-/// Answers every call with one fixed JSON reply, or an error, and remembers each input.
 final class ScriptedModel: StructuredModel, Sendable {
     let name = "scripted"
     private let reply: Result<String, StructuredModelError>

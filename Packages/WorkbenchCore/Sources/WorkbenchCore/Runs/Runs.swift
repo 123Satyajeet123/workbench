@@ -3,7 +3,6 @@ import GRDB
 
 public typealias RunID = Int64
 
-/// One model call: what was asked of which model, what it cost and how it ended.
 public struct Run: Sendable, Equatable, Identifiable {
     public enum Outcome: String, Sendable, CaseIterable {
         case running, done, failed
@@ -35,7 +34,6 @@ public struct RunText: Sendable, Equatable {
     /// The input also holds text whose consent kind is not known: every source delete removes this text.
     public var holdsUnknown = false
 
-    /// How an unknown kind is written among the stored kinds.
     static let unknownKind = "unknown"
 }
 
@@ -204,9 +202,7 @@ extension RunText {
     }
 }
 
-/// The founder's judgement of one thing a model proposed. Marks give each task its precision.
 public enum Mark: String, Codable, CaseIterable, Sendable {
-    /// From the model, not yet seen by the founder.
     case proposed
     case confirmed, rejected
 

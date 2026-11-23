@@ -6,7 +6,6 @@ import Testing
 private let day = WorkDay(containing: t0)
 private func at(_ minutes: Double) -> Date { day.start.addingTimeInterval(minutes * 60) }
 
-/// Three messages of a team chat, with the members Asha and Bharat.
 private let chat = EvidenceSet(
     lines: [
         Evidence(id: 10, start: at(900), line: "Kabir (founder): ki aaj kya kiya?", quotable: ["ki aaj kya kiya?"]),
@@ -18,7 +17,6 @@ private let chat = EvidenceSet(
             quotable: ["\u{0915}\u{093C}\u{0932}  tak deploy"]),
     ], context: ["members": ["Asha", "Bharat"]])
 
-/// Four screen sessions of an hour and a half.
 private let screen = EvidenceSet(lines: [
     Evidence(id: 1, start: at(0), end: at(40), line: "Terminal — app — claude", quotable: ["app — claude", ""]),
     Evidence(

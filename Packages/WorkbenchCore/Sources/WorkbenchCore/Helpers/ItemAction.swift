@@ -3,13 +3,11 @@ import Foundation
 /// What the founder does with a fact, or with the facts a summary line cites. Every action is a row in the event or
 /// mark tables, so each can be taken back.
 public enum ItemAction: Sendable, Hashable {
-    /// Close it with an outcome of the machine's lifecycle.
     case done(outcome: String)
     /// Hide it. The fact was read right, so this counts as a right mark.
     case notRelevant
     /// Hide it. The fact was read wrong, so this counts as a rejected mark.
     case wrong
-    /// Hide it until the start of a work day.
     case snooze(until: WorkDay)
     /// Give it to another person: it waits on them from now. Undo takes it back to its first owner.
     case handOff(to: String)

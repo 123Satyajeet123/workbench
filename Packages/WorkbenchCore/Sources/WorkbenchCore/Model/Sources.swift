@@ -13,7 +13,6 @@ public enum SourceKind: String, Codable, CaseIterable, Sendable {
     case note
     case whatsapp
     case call
-    /// Gmail threads opened inside one named label, read by the browser extension.
     case mail
     /// Today's events in the calendars the person chose, read through EventKit. Nothing is stored.
     case calendar

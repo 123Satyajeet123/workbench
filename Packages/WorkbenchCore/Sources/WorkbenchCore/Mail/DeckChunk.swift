@@ -5,12 +5,10 @@ import Foundation
 public struct DeckChunk: Codable, Sendable, Equatable {
     public var type = "mail_deck"
     public var context: MailContext
-    /// The attached file's name.
     public var name: String
     /// Counts from 0.
     public var index: Int
     public var count: Int
-    /// Base64 of this piece of the file.
     public var data: String
 
     public init(context: MailContext, name: String, index: Int, count: Int, data: String) {

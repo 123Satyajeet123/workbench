@@ -21,7 +21,6 @@ public struct MorningBrief: Codable, Sendable, Equatable {
         public var cites: [Int64]
     }
 
-    /// The day the brief covers.
     public var day: String
     /// One sentence: the single thing that most needs the founder today, or that nothing does.
     public var headline: String

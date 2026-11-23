@@ -1,7 +1,6 @@
 import Foundation
 
 extension HelperSpec {
-    /// The field code sets from the criteria, such as a deal's rating.
     public var computedField: String? {
         fields.first { $0.kind.isComputed }?.name
     }

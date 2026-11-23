@@ -3,7 +3,6 @@ import Testing
 
 @testable import WorkbenchCore
 
-/// Every reply is checked against its schema in code, whatever the model promised.
 @Suite struct ReplySchemaTests {
     private let schema = JSONSchema.object([
         .init("kind", .enumeration(["a", "b"])), .init("cite", .integer), .init("ok", .boolean),

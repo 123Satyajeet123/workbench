@@ -73,7 +73,6 @@ public struct HelperReader: Sendable {
         return Result(items: items, links: links, dropped: proposals.drops.count, run: run)
     }
 
-    /// The brief, then the rules every helper of this shape follows.
     public var instructions: String {
         let fieldRules = spec.fields.compactMap { field -> String? in
             switch field.kind {

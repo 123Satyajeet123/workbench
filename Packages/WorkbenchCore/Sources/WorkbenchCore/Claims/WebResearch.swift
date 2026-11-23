@@ -31,7 +31,6 @@ public struct SearchHit: Sendable, Equatable {
     }
 }
 
-/// A page as fetched: its address and its text, as plain text.
 public struct FetchedPage: Sendable, Equatable {
     public var url: URL
     public var text: String

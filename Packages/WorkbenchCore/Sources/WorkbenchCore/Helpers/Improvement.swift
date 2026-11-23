@@ -15,7 +15,6 @@ public struct Decision: Sendable, Equatable {
     public var task: String
     public var kind: Kind
     public var by: By
-    /// The brief the decision is about, and the brief it came from.
     public var brief: String
     public var parentBrief: String
     public var detail: [String: String]
@@ -157,7 +156,6 @@ extension Store {
 }
 
 extension Queries {
-    /// A machine's decisions, newest first.
     public func decisions(of task: String) throws -> [Decision] {
         try reader.read { db in
             try db.fetch(
@@ -187,7 +185,6 @@ extension Queries {
         return Dictionary(orders.map { ($0.item, $0.mark) }, uniquingKeysWith: { a, _ in a })
     }
 
-    /// Days on which the founder marked at least one of the task's items, newest first.
     public func markedDays(of task: String) throws -> [WorkDay] {
         try reader.read { db in
             try db.fetch(

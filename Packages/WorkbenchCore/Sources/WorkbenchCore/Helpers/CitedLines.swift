@@ -1,6 +1,5 @@
 import Foundation
 
-/// One item and the machine that found it, as a model reads it.
 public struct CitedSource: Sendable {
     public var machine: String
     public var fields: [String]

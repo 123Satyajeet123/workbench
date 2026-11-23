@@ -1,7 +1,5 @@
 import Foundation
 
-/// A machine Mochi proposes: what it would do, from which template, and the blocks of the founder's days that show the
-/// job repeats.
 public struct Proposal: Sendable, Equatable, Identifiable {
     public enum Decision: String, Sendable, CaseIterable {
         case waiting, accepted, rejected, later
@@ -46,11 +44,9 @@ public struct Mochi: Sendable {
         public var run: RunID?
     }
 
-    /// A template Mochi may build from: its id (a spec task) and what it does.
     public struct Template: Sendable {
         public var id: String
         public var does: String
-        /// The views a machine from this template can show.
         public var views: [String]
 
         public init(id: String, does: String, views: [String]) {
@@ -116,7 +112,6 @@ public struct Mochi: Sendable {
         self.model = model
     }
 
-    /// Distinct days among `blocks`.
     public static func days(in blocks: [Item]) -> Int { Set(blocks.map(\.day)).count }
 
     public func propose(

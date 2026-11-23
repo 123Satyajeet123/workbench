@@ -19,7 +19,6 @@ public struct Evidence: Sendable, Equatable {
     public var end: Date?
     /// What follows the time on the line, kept on one line: a newline in a message cannot start a line of its own.
     public var line: String
-    /// The texts a quote may be taken from.
     public var quotable: [String]
     /// The stored line behind this one, when its source keeps lines in the evidence store: a run records it, so the
     /// number a model cites resolves to this line later.
@@ -47,7 +46,6 @@ public struct Evidence: Sendable, Equatable {
     func contains(quote: String) -> Bool { quotable.contains { $0.contains(quote: quote) } }
 }
 
-/// What a source gives a helper for one day: the lines, and named sets such as the group's members.
 public struct EvidenceSet: Sendable, Equatable {
     public var lines: [Evidence]
     public var context: [String: [String]]

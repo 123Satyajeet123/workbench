@@ -21,7 +21,6 @@ public indirect enum JSONSchema: Sendable, Equatable {
     case number
     case enumeration([String])
 
-    /// The schema of a string-valued enum: one of its raw values.
     public static func choice<E: CaseIterable & RawRepresentable>(_ type: E.Type) -> JSONSchema
     where E.RawValue == String {
         .enumeration(type.allCases.map(\.rawValue))
@@ -81,7 +80,6 @@ public indirect enum JSONSchema: Sendable, Equatable {
     }
 }
 
-/// What one model call cost, as the model reported it.
 public struct Usage: Codable, Sendable, Equatable {
     public var inputTokens: Int
     public var cacheReadTokens: Int
@@ -113,10 +111,8 @@ public struct Usage: Codable, Sendable, Equatable {
 
 public struct ModelAnswer<Value: Sendable>: Sendable {
     public var value: Value
-    /// The model that answered, as it named itself.
     public var model: String
     public var usage: Usage
-    /// The reply as the model gave it: JSON text.
     public var reply: String
 
     public init(value: Value, model: String, usage: Usage, reply: String) {
@@ -143,7 +139,6 @@ extension StructuredModel {
 }
 
 public enum StructuredModelError: Error, Equatable {
-    /// The reply did not decode into the schema.
     case invalidReply(String)
     case unavailable(String)
 }

@@ -69,7 +69,6 @@ public struct ActivityFilter: Sendable {
 }
 
 extension Store {
-    /// How often the log is checkpointed when a reader still holds it, before the delete reports failure.
     static let checkpointAttempts = 3
 
     /// The one way captured data leaves the store: rows in one transaction, then their files, then the log. The

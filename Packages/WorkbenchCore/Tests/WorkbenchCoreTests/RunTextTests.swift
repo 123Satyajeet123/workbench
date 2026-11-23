@@ -7,14 +7,12 @@ import Testing
 
 private let schema = JSONSchema.object([.init("items", .array(.string))])
 
-/// A clock the test moves.
 private final class MovingClock: Sendable {
     private let date = Mutex(t0)
     var current: Date { date.withLock { $0 } }
     func move(to newDate: Date) { date.withLock { $0 = newDate } }
 }
 
-/// A store on a moving clock, and a way to start a run at a chosen time.
 private final class Timeline: Sendable {
     let clock = MovingClock()
     let store: Store

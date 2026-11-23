@@ -7,7 +7,6 @@ public enum EvalSplit: String, Sendable, CaseIterable {
     case dev
     case heldOut = "held_out"
 
-    /// Out of ten days, this many are held out.
     public static let heldOutTenths = 3
 
     public init(_ day: WorkDay) {
@@ -16,7 +15,6 @@ public enum EvalSplit: String, Sendable, CaseIterable {
     }
 }
 
-/// The founder's marks on one set of days.
 public struct Tally: Sendable, Equatable {
     public var confirmed = 0
     public var rejected = 0
@@ -85,7 +83,6 @@ public struct Quality: Sendable, Equatable, Identifiable {
 }
 
 extension Store {
-    /// Keeps the text of a prompt version the first time it is used.
     func keepPrompt(hash: String, task: String, instructions: String, schema: String) throws {
         try writer.write { db in
             try db.execute(

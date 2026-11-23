@@ -23,7 +23,6 @@ extension Item {
     }
 }
 
-/// The facts of one person or one project.
 public struct FactGroup: Sendable, Equatable, Identifiable {
     public var name: String
     /// Facts still open, the soonest due first, then the newest.

@@ -71,7 +71,6 @@ extension Queries {
         try storedSummaries(day: day, task: task, field: field).values.map(\.summary).sorted { $0.scope < $1.scope }
     }
 
-    /// The summaries kept for one day, machine and grouping field, by scope.
     func storedSummaries(day: WorkDay, task: String, field: String) throws -> [String: StoredSummary] {
         try reader.read { db in
             let rows = try db.fetch(

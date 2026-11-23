@@ -363,7 +363,6 @@ struct ExtensionBackgroundTests {
     }
 }
 
-/// A Chromium found on this Mac, driven only to print a page's DOM.
 enum Chromium {
     static let binary: URL? = {
         let home = FileManager.default.homeDirectoryForCurrentUser
@@ -378,7 +377,6 @@ enum Chromium {
         return (shells + apps).first { FileManager.default.isExecutableFile(atPath: $0.path) }
     }()
 
-    /// The page's DOM after its scripts ran, from a browser with a throwaway profile.
     static func dump(_ page: URL, profile: URL) throws -> String {
         let process = Process()
         process.executableURL = binary

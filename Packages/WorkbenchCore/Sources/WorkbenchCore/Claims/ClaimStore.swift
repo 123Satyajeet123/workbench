@@ -63,7 +63,6 @@ extension Store {
         try saveState(try Coding.json(ids), forKey: Self.chosenKey(deal))
     }
 
-    /// The second mark of a check: is its quote right.
     public func markQuote(of item: Int64, as mark: Mark) throws {
         try writer.write { db in
             try db.execute(

@@ -1,6 +1,5 @@
 import Foundation
 
-/// A stretch of time on one window: one app, one title, one address.
 public struct ScreenSession: Sendable, Equatable {
     /// The id the model cites: the evidence line of the stretch, or, before it is stored, the activity row that opened
     /// it (a window, or back from idle).

@@ -26,7 +26,6 @@ public struct Summary: Codable, Sendable, Equatable {
     public var run: RunID
 }
 
-/// A scope and the day's items in it.
 public struct SummaryScope: Sendable {
     public var name: String
     public var sources: [CitedSource]

@@ -1,10 +1,8 @@
 import Foundation
 
-/// Where in Gmail the extension read something: one message of one thread, opened inside one label.
 public struct MailContext: Codable, Sendable, Equatable {
     /// The browser's bundle id. The app sets it from the process that sent the message, never from the message.
     public var browser = ""
-    /// The address of the Gmail tab.
     public var url: String
     public var label: String
     public var threadId: String

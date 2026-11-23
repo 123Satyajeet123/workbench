@@ -10,7 +10,6 @@ public struct MemoryEntry: Sendable, Equatable, Identifiable {
     public var text: String
     /// The exact words a citation must quote from.
     public var quote: String
-    /// The consent kinds the entry's text came from.
     public var kinds: Set<SourceKind>
     /// The text came from a source of unknown kind, as an old shared item did: a run that holds it falls to every
     /// source delete.
@@ -37,7 +36,6 @@ public struct Asker: Sendable {
         /// Nil when the model found no answer it could cite.
         public var text: String?
         public var cited: [MemoryEntry]
-        /// How many entries the search gave the model.
         public var searched: Int
     }
 
@@ -57,7 +55,6 @@ public struct Asker: Sendable {
     }
 
     public static let task = "memory.ask"
-    /// Entries the search gives one question at most.
     public static let limit = 30
 
     public static let instructions = """

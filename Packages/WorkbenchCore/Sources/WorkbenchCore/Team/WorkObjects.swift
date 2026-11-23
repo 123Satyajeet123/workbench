@@ -39,7 +39,6 @@ public struct WorkEvent: Codable, Sendable, Equatable, Identifiable {
     }
 }
 
-/// An item as linked to a work object: its fields, quote and its author's mark, and who may read it.
 public struct LinkedItem: Codable, Sendable, Equatable {
     public var machine: String
     public var day: String
@@ -72,7 +71,6 @@ public struct LinkedItem: Codable, Sendable, Equatable {
     public func isVisible(to person: String) -> Bool { audience.contains(person) }
 }
 
-/// A work object as one viewer sees it, folded from everyone's events.
 public struct WorkObject: Sendable, Equatable, Identifiable {
     public var id: String
     public var kind: String

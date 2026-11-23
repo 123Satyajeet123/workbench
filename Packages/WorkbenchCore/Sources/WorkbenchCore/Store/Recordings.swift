@@ -1,7 +1,6 @@
 import Foundation
 import GRDB
 
-/// One recorded call: two audio files in its own folder under the store.
 public struct Recording: Sendable, Equatable, Identifiable {
     public enum State: String, Sendable, CaseIterable { case recording, saved, failed }
 
@@ -46,7 +45,6 @@ extension Store {
         }
     }
 
-    /// A recording still open when the app starts was cut off: the app stopped during the call.
     public func closeInterruptedRecordings() throws {
         try writer.write { db in
             try db.execute(

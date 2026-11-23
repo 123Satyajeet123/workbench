@@ -4,7 +4,6 @@ import Foundation
 
 @testable import WorkbenchCore
 
-/// A page of a test deck: text in the PDF's text layer, or the same words drawn as a picture with no text layer.
 enum DeckPage {
     case text(String)
     case picture(String)
@@ -12,7 +11,6 @@ enum DeckPage {
 
 private let pageBox = CGRect(x: 0, y: 0, width: 600, height: 120)
 
-/// A PDF with one page per entry.
 func makeDeck(_ pages: [DeckPage]) -> Data {
     let data = NSMutableData()
     var box = pageBox
@@ -29,7 +27,6 @@ func makeDeck(_ pages: [DeckPage]) -> Data {
     return data as Data
 }
 
-/// The words in large black type on white, as a bitmap.
 func picture(of words: String) -> CGImage {
     let scale: CGFloat = 2
     let context = CGContext(
@@ -51,7 +48,6 @@ private func draw(_ words: String, in context: CGContext) {
     CTLineDraw(CTLineCreateWithAttributedString(NSAttributedString(string: words, attributes: attributes)), context)
 }
 
-/// The deck cut into chunks of `size` bytes, in order.
 func chunks(of deck: Data, name: String, context: MailContext, size: Int) -> [DeckChunk] {
     let pieces = stride(from: 0, to: deck.count, by: size).map { deck[$0..<min($0 + size, deck.count)] }
     return pieces.enumerated().map { index, piece in

@@ -35,7 +35,6 @@ extension Store {
 }
 
 extension Queries {
-    /// Every proposal, newest first.
     public func proposals() throws -> [Proposal] {
         try reader.read { db in
             try db.fetch(
@@ -47,7 +46,6 @@ extension Queries {
 }
 
 extension Proposal {
-    /// A row of `proposal_now`.
     init(row: Row) throws {
         self.init(
             id: try row.optionalValue("id"), run: try row.value("run_id"), name: try row.value("name"),

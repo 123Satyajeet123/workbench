@@ -5,11 +5,9 @@ import Foundation
 public struct PastDeal: Codable, Sendable, Equatable, Identifiable {
     public var id: String
     public var company: String
-    /// The pasted deck or pitch text the model reads.
     public var text: String
     /// Where the deck was, kept for the investor's reference; Workbench does not fetch it.
     public var url: String?
-    /// The investor's own call.
     public var call: Rating
     /// The rule readings of the latest model reading; nil until the deal is read.
     public var reading: [String: String]?
@@ -59,8 +57,6 @@ public struct AgreementReport: Sendable, Equatable {
     /// Deals the investor called hot that the criteria rated cold: the miss that costs most.
     public var hotMissed: Int { count(called: .hot, rated: .cold) }
     public var calledHot: Int { rows.filter { $0.deal.call == .hot }.count }
-    /// Deals that asked for the investor's review, so the share can be set against the research's 15 to 25 percent.
-    /// Read deals that wait for a new reading under the current rules.
     public var needingReading: Int { rows.filter(\.needsReading).count }
     public var needingReview: Int { rows.filter(\.triage.needsReview).count }
 

@@ -6,7 +6,6 @@ import Testing
 
 private let today = WorkDay(containing: t0)
 
-/// A store with one fact of Pip, from a finished run: a commitment of Asha.
 private struct Fixture {
     let store: Store
     let machine: Machine

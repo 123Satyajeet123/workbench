@@ -64,7 +64,6 @@ public struct SharedDay: TeamFile, Equatable, Identifiable {
     public func isVisible(to person: String) -> Bool { audience.contains(person) }
 }
 
-/// An act that left the founder's store, as logged.
 public struct Action: Sendable, Equatable {
     public var at: Date
     public var kind: String
@@ -94,7 +93,6 @@ extension Store {
 }
 
 extension Queries {
-    /// Each teammate's latest WhatsApp id, by member id.
     public func whatsappLinks() throws -> [Int64: String] {
         let links = try reader.read { db in
             try db.fetch(

@@ -9,7 +9,6 @@ import Testing
         Mochi.Template(id: "day.timeline", does: "turns screen sessions into blocks", views: ["table", "timeline"]),
     ]
 
-    /// One timeline block on each of `count` days, with ids, as the store hands them out.
     private func blocks(days count: Int, in store: Store) async throws -> [Item] {
         let model = RecordedModel(ScriptedModel(#"{"items":[]}"#), store: store)
         for offset in 0..<count {

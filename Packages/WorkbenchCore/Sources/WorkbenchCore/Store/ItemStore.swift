@@ -255,7 +255,6 @@ extension Queries {
         }
     }
 
-    /// One helper's items on one day, in time order.
     public func items(of task: String, day: WorkDay, scope: String) throws -> [Item] {
         try reader.read { db in try Self.items(db, of: task, day: day, scope: scope) }
     }

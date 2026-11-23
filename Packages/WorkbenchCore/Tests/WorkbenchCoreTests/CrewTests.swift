@@ -5,7 +5,6 @@ import Testing
 
 private let day = WorkDay(containing: t0)
 
-/// Gives `machine` one item from one run, as a reading would.
 private func addItem(to machine: Machine, in store: Store) async throws -> Item {
     let model = RecordedModel(ScriptedModel(#"{"items":[]}"#), store: store)
     let (_, run) = try await model.generate(

@@ -8,7 +8,6 @@ public enum StoreError: Error, Equatable {
     case fileNotRemoved(String)
     /// A row that cannot be read as its type: the table, the row's id and the reason.
     case unreadableRow(table: String, id: Int64?, reason: String)
-    /// A SQLite setting the store needs did not take effect.
     case settingNotApplied(String)
     /// The write-ahead log still holds rows after a checkpoint: another connection is reading it.
     case logNotTruncated
@@ -84,7 +83,6 @@ public final class Store: Sendable {
         }
     }
 
-    /// A small setting: the last value saved for a key.
     public func saveState(_ value: String, forKey key: String) throws {
         try writer.write { db in try Self.upsertState(db, key: key, value: value, savedAt: clock()) }
     }

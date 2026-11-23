@@ -81,7 +81,6 @@ public enum ClaimVerdict: String, Codable, CaseIterable, Sendable {
     }
 }
 
-/// The result of checking one claim, as kept.
 public struct ClaimCheck: Sendable, Equatable, Identifiable {
     /// Set when read from the store.
     public var id: Int64?

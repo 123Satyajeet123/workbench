@@ -10,7 +10,6 @@ public struct ScreenSnapshot: Equatable, Sendable {
     public var document: String
     public var title: String
     public var text: String
-    /// The focused element is a password field.
     public var secureFocus: Bool
     /// The app opens web addresses. A browser window with no address is never read.
     public var isBrowser: Bool

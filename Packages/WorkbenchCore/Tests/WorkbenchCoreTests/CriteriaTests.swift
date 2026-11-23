@@ -280,6 +280,5 @@ private func answered(_ rule: Rule, _ answer: String) -> [String: String] {
 }
 
 extension Dictionary where Key == String, Value == String {
-    /// The readings of two rules together.
     fileprivate func and(_ other: [String: String]) -> [String: String] { merging(other) { _, new in new } }
 }

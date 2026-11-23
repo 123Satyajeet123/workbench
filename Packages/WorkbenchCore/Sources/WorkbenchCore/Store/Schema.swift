@@ -199,7 +199,6 @@ enum Schema {
     ]
 
     private static let baseline = [
-        // Settings, consent, and every model call with its cost and yield.
         "CREATE TABLE state(key TEXT PRIMARY KEY, value TEXT NOT NULL, saved_at TEXT NOT NULL)",
         "CREATE TABLE consent(id INTEGER PRIMARY KEY, ts TEXT NOT NULL, policy TEXT NOT NULL)",
         """

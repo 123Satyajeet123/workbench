@@ -4,7 +4,6 @@ import Testing
 
 @testable import WorkbenchCore
 
-/// Step 5 rebuilds `item_event` while a store holds events from step 2.
 @Suite struct ItemActionsStepTests {
     private func storeAtStepFour() throws -> URL {
         let folder = temporaryDirectory()

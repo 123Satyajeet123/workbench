@@ -10,14 +10,11 @@ public enum Verdict: String, Sendable {
     case unknown
 }
 
-/// What one rule said about one deal, with the words it rests on.
 public struct RuleResult: Sendable, Equatable, Identifiable {
     public var rule: Rule
     public var verdict: Verdict
-    /// The number found, for a number rule.
     public var number: Double?
     public var quote: String?
-    /// The model's reason, for a want or avoid rule.
     public var reason: String?
     /// False when no reading answered this rule yet, such as a rule added after the deal was read.
     public var isRead: Bool
@@ -25,7 +22,6 @@ public struct RuleResult: Sendable, Equatable, Identifiable {
     public var id: String { rule.id }
 }
 
-/// The call on one deal and the steps that led to it, so the investor can check each one.
 public struct Triage: Sendable, Equatable {
     public var rating: Rating
     public var results: [RuleResult]

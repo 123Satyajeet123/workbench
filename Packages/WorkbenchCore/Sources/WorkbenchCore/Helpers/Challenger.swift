@@ -8,17 +8,14 @@ public struct Trial: Sendable, Equatable {
         case better, worse, notSure
     }
 
-    /// Challenger items that repeat a current item.
     public var same: Int
     /// Challenger items with no current twin, and current items the challenger did not give.
     public var added: [Item]
     public var dropped: [Item]
     /// Each marked difference in the order its mark was given: true where the challenger is right.
     public var outcomes: [Bool]
-    /// The e-value either direction must reach.
     public var threshold: Double
 
-    /// The trial task of a machine's challenger.
     public static func task(of task: String) -> String { "\(task)#trial" }
     public static func isTrial(_ task: String) -> Bool { task.hasSuffix("#trial") }
     public static func machineTask(of task: String) -> String { isTrial(task) ? String(task.dropLast(6)) : task }
