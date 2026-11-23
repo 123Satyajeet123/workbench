@@ -11,6 +11,8 @@ public enum ItemAction: Sendable, Hashable {
     case wrong
     /// Hide it until the start of a work day.
     case snooze(until: WorkDay)
+    /// Give it to another person: it waits on them from now. Undo takes it back to its first owner.
+    case handOff(to: String)
 }
 
 extension HelperSpec.Lifecycle {

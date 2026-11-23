@@ -96,7 +96,7 @@ run "71 a stale adapter writes lines" ../Extension/read/page.js 's/\n    if \(sh
 run "72 a class-name selector is used" ../Extension/read/interpret.js 's/querySelectorAll\(`\[\$\{name\}\]`\)/querySelectorAll(`.${name}`)/' WorkbenchCore
 run "73 a line without an id gets a made-up id" ../Extension/read/page.js 's/id: null, via: null, text/id: text, via: "text", text/' WorkbenchCore
 run "74 a replace deletes a fact the founder closed" $C/Store/ItemStore.swift 's/(            let known = try knownItems)/            try db.execute(sql: "DELETE FROM item WHERE task = ? AND day = ?", arguments: [spec.task, day.description])\n$1/' WorkbenchCore
-run "75 a model close overrides the founder's later reopen" $C/Store/SchemaFactLifecycle.swift 's/(CREATE VIEW item_status.*?PARTITION BY item_id ORDER BY )valid_at DESC, recorded_at DESC, id DESC/$1id DESC/s' WorkbenchCore
+run "75 a model close overrides the founder's later reopen" $C/Store/SchemaMorningList.swift 's/(CREATE VIEW item_status.*?PARTITION BY item_id ORDER BY )valid_at DESC, recorded_at DESC, id DESC/$1id DESC/s' WorkbenchCore
 run "76 a changed date makes a new fact" $C/Helpers/HelperReader+Relations.swift 's/(case \.sameAs\(let id\):\n)/$1                items.append(item)\n/' WorkbenchCore
 run "77 a handle outside the shown open set is applied" $C/Verify/Verifier+Spec.swift 's/(open\[index - 1\]\.id != nil\n        else \{ )throw Refusal\(\.unknownHandle\)( \})/$1guard let first = open.first else { throw Refusal(.unknownHandle) }; return first$2/' WorkbenchCore WorkbenchUI
 run "78 an erased line's words survive in a fact field" $C/Store/EvidenceCopies.swift 's/        try emptyModelWords\(ofItems: itemIDs, in: db\)\n//' WorkbenchCore
@@ -141,4 +141,10 @@ run "a mail line survives the label's removal" BaseKit/Sources/CaptureService/Ca
 run "a deck claim's label is unknown when its lines are known" $C/Mail/MailReading.swift 's/lineID: lineID,\n            provenance: provenance\)/lineID: lineID,\n            provenance: nil)/' WorkbenchCore WorkbenchUI
 run "a quoted mail block keeps the sender's authority" $C/Verify/Standing.swift 's/guard !forwarded else \{/guard !forwarded || true else {/' WorkbenchCore
 run "the position marker hides a stored line from a reading" WorkbenchUI/Sources/WorkbenchUI/Workbench/Helpers/HelperReading.swift 's/\$0\.lineID == nil && \$0\.id <= /\$0.id <= /' WorkbenchUI
+run "a closed fact shows in the morning list" $C/Helpers/MorningList.swift 's/let open = input\.facts\.filter \{ \$0\.closed == nil && /let open = input.facts.filter { /' WorkbenchCore WorkbenchUI
+run "a snoozed fact shows before its day" $C/Helpers/Item.swift 's/case \.snoozed\(let until\): now < until/case .snoozed: false/' WorkbenchCore WorkbenchUI
+run "a second morning notification on one day" $C/Helpers/MorningRitual.swift 's/        guard lastDecided != today else \{ return \.spent \}\n//' WorkbenchCore WorkbenchUI
+run "a notification while the screen is locked" $C/Helpers/MorningRitual.swift 's/case \.locked, \.asleep, \.screenOff: return \.away/case .locked, .asleep, .screenOff: return .ready/' WorkbenchCore WorkbenchUI
+run "the list ranks people" $C/Helpers/MorningList.swift 's/\.sorted \{ \$0\.owner\.localizedCaseInsensitiveCompare\(\$1\.owner\) == \.orderedAscending \}/.sorted { \$0.needs.count > \$1.needs.count }/' WorkbenchCore WorkbenchUI
+run "the first-run cutoff deletes facts" $C/Helpers/FirstRun.swift 's/(surface: surface\)\n            \}\n            return HandledBatch)/surface: surface)\n                try db.execute(sql: "DELETE FROM item WHERE id = ?", arguments: [id])\n            }\n            return HandledBatch/' WorkbenchCore WorkbenchUI
 echo DONE

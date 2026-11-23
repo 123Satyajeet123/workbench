@@ -35,7 +35,7 @@ extension Store {
             company: item["company"], domain: item["domain"].cleaned, reason: reason.cleaned ?? "", at: clock())
         try saveState(
             try Coding.json(try queries.rejections(task: item.task) + [entry]), forKey: Self.rejectionsKey(item.task))
-        try apply(.wrong, to: [id])
+        try apply(.wrong, to: [id], surface: .review)
     }
 
     /// "Add to Deals", after the deal exists: the candidate is marked right, and its domain is kept with the deal so a
@@ -52,7 +52,7 @@ extension Store {
     /// "Snooze": the candidate leaves the list until `day` and comes back with no new reading.
     public func snoozeCandidate(_ item: Item, until day: WorkDay) throws {
         guard let id = item.id else { return }
-        try apply(.snooze(until: day), to: [id])
+        try apply(.snooze(until: day), to: [id], surface: .review)
     }
 
     func recordOutboundRun(_ record: OutboundRunRecord, task: String) throws {

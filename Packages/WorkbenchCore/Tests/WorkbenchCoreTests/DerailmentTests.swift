@@ -186,7 +186,7 @@ private func reply(_ findings: String...) -> String { #"{"items":["# + findings.
         let (store, sentinel) = try await watch()
         let commitment = try #require(
             try store.queries.openItems(readBy: sentinel).first { $0["kind"] == "commitment" })
-        try store.close(item: try #require(commitment.id), as: "kept")
+        try store.close(item: try #require(commitment.id), as: "kept", surface: .today)
         #expect(try store.queries.openItems(readBy: sentinel, asOf: first).count == 2, "closed after day one started")
         #expect(try store.queries.openItems(readBy: sentinel, asOf: second).count == 1, "closed before day two")
         #expect(try store.queries.openItems(readBy: sentinel).count == 1)

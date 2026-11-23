@@ -77,7 +77,7 @@ private let dayTwo = EvidenceSet(
             ])
         let proposal = try #require(try store.queries.closeProposals(of: task).first)
         #expect(proposal.proposedClose == Item.Closed(outcome: "kept", quote: "deck sent", at: at(second, 600)))
-        try store.confirmClose(item: try #require(proposal.id))
+        try store.confirmClose(item: try #require(proposal.id), surface: .today)
         #expect(try store.queries.openItems(of: task, lifecycle: lifecycle).map { $0["kind"] } == ["question"])
         let closed = try store.queries.closedItems(of: task, from: first.start, to: first.end)
         #expect(closed.map { $0.closed?.outcome } == ["kept"] && closed.map { $0.closed?.quote } == [nil])
@@ -125,14 +125,14 @@ private let dayTwo = EvidenceSet(
         try await openDayOne(store)
         let lifecycle = HelperSpec.team.lifecycle!
         var open = try store.queries.openItems(of: HelperSpec.team.task, lifecycle: lifecycle)
-        try store.close(item: try #require(open[0].id), as: "dropped")
+        try store.close(item: try #require(open[0].id), as: "dropped", surface: .today)
         open = try store.queries.openItems(of: HelperSpec.team.task, lifecycle: lifecycle)
         #expect(open.map { $0["kind"] } == ["question"])
         let closed = try store.queries.items(of: HelperSpec.team.task, day: first, scope: "work")
             .first { $0["kind"] == "commitment" }
         #expect(closed?.closed?.outcome == "dropped" && closed?.closed?.quote == nil)
 
-        try store.reopen(item: try #require(closed?.id))
+        try store.reopen(item: try #require(closed?.id), surface: .today)
         try store.mark(item: try #require(open[0].id), as: .rejected)
         open = try store.queries.openItems(of: HelperSpec.team.task, lifecycle: lifecycle)
         #expect(open.map { $0["kind"] } == ["commitment"])
@@ -152,9 +152,9 @@ private let dayTwo = EvidenceSet(
         }
 
         now.withLock { $0 = at(first, 700) }
-        try store.close(item: question, as: "answered")
+        try store.close(item: question, as: "answered", surface: .today)
         now.withLock { $0 = at(second, 700) }
-        try store.close(item: commitment, as: "kept")
+        try store.close(item: commitment, as: "kept", surface: .today)
 
         #expect(try open(asOf: nil) == [])
         #expect(try open(asOf: second) == ["commitment"], "closed on the day: open as of its start; closed before: not")
@@ -162,7 +162,7 @@ private let dayTwo = EvidenceSet(
         #expect(try open(asOf: first.adding(days: -1)) == [], "nothing was opened before that day ended")
 
         now.withLock { $0 = at(second, 800) }
-        try store.reopen(item: question)
+        try store.reopen(item: question, surface: .today)
         #expect(try open(asOf: second) == ["commitment"], "a reopening after the day started does not count")
         #expect(try open(asOf: second.adding(days: 1)) == ["question"], "a reopening before it does")
     }
@@ -203,7 +203,8 @@ private let dayTwo = EvidenceSet(
             store, items: [closing("F1", "kept", cite: 20, quote: "login API shipped")], evidence: today)
         try store.saveReading(proposed, of: .team, day: second, scope: "work", grant: chatGrant)
         #expect(try store.queries.openItems(readBy: .team).count == 1, "a model close is a proposal")
-        try store.confirmClose(item: try #require(store.queries.closeProposals(of: HelperSpec.team.task).first?.id))
+        try store.confirmClose(
+            item: try #require(store.queries.closeProposals(of: HelperSpec.team.task).first?.id), surface: .today)
         #expect(try store.queries.openItems(readBy: .team).isEmpty)
         let closed = try store.queries.closedItems(of: HelperSpec.team.task, from: first.start, to: first.end)
         #expect(closed.map { $0.closed?.outcome } == ["kept"] && closed.map { $0["kind"] } == ["plan"])

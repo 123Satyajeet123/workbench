@@ -22,7 +22,7 @@ struct FactGroupsPage: View {
             intro: lens == .people ? .people : .projects, title: lens.title,
             subtitle: "The last \(TodayModel.days) days, open first"
         ) {
-            FactGroupsBody(groups: groups, empty: lens.empty, model: model)
+            FactGroupsBody(groups: groups, empty: lens.empty, model: model, lens: lens)
         }
         .onAppear(perform: model.refresh)
     }
@@ -34,6 +34,7 @@ struct FactGroupsBody: View {
     let groups: [FactGroup]
     let empty: String
     let model: TodayModel
+    let lens: FactGroupsPage.Lens
     @Namespace private var lines
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -43,7 +44,7 @@ struct FactGroupsBody: View {
             if let undo = model.undoable { UndoBar(undo: undo, model: model) }
             if groups.isEmpty { Text(empty).foregroundStyle(.supporting) }
             ForEach(groups) { group in
-                TodaySection(group.name, count: group.open.isEmpty ? nil : group.open.count) {
+                TodaySection(group.name, count: model.shownOpenCount(of: group, lens: lens)) {
                     ForEach(group.open) { line($0) }
                     if !group.rest.isEmpty {
                         Fold("Earlier · \(group.rest.count)") {

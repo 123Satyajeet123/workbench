@@ -21,6 +21,8 @@ public enum EventKind: String, CaseIterable, Sendable {
     case hide
     case snooze
     case unhide
+    /// The person gives the fact to another person, or, with no one named, takes it back.
+    case handOff = "hand_off"
 
     /// The kinds that end a fact or bring it back. The latest of them, by valid time, is the fact's status.
     public static let statusKinds: [EventKind] = [.supersede, .close, .reopen, .withdraw]

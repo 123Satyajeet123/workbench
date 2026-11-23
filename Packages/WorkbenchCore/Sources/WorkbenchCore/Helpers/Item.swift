@@ -31,6 +31,9 @@ public struct Item: Sendable, Equatable, Identifiable {
     public var proposedClose: Closed?
     /// The due time the latest `due_changed` event gave it; nil when no line changed it.
     public var dueChanged: Due?
+    /// The person the founder handed the fact to, who owns it from then on; nil when it was never handed off or was
+    /// taken back.
+    public var handedTo: String?
     /// Set when the founder hid the item or snoozed it; nil otherwise. See `isHidden(at:)`.
     public var hiding: Hiding?
     /// Where the quote is in the line it came from. Nil for an item whose quote is not from a line: a fact the person

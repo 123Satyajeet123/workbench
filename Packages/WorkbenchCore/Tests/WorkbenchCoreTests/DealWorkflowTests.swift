@@ -139,7 +139,7 @@ import Testing
         #expect(DealAction.settled([deal], actions: try store.queries.dealActions()).isEmpty, "open: not settled")
 
         time.advance(10)
-        try store.apply(.done(outcome: "done"), to: [id])
+        try store.apply(.done(outcome: "done"), to: [id], surface: .today)
         let actions = try store.queries.dealActions()
         let stillOpen = try store.queries.openDealActions()
         #expect(actions[0].closed?.outcome == "done" && stillOpen.isEmpty)
@@ -176,8 +176,7 @@ import Testing
 
         let followed = try store.queries.openItems(readBy: watch)
         #expect(followed.map(\.task) == [DealAction.task], "Sentinel reads it as an open fact")
-        let needs = Needs.pick(
-            facts: try store.queries.openDealActions(), findings: [], today: WorkDay(containing: t0), now: t0)
+        let needs = pickedNeeds(facts: try store.queries.openDealActions(), now: t0)
         #expect(needs.map(\.reason) == [.asks])
         let plan = DealAction.lifecycle.closing(followed)
         #expect(plan.keys.map { $0 } == [.done(outcome: "done")])
@@ -227,7 +226,7 @@ import Testing
         let cutoff = t0.addingTimeInterval(86_400)
         try store.delete(.everything(before: cutoff))
         #expect(try typedCount(store) == 1, "open: kept")
-        try store.apply(.done(outcome: "done"), to: [id])
+        try store.apply(.done(outcome: "done"), to: [id], surface: .today)
         try store.delete(.everything(before: t0.addingTimeInterval(-86_400)))
         #expect(try typedCount(store) == 1, "closed but newer than the cutoff: kept")
         try store.delete(.everything(before: cutoff))

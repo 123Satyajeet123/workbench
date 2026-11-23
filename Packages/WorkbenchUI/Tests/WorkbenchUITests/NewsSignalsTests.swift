@@ -157,13 +157,13 @@ struct NewsFixture {
             ], viewer: "A")[0]
         try store.setRevisit(of: deal, on: today.adding(days: 3), reason: "no revenue")
         let model = TodayModel(store: store, crew: crew)
-        #expect(model.needs.isEmpty, "before the day")
+        #expect(model.lines.isEmpty, "before the day")
         clock.set(today.adding(days: 3).start.addingTimeInterval(8 * 3600))
         model.refresh()
-        let need = try #require(model.needs.first)
+        let need = try #require(model.lines.first)
         #expect(need.reason == .revisit && need.item.quote == "Revisit Bolt Pay: passed for no revenue; anything new?")
         model.perform(.done, on: [need.item], text: "Done")
-        #expect(model.needs.isEmpty)
+        #expect(model.lines.isEmpty)
         #expect(try store.queries.revisits().first?.closed?.outcome == "done")
     }
 
@@ -173,14 +173,14 @@ struct NewsFixture {
         let bolt = try world.passed("Bolt Pay", revisit: WorkDay(containing: .now))
         _ = try await world.check()
         let model = TodayModel(store: world.store, crew: world.fixture.crew)
-        let reasons = model.needs.map(\.reason)
+        let reasons = model.lines.map(\.reason)
         #expect(reasons == [.revisit, .news])
-        let revisit = try #require(model.needs.first { $0.reason == .revisit }?.item)
+        let revisit = try #require(model.lines.first { $0.reason == .revisit }?.item)
         #expect(model.passedNews[try #require(revisit.id)]?.map(\.signalCompany) == [bolt.id])
-        let bad = try #require(model.needs.first { $0.reason == .news }?.item)
+        let bad = try #require(model.lines.first { $0.reason == .news }?.item)
         #expect(model.title(of: bad) == "Bolt Pay lays off staff")
         model.perform(.notRelevant, on: [bad], text: "Hidden")
-        #expect(model.needs.map(\.reason) == [.revisit])
+        #expect(model.lines.map(\.reason) == [.revisit])
         #expect(try world.store.queries.newsSignals().count == 1, "it stays on the Signals page")
     }
 }

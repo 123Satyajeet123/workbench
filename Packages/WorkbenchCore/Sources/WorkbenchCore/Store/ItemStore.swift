@@ -99,43 +99,46 @@ extension Store {
 
     /// The founder closes an open item by hand: a new event, so a later reopening and the model's proposals stay on
     /// record.
-    public func close(item id: Int64, as outcome: String) throws {
-        try writer.write { db in try addEvent(db, item: id, kind: .close, outcome: outcome, at: clock()) }
+    public func close(item id: Int64, as outcome: String, surface: MarkSurface) throws {
+        try writer.write { db in
+            try addEvent(db, item: id, kind: .close, outcome: outcome, at: clock(), surface: surface)
+        }
     }
 
     /// The founder agrees with the model's proposal to close an item: a close with the outcome it proposed, valid
     /// when the founder acts. The proposal stays on record.
-    public func confirmClose(item id: Int64) throws {
+    public func confirmClose(item id: Int64, surface: MarkSurface) throws {
         try writer.write { db in
             guard
                 let outcome = try String.fetchOne(
                     db, sql: "SELECT proposal_outcome FROM item_proposal WHERE item_id = ?", arguments: [id])
             else { throw StoreError.noCloseProposal(item: id) }
-            try addEvent(db, item: id, kind: .close, outcome: outcome, at: clock())
+            try addEvent(db, item: id, kind: .close, outcome: outcome, at: clock(), surface: surface)
         }
     }
 
-    public func reopen(item id: Int64) throws {
-        try writer.write { db in try addEvent(db, item: id, kind: .reopen, at: clock()) }
+    public func reopen(item id: Int64, surface: MarkSurface) throws {
+        try writer.write { db in try addEvent(db, item: id, kind: .reopen, at: clock(), surface: surface) }
     }
 
     /// The founder says a fact was never one.
-    public func withdraw(item id: Int64) throws {
-        try writer.write { db in try addEvent(db, item: id, kind: .withdraw, at: clock()) }
+    public func withdraw(item id: Int64, surface: MarkSurface) throws {
+        try writer.write { db in try addEvent(db, item: id, kind: .withdraw, at: clock(), surface: surface) }
     }
 
     func addEvent(
         _ db: Database, item: Int64, kind: EventKind, outcome: String? = nil, until: Date? = nil, due: String? = nil,
-        successor: Int64? = nil, at: Date, by model: (run: RunID, line: Int64, quote: String)? = nil
+        successor: Int64? = nil, handedTo: String? = nil, batch: Int64? = nil, at: Date,
+        surface: MarkSurface? = nil, by model: (run: RunID, line: Int64, quote: String)? = nil
     ) throws {
         try db.execute(
             sql: """
                 INSERT INTO item_event(item_id, kind, outcome, line_id, quote, valid_at, recorded_at, run_id, actor,
-                    until, due, successor) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+                    until, due, successor, surface, handed_to, batch_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """,
             arguments: [
                 item, kind.rawValue, outcome, model?.line, model?.quote, at.stored, clock().stored, model?.run,
-                model == nil ? "person" : "model", until?.stored, due, successor,
+                model == nil ? "person" : "model", until?.stored, due, successor, surface?.rawValue, handedTo, batch,
             ])
         if Self.changesTimers.contains(kind) { try reconcileTimers(db, item: item) }
     }
@@ -163,15 +166,17 @@ extension Queries {
     static let itemColumns = """
         id, task, day, scope, source, cite_first, cite_last, start_at, end_at, fields, quote, state, run_id, asked_with,
         status_kind, status_outcome, status_quote, status_at, hiding_kind, hiding_until, source_deleted, quote_line,
-        quote_part, quote_start, quote_end, label, authority, due_value, proposal_outcome, proposal_quote, proposal_at
+        quote_part, quote_start, quote_end, label, authority, due_value, proposal_outcome, proposal_quote, proposal_at,
+        handoff_to
         """
     /// Items with their mark, their status, their latest hide, snooze or unhide, the date their latest line gave, and
-    /// the proposal to close that nobody has acted on.
+    /// the proposal to close that nobody has acted on, and the person it was handed to.
     static let itemRows = """
         item_mark LEFT JOIN item_status ON item_status.item_id = item_mark.id
             LEFT JOIN item_hiding ON item_hiding.item_id = item_mark.id
             LEFT JOIN item_due ON item_due.item_id = item_mark.id
             LEFT JOIN item_proposal ON item_proposal.item_id = item_mark.id
+            LEFT JOIN item_handoff ON item_handoff.item_id = item_mark.id
         """
 
     /// One item, inside a transaction already open on `db`.
@@ -328,6 +333,7 @@ extension Item {
         }
         dueChanged = (try row.optionalValue("due_value") as String?).flatMap { try? Coding.value(Due.self, from: $0) }
         hiding = try Self.hiding(row)
+        handedTo = try row.optionalValue("handoff_to")
     }
 
     private static func hiding(_ row: Row) throws -> Hiding? {

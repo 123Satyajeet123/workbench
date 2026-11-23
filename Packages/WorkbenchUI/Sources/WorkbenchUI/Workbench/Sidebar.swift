@@ -181,7 +181,7 @@ struct Sidebar: View {
 
     private func count(of page: SidebarSelection) -> Int {
         switch page {
-        case .day: today.needs.count
+        case .day: today.needsCount
         case .review: review.items.count
         case .catalog: catalog.teammates.count + catalog.teammatesDays.count
         default: 0

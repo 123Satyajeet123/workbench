@@ -7,6 +7,7 @@ import WorkbenchCore
 enum FactChoice: Equatable {
     case done, notRelevant, wrong
     case snooze(until: WorkDay)
+    case handOff(to: String)
 }
 
 /// A line of the chat a fact came from.
@@ -36,11 +37,13 @@ struct SummaryRow: Identifiable {
     var subject: String { summary.subject }
 }
 
-/// What Today, People and Projects show: the facts of the last seven days, the day's summaries, and what needs the
-/// founder. It reads the store; the one model call it may start is the day's missing summaries. An action is a mark
+/// What Today, People and Projects show: the facts of the last seven days, the day's summaries, and the morning list:
+/// what the founder owes, what slipped, what waits on whom. It reads the store; the one model call it may start is the day's missing summaries. An action is a mark
 /// or an event, and can be taken back.
 @Observable
 final class TodayModel {
+    private static let firstRunKey = StateKey<String>.text("morning.firstrun")
+
     /// How many days People and Projects reach back.
     static let days = 7
 
@@ -50,7 +53,10 @@ final class TodayModel {
     }
 
     private(set) var today: WorkDay
-    private(set) var needs: [Need] = []
+    private(set) var sections: [MorningSection] = []
+    /// The open facts older than the cutoff that the first morning list offers to mark as handled; empty once the
+    /// person answered the offer.
+    private(set) var backlog: [Item] = []
     private(set) var team: [SummaryRow] = []
     /// Today's facts of the people with no summary line, so a day with facts never looks empty.
     private(set) var unsummarized: [FactGroup] = []
@@ -62,6 +68,8 @@ final class TodayModel {
     /// For each revisit on Today, the news about its company since the investor passed.
     private(set) var passedNews: [Int64: [Item]] = [:]
     private(set) var undoable: Undo?
+    /// The bulk "handled" the person just made, which one click takes back.
+    private(set) var handledBatch: HandledBatch?
     private(set) var problem: String?
     /// Counts each load, so a view can animate what changed between two loads.
     private(set) var revision = 0
@@ -69,25 +77,41 @@ final class TodayModel {
     @ObservationIgnored private let store: Store
     @ObservationIgnored private let crew: Crew
     @ObservationIgnored private let deals: () -> [WorkObject]
+    @ObservationIgnored private let me: () -> String
     @ObservationIgnored let meetings: MeetingsModel
     @ObservationIgnored private var daysAsked: Set<WorkDay> = []
 
     /// With no `calendar`, Today shows no meetings and never offers them.
     init(
         store: Store, crew: Crew, calendar: (any CalendarEvents)? = nil, deals: @escaping () -> [WorkObject] = { [] },
-        defaults: UserDefaults = .standard
+        me: @escaping () -> String = { "" }, defaults: UserDefaults = .standard
     ) {
         self.store = store
         self.crew = crew
         self.deals = deals
+        self.me = me
         meetings = MeetingsModel(store: store, calendar: calendar, defaults: defaults)
         today = WorkDay(containing: store.clock())
         refresh()
         crew.onItemsChanged { [weak self] in self?.refresh() }
     }
 
+    /// The lines that ask the founder to do something: every section except "Owed to you" and "Waiting on others".
+    var needs: [Need] { sections.filter(\.kind.needsPerson).flatMap(\.lines) }
+
+    /// What Today's badge and the morning notification count.
+    var needsCount: Int { MorningList.needsCount(sections) }
+
+    /// Whether the first morning list offers to mark the old backlog as handled.
+    var offersCutoff: Bool { !backlog.isEmpty }
+
+    /// N of the first-run cutoff: the person's setting.
+    var cutoffDays: Int {
+        ((try? MorningSchedule.settingsKey.load(from: store)) ?? nil)?.cutoffDays ?? FirstRun.defaultDays
+    }
+
     var isEmpty: Bool {
-        needs.isEmpty && team.isEmpty && unsummarized.isEmpty && projects.isEmpty && meetingCards.isEmpty
+        sections.isEmpty && team.isEmpty && unsummarized.isEmpty && projects.isEmpty && meetingCards.isEmpty
     }
 
     private var factHelper: HelperModel? { crew.team }
@@ -126,25 +150,40 @@ final class TodayModel {
         let revisits = try store.queries.openRevisits()
         let news = try store.queries.newsSignals(since: today.adding(days: 1 - Store.newsRetentionDays))
         passedNews = try passedNews(of: revisits, now: now)
+        var input = MorningInput(facts: dealActions, me: me())
+        input.revisits = revisits
+        input.news = news
+        input.firedTimers = try store.queries.itemsWithFiredTimers()
         guard let machine = factMachine else {
             clear()
-            needs = Needs.pick(
-                facts: dealActions, findings: [], today: today, now: now, revisits: revisits, news: news)
+            sections = MorningList.pick(input, now: now)
             buildMeetingCards()
             return
         }
         let lifecycle = machine.spec.lifecycleOrNone
-        let facts = try recentFacts(of: machine, lifecycle: lifecycle, since: today.adding(days: 1 - Self.days))
-        let findings = try sentinelTask.map { try store.queries.items(of: $0, on: today) } ?? []
+        let open = try store.queries.openItems(of: machine.task, lifecycle: lifecycle)
+        let facts = try recentFacts(of: machine, open: open, since: today.adding(days: 1 - Self.days))
         let listed = facts.filter { $0.isListed(at: now) }
-        needs = Needs.pick(
-            facts: facts + dealActions, findings: findings, today: today, now: now, revisits: revisits, news: news)
+        input.facts += open
+        input.findings = try sentinelTask.map { try store.queries.items(of: $0, on: today) } ?? []
+        input.ownerField = lifecycle.owner ?? input.ownerField
+        input.askerField = lifecycle.asker
+        sections = MorningList.pick(input, now: now)
+        backlog = try cutoffOffer(open)
         people = group(facts, by: machine.spec.memberField, lifecycle, now)
         projectGroups = group(facts, by: machine.spec.labelField, lifecycle, now)
-        team = try rows(machine.spec.memberField, of: machine, day: today, listed: listed, groups: people)
+        team = try rows(
+            machine.spec.memberField, of: machine, day: today, listed: listed, groups: people, countsOpen: false)
         unsummarized = withoutSummary(facts.filter { $0.day == today }, machine, lifecycle, now)
-        projects = try rows(machine.spec.labelField, of: machine, day: today, listed: listed, groups: projectGroups)
+        projects = try rows(
+            machine.spec.labelField, of: machine, day: today, listed: listed, groups: projectGroups, countsOpen: true)
         buildMeetingCards()
+    }
+
+    /// The open facts the first list offers to mark as handled: none once the person answered the offer.
+    private func cutoffOffer(_ open: [Item]) throws -> [Item] {
+        guard try Self.firstRunKey.load(from: store) == nil else { return [] }
+        return FirstRun.older(open, thanDays: cutoffDays, today: today)
     }
 
     /// The listed news about each revisit's company from the day of the pass on.
@@ -159,7 +198,8 @@ final class TodayModel {
     }
 
     private func clear() {
-        needs = []
+        sections = []
+        backlog = []
         team = []
         unsummarized = []
         projects = []
@@ -168,10 +208,8 @@ final class TodayModel {
     }
 
     /// The facts of the window and every fact still open, however old.
-    private func recentFacts(of machine: Machine, lifecycle: HelperSpec.Lifecycle, since day: WorkDay) throws -> [Item]
-    {
+    private func recentFacts(of machine: Machine, open: [Item], since day: WorkDay) throws -> [Item] {
         let recent = try store.queries.items(of: machine.task, since: day)
-        let open = try store.queries.openItems(of: machine.task, lifecycle: lifecycle)
         let known = Set(recent.compactMap(\.id))
         return recent + open.filter { $0.id.map { !known.contains($0) } ?? false }
     }
@@ -184,13 +222,13 @@ final class TodayModel {
 
     /// One row per scope that has a short line with a fact still listed.
     private func rows(
-        _ field: String?, of machine: Machine, day: WorkDay, listed: [Item], groups: [FactGroup]
+        _ field: String?, of machine: Machine, day: WorkDay, listed: [Item], groups: [FactGroup], countsOpen: Bool
     ) throws -> [SummaryRow] {
         guard let field else { return [] }
         let byID = Dictionary(listed.compactMap { item in item.id.map { ($0, item) } }, uniquingKeysWith: { a, _ in a })
         return try store.queries.summaries(day: day, task: machine.task, field: field).compactMap { summary in
             guard let line = summary.short, line.isShown(among: Set(byID.keys)) else { return nil }
-            let open = groups.first { $0.name == summary.subject }?.open.count ?? 0
+            let open = countsOpen ? groups.first { $0.name == summary.subject }?.open.count ?? 0 : 0
             return SummaryRow(summary: summary, line: line, facts: line.cites.compactMap { byID[$0] }, openCount: open)
         }
     }
@@ -221,7 +259,7 @@ final class TodayModel {
         let plan = plan(for: choice, items)
         guard !plan.isEmpty else { return }
         do {
-            try store.apply(plan)
+            try store.apply(plan, surface: .today)
             undoable = Undo(plan: plan, text: text)
             reloadMachines()
         } catch {
@@ -233,7 +271,7 @@ final class TodayModel {
     func undo() {
         guard let undoable else { return }
         do {
-            try store.undo(undoable.plan)
+            try store.undo(undoable.plan, surface: .today)
             self.undoable = nil
             reloadMachines()
         } catch {
@@ -249,6 +287,59 @@ final class TodayModel {
         return field.map { item[$0] } ?? item.quote
     }
 
+    /// The count of open facts a group shows beside its name, or nil for none. A person's own count is shown to that
+    /// person only: the group of another person shows no count, so a page never ranks people.
+    func shownOpenCount(of group: FactGroup, lens: FactGroupsPage.Lens) -> Int? {
+        guard !group.open.isEmpty else { return nil }
+        switch lens {
+        case .projects: return group.open.count
+        case .people: return group.name.caseInsensitiveCompare(me()) == .orderedSame ? group.open.count : nil
+        }
+    }
+
+    /// The people a fact may be handed to: the other people the facts name, by name.
+    var handOffPeople: [String] {
+        people.map(\.name).filter { !$0.isEmpty && $0.caseInsensitiveCompare(me()) != .orderedSame }
+    }
+
+    /// Marks the backlog as handled in one bulk event, and keeps the offer from coming back.
+    func markBacklogHandled() {
+        do {
+            let ids = backlog.compactMap(\.id)
+            let batch = try store.markHandled(
+                ids, olderThanDays: cutoffDays, cutoff: today.adding(days: -cutoffDays), surface: .today)
+            try Self.firstRunKey.save("handled", to: store)
+            handledBatch = batch
+            reloadMachines()
+        } catch {
+            problem = "Could not mark them as handled: \(error.localizedDescription)"
+            refresh()
+        }
+    }
+
+    /// Takes the bulk "handled" back: each fact it closed is reopened.
+    func reopenHandled() {
+        guard let batch = handledBatch else { return }
+        do {
+            try store.reopenHandled(batch: batch.id, surface: .today)
+            handledBatch = nil
+            reloadMachines()
+        } catch {
+            problem = "Could not reopen them: \(error.localizedDescription)"
+            refresh()
+        }
+    }
+
+    /// The person keeps the backlog as it is.
+    func keepBacklog() {
+        do {
+            try Self.firstRunKey.save("kept", to: store)
+            refresh()
+        } catch {
+            problem = "Could not save that: \(error.localizedDescription)"
+        }
+    }
+
     func dismissUndo() { undoable = nil }
     func dismissProblem() { problem = nil }
 
@@ -258,6 +349,9 @@ final class TodayModel {
         case .notRelevant: return ids.isEmpty ? [:] : [.notRelevant: ids]
         case .wrong: return ids.isEmpty ? [:] : [.wrong: ids]
         case .snooze(let day): return ids.isEmpty ? [:] : [.snooze(until: day): ids]
+        case .handOff(let person):
+            let name = person.trimmingCharacters(in: .whitespaces)
+            return ids.isEmpty || name.isEmpty ? [:] : [.handOff(to: name): ids]
         case .done: return closing(items)
         }
     }

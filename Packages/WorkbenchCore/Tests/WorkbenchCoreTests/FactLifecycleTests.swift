@@ -25,13 +25,13 @@ import Testing
             try db.execute(
                 sql: """
                     INSERT INTO item_event(item_id, kind, outcome, line_id, quote, valid_at, recorded_at, run_id, actor,
-                        due, successor) VALUES (?,?,?,?,?,?,?,?,?,?,?)
+                        due, successor, surface) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
                     """,
                 arguments: [
                     item, kind, kind.hasPrefix("close") ? "kept" : nil, model ? 1 : nil, model ? "q" : nil,
                     validAt.stored, recordedAt.stored, model ? 1 : nil, actor,
                     kind == "due_changed" ? "2026-10-01" : nil,
-                    kind == "supersede" ? item : nil,
+                    kind == "supersede" ? item : nil, actor == "person" ? MarkSurface.today.rawValue : nil,
                 ])
         }
     }
@@ -41,7 +41,7 @@ import Testing
             Set(EventKind.allCases.map(\.rawValue))
                 == [
                     "open", "restate", "due_changed", "supersede", "close_proposed", "close", "reopen", "withdraw",
-                    "flag", "hide", "snooze", "unhide",
+                    "flag", "hide", "snooze", "unhide", "hand_off",
                 ])
     }
 
@@ -194,7 +194,7 @@ import Testing
             ],
             lines: [world.line(20, Days.second, 600, "deck sent")], day: Days.second)
         world.clock.set(Days.at(Days.second, 900))
-        try world.store.confirmClose(item: item)
+        try world.store.confirmClose(item: item, surface: .today)
         let closed = try #require(try world.all().first { $0.id == item }?.closed)
         #expect(closed.outcome == "kept" && closed.quote == nil, "a person's close has no model quote")
         #expect(try world.store.queries.closeProposals(of: world.task).isEmpty)
@@ -207,7 +207,9 @@ import Testing
 
     @Test func confirmingAnItemWithNoProposalThrowsAndChangesNothing() async throws {
         let (world, item) = try await worldWithFact()
-        #expect(throws: StoreError.noCloseProposal(item: item)) { try world.store.confirmClose(item: item) }
+        #expect(throws: StoreError.noCloseProposal(item: item)) {
+            try world.store.confirmClose(item: item, surface: .today)
+        }
         #expect(try world.open().map(\.id) == [item])
     }
 
@@ -216,7 +218,7 @@ import Testing
         let close = pipItem(
             "done", "Deck sent", cite: 20, quote: "deck sent", relation: "closes", handle: "F1", outcome: "kept")
         try await world.read([close], lines: [world.line(20, Days.second, 600, "deck sent")], day: Days.second)
-        try world.store.reopen(item: item)
+        try world.store.reopen(item: item, surface: .today)
         #expect(try world.store.queries.closeProposals(of: world.task).isEmpty)
         try await world.read(
             [

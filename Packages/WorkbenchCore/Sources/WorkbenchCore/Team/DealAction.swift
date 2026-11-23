@@ -64,7 +64,7 @@ extension Store {
     private func dropActions(of deal: String, _ db: Database) throws {
         let open = try Queries.dealActions(db, of: deal).filter { $0.closed == nil }
         for id in open.compactMap(\.id) {
-            try addEvent(db, item: id, kind: .close, outcome: DealAction.dropped, at: clock())
+            try addEvent(db, item: id, kind: .close, outcome: DealAction.dropped, at: clock(), surface: .deals)
         }
     }
 }

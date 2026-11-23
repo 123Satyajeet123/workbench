@@ -19,6 +19,13 @@ struct FactActions: View {
                         Button(snooze.title) { act(.snooze(until: model.today.adding(days: snooze.days)), "Snoozed") }
                     }
                 }
+                if !model.handOffPeople.isEmpty {
+                    Menu("Hand off to", systemImage: "arrowshape.turn.up.right") {
+                        ForEach(model.handOffPeople, id: \.self) { person in
+                            Button(person) { act(.handOff(to: person), "Handed to \(person)") }
+                        }
+                    }
+                }
                 Button("Not relevant", systemImage: "eye.slash") { act(.notRelevant, "Hidden as not relevant") }
                 Button("Wrong", systemImage: "xmark.circle") { act(.wrong, "Hidden as wrong") }
             }

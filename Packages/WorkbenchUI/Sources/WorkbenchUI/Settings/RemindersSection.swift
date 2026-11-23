@@ -1,9 +1,11 @@
 import SwiftUI
+import WorkbenchCore
 
 /// Settings › General › Reminders: the digest and Mochi's weekly run, both off until turned on.
 struct RemindersSection: View {
     @Environment(Reminders.self) private var reminders
     @Environment(Notifications.self) private var notifications
+    @Environment(MorningSchedule.self) private var morning
 
     var body: some View {
         Section {
@@ -18,6 +20,16 @@ struct RemindersSection: View {
                 }
             }
             Toggle(
+                "Morning list: one notification of what needs you",
+                isOn: Binding(get: { morning.settings.isOn }, set: { on in Task { await morning.setOn(on) } }))
+            @Bindable var schedule = morning
+            Picker("Morning list at", selection: $schedule.settings.hour) {
+                ForEach(MorningSettings.hours, id: \.self) { Text(String(format: "%02d:00", $0)).tag($0) }
+            }
+            Stepper(
+                "First list offers to mark facts older than \(morning.settings.cutoffDays) days as handled",
+                value: $schedule.settings.cutoffDays, in: 1...60)
+            Toggle(
                 "Morning brief from Mochi at \(String(format: "%02d:00", Reminders.briefHour))",
                 isOn: Binding(
                     get: { reminders.morningBrief },
@@ -31,6 +43,7 @@ struct RemindersSection: View {
                 "The digest is silent, at \(reminders.settings.digestHours.map { String(format: "%02d:00", $0) }.formatted(.list(type: .and))), and only when something waits. Mochi's weekly run reads your marked timeline with your chosen model on an evening after a week, then tells you if it has suggestions."
             )
             if let problem = reminders.problem { FormNote(problem) }
+            if let problem = morning.problem { FormNote(problem) }
         }
     }
 }

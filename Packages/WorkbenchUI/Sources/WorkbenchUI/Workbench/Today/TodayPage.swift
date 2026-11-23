@@ -35,7 +35,7 @@ struct TodayBody: View {
                 Label("Mochi is summarizing…", systemImage: "sparkles").textStyle(.callout).foregroundStyle(.supporting)
             }
             if model.isEmpty { Text("Nothing for today yet.").foregroundStyle(.supporting) }
-            needsYou
+            morningList
             meetings
             team
             projects
@@ -44,14 +44,37 @@ struct TodayBody: View {
         .animation(Motion.settle(reduceMotion: reduceMotion), value: model.revision)
     }
 
-    @ViewBuilder private var needsYou: some View {
-        if !model.needs.isEmpty {
-            TodaySection("Needs you", count: model.needs.count) {
-                ForEach(model.needs) { need in
-                    FactLine(item: need.item, model: model, flag: label(need.reason), flagTone: tone(need.reason))
-                        .transition(.opacity)
+    @ViewBuilder private var morningList: some View {
+        if model.offersCutoff { CutoffOffer(model: model) }
+        if let batch = model.handledBatch { HandledBar(batch: batch, model: model) }
+        ForEach(model.sections) { section in
+            TodaySection(Self.title(of: section.kind), count: section.lines.count) {
+                if section.kind == .waitingOn {
+                    ForEach(section.owners) { owner in
+                        Text(owner.owner).fontWeight(.semibold)
+                        ForEach(owner.needs) { line($0) }
+                    }
+                } else {
+                    ForEach(section.needs) { line($0) }
                 }
             }
+        }
+    }
+
+    private func line(_ need: Need) -> some View {
+        FactLine(item: need.item, model: model).transition(.opacity)
+    }
+
+    static func title(of kind: MorningSection.Kind) -> String {
+        switch kind {
+        case .toConfirm: "To confirm"
+        case .slipped: "Late"
+        case .owe: "What you owe"
+        case .findings: "Needs a look"
+        case .revisits: "Revisit"
+        case .owedToMe: "Owed to you"
+        case .waitingOn: "Waiting on others"
+        case .news: "Bad news"
         }
     }
 
@@ -77,24 +100,40 @@ struct TodayBody: View {
             }
         }
     }
+}
 
-    private func label(_ reason: Need.Reason) -> String {
-        switch reason {
-        case .act: "Act today"
-        case .watch: "Watch"
-        case .asks: "Asks you"
-        case .due(let day): day < model.today ? "Overdue" : "Due today"
-        case .revisit: "Revisit"
-        case .news: "Bad news"
+/// The first list offers to mark the old backlog as handled, in one step.
+struct CutoffOffer: View {
+    let model: TodayModel
+
+    var body: some View {
+        HStack(spacing: Space.m) {
+            Label(
+                "\(model.backlog.count) open \(model.backlog.count == 1 ? "fact is" : "facts are") older than \(model.cutoffDays) days.",
+                systemImage: "tray.full"
+            )
+            .lineLimit(1)
+            Button("Mark them as handled", action: model.markBacklogHandled).buttonStyle(.ghost)
+            Button("Keep them", action: model.keepBacklog).buttonStyle(.ghost)
+            Spacer()
         }
+        .textStyle(.callout).foregroundStyle(Tone.attention.color)
     }
+}
 
-    private func tone(_ reason: Need.Reason) -> Tone {
-        switch reason {
-        case .act: .bad
-        case .watch, .asks, .due, .revisit: .attention
-        case .news: .bad
+/// What the bulk "handled" did, and the way back.
+struct HandledBar: View {
+    let batch: HandledBatch
+    let model: TodayModel
+
+    var body: some View {
+        HStack(spacing: Space.m) {
+            Label("Marked as handled: older than \(batch.olderThanDays) days.", systemImage: "checkmark.circle")
+                .lineLimit(1)
+            Button("Reopen them", action: model.reopenHandled).buttonStyle(.ghost)
+            Spacer()
         }
+        .textStyle(.callout).foregroundStyle(Tone.attention.color)
     }
 }
 

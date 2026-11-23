@@ -149,20 +149,20 @@ final class HelperModel {
     /// The founder closes an open item by hand, or reopens one a line closed by mistake.
     func close(_ item: Item, as outcome: String) {
         guard let id = item.id else { return }
-        attempt("close the item") { try shared.store.close(item: id, as: outcome) }
+        attempt("close the item") { try shared.store.close(item: id, as: outcome, surface: .machinePage) }
         itemsWereChanged()
     }
 
     /// The founder agrees with the close a line proposed. A model only proposes: nothing closes until this.
     func confirmClose(_ item: Item) {
         guard let id = item.id else { return }
-        attempt("confirm the close") { try shared.store.confirmClose(item: id) }
+        attempt("confirm the close") { try shared.store.confirmClose(item: id, surface: .machinePage) }
         itemsWereChanged()
     }
 
     func reopen(_ item: Item) {
         guard let id = item.id else { return }
-        attempt("reopen the item") { try shared.store.reopen(item: id) }
+        attempt("reopen the item") { try shared.store.reopen(item: id, surface: .machinePage) }
         itemsWereChanged()
     }
 

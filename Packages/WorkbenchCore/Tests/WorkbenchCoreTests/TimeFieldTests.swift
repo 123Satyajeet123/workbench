@@ -73,10 +73,12 @@ import Testing
             lines: [world.line(1, Days.first, 600, "deck kal tak bhej dunga")])
         let open = try world.open()
         #expect(open.first?.dueDay == Days.second)
-        let before = Needs.pick(facts: open, findings: [], today: Days.first, now: Days.at(Days.first, 700))
-        #expect(before.isEmpty)
-        let onTheDay = Needs.pick(facts: open, findings: [], today: Days.second, now: Days.at(Days.second, 700))
-        #expect(onTheDay.map(\.reason) == [.due(Days.second)])
+        let before = pickedNeeds(facts: open, now: Days.at(Days.first, 700))
+        #expect(before.map(\.reason) == [.waiting], "not slipped before its day")
+        let onTheDay = pickedNeeds(facts: open, now: Days.at(Days.second, 700))
+        #expect(onTheDay.map(\.reason) == [.waiting], "due later that day: not slipped yet")
+        let after = pickedNeeds(facts: open, now: Days.at(Days.second.adding(days: 1), 0))
+        #expect(after.map(\.reason) == [.due(Days.second)], "slipped once the day is over")
     }
 
     @Test func aPastKalOrAnAmbiguousOneNeverMakesAFactDue() async throws {

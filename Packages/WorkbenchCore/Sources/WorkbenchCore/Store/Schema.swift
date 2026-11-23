@@ -37,6 +37,7 @@ enum Schema {
     static let steps = [
         baseline, itemEvents, runText, summaries, itemActions, mail, typedItems, quoteMarks, newsArticles, evidence,
         runWindow, sourceDeleted, groundedFacts, factLifecycle, timers, evidenceForwarded,
+        morningList,
     ]
 
     /// Items that open and close (research 32): a later line closes a commitment or answers a question. An event is

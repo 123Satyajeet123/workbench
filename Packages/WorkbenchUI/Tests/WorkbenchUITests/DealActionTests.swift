@@ -19,7 +19,7 @@ import WorkbenchCore
         #expect(fixture.deals.digests[deal.id]?.action?.id == open[0].id)
 
         let today = TodayModel(store: fixture.store, crew: fixture.crew)
-        let need = try #require(today.needs.first { $0.item.task == DealAction.task })
+        let need = try #require(today.lines.first { $0.item.task == DealAction.task })
         #expect(need.reason == .asks && today.title(of: need.item) == "Get the cap table from the founder")
 
         today.perform(.done, on: [need.item], text: "Done")

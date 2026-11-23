@@ -52,8 +52,10 @@ import WorkbenchCore
 
     @Test func peopleAndProjectsAreDrawn() async throws {
         let model = try await sampleDay()
-        for (name, groups) in [("people", model.people), ("projects", model.projectGroups)] {
-            let view = FactGroupsBody(groups: groups, empty: "None.", model: model)
+        for (name, groups, lens) in [
+            ("people", model.people, FactGroupsPage.Lens.people), ("projects", model.projectGroups, .projects),
+        ] {
+            let view = FactGroupsBody(groups: groups, empty: "None.", model: model, lens: lens)
                 .padding(Space.l).frame(width: 760, alignment: .topLeading)
                 .background(Color(nsColor: .textBackgroundColor))
             let data = try png(of: view)

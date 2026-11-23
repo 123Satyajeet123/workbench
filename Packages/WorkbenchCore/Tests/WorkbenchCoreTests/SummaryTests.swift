@@ -196,7 +196,7 @@ private struct Fixture {
         _ = try await fixture.ask()
         #expect(fixture.calls == 3, "a mark")
 
-        try fixture.store.close(item: 2, as: "kept")
+        try fixture.store.close(item: 2, as: "kept", surface: .today)
         _ = try await fixture.ask()
         #expect(fixture.calls == 4, "a close")
         #expect(fixture.lastInput.contains("closed: kept"))

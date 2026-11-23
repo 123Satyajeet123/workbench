@@ -20,6 +20,7 @@ struct AppSession {
     let mochi: MochiModel
     let today: TodayModel
     let reminders: Reminders
+    let morning: MorningSchedule
     let catalog: TeamCatalogModel
     let actions: ActionsModel
     let deals: DealsModel
@@ -63,12 +64,25 @@ enum AppLaunch {
             let catalog = TeamCatalogModel(store: store, crew: crew, author: { identity.identity.name })
             let deals = DealsModel(store: store, catalog: catalog)
             crew.onItemsChanged { deals.refresh() }
+            let today = TodayModel(
+                store: store, crew: crew, calendar: EventKitCalendar(), deals: { deals.deals },
+                me: { identity.identity.name })
+            let morning = MorningSchedule(
+                store: store, notifications: notifications,
+                needsCount: {
+                    today.refresh()
+                    return today.needsCount
+                },
+                notify: {
+                    (try? await notifications.notifySummary(title: $0, body: "Open Today", page: .day)) == true
+                })
             let session = AppSession(
                 store: store, capture: capture, onboarding: onboarding, identity: identity,
                 team: onboarding.teamModel, models: ModelSettings(store: store),
                 crew: crew, review: review, mochi: mochi,
-                today: TodayModel(store: store, crew: crew, calendar: EventKitCalendar(), deals: { deals.deals }),
+                today: today,
                 reminders: Reminders(store: store, review: review, mochi: mochi, notifications: notifications),
+                morning: morning,
                 catalog: catalog, actions: ActionsModel(store: store, founder: { identity.identity.name }),
                 deals: deals, memory: MemoryModel(store: store, crew: crew, deals: deals),
                 web: web, claims: ClaimsModel(store: store, me: { catalog.me }, web: web),
@@ -79,6 +93,7 @@ enum AppLaunch {
                 writerLock: writerLock)
             service.start()
             session.reminders.start()
+            session.morning.start()
             return .ready(session)
         } catch {
             return .failed(StartupFailure(cause: error.localizedDescription, storeFolder: storeFolder))

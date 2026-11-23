@@ -131,7 +131,7 @@ final class FakeCalendar: CalendarEvents, @unchecked Sendable {
         let due = WorkDay(containing: .now).adding(days: 3)
         fixture.deals.requireAction(deal, what: "Get the cap table", due: due)
         let snoozed = try #require(try fixture.store.queries.openDealActions().first?.id)
-        try fixture.store.apply(.snooze(until: due), to: [snoozed])
+        try fixture.store.apply(.snooze(until: due), to: [snoozed], surface: .today)
         let today = TodayModel(
             store: fixture.store, crew: fixture.crew,
             calendar: FakeCalendar([Self.meeting("Pitch", guests: [("Priya", "priya@acme.com")])]),

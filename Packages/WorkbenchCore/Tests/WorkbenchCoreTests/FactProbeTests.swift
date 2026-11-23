@@ -29,9 +29,9 @@ import Testing
             [pipItem(cite: 11, quote: "deck bhej dungi")], lines: [world.line(11, Days.first, 600, "deck bhej dungi")])
         let id = try #require(world.open().first?.id)
         world.clock.set(Days.at(Days.first.adding(days: 3), 600))
-        try world.store.close(item: id, as: "kept")
+        try world.store.close(item: id, as: "kept", surface: .today)
         world.clock.set(Days.at(Days.first.adding(days: 4), 600))
-        try world.store.reopen(item: id)
+        try world.store.reopen(item: id, surface: .today)
         #expect(try world.open().count == 1)
 
         // Day 6: the founder opens day 2, which was never read, and reads it. The model closes the fact from a day-2
@@ -80,7 +80,7 @@ import Testing
         }
         try await readSentinel(EvidenceSet(lines: []))
         let first = try #require(store.queries.items(of: sentinel.task, on: d2).first)
-        try store.apply(.done(outcome: "handled"), to: [try #require(first.id)])
+        try store.apply(.done(outcome: "handled"), to: [try #require(first.id)], surface: .today)
         #expect(try store.queries.items(of: sentinel.task, on: d2).first?.closed != nil)
 
         world.clock.set(Days.at(d2, 360))

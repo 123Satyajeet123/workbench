@@ -76,6 +76,7 @@ extension View {
             .environment(session.mochi)
             .environment(session.today)
             .environment(session.reminders)
+            .environment(session.morning)
             .environment(session.catalog)
             .environment(session.actions)
             .environment(session.deals)

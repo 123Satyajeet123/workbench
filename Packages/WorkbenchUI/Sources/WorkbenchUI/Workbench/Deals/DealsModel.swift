@@ -119,7 +119,7 @@ final class DealsModel {
     /// Done on the deal's open action, the close Today gives it; the deal then moves on.
     func finishAction(of deal: WorkObject) {
         guard let action = digests[deal.id]?.action else { return }
-        attempt("finish the action") { try store.apply(DealAction.lifecycle.closing([action])) }
+        attempt("finish the action") { try store.apply(DealAction.lifecycle.closing([action]), surface: .deals) }
         refresh()
     }
 

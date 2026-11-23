@@ -23,56 +23,6 @@ extension Item {
     }
 }
 
-/// One line of Today's "Needs you": an open fact or a finding, and why it is there.
-public struct Need: Sendable, Equatable, Identifiable {
-    public enum Reason: Sendable, Equatable {
-        /// A finding of the derailment watch that asks the founder to act today.
-        case act
-        /// A finding worth a look soon.
-        case watch
-        /// An open fact that asks the founder.
-        case asks
-        /// An open fact due on this day or before it.
-        case due(WorkDay)
-        /// A passed deal whose revisit day has come.
-        case revisit
-        /// Bad news about a company the investor follows, from a trusted feed. Information, not a task.
-        case news
-    }
-
-    public var item: Item
-    public var reason: Reason
-
-    public var id: Int64? { item.id }
-}
-
-public enum Needs {
-    /// What needs the founder, most urgent first: findings that ask for action, facts that ask the founder, facts
-    /// due today or earlier, revisits of passed deals that came due, then findings to watch, then bad news. A closed,
-    /// hidden, snoozed or wrong item is left out; so is a revisit before its day and news that is not bad or not from
-    /// a trusted feed.
-    public static func pick(
-        facts: [Item], findings: [Item], today: WorkDay, now: Date, revisits: [Item] = [], news: [Item] = [],
-        attention: HelperSpec.Attention = .builtIn
-    ) -> [Need] {
-        let open = facts.filter { $0.closed == nil && $0.isListed(at: now) }
-        let listed = findings.filter { $0.closed == nil && $0.isListed(at: now) }
-        let act = listed.filter { $0.carries(attention.act) }.map { Need(item: $0, reason: .act) }
-        let watch = listed.filter { $0.carries(attention.watch) }.map { Need(item: $0, reason: .watch) }
-        let asks = open.filter { $0.carries(attention.asksMe) }.map { Need(item: $0, reason: .asks) }
-        let due = open.filter { !$0.carries(attention.asksMe) }.compactMap { fact in
-            fact.dueDay.flatMap { $0 <= today ? (day: $0, need: Need(item: fact, reason: .due($0))) : nil }
-        }
-        let revisit = revisits.filter {
-            $0.closed == nil && $0.isListed(at: now) && ($0.dueDay.map { $0 <= today } ?? false)
-        }
-        .sorted { ($0.dueDay ?? today) < ($1.dueDay ?? today) }.map { Need(item: $0, reason: .revisit) }
-        let bad = news.filter { $0.closed == nil && $0.isListed(at: now) && $0.isTrustedBadNews }
-            .map { Need(item: $0, reason: .news) }
-        return act + asks + due.sorted { $0.day < $1.day }.map(\.need) + revisit + watch + bad
-    }
-}
-
 /// The facts of one person or one project.
 public struct FactGroup: Sendable, Equatable, Identifiable {
     public var name: String

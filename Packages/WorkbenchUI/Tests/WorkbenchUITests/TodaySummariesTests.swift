@@ -61,8 +61,8 @@ private final class SummaryModel: StructuredModel, Sendable {
 
     @Test func factsThatNeedNothingAndHaveNoSummaryStillKeepTodayFromBeingEmpty() async throws {
         let day = try await setup()
-        day.model.perform(.done, on: day.model.needs.map(\.item), text: "Done")
-        #expect(day.model.needs.isEmpty && day.model.team.isEmpty && day.model.projects.isEmpty)
+        day.model.perform(.done, on: day.model.lines.map(\.item), text: "Done")
+        #expect(day.model.lines.isEmpty && day.model.team.isEmpty && day.model.projects.isEmpty)
         #expect(!day.model.isEmpty, "the day has facts, so it never says it has nothing")
     }
 

@@ -99,7 +99,7 @@ final class ArticleModel: StructuredModel, Sendable {
 
     @Test func aRevisitIsOnTodayWithTheNewsSinceThePassAndBadNewsBesideIt() async throws {
         let (_, _, _, today) = try await world()
-        #expect(today.needs.map(\.reason) == [.revisit, .news])
+        #expect(today.lines.map(\.reason) == [.revisit, .news])
         try renderPNG(TodayBody(model: today, brief: nil), named: "today-revisit", width: 760)
     }
 }

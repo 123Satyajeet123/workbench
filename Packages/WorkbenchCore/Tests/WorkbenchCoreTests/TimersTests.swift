@@ -140,8 +140,8 @@ import Testing
     func aFactThatEndsCancelsItsTimerAndANewPassFiresNothing(_ ending: String) async throws {
         let (world, asha, _) = try await world()
         switch ending {
-        case "close": try world.store.close(item: asha, as: "kept")
-        case "withdraw": try world.store.withdraw(item: asha)
+        case "close": try world.store.close(item: asha, as: "kept", surface: .today)
+        case "withdraw": try world.store.withdraw(item: asha, surface: .today)
         default:
             try await world.read(
                 [
@@ -158,8 +158,8 @@ import Testing
 
     @Test func aReopenedFactGetsItsTimerBack() async throws {
         let (world, asha, _) = try await world()
-        try world.store.close(item: asha, as: "kept")
-        try world.store.reopen(item: asha)
+        try world.store.close(item: asha, as: "kept", surface: .today)
+        try world.store.reopen(item: asha, surface: .today)
         #expect(try timers(world, asha).map(\.isCancelled) == [false])
         pastDue(world)
         #expect(try world.store.fireTimers().map(\.item) == [asha])
@@ -205,7 +205,7 @@ import Testing
         let question = try #require(try world.open().first?.id)
         let own = try timers(world, question)
         #expect(own.map(\.kind) == [.sla] && own[0].source == .default)
-        try world.store.close(item: question, as: "answered")
+        try world.store.close(item: question, as: "answered", surface: .today)
         #expect(try timers(world, question).map(\.isCancelled) == [true])
     }
 

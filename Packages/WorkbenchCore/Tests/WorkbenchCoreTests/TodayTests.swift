@@ -24,13 +24,6 @@ private func dueFields(_ due: WorkDay?, _ raw: String?) -> [String: String] {
     return due.map { [Item.dueField: try! Coding.json(Due.stated(on: $0))] } ?? [:]
 }
 
-private func finding(_ id: Int64, severity: String) -> Item {
-    Item(
-        id: id, task: "work.derailment", day: today, scope: "work", source: .whatsapp, citeFirst: 0, citeLast: 0,
-        start: today.start, end: today.start, fields: ["severity": severity, "kind": "overdue", "next": "n"],
-        quote: "q\(id)", run: RunID(1))
-}
-
 private func hidden(_ item: Item) -> Item {
     var item = item
     item.hiding = .hidden
@@ -41,58 +34,6 @@ private func closed(_ item: Item) -> Item {
     var item = item
     item.closed = Item.Closed(outcome: "kept", quote: nil, at: t0)
     return item
-}
-
-@Suite struct NeedsTests {
-    private func pick(facts: [Item] = [], findings: [Item] = []) -> [Need] {
-        Needs.pick(facts: facts, findings: findings, today: today, now: t0)
-    }
-
-    @Test func factsThatAskTheFounderAndFactsDueTodayNeedYouAndOtherFactsDoNot() {
-        let needs = pick(facts: [
-            fact(1, asks: "founder"), fact(2, due: today), fact(3, due: today.adding(days: 1)),
-            fact(4), fact(5, kind: "question", asks: "founder"),
-        ])
-        #expect(needs.map(\.id) == [1, 5, 2])
-    }
-
-    @Test func aFactDueBeforeTodayIsOverdueAndStillNeedsYou() {
-        let overdue = today.adding(days: -2)
-        let needs = pick(facts: [fact(1, due: today), fact(2, due: overdue)])
-        #expect(needs.map(\.reason) == [.due(overdue), .due(today)])
-    }
-
-    @Test func aFactWithNoDueTimeOrAnUnreadableOneIsNeverDue() throws {
-        let noTime = try Coding.json(Due.unresolved(.none, zone: .current))
-        #expect(pick(facts: [fact(1, rawDue: "kal tak"), fact(2, rawDue: noTime), fact(3, rawDue: "")]).isEmpty)
-    }
-
-    @Test func findingsOfSeverityActComeFirstAndWatchLastAndInfoIsLeftOut() {
-        let needs = pick(
-            facts: [fact(1, asks: "founder")],
-            findings: [finding(10, severity: "watch"), finding(11, severity: "info"), finding(12, severity: "act")])
-        #expect(needs.map(\.id) == [12, 1, 10])
-        #expect(needs.map(\.reason) == [.act, .asks, .watch])
-    }
-
-    @Test func aHiddenSnoozedClosedOrWrongItemIsLeftOut() {
-        var snoozed = fact(2, asks: "founder")
-        snoozed.hiding = .snoozed(until: t0.addingTimeInterval(60))
-        let needs = pick(
-            facts: [
-                hidden(fact(1, asks: "founder")), snoozed, closed(fact(3, asks: "founder")),
-                fact(4, asks: "founder", state: .rejected), fact(5, asks: "founder"),
-            ],
-            findings: [hidden(finding(10, severity: "act")), closed(finding(11, severity: "act"))])
-        #expect(needs.map(\.id) == [5])
-    }
-
-    @Test func aSnoozedFactComesBackWhenItsDateIsReached() {
-        var snoozed = fact(1, asks: "founder")
-        snoozed.hiding = .snoozed(until: t0.addingTimeInterval(60))
-        let later = Needs.pick(facts: [snoozed], findings: [], today: today, now: t0.addingTimeInterval(60))
-        #expect(later.map(\.id) == [1])
-    }
 }
 
 @Suite struct FactGroupsTests {

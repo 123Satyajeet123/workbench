@@ -34,12 +34,16 @@ import WorkbenchCore
         return Setup(store: store, crew: crew, model: TodayModel(store: store, crew: crew), clock: clock)
     }
 
-    @Test func needsYouHoldsTheActFindingThenAsksThenOverdueThenDueToday() async throws {
+    @Test func theMorningListHoldsWhatSlippedThenWhatIsOwedThenFindingsThenWhoIsWaitedOn() async throws {
         let day = try await setup()
-        let today = day.today
-        #expect(day.model.needs.map(\.id) == [8, 2, 3, 6, 1])
-        #expect(
-            day.model.needs.map(\.reason) == [.act, .asks, .asks, .due(today.adding(days: -1)), .due(today)])
+        let kinds = day.model.sections.map(\.kind)
+        #expect(kinds == [.slipped, .owe, .findings, .waitingOn])
+        func ids(_ kind: MorningSection.Kind) -> [Int64] {
+            day.model.sections.first { $0.kind == kind }?.lines.compactMap(\.id) ?? []
+        }
+        #expect(ids(.slipped) == [6] && ids(.owe) == [2, 3] && ids(.findings) == [8])
+        #expect(day.model.sections.first { $0.kind == .waitingOn }?.owners.map(\.owner) == ["Asha", "Meera"])
+        #expect(day.model.needsCount == 4, "owed to the founder and waited on do not ask the founder to act")
     }
 
     @Test func teamAndProjectsHaveOneLinePerScopeAndProjectsCountTheirOpenFacts() async throws {
@@ -61,14 +65,14 @@ import WorkbenchCore
         try await TodaySample.populate(store: day.store, crew: day.crew)
         #expect(day.model.isEmpty, "nothing tells Today yet")
         day.pip.itemsChanged()
-        #expect(!day.model.isEmpty && day.model.needs.count == 5)
+        #expect(!day.model.isEmpty && day.model.needsCount == 4)
     }
 
     @Test func doneClosesABlockerAsResolvedAndItLeavesNeedsYouButStaysInItsGroup() async throws {
         let day = try await setup()
         day.model.perform(.done, on: [try day.fact(2)], text: "Done")
         #expect(try day.fact(2).closed?.outcome == "resolved")
-        #expect(!day.model.needs.contains { $0.id == 2 })
+        #expect(!day.model.lines.contains { $0.id == 2 })
         let asha = try #require(day.model.people.first { $0.name == "Asha" })
         #expect(!asha.open.contains { $0.id == 2 } && asha.rest.contains { $0.id == 2 })
     }
@@ -76,17 +80,17 @@ import WorkbenchCore
     @Test func undoReopensWhatDoneClosed() async throws {
         let day = try await setup()
         day.model.perform(.done, on: [try day.fact(3)], text: "Done")
-        #expect(!day.model.needs.contains { $0.id == 3 } && day.model.undoable != nil)
+        #expect(!day.model.lines.contains { $0.id == 3 } && day.model.undoable != nil)
         day.model.undo()
-        #expect(day.model.needs.contains { $0.id == 3 } && day.model.undoable == nil)
+        #expect(day.model.lines.contains { $0.id == 3 } && day.model.undoable == nil)
         #expect(try day.fact(3).closed == nil)
     }
 
     @Test func doneOnAFindingClosesItAsHandled() async throws {
         let day = try await setup()
-        let finding = try #require(day.model.needs.first { $0.id == 8 }).item
+        let finding = try #require(day.model.lines.first { $0.id == 8 }).item
         day.model.perform(.done, on: [finding], text: "Done")
-        #expect(!day.model.needs.contains { $0.id == 8 })
+        #expect(!day.model.lines.contains { $0.id == 8 })
         #expect(
             try day.store.queries.items(of: finding.task, on: day.today).first?.closed?.outcome == "handled")
     }
@@ -98,7 +102,7 @@ import WorkbenchCore
         #expect(!day.model.team.contains { $0.subject == "Meera" })
         #expect(!day.model.people.contains { $0.name == "Meera" })
         #expect(!day.model.projects.contains { $0.subject == "Hiring" })
-        #expect(!day.model.needs.contains { $0.id == 6 })
+        #expect(!day.model.lines.contains { $0.id == 6 })
     }
 
     @Test func aHiddenFactStaysOnItsMachinesPageShownAsHidden() async throws {
@@ -112,7 +116,7 @@ import WorkbenchCore
         let day = try await setup()
         day.model.perform(.wrong, on: [try day.fact(3)], text: "Hidden")
         #expect(try day.fact(3).state == .rejected)
-        #expect(!day.model.needs.contains { $0.id == 3 })
+        #expect(!day.model.lines.contains { $0.id == 3 })
         #expect(!(day.model.people.first { $0.name == "Raj" }?.open.contains { $0.id == 3 } ?? false))
     }
 
@@ -120,13 +124,13 @@ import WorkbenchCore
         let day = try await setup()
         let until = day.today.adding(days: 2)
         day.model.perform(.snooze(until: until), on: [try day.fact(2)], text: "Snoozed")
-        #expect(!day.model.needs.contains { $0.id == 2 })
+        #expect(!day.model.lines.contains { $0.id == 2 })
         day.clock.set(until.start.addingTimeInterval(-60))
         day.model.refresh()
-        #expect(!day.model.needs.contains { $0.id == 2 })
+        #expect(!day.model.lines.contains { $0.id == 2 })
         day.clock.set(until.start)
         day.model.refresh()
-        #expect(day.model.needs.contains { $0.id == 2 })
+        #expect(day.model.lines.contains { $0.id == 2 })
     }
 
     @Test func undoingAnActionOnASummaryLineBringsTheLineBack() async throws {
@@ -156,4 +160,9 @@ import WorkbenchCore
         #expect(window.map(\.id) == [9, 10, 11, 12, 13])
         #expect(window.filter(\.isCited).map(\.id) == [11])
     }
+}
+
+extension TodayModel {
+    /// Every line of the morning list, in section order.
+    var lines: [Need] { sections.flatMap(\.lines) }
 }

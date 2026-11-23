@@ -8,9 +8,7 @@ import Testing
     private let due = WorkDay(containing: day(180))
 
     private func needs(_ store: Store, on date: Date) throws -> [Need] {
-        Needs.pick(
-            facts: [], findings: [], today: WorkDay(containing: date), now: date,
-            revisits: try store.queries.openRevisits(), news: try store.queries.newsSignals())
+        pickedNeeds(revisits: try store.queries.openRevisits(), news: try store.queries.newsSignals(), now: date)
     }
 
     @Test func theDefaultRevisitIsSixMonthsAfterThePass() {
@@ -45,7 +43,7 @@ import Testing
         let second = try store.setRevisit(of: bolt, on: due.adding(days: 30), reason: "no revenue")
         #expect(try store.queries.openRevisits().compactMap(\.id) == [second], "one open revisit for a deal")
         #expect(try needs(store, on: day(180)).isEmpty, "the first date no longer stands")
-        try store.apply(Revisit.lifecycle.closing(try store.queries.openRevisits()))
+        try store.apply(Revisit.lifecycle.closing(try store.queries.openRevisits()), surface: .today)
         #expect(try needs(store, on: day(220)).isEmpty)
         #expect(try store.queries.revisits(of: bolt.id).compactMap(\.id) == [first, second])
     }
@@ -61,7 +59,7 @@ import Testing
     @Test func aHiddenRevisitIsNotListed() throws {
         let store = try makeStore()
         let id = try store.setRevisit(of: try deal("Bolt Pay", stage: "Rejected"), on: due, reason: nil)
-        try store.apply(.notRelevant, to: [id])
+        try store.apply(.notRelevant, to: [id], surface: .today)
         #expect(try needs(store, on: day(181)).isEmpty)
     }
 
@@ -92,8 +90,8 @@ import Testing
         try signal(store, polarity: "negative", trusted: "yes")
         try signal(store, polarity: "negative", trusted: "yes")
         let ids = try store.queries.newsSignals().compactMap(\.id)
-        try store.apply(.done(outcome: "handled"), to: [ids[0]])
-        try store.apply(.notRelevant, to: [ids[1]])
+        try store.apply(.done(outcome: "handled"), to: [ids[0]], surface: .today)
+        try store.apply(.notRelevant, to: [ids[1]], surface: .today)
         #expect(try needs(store, on: t0).isEmpty)
         #expect(try store.queries.newsSignals().count == 2, "both stay on the Signals page")
     }

@@ -164,6 +164,8 @@ public struct HelperSpec: Codable, Sendable, Equatable {
         public var owner: String? = nil
         /// The outcome the person's Done gives an item, by value of `field`; the first outcome when a value has none.
         public var doneOutcomes: [String: String]? = nil
+        /// The field that names who asked for a fact, for "Owed to me". Nil for a machine whose facts name no asker.
+        public var asker: String? = nil
     }
 
     /// Words of a machine's fields that Today reads, as data: a field and the value that carries a meaning.

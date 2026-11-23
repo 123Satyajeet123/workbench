@@ -51,8 +51,8 @@ import Testing
             )
         }
         #expect(events == 2 + 2 && status == "reopen" && closer == "model" && dangling.isEmpty)
-        try store.apply(.snooze(until: WorkDay(containing: t0)), to: [1])
-        try store.apply(.done(outcome: "kept"), to: [2])
+        try store.apply(.snooze(until: WorkDay(containing: t0)), to: [1], surface: .today)
+        try store.apply(.done(outcome: "kept"), to: [2], surface: .today)
         let items = try store.queries.items(of: "t", since: #require(WorkDay("2026-11-19")))
         #expect(items[0].closed == nil && items[0].hiding != nil)
         #expect(items[1].closed?.outcome == "kept" && items[1].hiding == nil)
