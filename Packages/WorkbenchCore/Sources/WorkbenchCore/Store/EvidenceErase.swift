@@ -96,7 +96,7 @@ extension Store {
         }
         try db.execute(sql: "DELETE FROM evidence WHERE \(condition.sql)", arguments: condition.arguments)
         try EvidenceStamp.dropOrphanStructure(in: db)
-        if counts.lines > 0 { try db.execute(sql: EvidenceStamp.optimizeSearch) }
+        if counts.lines > 0 { try EvidenceStamp.optimizeSearch(in: db) }
         return counts
     }
 

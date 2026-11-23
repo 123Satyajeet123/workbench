@@ -152,8 +152,8 @@ extension Store {
             if let structure = reading.structure {
                 try EvidenceStamp.write(structure, of: reading.container, at: stamp.now, in: db)
             }
-            if report.erasedLines > 0 {
-                try db.execute(sql: EvidenceStamp.optimizeSearch)
+            if report.erasedLines > 0 || report.flaggedItems > 0 {
+                try EvidenceStamp.optimizeSearch(in: db)
                 try EvidenceStamp.dropOrphanStructure(in: db)
             }
             if let cursor = reading.cursorAfter {
@@ -232,7 +232,11 @@ struct EvidenceStamp {
         self.now = now.milliseconds
     }
 
-    static let optimizeSearch = "INSERT INTO evidence_fts(evidence_fts) VALUES ('optimize')"
+    /// Merges the segments of both search indexes, so none keeps a word that was deleted or emptied.
+    static func optimizeSearch(in db: Database) throws {
+        try db.execute(sql: "INSERT INTO evidence_fts(evidence_fts) VALUES ('optimize')")
+        try db.execute(sql: "INSERT INTO item_fts(item_fts) VALUES ('optimize')")
+    }
 
     /// Writes one line. A line already stored only has its `last_seen` moved forward. A tombstone is written first, then
     /// the text lines of its message go, and it takes over their old citations and their places in run windows. A text

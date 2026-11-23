@@ -14,6 +14,7 @@ let package = Package(
         .executable(name: "model-access", targets: ["ModelAccessDemo"]),
         .executable(name: "gallery", targets: ["GalleryDemo"]),
         .executable(name: "demo-builder", targets: ["DemoBuilder"]),
+        .executable(name: "search-tools", targets: ["SearchToolsDemo"]),
     ],
     dependencies: [
         .package(path: "../Packages/WorkbenchCore"), .package(path: "../Packages/WorkbenchUI"),
@@ -47,6 +48,12 @@ let package = Package(
             ],
             swiftSettings: [.defaultIsolation(MainActor.self)]),
         .executableTarget(name: "DemoBuilder", dependencies: ["DemoBuild"]),
+        .executableTarget(
+            name: "SearchToolsDemo",
+            dependencies: [
+                "WorkbenchCore", .product(name: "Kernel", package: "Kernel"),
+                .product(name: "Lines", package: "Kernel"),
+            ]),
         .testTarget(name: "EvalsTests", dependencies: ["Evals", "WorkbenchCore"]),
     ]
 )

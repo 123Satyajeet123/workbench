@@ -88,7 +88,7 @@ extension Store {
         }
     }
 
-    private static func machineSpec(ofTask task: String, in db: Database) throws -> HelperSpec? {
+    static func machineSpec(ofTask task: String, in db: Database) throws -> HelperSpec? {
         try String.fetchOne(db, sql: "SELECT spec FROM machine_now WHERE task = ?", arguments: [task])
             .map { try Coding.value(HelperSpec.self, from: $0) }
     }

@@ -69,6 +69,14 @@ public struct StoredLine: Sendable, Equatable {
             : nil
     }
 
+    /// The line of an alias `e` is the version of its message seen last, and its message is not one that went on as
+    /// another.
+    static let isCurrentVersion = """
+        NOT EXISTS (SELECT 1 FROM entity_supersede s WHERE s.entity_key = e.entity_key)
+            AND e.id = (SELECT v.id FROM evidence v WHERE v.entity_key = e.entity_key
+                ORDER BY v.last_seen DESC, v.id DESC LIMIT 1)
+        """
+
     static let columns = """
         e.line_id, e.container, e.event_time, e.actor, e.text, e.tombstone, e.source_id, e.label_id, e.grant_id, \
         e.coordinate, e.forwarded
@@ -97,9 +105,7 @@ extension Queries {
                 sql: """
                     SELECT e.id AS number, \(StoredLine.columns) FROM evidence e
                     WHERE e.container IN (\(marks)) AND e.event_time >= ? AND e.event_time < ?
-                        AND NOT EXISTS (SELECT 1 FROM entity_supersede s WHERE s.entity_key = e.entity_key)
-                        AND e.id = (SELECT v.id FROM evidence v WHERE v.entity_key = e.entity_key
-                            ORDER BY v.last_seen DESC, v.id DESC LIMIT 1)
+                        AND \(StoredLine.isCurrentVersion)
                     ORDER BY e.event_time, e.id
                     """,
                 arguments: StatementArguments(containers) + [start.millisecondsSince1970, end.millisecondsSince1970]
@@ -135,20 +141,23 @@ extension Queries {
     /// them. An item made before runs kept their windows resolves through the old citation ids (`evidence_legacy`).
     /// A line whose message was deleted for everyone is a tombstone. Empty when no stored line answers.
     public func proofLines(of item: Item, reach: Int = 2) throws -> [ProofLine] {
+        try reader.read { db in try Self.proofLines(of: item, reach: reach, in: db) }
+    }
+
+    /// The same read inside a transaction already open on `db`.
+    static func proofLines(of item: Item, reach: Int, in db: Database) throws -> [ProofLine] {
         guard item.citeFirst > 0 else { return [] }
         let cited = item.citeFirst...max(item.citeFirst, item.citeLast)
-        return try reader.read { db in
-            if let run = item.run {
-                let window = try Self.window(of: run, in: db)
-                if !window.isEmpty { return Self.around(window, cited: cited, reach: reach) }
-            }
-            guard item.source == .whatsapp else { return [] }
-            let refs = (cited.lowerBound - Int64(reach))...(cited.upperBound + Int64(reach))
-            return try LegacyCitations.lines(
-                in: .whatsAppRow, refs: refs, container: item.scope.isEmpty ? nil : WhatsAppJID.canonical(item.scope),
-                db: db
-            ).map { ProofLine(line: $0, isCited: cited.contains($0.number)) }
+        if let run = item.run {
+            let window = try Self.window(of: run, in: db)
+            if !window.isEmpty { return Self.around(window, cited: cited, reach: reach) }
         }
+        guard item.source == .whatsapp else { return [] }
+        let refs = (cited.lowerBound - Int64(reach))...(cited.upperBound + Int64(reach))
+        return try LegacyCitations.lines(
+            in: .whatsAppRow, refs: refs, container: item.scope.isEmpty ? nil : WhatsAppJID.canonical(item.scope),
+            db: db
+        ).map { ProofLine(line: $0, isCited: cited.contains($0.number)) }
     }
 
     private static func window(of run: RunID, in db: Database) throws -> [StoredLine] {

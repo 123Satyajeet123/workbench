@@ -121,6 +121,7 @@ extension Store {
             }
         }
         for folder in folders { try removeFile(folder) }
+        try writer.write { db in try EvidenceStamp.optimizeSearch(in: db) }
         try truncateLog()
     }
 
