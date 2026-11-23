@@ -21,6 +21,9 @@ struct ModelChoice: Codable, Hashable, Identifiable {
         ModelChoice(kind: .codex, model: "gpt-6.2-sol"),
     ]
 
+    /// The Claude model that searches the web for `ModelSearch`, whatever model the founder picked for reading.
+    static let searchModelName = "claude-sonnet-5-5"
+
     static func with(id: String) -> ModelChoice? { choices.first { $0.id == id } }
 
     private static let stateKey = StateKey<ModelChoice>.json("model")
@@ -45,7 +48,7 @@ struct ModelChoice: Codable, Hashable, Identifiable {
     /// the model of the dev probe, billed as the founder chose.
     static func searchModel(store: Store, secrets: SecretStore = KeychainSecrets()) -> RecordedModel {
         recorded(
-            kind: .claude, model: "claude-sonnet-5-5", effort: "low", timeout: .seconds(120), tools: .webSearch,
+            kind: .claude, model: searchModelName, effort: "low", timeout: .seconds(120), tools: .webSearch,
             store: store, secrets: secrets)
     }
 

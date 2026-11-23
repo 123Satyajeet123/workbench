@@ -23,7 +23,9 @@ public struct DealRating: Sendable, Equatable {
 
 /// Rates one deal against the team's criteria: the model judges each rule with a quote from the lines, and code makes
 /// the call from the rule results (`Criteria.combine`). The same rules and the same call as an intake machine.
-public struct DealRater: Sendable {
+public struct DealRater: ModelTask {
+    typealias Reply = [String: JSONValue]
+
     public static let task = "deals.rate"
 
     static let brief = """
@@ -41,16 +43,16 @@ public struct DealRater: Sendable {
         self.criteria = criteria
     }
 
+    var task: String { DealRating.task }
     var instructions: String { Self.brief + criteria.instructions }
+    var schema: JSONSchema { .object(criteria.properties) }
 
     /// Nil when there is no line or no rule (no model runs), or when no rule rests on a quote found in the lines: a
     /// rating with no words behind it is not kept.
     public func rate(deal: String, company: String, lines: [Evidence]) async throws -> DealRating? {
         guard !lines.isEmpty, !criteria.rules.isEmpty else { return nil }
-        let (raw, run) = try await model.generate(
-            [String: WorkbenchCore.JSONValue].self, schema: .object(criteria.properties), task: Self.task,
-            instructions: instructions,
-            input: "Company: \(company)\n\n" + lines.map { "[\($0.id)] \($0.line)" }.joined(separator: "\n"),
+        let (raw, run) = try await ask(
+            "Company: \(company)\n\n" + lines.map { "[\($0.id)] \($0.line)" }.joined(separator: "\n"),
             holding: Set(lines.compactMap { $0.consent?.kind }), holdingUnknown: lines.contains { $0.consent == nil },
             window: lines.compactMap { line in line.lineID.map { WindowLine(number: line.id, lineID: $0) } })
         let fields = criteria.readings(raw, evidence: EvidenceSet(lines: lines))
