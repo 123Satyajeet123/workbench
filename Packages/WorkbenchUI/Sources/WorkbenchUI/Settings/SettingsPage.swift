@@ -110,6 +110,7 @@ struct SettingsPage: View {
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
+        .pointerStyle(.link)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
