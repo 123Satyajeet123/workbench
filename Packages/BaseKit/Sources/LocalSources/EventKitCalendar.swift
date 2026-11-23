@@ -33,6 +33,9 @@ public final class EventKitCalendar: CalendarEvents, @unchecked Sendable {
                     name: $0.name ?? "", email: $0.url.absoluteString.replacingOccurrences(of: "mailto:", with: ""),
                     isMe: $0.isCurrentUser)
             },
-            notesLength: event.notes?.count ?? 0)
+            notesLength: event.notes?.count ?? 0,
+            joinURL: MeetingLink.find(
+                in: [event.url?.absoluteString, event.location, event.notes],
+                orAnyLinkIn: [event.url?.absoluteString, event.location]))
     }
 }

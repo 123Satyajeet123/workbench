@@ -32,6 +32,8 @@ struct MeetingRow: View {
                 Text(card.meeting.title.isEmpty ? "Untitled" : card.meeting.title).fontWeight(.semibold)
                 if !who.isEmpty { Text(who).textStyle(.callout).foregroundStyle(.supporting) }
             }
+            Spacer(minLength: Space.m)
+            JoinButton(meeting: card.meeting)
         }
     }
 

@@ -6,6 +6,7 @@ struct CallsPage: View {
 
     @Environment(CaptureSettings.self) private var capture
     @Environment(CallNotes.self) private var notes
+    @Environment(TodayModel.self) private var today
 
     var body: some View {
         Page(
@@ -15,6 +16,7 @@ struct CallsPage: View {
             look: SidebarSelection.calls.look
         ) {
             OfferBanner()
+            UpcomingMeetings()
             SpeechBanner()
             if let problem = notes.problem { Text(problem).foregroundStyle(Tone.bad.color).textStyle(.callout) }
             if let call = capture.call { RecordingNowLabel(call: call) }
@@ -38,6 +40,51 @@ struct CallsPage: View {
             }
         }
         .task { await notes.start() }
+        .task { await today.refreshMeetings() }
+    }
+}
+
+private struct UpcomingMeetings: View {
+    @Environment(TodayModel.self) private var today
+    @Environment(CaptureSettings.self) private var capture
+
+    var body: some View {
+        let meetings = today.meetings.meetings.filter { $0.end > .now }.sorted { $0.start < $1.start }
+        if !meetings.isEmpty {
+            VStack(alignment: .leading, spacing: Space.s) {
+                Text("Meetings today").textStyle(.headline)
+                ForEach(meetings) { meeting in
+                    HStack(alignment: .firstTextBaseline, spacing: Space.m) {
+                        Text(meeting.start.formatted(date: .omitted, time: .shortened))
+                            .foregroundStyle(.supporting).monospacedDigit().frame(width: 64, alignment: .leading)
+                        VStack(alignment: .leading, spacing: Space.xs) {
+                            Text(meeting.title.isEmpty ? "Untitled" : meeting.title).fontWeight(.semibold)
+                            Text(detail(meeting)).textStyle(.callout).foregroundStyle(.supporting)
+                        }
+                        Spacer(minLength: Space.m)
+                        JoinButton(meeting: meeting)
+                    }
+                }
+            }
+            Divider()
+        } else if today.meetings.offersMeetings {
+            HStack(spacing: Space.m) {
+                Label("See today's meetings here, with a button to join each one.", systemImage: "calendar")
+                    .foregroundStyle(.supporting)
+                Spacer(minLength: Space.m)
+                Button("Show my meetings") {
+                    capture.set(.calendar, on: true)
+                    Task { await today.refreshMeetings() }
+                }
+            }
+            .textStyle(.callout)
+        }
+    }
+
+    private func detail(_ meeting: Meeting) -> String {
+        let until = "until \(meeting.end.formatted(date: .omitted, time: .shortened))"
+        let place = meeting.joinService ?? meeting.joinURL?.host()
+        return ([until] + [place].compactMap(\.self)).joined(separator: " · ")
     }
 }
 
