@@ -84,8 +84,9 @@ extension Store {
         for key in try cursorKeys(of: erasure, condition, in: db) {
             try db.execute(sql: "DELETE FROM state WHERE key = ?", arguments: [key])
         }
-        for key in try agreementKeys(of: erasure, condition, in: db) {
-            try db.execute(sql: "DELETE FROM state WHERE key = ?", arguments: [key])
+        for grant in try erasedGrants(of: erasure, condition, in: db) {
+            try db.execute(sql: "DELETE FROM state WHERE key = ?", arguments: [agreementKey(grantID: grant)])
+            try db.execute(sql: "DELETE FROM pending_revoke WHERE grant_id = ?", arguments: [grant])
         }
         if counts.lines > 0 {
             try eraseCopies(
@@ -152,14 +153,11 @@ extension Store {
         return keys
     }
 
-    /// The confirmed audiences of the grants that go with the cursors: a chat taken off the list needs a new confirmation.
-    private static func agreementKeys(of erasure: EvidenceErasure, _ condition: Condition, in db: Database) throws
+    /// The grants that go with the cursors. A chat taken off the list also loses its confirmed audience and its noted deletions.
+    private static func erasedGrants(of erasure: EvidenceErasure, _ condition: Condition, in db: Database) throws
         -> Set<String>
     {
-        Set(
-            try cursorKeys(of: erasure, condition, in: db).map {
-                agreementKey(grantID: String($0.dropFirst(cursorKey(grantID: "").count)))
-            })
+        Set(try cursorKeys(of: erasure, condition, in: db).map { String($0.dropFirst(cursorKey(grantID: "").count)) })
     }
 
     private static func counts(of erasure: EvidenceErasure, in db: Database) throws -> EraseCounts {

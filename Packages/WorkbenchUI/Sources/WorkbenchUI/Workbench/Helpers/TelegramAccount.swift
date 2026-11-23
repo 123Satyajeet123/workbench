@@ -10,17 +10,50 @@ final class TelegramAccount {
 
     private(set) var login = TelegramLogin.signedOut
     private(set) var hasKeys = false
+    /// Why a message that Telegram deleted is not yet erased here, or nil. Its note stays in the store until it is.
+    private(set) var revokeProblem: String?
 
     @ObservationIgnored let service: any TelegramService
     @ObservationIgnored private let secrets: SecretStore
     @ObservationIgnored private let capture: CaptureService
+    @ObservationIgnored private let store: Store
 
-    init(service: any TelegramService, capture: CaptureService, secrets: SecretStore = KeychainSecrets()) {
+    init(
+        service: any TelegramService, capture: CaptureService, store: Store, secrets: SecretStore = KeychainSecrets()
+    ) {
         self.service = service
         self.capture = capture
+        self.store = store
         self.secrets = secrets
+
         hasKeys = keys != nil
         followCapture()
+        service.observeDeletions { [weak self] chat, messages in
+            Task { @MainActor in self?.noteDeleted(messages, in: chat) }
+        }
+        Task { await applyDeletions() }
+    }
+
+    /// A message of an allowed chat was deleted for good. The store keeps the note first, then the erase is written.
+    private func noteDeleted(_ messages: [Int64], in chat: Int64) {
+        let label = String(chat)
+        guard capture.policy.allowList[.telegram]?.contains(label) == true else { return }
+        do {
+            try store.noteRevokes(kind: .telegram, label: label, messageRefs: messages.map(String.init))
+        } catch {
+            revokeProblem = "Could not note a deleted Telegram message: \(error.localizedDescription)"
+            return
+        }
+        Task { await applyDeletions() }
+    }
+
+    /// Writes the noted deletions. When the owner is not known, the notes wait in the store for the next try.
+    func applyDeletions() async {
+        do {
+            revokeProblem = await TelegramRevoke.apply(in: store, owner: try capture.owner())
+        } catch {
+            revokeProblem = "Could not erase a deleted Telegram message: \(error.localizedDescription)"
+        }
     }
 
     /// Whether the person's own api_id and api_hash are saved.

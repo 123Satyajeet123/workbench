@@ -92,14 +92,15 @@ public protocol TelegramService: AnyObject, Sendable {
     func groups() async throws -> [TelegramChat]
     func members(of chat: Int64) async throws -> [TelegramMember]
     func messages(in chat: Int64, from start: Date, to end: Date, me: String) async throws -> [TelegramMessage]
-    /// The messages of the chat that Telegram deleted for good. A deletion that only left the local cache is not one.
-    func deletedMessages(in chat: Int64) async throws -> [Int64]
+    /// Calls `handler` with the chat and the ids of messages that Telegram deleted for good. A deletion that only left
+    /// the local cache is not one.
+    func observeDeletions(_ handler: @escaping @Sendable (_ chat: Int64, _ messages: [Int64]) -> Void)
     func signOut() async throws
     func disconnect()
 }
 
 extension TelegramService {
-    public func deletedMessages(in chat: Int64) async throws -> [Int64] { [] }
+    public func observeDeletions(_ handler: @escaping @Sendable (_ chat: Int64, _ messages: [Int64]) -> Void) {}
 }
 
 public enum TelegramGate {

@@ -11,6 +11,9 @@ struct TelegramChooser: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Space.m) {
             SourceHealthMark(source: .telegram)
+            if let problem = source.account.revokeProblem {
+                Text(problem).textStyle(.callout).foregroundStyle(.supporting)
+            }
             Text(
                 "\(model.name) reads one Telegram group, only after every person in it agrees, and only the day you ask it to."
             )

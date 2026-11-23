@@ -62,7 +62,8 @@ enum AppLaunch {
                 store: store, capture: service, founder: { identity.identity.name }, makeModel: nil,
                 notifications: notifications, openWebSession: { try web.openSession() },
                 telegram: TelegramAccount(
-                    service: TDLibTelegram(folder: storeFolder.appending(path: "Telegram")), capture: service))
+                    service: TDLibTelegram(folder: storeFolder.appending(path: "Telegram")), capture: service,
+                    store: store))
             let onboarding = OnboardingModel(store: store, identity: identity, teamStarted: crew.reload)
             let review = ReviewModel(store: store, crew: crew)
             let mochi = MochiModel(store: store, crew: crew)

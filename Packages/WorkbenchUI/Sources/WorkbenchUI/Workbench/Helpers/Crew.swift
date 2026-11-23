@@ -51,7 +51,7 @@ final class Crew {
             telegram
             ?? TelegramAccount(
                 service: TDLibTelegram(folder: AppLaunch.defaultStoreFolder.appending(path: "Telegram")),
-                capture: capture)
+                capture: capture, store: store)
         alarm = VersionAlarm(store: store, notifications: notifications, problems: problems)
         reload()
     }

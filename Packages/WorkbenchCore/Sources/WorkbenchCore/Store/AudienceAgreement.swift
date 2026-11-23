@@ -24,6 +24,14 @@ extension Store {
             db, sql: "SELECT value FROM state WHERE key = ?", arguments: [agreementKey(grantID: grantID)])
     }
 
+    /// The audience the person confirmed for one chat, or nil when none was.
+    public func agreedAudience(kind: SourceKind, label: String) throws -> AudienceDigest? {
+        let key = Self.agreementKey(grantID: Self.grantID(kind: kind, label: label))
+        return try queries.state(forKey: key).flatMap { Data(base64Encoded: $0) }.flatMap {
+            AudienceDigest(bytes: Array($0))
+        }
+    }
+
     /// Records that everyone in the chat agreed, for this audience and no other. A source whose descriptor requires it
     /// writes lines only for this audience; an erasure of the chat removes the record with the lines.
     public func agree(audience: AudienceDigest, kind: SourceKind, label: String) throws {

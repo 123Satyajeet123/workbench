@@ -119,6 +119,7 @@ final class TelegramSource: MachineSource {
     func evidence(on day: WorkDay) async throws -> EvidenceSet {
         guard let chat, let consent, consent.chat == chat.id else { return EvidenceSet(lines: []) }
         try await account.waitUntilReady()
+        await account.applyDeletions()
         let reader = TelegramChatReader(
             service: account.service, chat: chat.id, agreed: Set(consent.people.map(\.id)), policy: store,
             me: founderLabel(founder()), window: day.start..<day.end)

@@ -57,7 +57,7 @@ nonisolated private let apiHash = UUID().uuidString.replacingOccurrences(of: "-"
         let capture = try CaptureService(store: store)
         let service = FakeTelegram()
         service.people.withLock { $0 = [asha, bharat] }
-        let account = TelegramAccount(service: service, capture: capture, secrets: MemorySecrets())
+        let account = TelegramAccount(service: service, capture: capture, store: store, secrets: MemorySecrets())
         let source = try TelegramSource(
             store: store, capture: capture, account: account, task: HelperSpec.teamTelegram.task,
             founder: { "Kabir" })
