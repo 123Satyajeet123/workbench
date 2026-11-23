@@ -62,3 +62,21 @@ public struct FoundFact: Sendable, Equatable {
     public let state: String
     public let cites: [FoundLine]
 }
+
+/// A work object a tool opened: what it is, what stands below it, and the facts filed in it.
+public struct FoundObject: Sendable, Equatable {
+    public struct Child: Sendable, Equatable {
+        public let id: WorkObjectID
+        public let type: TypeID
+        public let name: String
+    }
+
+    public let id: WorkObjectID
+    public let type: TypeID
+    public let name: String
+    /// The labels of its current stages; empty when its type has no stages.
+    public let stages: [String]
+    public let archived: Bool
+    public let children: [Child]
+    public let facts: [FoundFact]
+}

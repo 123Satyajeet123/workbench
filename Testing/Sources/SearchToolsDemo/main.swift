@@ -173,7 +173,7 @@ func copies(of word: String) throws -> Int {
 
 // MARK: The scene
 
-spareRuns = try await (0..<60).asyncMap { _ in try await recordedRun() }
+spareRuns = try await (0..<80).asyncMap { _ in try await recordedRun() }
 
 try record(
     [
@@ -500,6 +500,43 @@ store = try openStore()
 expect(
     "opening it builds the index for the items that exist",
     try store.searchFacts("Acme", in: context(alice)).count == 2)
+
+// MARK: openObject
+
+heading("openObject: the object, its children and its facts, each fact checked, its cites traced")
+let folder = try store.createWorkObject(type: ObjectTypes.folder, parent: nil, name: "Acme work")
+let child = try store.createWorkObject(type: ObjectTypes.page, parent: folder.id, name: "Notes")
+let gone = try store.createWorkObject(type: ObjectTypes.page, parent: folder.id, name: "Old notes")
+try store.archive(gone.id)
+let alicePromise = try need(try store.searchFacts("invoice Acme", in: context(alice)).first)
+let bobFact = try need(try store.searchFacts("supplier", in: context(bob)).first)
+try store.file(item: alicePromise.item, into: folder.id, how: .personMoved, surface: .machinePage)
+try store.file(item: bobFact.item, into: folder.id, how: .personMoved, surface: .machinePage)
+let openRun = newRun()
+let opened = try need(try store.openObject(folder.id, in: ToolContext(run: openRun, reader: alice)))
+expect(
+    "the object comes with its type and name",
+    opened.type == ObjectTypes.folder.id && opened.name == "Acme work" && !opened.archived)
+expect(
+    "its children come, the archived child does not",
+    opened.children.map(\.name) == ["Notes"] && opened.children.first?.id == child.id)
+expect(
+    "a fact the reader may read comes, with its cites",
+    opened.facts.map(\.item) == [alicePromise.item] && !(opened.facts.first?.cites.isEmpty ?? true))
+expect(
+    "a fact that cites a line the reader may not read does not come, and leaves no trace",
+    !opened.facts.contains { $0.item == bobFact.item }
+        && windowSize(of: openRun) == opened.facts.flatMap(\.cites).count)
+let openWindow = try store.queries.window(of: openRun)
+expect(
+    "each cite's number is its place in the run window",
+    opened.facts.flatMap(\.cites).allSatisfy { cite in openWindow.contains { $0.number == Int64(cite.number) } })
+let asBob = try need(try store.openObject(folder.id, in: context(bob)))
+expect("the other reader gets only their own fact", asBob.facts.map(\.item) == [bobFact.item])
+expect(
+    "an archived object opens by its own id",
+    try store.openObject(gone.id, in: context(alice))?.archived == true)
+expect("an unknown id gives nothing", try store.openObject("no-such-object", in: context(alice)) == nil)
 
 try? FileManager.default.removeItem(at: directory)
 print("\n\(failures == 0 ? "All rules shown both ways." : "\(failures) claim(s) failed.")")

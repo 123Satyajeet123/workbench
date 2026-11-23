@@ -20,10 +20,16 @@ extension Store {
         matching match: String, _ filter: FactFilter, limit: Int, audience: ReaderAudience, in db: Database
     ) throws -> [AdmittedFact] {
         let rows = try Row.fetchCursor(db, sql: factSearch(filter), arguments: try factSearchArguments(match, filter))
+        return try admitted(next: { try rows.next().map(Item.init(row:)) }, limit: limit, audience: audience, in: db)
+    }
+
+    /// The first `limit` facts that `next` gives and that pass the audience check, in their order.
+    static func admitted(
+        next: () throws -> Item?, limit: Int, audience: ReaderAudience, in db: Database
+    ) throws -> [AdmittedFact] {
         var titleFields: [String: String] = [:]
         var admitted: [AdmittedFact] = []
-        while admitted.count < limit, let row = try rows.next() {
-            let item = try Item(row: row)
+        while admitted.count < limit, let item = try next() {
             guard let cites = try admittedCites(of: item, audience: audience, in: db) else { continue }
             if titleFields[item.task] == nil { titleFields[item.task] = try titleField(ofTask: item.task, in: db) }
             admitted.append(AdmittedFact(item: item, title: item[titleFields[item.task] ?? ""], cites: cites))

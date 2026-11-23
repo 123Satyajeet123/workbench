@@ -92,7 +92,7 @@ extension Queries {
     /// The objects the condition selects, each with the events of its own, in `order`.
     static func workObjects(
         _ db: Database, where condition: String, _ arguments: StatementArguments,
-        order: String = "position, rowid"
+        order: String = "position, rowid", viewer: String = ""
     ) throws -> [WorkObject] {
         let rows = try db.fetch(
             "work_object", "SELECT \(WorkObjectRow.columns) FROM work_object WHERE \(condition) ORDER BY \(order)",
@@ -103,7 +103,7 @@ extension Queries {
             [try Coding.json(rows.map(\.id))]
         ) { try $0.json("body", as: WorkEvent.self) }
         let byObject = Dictionary(grouping: events, by: \.object)
-        return rows.map { WorkObject($0, events: byObject[$0.id] ?? [], viewer: "") }
+        return rows.map { WorkObject($0, events: byObject[$0.id] ?? [], viewer: viewer) }
     }
 
     static func require(_ db: Database, _ id: WorkObjectID) throws {

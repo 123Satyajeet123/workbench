@@ -125,17 +125,19 @@ extension Queries {
 
     /// The facts whose home is `object`, and with `includeChildren` the facts whose home is any object below it.
     public func facts(in object: WorkObjectID, includeChildren: Bool) throws -> [Item] {
-        try reader.read { db in
-            try db.fetch(
-                "item",
-                """
-                WITH RECURSIVE subtree(id) AS (
-                    SELECT ? UNION ALL SELECT child.id FROM work_object child JOIN subtree ON child.parent_id = subtree.id
-                    WHERE ?)
-                SELECT \(Self.itemColumns) FROM \(Self.itemRows)
-                WHERE id IN (SELECT item_id FROM fact_home WHERE object_id IN (SELECT id FROM subtree))
-                ORDER BY day DESC, start_at DESC, id
-                """, [object, includeChildren ? 1 : 0], as: Item.init(row:))
-        }
+        try reader.read { db in try Self.facts(in: object, includeChildren: includeChildren, db) }
+    }
+
+    static func facts(in object: WorkObjectID, includeChildren: Bool, _ db: Database) throws -> [Item] {
+        try db.fetch(
+            "item",
+            """
+            WITH RECURSIVE subtree(id) AS (
+                SELECT ? UNION ALL SELECT child.id FROM work_object child JOIN subtree ON child.parent_id = subtree.id
+                WHERE ?)
+            SELECT \(Self.itemColumns) FROM \(Self.itemRows)
+            WHERE id IN (SELECT item_id FROM fact_home WHERE object_id IN (SELECT id FROM subtree))
+            ORDER BY day DESC, start_at DESC, id
+            """, [object, includeChildren ? 1 : 0], as: Item.init(row:))
     }
 }
