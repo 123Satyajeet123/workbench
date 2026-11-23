@@ -467,10 +467,30 @@ func sqlite(_ statements: String) throws -> String {
         .trimmingCharacters(in: .whitespacesAndNewlines)
 }
 
+let followUpsMachine = "(SELECT id FROM machine WHERE task = '\(followUps.task)')"
+_ = try sqlite(
+    """
+    INSERT INTO machine_change(machine_id, at, name, spec, state) SELECT machine_id, at, 'Follow-ups renamed', spec,
+        state FROM machine_change WHERE id = (SELECT MAX(id) FROM machine_change WHERE machine_id = \(followUpsMachine));
+    """)
+expect(
+    "a change that keeps the fields does not put a choice value in the index",
+    try store.searchFacts("promise", in: context(alice)).isEmpty)
+_ = try sqlite(
+    """
+    INSERT INTO machine_change(machine_id, at, name, spec, state) SELECT machine_id, at, name,
+        json_set(spec, '$.fields[2].kind', json('{"text":{"required":false}}')), state FROM machine_change
+        WHERE id = (SELECT MAX(id) FROM machine_change WHERE machine_id = \(followUpsMachine));
+    """)
+expect(
+    "a spec change that makes a field free text reindexes the machine's old items",
+    !(try store.searchFacts("promise", in: context(alice))).isEmpty)
+
 let stepsRun = try need(Int(try sqlite("PRAGMA user_version;")))
 _ = try sqlite(
     """
-    DROP TRIGGER item_fts_insert; DROP TRIGGER item_fts_update; DROP TRIGGER item_fts_delete; DROP TABLE item_fts;
+    DROP TRIGGER item_fts_insert; DROP TRIGGER item_fts_update; DROP TRIGGER item_fts_delete;
+    DROP TRIGGER item_fts_respec; DROP TABLE item_fts;
     PRAGMA user_version = \(stepsRun - 1);
     """)
 expect(
