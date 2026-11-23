@@ -48,10 +48,6 @@ public enum CallTranscript {
         return one.speaker == .me && other.speaker == .them
     }
 
-    public static func text(_ lines: [CallLine], me: String, them: String) -> String {
-        lines.map { "[\(clock($0.start))] \($0.speaker == .me ? me : them): \($0.text)" }.joined(separator: "\n")
-    }
-
     public static func clock(_ seconds: TimeInterval) -> String {
         let total = Int(seconds)
         let (hours, minutes, rest) = (total / 3600, total / 60 % 60, total % 60)
@@ -60,29 +56,28 @@ public enum CallTranscript {
     }
 }
 
+/// The notes on one call as the model writes them. Each point is one sentence that cites the transcript lines it
+/// rests on by their numbers in the run's input, and quotes words of one of them exactly.
 public struct CallSummary: Codable, Sendable, Equatable {
-    public struct Action: Codable, Sendable, Equatable {
-        public var owner: String
+    public struct Point: Codable, Sendable, Equatable {
         public var text: String
+        public var cites: [Int64]
+        public var quote: String
 
-        public init(owner: String, text: String) {
-            self.owner = owner
+        public init(text: String, cites: [Int64], quote: String) {
             self.text = text
+            self.cites = cites
+            self.quote = quote
         }
     }
 
-    public var summary: String
-    public var decisions: [String]
-    public var actions: [Action]
+    public var points: [Point]
 
-    public init(summary: String, decisions: [String], actions: [Action]) {
-        self.summary = summary
-        self.decisions = decisions
-        self.actions = actions
-    }
+    public init(points: [Point]) { self.points = points }
 
     public static let schema = JSONSchema.object([
-        .init("summary", .string), .init("decisions", .array(.string)),
-        .init("actions", .array(.object([.init("owner", .string), .init("text", .string)]))),
+        .init(
+            "points",
+            .array(.object([.init("text", .string), .init("cites", .array(.integer)), .init("quote", .string)])))
     ])
 }

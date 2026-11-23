@@ -51,9 +51,6 @@ struct CallTranscriptTests {
                 CallLine(speaker: .me, start: 9, text: "Ship it Friday?"),
                 CallLine(speaker: .them, start: 14, text: "Yes, Friday."),
             ])
-        #expect(
-            CallTranscript.text(Array(lines.prefix(2)), me: "Shivansh (You)", them: "Them")
-                == "[00:00] Shivansh (You): Hi Asha.\n[00:03] Them: Hey! Quick update.")
         #expect(CallTranscript.clock(3725) == "1:02:05")
     }
 }

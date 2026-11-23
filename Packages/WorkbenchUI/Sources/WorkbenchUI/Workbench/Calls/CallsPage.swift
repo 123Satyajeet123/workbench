@@ -175,8 +175,8 @@ private struct CallCard: View {
 
     @ViewBuilder private var notesBody: some View {
         let note = notes.notes[recording.id]
-        if let summary = note?.summary {
-            SummaryView(summary: summary)
+        if let points = note?.points {
+            PointsView(recording: recording, points: points)
         } else if let error = note?.summaryError {
             failure("The notes were not written: \(error)")
         } else if notes.working.contains(recording.id) {
@@ -185,6 +185,7 @@ private struct CallCard: View {
         } else if note == nil, notes.speech == .ready {
             Label("Waiting to transcribe", systemImage: "clock").foregroundStyle(.supporting)
         }
+        FollowUps(ids: note?.followUps ?? [])
         if let error = note?.transcriptError { failure("The transcript was not made: \(error)") }
         if note?.transcript?.isEmpty == true { Text(CallNotes.noSpeech).foregroundStyle(.supporting) }
         if let lines = note?.transcript, !lines.isEmpty {
@@ -210,31 +211,51 @@ private struct CallCard: View {
     }
 }
 
-private struct SummaryView: View {
-    let summary: CallSummary
+/// The points of the notes that passed the check. Each starts with the time of the line it cites, which plays the call
+/// from there; the words it quotes show on hover.
+private struct PointsView: View {
+    let recording: Recording
+    let points: [CallNote.Point]
+    @Environment(CallPlayback.self) private var playback
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Space.s) {
-            Text(summary.summary).textStyle(.body).fixedSize(horizontal: false, vertical: true)
-            if !summary.decisions.isEmpty {
-                list("Decided", summary.decisions.map { Text($0) })
-            }
-            if !summary.actions.isEmpty {
-                list("To do", summary.actions.map { Text("\($0.owner): ").bold() + Text($0.text) })
-            }
-        }
-        .textSelection(.enabled)
-    }
-
-    private func list(_ title: String, _ rows: [Text]) -> some View {
-        VStack(alignment: .leading, spacing: Space.xs) {
-            Text(title).textStyle(.callout, weight: .semibold).foregroundStyle(.supporting)
-            ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
-                HStack(alignment: .firstTextBaseline, spacing: Space.s) {
-                    Text("•").foregroundStyle(.supporting)
-                    row.fixedSize(horizontal: false, vertical: true)
+        if points.isEmpty {
+            Text("No point of the notes matched the transcript.").foregroundStyle(.supporting)
+        } else {
+            VStack(alignment: .leading, spacing: Space.xs) {
+                ForEach(Array(points.enumerated()), id: \.offset) { _, point in
+                    HStack(alignment: .firstTextBaseline, spacing: Space.s) {
+                        if let start = point.start {
+                            Button(CallTranscript.clock(start)) {
+                                Task { await playback.seek(recording, to: start, andPlay: true) }
+                            }
+                            .buttonStyle(.plain).foregroundStyle(.linkText).monospacedDigit()
+                            .pointerStyle(.link).help("Play from here")
+                            .zoomedWidth(52, alignment: .leading)
+                        }
+                        Text(point.text).textStyle(.body).fixedSize(horizontal: false, vertical: true)
+                            .help("\u{201C}\(point.quote)\u{201D}")
+                    }
                 }
             }
+            .textSelection(.enabled)
+        }
+    }
+}
+
+/// The follow-ups the call opened, as Today lists them: the facts of `CallFollowUps`, each ticked or dropped there.
+private struct FollowUps: View {
+    let ids: Set<Int64>
+    @Environment(TodayModel.self) private var today
+
+    var body: some View {
+        let items = today.callFollowUps.filter { $0.id.map(ids.contains) ?? false }
+        if !items.isEmpty {
+            VStack(alignment: .leading, spacing: Space.xs) {
+                Text("Follow-ups").textStyle(.callout, weight: .semibold).foregroundStyle(.supporting)
+                ForEach(items) { FactLine(item: $0, model: today) }
+            }
+            .padding(.top, Space.xs)
         }
     }
 }

@@ -1,4 +1,5 @@
 import Foundation
+import GRDB
 import Kernel
 import Lines
 
@@ -38,9 +39,9 @@ extension HelperSpec.Lifecycle {
 }
 
 /// Opens the follow-ups said in one call as facts of `HelperSpec.callFollowUps`: one `HelperReader` run over the
-/// call's transcript lines, kept by the verifier and written by `Store.saveReading` under the call app's consent. The
-/// follow-ups still open from earlier calls are shown, so a later call can restate one or say it is done. Review never
-/// asks about a follow-up, so none is picked for a random check.
+/// call's transcript lines that no earlier reading of the machine saw, kept by the verifier and written by
+/// `Store.saveReading` under the call app's consent. The follow-ups still open from earlier calls are shown, so a later
+/// call can restate one or say it is done. Review never asks about a follow-up, so none is picked for a random check.
 public struct CallFollowUps: Sendable {
     public let model: RecordedModel
 
@@ -52,8 +53,10 @@ public struct CallFollowUps: Sendable {
         let day = WorkDay(containing: recording.startedAt)
         let invited = recording.guests ?? []
         let evidence = EvidenceSet(
-            lines: lines.map { Self.evidence($0, of: recording, me: me) },
-            context: invited.isEmpty ? ["founder": [me]] : ["founder": [me], "invited": invited])
+            lines: lines.map { recording.evidence($0, me: me) },
+            context: invited.isEmpty ? ["founder": [me]] : ["founder": [me], "invited": invited],
+            read: try store.queries.numbersRead(by: spec.task, among: lines.map(\.number)))
+        guard !evidence.newLines.isEmpty else { return }
         let result = try await HelperReader(spec: spec, model: model).read(
             day: day, scope: recording.bundleID, evidence: evidence, open: try store.queries.openItems(readBy: spec))
         let request = CaptureRequest(kind: .call, label: recording.bundleID)
@@ -63,12 +66,23 @@ public struct CallFollowUps: Sendable {
         try store.saveReading(
             result, of: spec, day: day, scope: recording.bundleID, grant: grant, isAudited: { _ in false })
     }
+}
 
-    /// A transcript line as the model reads it: who spoke, then the words, which a quote is taken from.
-    static func evidence(_ line: StoredLine, of recording: Recording, me: String) -> Evidence {
-        let speaker = line.actor == WhatsAppAudience.owner ? me : recording.them
-        return Evidence(
-            id: line.number, start: line.time ?? recording.startedAt, line: "\(speaker): \(line.text)",
-            quotable: [line.text], lineID: line.lineID, provenance: line.provenance)
+extension Queries {
+    /// The ids of the follow-ups a call opened: the facts of `HelperSpec.callFollowUps` whose cited lines, in the
+    /// window of the run that made them, are lines of the call.
+    func followUps(of call: Recording) throws -> Set<Int64> {
+        try reader.read { db in
+            try Set(
+                Int64.fetchAll(
+                    db,
+                    sql: """
+                        SELECT item.id FROM item
+                        JOIN run_window w ON w.run_id = item.run_id
+                            AND w.ordinal BETWEEN item.cite_first AND item.cite_last
+                        JOIN evidence e ON e.line_id = w.line_id
+                        WHERE item.task = ? AND e.container = ?
+                        """, arguments: [HelperSpec.callFollowUps.task, call.container]))
+        }
     }
 }

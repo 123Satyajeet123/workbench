@@ -33,7 +33,8 @@ nonisolated struct AppleListener: CallListener {
     func segments(_ audio: URL) async throws -> [TimedText] { try await AppleTranscriber.english().segments(audio) }
 }
 
-/// Transcribes each saved call on this Mac into its evidence lines, then asks for its notes (`CallSummarizer`).
+/// Transcribes each saved call on this Mac into its evidence lines, then asks for its notes (`CallSummarizer`) and
+/// its follow-ups (`CallFollowUps`).
 @MainActor @Observable
 final class CallNotes {
     enum Speech: Equatable {
@@ -153,7 +154,7 @@ final class CallNotes {
             let note = notes[recording.id]
             if note == nil {
                 await transcribe(recording)
-            } else if note?.transcript?.isEmpty == false, note?.summary == nil, note?.summaryError == nil {
+            } else if note?.transcript?.isEmpty == false, note?.points == nil, note?.summaryError == nil {
                 await summarize(recording)
             }
         }

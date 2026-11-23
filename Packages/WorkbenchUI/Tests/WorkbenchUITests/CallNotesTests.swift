@@ -33,8 +33,8 @@ private nonisolated final class FakeListener: CallListener {
 private let testOwner = { try PersonID("test-owner") }
 
 private let summaryReply = #"""
-    {"summary":"Asha shared the release plan.","decisions":["Ship on Friday"],
-     "actions":[{"owner":"Asha","text":"Send the build by Thursday"}]}
+    {"points":[{"text":"Asha gave a quick update.","cites":[2],"quote":"quick update"},
+     {"text":"They will ship on Friday.","cites":[9],"quote":"Friday then"}]}
     """#
 
 @MainActor struct CallNotesTests {
@@ -84,7 +84,7 @@ private let summaryReply = #"""
               "relation":{"kind":"new","handle":"","outcome":""},"cite":@Can you send@,"quote":"book the room"}]}
             """#
         let model = KeyedModel([
-            "write their notes on it": #"{"summary":"Deck.","decisions":[],"actions":[]}"#,
+            "write their notes on it": #"{"points":[]}"#,
             HelperSpec.callFollowUps.brief: followUps,
         ])
         let notes = CallNotes(
@@ -160,8 +160,7 @@ private let summaryReply = #"""
         let lines = try #require(note.transcript)
         #expect(lines.map(\.speaker) == [.me, .them, .me])
         #expect(lines.last?.text == "Friday then." && abs((lines.last?.start ?? 0) - 3) < 0.25)
-        #expect(note.summary?.decisions == ["Ship on Friday"])
-        #expect(note.summary?.actions.first?.owner == "Asha")
+        #expect(note.points?.map(\.text) == ["Asha gave a quick update."], "a point citing no line is dropped")
         let input = try #require(model.inputs.withLock { $0.first })
         #expect(input.contains("Call: Google Meet · Weekly sync"))
         #expect(input.contains("Shivansh (You): Hi Asha."))
@@ -198,7 +197,7 @@ private let summaryReply = #"""
         await fixed.checkSpeech()
         await fixed.retry(recording)
         #expect(fixed.notes[recording.id]?.transcript?.first?.text == "Bye")
-        #expect(fixed.notes[recording.id]?.summary != nil)
+        #expect(fixed.notes[recording.id]?.points != nil)
     }
 
     @Test func withoutTheSpeechModelNothingIsTranscribedAndTheDownloadIsOffered() async throws {
