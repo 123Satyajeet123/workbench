@@ -5,8 +5,8 @@ import Testing
 
 @MainActor struct MenuBarIconTests {
     @Test func theGlyphIsATemplateTheMenuBarTintsAndDimsWhenNotCapturing() throws {
-        let full = MenuBarIcon.glyph(dimmed: false)
-        let dim = MenuBarIcon.glyph(dimmed: true)
+        let full = MenuBarIcon.glyph(.capturing)
+        let dim = MenuBarIcon.glyph(.off)
         #expect(full.isTemplate && dim.isTemplate)
         #expect(full.size == MenuBarIcon.glyphSize)
         let fullAlpha = try #require(Self.alpha(of: full, at: CGPoint(x: 0.5, y: 0.7)))

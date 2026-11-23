@@ -1,28 +1,35 @@
-import Foundation
+import AppKit
 
 /// What the island shows, from what the app already knows. A call being recorded comes first, so consent is always
-/// visible; then a machine that is reading; then how many items wait for the founder. It never shows watched content:
-/// only a machine's name and a count.
+/// visible; then a machine that is reading. It never shows watched content: only a machine's name.
 enum IslandState: Equatable {
     case idle
     case recording(since: Date)
     case reading(machine: String)
-    case waiting(count: Int)
 
-    init(recordingSince: Date?, reading: [String], waiting: Int) {
+    init(recordingSince: Date?, reading: [String]) {
         if let recordingSince {
             self = .recording(since: recordingSince)
-        } else if let machine = reading.first {
-            self = .reading(machine: reading.count == 1 ? machine : "\(reading.count) machines")
-        } else if waiting > 0 {
-            self = .waiting(count: waiting)
+        } else if let label = Self.readingLabel(of: reading) {
+            self = .reading(machine: label)
         } else {
             self = .idle
         }
     }
 
-    /// Only an island that offers something takes a click; otherwise clicks go to the menu bar below it.
-    var takesClicks: Bool {
-        if case .waiting = self { true } else { false }
+    /// One machine by name, several by count. Nil when none reads.
+    static func readingLabel(of machines: [String]) -> String? {
+        machines.count > 1 ? "\(machines.count) machines" : machines.first
     }
+
+    var isRecording: Bool {
+        if case .recording = self { true } else { false }
+    }
+
+    /// Only a recording takes a click: it opens the Calls page. Otherwise clicks go to the menu bar below.
+    var takesClicks: Bool { isRecording }
+
+    /// The other side of a screen share may see the island only while it shows that a call is recorded. Research 70
+    /// measured that a panel with `.none` stays out of a screenshot, and one with `.readOnly` is in it.
+    var sharingType: NSWindow.SharingType { isRecording ? .readOnly : .none }
 }

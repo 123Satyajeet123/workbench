@@ -1,14 +1,14 @@
 import AppKit
 import SwiftUI
 
-/// Shows the island above every window, on the screen with the notch, and moves it when screens change. It never
-/// takes the keyboard, and takes a click only when it offers the review queue; a click opens Workbench on Review.
+/// Shows the island above every window, on the screen with the notch, and updates it when screens change. It never
+/// takes the keyboard, and takes a click only while a call is recorded.
 final class IslandPanel: NSPanel {
-    private let session: AppSession
+    private let presenter = IslandPresenter(metrics: .sample)
     private var screenChanges: Task<Void, Never>?
 
-    init(session: AppSession) {
-        self.session = session
+    /// `state` is read where SwiftUI tracks it, so the island follows what it reads. `open` runs on a click.
+    init(state: @escaping () -> IslandState, open: @escaping () -> Void) {
         super.init(
             contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered,
             defer: false)
@@ -20,6 +20,14 @@ final class IslandPanel: NSPanel {
         hidesOnDeactivate = false
         animationBehavior = .none
         ignoresMouseEvents = true
+        sharingType = .none
+        let content = ClickableHostingView(
+            rootView: IslandRoot(presenter: presenter, state: state, open: open) { [weak self] state in
+                self?.ignoresMouseEvents = !state.takesClicks
+                self?.sharingType = state.sharingType
+            })
+        content.sizingOptions = []
+        contentView = content
         place()
         screenChanges = Task { [weak self] in
             for await _ in NotificationCenter.default.notifications(
@@ -28,51 +36,57 @@ final class IslandPanel: NSPanel {
                 self?.place()
             }
         }
-        orderFrontRegardless()
+    }
+
+    convenience init(session: AppSession) {
+        self.init(
+            state: {
+                IslandState(
+                    recordingSince: session.capture.call?.startedAt,
+                    reading: session.crew.machines.filter { $0.phase == .reading }.map(\.name))
+            },
+            open: { NSWorkspace.shared.open(SidebarSelection.calls.url) })
     }
 
     deinit { screenChanges?.cancel() }
 
     override var canBecomeKey: Bool { false }
 
+    /// Fits the island to the notch screen. The panel's frame changes only when the screen's geometry does, and the
+    /// view stays. With no notch screen, nothing shows.
     private func place() {
-        let screen = IslandMetrics.screen
-        let metrics = IslandMetrics(screen: screen)
-        let content = NSHostingView(
-            rootView: IslandContent(session: session, metrics: metrics) { [weak self] in
-                self?.ignoresMouseEvents = !$0
-            })
-        content.sizingOptions = []
-        contentView = content
-        guard let screen else { return }
-        let size = metrics.panelSize
-        setFrame(
-            NSRect(
-                x: screen.frame.midX - size.width / 2, y: screen.frame.maxY - size.height, width: size.width,
-                height: size.height), display: true)
+        guard let screen = IslandMetrics.screen, let metrics = IslandMetrics(screen: screen) else {
+            orderOut(nil)
+            return
+        }
+        presenter.place(metrics)
+        let frame = metrics.panelFrame(on: screen.frame)
+        if frame != self.frame { setFrame(frame, display: true) }
+        orderFrontRegardless()
     }
 }
 
-private struct IslandContent: View {
-    let session: AppSession
-    let metrics: IslandMetrics
-    let takesClicks: (Bool) -> Void
+/// A click on the island works at once, though the panel never becomes key.
+private final class ClickableHostingView<Content: View>: NSHostingView<Content> {
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+}
+
+private struct IslandRoot: View {
+    let presenter: IslandPresenter
+    let state: () -> IslandState
+    let open: () -> Void
+    let didChange: (IslandState) -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        IslandView(state: state, metrics: metrics)
+        let current = state()
+        IslandView(presenter: presenter)
             .contentShape(Rectangle())
-            .onTapGesture {
-                guard state.takesClicks else { return }
-                NSWorkspace.shared.open(SidebarSelection.review.url)
-            }
+            .onTapGesture { if current.takesClicks { open() } }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .onChange(of: state.takesClicks, initial: true) { _, takes in takesClicks(takes) }
-    }
-
-    private var state: IslandState {
-        IslandState(
-            recordingSince: session.capture.call?.startedAt,
-            reading: session.crew.machines.filter { $0.phase == .reading }.map(\.name),
-            waiting: session.review.items.count)
+            .onChange(of: current, initial: true) { _, state in
+                didChange(state)
+                presenter.show(state, reduceMotion: reduceMotion)
+            }
     }
 }
