@@ -14,6 +14,8 @@ let package = Package(
         .executable(name: "model-access", targets: ["ModelAccessDemo"]),
         .executable(name: "gallery", targets: ["GalleryDemo"]),
         .executable(name: "demo-builder", targets: ["DemoBuilder"]),
+        .executable(name: "grounding-probe", targets: ["GroundingProbe"]),
+        .executable(name: "judge-probe", targets: ["JudgeProbe"]),
     ],
     dependencies: [
         .package(path: "../Packages/WorkbenchCore"), .package(path: "../Packages/WorkbenchUI"),
@@ -47,6 +49,12 @@ let package = Package(
             ],
             swiftSettings: [.defaultIsolation(MainActor.self)]),
         .executableTarget(name: "DemoBuilder", dependencies: ["DemoBuild"]),
+        .executableTarget(
+            name: "GroundingProbe",
+            dependencies: ["Evals", "WorkbenchCore", .product(name: "AgentCLI", package: "BaseKit")]),
+        .executableTarget(
+            name: "JudgeProbe",
+            dependencies: ["Evals", "WorkbenchCore", .product(name: "AgentCLI", package: "BaseKit")]),
         .testTarget(name: "EvalsTests", dependencies: ["Evals", "WorkbenchCore"]),
     ]
 )

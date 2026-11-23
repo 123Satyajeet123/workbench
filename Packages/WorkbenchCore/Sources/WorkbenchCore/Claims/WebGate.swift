@@ -58,6 +58,9 @@ public struct WebSession: Sendable {
             runID: UUID().uuidString)
     }
 
+    /// The consent this session holds, for a store write of what its pages gave. It cannot be made by any other code.
+    public var webGrant: CaptureGrant { grant }
+
     public func search(_ query: String, count: Int) async throws -> [SearchHit] {
         try ensureLive()
         guard try store.reserveWebQuery(cap: cap) else { throw WebBlock.capReached(cap: cap) }

@@ -59,6 +59,7 @@ struct ClaimChecksSection: View {
                 Text("Nothing yet. Add a file, type a claim, or read the claims in what is linked.")
                     .textStyle(.callout).foregroundStyle(.supporting)
             }
+            JudgedClaimsView(deal: deal)
             if let selected, let item = state.items[selected], let proof {
                 InspectorView(item: item) { EmptyView() }.environment(proof).frame(maxWidth: .infinity)
             }

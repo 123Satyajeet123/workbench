@@ -86,18 +86,21 @@ public struct ClaimChecker: Sendable {
 
     /// Throws `WebBlock.labelUnknown` before any call when the claim has no known label: a query built from it never
     /// leaves, whatever the provider.
-    public func check(_ claim: Claim, company: String) async throws -> (check: ClaimCheck, run: RunID) {
+    public func check(_ claim: Claim, company: String) async throws -> (
+        check: ClaimCheck, run: RunID, page: FetchedPage?
+    ) {
         guard claim.label != nil else { throw WebBlock.labelUnknown }
         let brief = Self.brief(of: claim, company: company, type: types.first { $0.id == claim.type })
         let (written, queryRun) = try await QueryWriter(model: model).ask(
             Self.queryBrief(of: claim, company: company), holding: claim.holding, holdingUnknown: claim.source == nil)
         let pages = try await fetchedPages(for: written.queries)
-        guard !pages.isEmpty else { return (result(claim, .notFound, quote: "", url: ""), queryRun) }
+        guard !pages.isEmpty else { return (result(claim, .notFound, quote: "", url: ""), queryRun, nil) }
         let (raw, run) = try await Judge(model: model).ask(
             brief + "\n\nPages:\n" + Self.numbered(pages), holding: claim.holding.union([.web]),
             holdingUnknown: claim.source == nil)
         let settled = Self.settle(raw, pages: pages)
-        return (result(claim, settled.verdict, quote: settled.quote, url: settled.url), run)
+        let cited = pages.first { $0.url.absoluteString == settled.url }
+        return (result(claim, settled.verdict, quote: settled.quote, url: settled.url), run, cited)
     }
 
     private func result(_ claim: Claim, _ verdict: ClaimVerdict, quote: String, url: String) -> ClaimCheck {

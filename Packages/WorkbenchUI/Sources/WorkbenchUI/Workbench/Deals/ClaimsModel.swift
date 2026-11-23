@@ -17,6 +17,11 @@ final class ClaimsModel {
         /// The latest rating fact of the deal, and the call the team's criteria make from it now.
         var rating: Item?
         var triage: Triage?
+        /// The claims the judge looked at, with its verdicts, and the rung the marks support for the task.
+        var judged: [JudgedClaim] = []
+        var rung: RungReport?
+        /// How often the judge and the person agree on the claims the judge decided, over the latest dev marks.
+        var agreement = JudgeAgreement()
 
         func check(of claim: Claim) -> ClaimCheck? { checks.first { $0.claim == claim.id } }
     }
@@ -31,11 +36,13 @@ final class ClaimsModel {
     @ObservationIgnored private let makeModel: ModelMaker
     @ObservationIgnored private let openSession: () throws -> WebSession
     @ObservationIgnored private let evidence: (WorkObject) throws -> [Evidence]
+    @ObservationIgnored private let grounding: GroundingSource
 
     init(
         store: Store, me: @escaping () -> String, web: WebResearchSettings,
         owner: Result<PersonID, any Error> = PageHost.noOwner, makeModel: ((ModelChoice) -> RecordedModel)? = nil,
-        openSession: (() throws -> WebSession)? = nil, evidence: ((WorkObject) throws -> [Evidence])? = nil
+        openSession: (() throws -> WebSession)? = nil, evidence: ((WorkObject) throws -> [Evidence])? = nil,
+        grounding: GroundingSource = GroundingSource()
     ) {
         self.store = store
         self.me = me
@@ -43,6 +50,7 @@ final class ClaimsModel {
         self.makeModel = ModelMaker(store: store, make: makeModel)
         self.openSession = openSession ?? { try web.openSession() }
         self.evidence = evidence ?? { try store.queries.evidence(of: $0, author: me()) }
+        self.grounding = grounding
     }
 
     func state(of deal: WorkObject) -> DealClaims { byDeal[deal.id] ?? DealClaims() }
@@ -58,7 +66,11 @@ final class ClaimsModel {
             byDeal[deal.id] = DealClaims(
                 claims: claims, chosen: Set(try store.queries.chosenClaims(of: deal.id)), checks: checks,
                 items: Dictionary(items.compactMap { item in item.id.map { ($0, item) } }) { first, _ in first },
-                rating: rating, triage: triage)
+                rating: rating, triage: triage, judged: try store.queries.judgedClaims(of: deal.id),
+                rung: try store.queries.rungReports(of: WorkProduct.researchTask, on: WorkDay(containing: .now))
+                    .first?.report,
+                agreement: try store.queries.judgeAgreement(
+                    taskType: WorkProduct.researchTask, split: .dev, for: .errorAnalysis))
         }
     }
 
@@ -189,6 +201,8 @@ final class ClaimsModel {
         let current = state(of: deal)
         let chosen = current.claims.filter { $0.id.map(current.chosen.contains) ?? false }
         var refusals: [String] = []
+        var checked: [CheckedClaim] = []
+        var lastSession: WebSession?
         do {
             let types = try store.queries.claimTypes() ?? []
             for claim in chosen {
@@ -198,17 +212,35 @@ final class ClaimsModel {
                 do {
                     let done = try await checker.check(claim, company: deal.name)
                     try store.saveCheck(done.check, claimQuote: claim.quote, run: done.run, session: session)
+                    checked.append(CheckedClaim(claim: claim, check: done.check, run: done.run, page: done.page))
+                    lastSession = session
                 } catch WebBlock.labelUnknown {
                     refusals.append("\u{201C}\(claim.text)\u{201D}: \(WebBlock.labelUnknown.localizedDescription)")
                 }
                 refresh(deal)
             }
+            if let lastSession { try await judge(checked, in: deal, session: lastSession) }
             if refusals.isEmpty { problems.dismiss() } else { problems.show(refusals.joined(separator: "\n")) }
         } catch let block as WebBlock {
             problems.show(block.localizedDescription)
         } catch {
             problems.report("check the claims", error)
         }
+        refresh(deal)
+    }
+
+    /// Judges the supported claims of the round: stage 0 in code, stage 1 on this Mac, the verdicts kept in the trace.
+    private func judge(_ checked: [CheckedClaim], in deal: WorkObject, session: WebSession) async throws {
+        let writer = try makeModel.current()
+        let other = ModelChoice.choices.first { $0.kind != (try? ModelChoice.saved(in: store))?.kind }
+            .flatMap { ModelGrounding(model: makeModel($0), writer: writer.model.name) }
+        let judge = ClaimCheckJudge(store: store, grounding: await grounding.verifier(modelJudge: other))
+        try await judge.judge(checked, company: deal.name, deal: deal.id, session: session)
+    }
+
+    /// Marks a claim the judge looked at: right, wrong or unsupported.
+    func mark(_ claim: JudgedClaim, as mark: ClaimMark, in deal: WorkObject) {
+        problems.attempt("save the mark") { try store.mark(claim: claim.id, as: mark) }
         refresh(deal)
     }
 

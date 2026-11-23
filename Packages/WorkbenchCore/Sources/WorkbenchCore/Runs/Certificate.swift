@@ -80,7 +80,10 @@ public struct Certificate: Sendable, Equatable {
     public static let allowedWrong = 0.1
     public static let confidence = 0.9
     public static let heaviestWeight = 1 / AuditPolicy.pickChance
-    public static var threshold: Double { 1 / (1 - confidence) }
+    public static var threshold: Double { threshold(at: confidence) }
+
+    /// The wealth at which a certificate of this confidence is earned.
+    public static func threshold(at confidence: Double) -> Double { 1 / (1 - confidence) }
 
     public var answers: [Answer]
 
@@ -91,14 +94,18 @@ public struct Certificate: Sendable, Equatable {
     /// Earned once the wealth reaches its bar after the drift alarm last fired. Ville's inequality bounds the chance
     /// that the wealth ever reaches the bar under the null, so a later dip does not take trust away; only the drift
     /// alarm does.
-    public var status: Status {
+    public var status: Status { status(at: Self.confidence) }
+
+    /// The status at another confidence: a rung that asks for more than 0.9 reads it here.
+    public func status(at confidence: Double) -> Status {
         let runs = replay.runsSinceAlarm
+        let threshold = Self.threshold(at: confidence)
         var wealth = Wealth(against: Self.allowedWrong)
         for run in runs {
             wealth.add(run: run)
-            if wealth.value >= Self.threshold { return .earned(bound: Self.upperBound(of: runs)) }
+            if wealth.value >= threshold { return .earned(bound: Self.upperBound(of: runs, threshold: threshold)) }
         }
-        return .needsMore(Self.rightRunsToEarn(from: wealth))
+        return .needsMore(Self.rightRunsToEarn(from: wealth, threshold: threshold))
     }
 
     /// The evidence the drift alarm had when it first reached its bar, or nil if it never did.
@@ -143,7 +150,7 @@ public struct Certificate: Sendable, Equatable {
         runs.reduce(into: Wealth(against: rate)) { $0.add(run: $1) }
     }
 
-    private static func rightRunsToEarn(from start: Wealth) -> Int {
+    private static func rightRunsToEarn(from start: Wealth, threshold: Double) -> Int {
         var wealth = start
         var more = 0
         while wealth.value < threshold {
@@ -155,7 +162,7 @@ public struct Certificate: Sendable, Equatable {
 
     /// The least wrong rate the bettor can still bet against with enough wealth to count: the upper end of the
     /// confidence sequence. The wealth only grows with the rate, so a bisection finds it below `allowedWrong`.
-    private static func upperBound(of runs: [[Answer]]) -> Double {
+    private static func upperBound(of runs: [[Answer]], threshold: Double) -> Double {
         var (low, high) = (0.0, allowedWrong)
         for _ in 0..<40 {
             let middle = (low + high) / 2
