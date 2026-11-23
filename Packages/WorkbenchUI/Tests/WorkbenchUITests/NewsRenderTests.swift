@@ -78,7 +78,8 @@ final class ArticleModel: StructuredModel, Sendable {
         let (world, helper, _, _) = try await world()
         #expect(helper.isReady)
         #expect(helper.items.map { $0["company"] } == ["Bolt Pay Pvt Ltd", "Orbit Labs"])
-        let catalog = TeamCatalogModel(store: world.store, crew: world.fixture.crew, author: { "Aditya" }, secrets: MemorySecrets())
+        let catalog = TeamCatalogModel(
+            store: world.store, crew: world.fixture.crew, author: { "Aditya" }, secrets: MemorySecrets())
         let page = HelperContent(model: helper)
             .environment(ActionsModel(store: world.store, founder: { "Aditya" })).environment(world.fixture.crew)
             .environment(catalog)

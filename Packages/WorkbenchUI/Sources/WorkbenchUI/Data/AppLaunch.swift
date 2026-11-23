@@ -131,13 +131,15 @@ enum AppLaunch {
                     reminders: profile.reminders),
                 deals: deals, workspace: WorkspaceModel(store: store),
                 memory: MemoryModel(store: store, crew: crew, deals: deals, makeModel: makeModel),
-                web: web, claims: ClaimsModel(
+                web: web,
+                claims: ClaimsModel(
                     store: store, me: { catalog.me }, web: web, owner: owner, makeModel: makeModel),
                 runs: RunsModel(store: store),
                 pages: pages,
                 browsers: BrowserSetup(
                     capture: capture, connectedBrowsers: { Set(pages.connectedBrowsers.map(\.browser)) }),
-                writerLock: writerLock, planUsage: PlanUsage(store: store, probe: { makeModel(PlanUsage.probeModel) }), calls: calls, callWatcher: callWatcher)
+                writerLock: writerLock, planUsage: PlanUsage(store: store, probe: { makeModel(PlanUsage.probeModel) }),
+                calls: calls, callWatcher: callWatcher)
             if profile.startsCapture { service.start() }
             Task { await calls.start() }
             session.reminders.start()

@@ -87,7 +87,8 @@ public enum DemoBuild {
         try SyntheticWhatsApp.write(to: Profile.demo.whatsAppContainer(in: folder))
         let session: AppSession
         let clock = MovableClock()
-        switch AppLaunch.open(profile: .demo, storeFolder: folder, secrets: Profile.demo.secrets, clock: { clock.now }) {
+        switch AppLaunch.open(profile: .demo, storeFolder: folder, secrets: Profile.demo.secrets, clock: { clock.now })
+        {
         case .ready(let opened): session = opened
         case .failed(let failure): throw BuildFailure.cannotOpen(failure.cause)
         }

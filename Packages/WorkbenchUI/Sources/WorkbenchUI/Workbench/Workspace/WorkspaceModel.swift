@@ -78,7 +78,9 @@ final class WorkspaceModel {
     /// Depth first, each level in its order: the workspace, then the Private section.
     static func treeOrder(of objects: [WorkObject], privateSection: WorkObjectID?) -> [WorkObjectID] {
         let levels = Dictionary(grouping: objects, by: \.parentID).mapValues { $0.sorted { $0.position < $1.position } }
-        func subtree(_ object: WorkObject) -> [WorkObjectID] { [object.id] + (levels[object.id] ?? []).flatMap(subtree) }
+        func subtree(_ object: WorkObject) -> [WorkObjectID] {
+            [object.id] + (levels[object.id] ?? []).flatMap(subtree)
+        }
         let top = levels[nil] ?? []
         return (top.filter { $0.id != privateSection } + top.filter { $0.id == privateSection }).flatMap(subtree)
     }
