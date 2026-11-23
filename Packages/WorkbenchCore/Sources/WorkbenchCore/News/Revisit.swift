@@ -34,7 +34,7 @@ extension Store {
         let line = Revisit.line(company: deal.title, reason: reason)
         let fields = [
             "kind": "revisit", Revisit.dealField: deal.id, "company": deal.title, "why": reason ?? "",
-            "eta": due.description, "text": line, "asks": "",
+            Item.dueField: try Coding.json(Due.stated(on: due)), "text": line, "asks": "",
         ]
         return try writer.write { db in
             try dropRevisits(of: deal.id, db)
@@ -47,7 +47,9 @@ extension Store {
                     Revisit.task, WorkDay(containing: now).description, "", SourceKind.typed.rawValue, now.stored,
                     now.stored, try Coding.json(fields), line, now.stored, Authority.ownWords.rawValue,
                 ])
-            return db.lastInsertedRowID
+            let id = db.lastInsertedRowID
+            try reconcileTimers(db, item: id)
+            return id
         }
     }
 

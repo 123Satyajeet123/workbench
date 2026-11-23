@@ -93,6 +93,9 @@ public struct HelperSpec: Codable, Sendable, Equatable {
             case date(required: Bool)
             /// A choice that code sets from the spec's criteria. The model is never asked for it.
             case computed([String])
+            /// The time a line gives, as a closed record (`TimeRecord`) with the words that state it. Code works out
+            /// the due time from it; the field itself holds the words.
+            case time
 
             /// The values a choice or computed field may take; nil for the other kinds.
             public var fixedValues: [String]? {
@@ -148,7 +151,7 @@ public struct HelperSpec: Codable, Sendable, Equatable {
             case .label:
                 views["by \(field.name)"] = .grouped(by: field.name)
                 if lifecycle != nil { views["open by \(field.name)"] = .checklist(by: field.name) }
-            case .text, .date: break
+            case .text, .date, .time: break
             }
         }
         if let lifecycle, !views.values.contains(where: { if case .checklist = $0 { true } else { false } }) {
@@ -168,8 +171,6 @@ public struct HelperSpec: Codable, Sendable, Equatable {
         /// The field that names who owns a fact. A fact's identity is its owner and its deliverable: a `same_as`
         /// relation must name an open fact with the same owner. Nil: no owner check.
         public var owner: String? = nil
-        /// The field that holds a fact's due date. A `same_as` relation with another date is a change of date.
-        public var due: String? = nil
         /// The outcome the person's Done gives an item, by value of `field`; the first outcome when a value has none.
         public var doneOutcomes: [String: String]? = nil
     }
@@ -227,10 +228,15 @@ public struct HelperSpec: Codable, Sendable, Equatable {
             fields.filter { field in
                 switch field.kind {
                 case .choice, .member, .date, .computed: true
-                case .text, .label: false
+                case .text, .label, .time: false
                 }
             }.map(\.name)
-        ).union([Item.factsField])
+        ).union([Item.factsField, Item.dueField])
+    }
+
+    /// The field that holds the words of a time and gives the fact's due time. The first of the kind.
+    public var timeField: String? {
+        fields.first { $0.kind == .time }?.name
     }
 
     /// Whether a machine of this spec needs another machine's open items to cite: it must be given `follows`.
@@ -276,7 +282,9 @@ extension HelperSpec {
     /// alone does not count: the founder may have improved it, and a new brief is offered with a new design only.
     public func update(toward builtIn: HelperSpec) -> [String]? {
         let mine = Set(fields.map(\.name))
-        var changes = builtIn.fields.map(\.name).filter { !mine.contains($0) }.map { "adds \($0)" }
+        var changes = builtIn.fields.filter { !mine.contains($0.name) }.map {
+            $0.kind == .time ? "reads when a fact is due, as a day and part of day" : "adds \($0.name)"
+        }
         changes += fields.map(\.name).filter { name in !builtIn.fields.contains { $0.name == name } }.map {
             "drops \($0)"
         }

@@ -12,7 +12,7 @@ import Testing
         let world = try LifecycleWorld()
         try await world.read(
             [
-                pipItem(eta: "2026-09-25", cite: 1, quote: "send the deck"),
+                pipItem(when: TimeJSON.inDays(4, words: "Friday"), cite: 1, quote: "send the deck"),
                 pipItem("commitment", "Fix the login", person: "Raj", cite: 2, quote: "fix the login"),
             ],
             lines: [
@@ -57,18 +57,30 @@ import Testing
     @Test func aChangedDateIsADueChangedEventAndNotANewFact() async throws {
         let world = try await worldWithTwoFacts()
         try await readDayTwo(
-            world, [pipItem(eta: "2026-09-29", cite: 20, quote: "pakka bhej dungi", relation: "same_as", handle: "F1")])
+            world,
+            [
+                pipItem(
+                    when: TimeJSON.inDays(8, words: "kal"), cite: 20, quote: "pakka bhej dungi", relation: "same_as",
+                    handle: "F1")
+            ])
         let asha = try #require(try world.open().first { $0["person"] == "Asha" })
         #expect(try world.open().count == 2, "no third fact")
         #expect(try world.kinds(of: try #require(asha.id)) == ["open", "restate", "due_changed"])
-        #expect(asha["eta"] == "2026-09-25", "the opening row is never rewritten")
-        #expect(asha.dueChanged == "2026-09-29" && asha.dueDay == WorkDay("2026-09-29"))
+        #expect(asha["when"] == "Friday", "the opening row is never rewritten")
+        #expect(asha.openedDue?.day == Days.first.adding(days: 4))
+        #expect(asha.dueChanged?.day == Days.first.adding(days: 9) && asha.dueDay == Days.first.adding(days: 9))
+        #expect(asha.dueChanged?.source == .resolved && asha.dueChanged?.record?.offsetDays == 8)
     }
 
     @Test func theSameDateOrNoDateWritesNoDueChange() async throws {
         let world = try await worldWithTwoFacts()
         try await readDayTwo(
-            world, [pipItem(eta: "2026-09-25", cite: 20, quote: "pakka bhej dungi", relation: "same_as", handle: "F1")])
+            world,
+            [
+                pipItem(
+                    when: TimeJSON.inDays(3, words: "kal"), cite: 20, quote: "pakka bhej dungi", relation: "same_as",
+                    handle: "F1")
+            ])
         try await world.read(
             [pipItem(cite: 21, quote: "kal bhej dungi", relation: "same_as", handle: "F1")],
             lines: [world.line(21, Days.second, 700, "kal bhej dungi")], day: Days.second, readUpTo: 20)
@@ -79,10 +91,15 @@ import Testing
     @Test func theModelSeesTheLatestDateOfAFactItWasGiven() async throws {
         let world = try await worldWithTwoFacts()
         try await readDayTwo(
-            world, [pipItem(eta: "2026-09-29", cite: 20, quote: "pakka bhej dungi", relation: "same_as", handle: "F1")])
+            world,
+            [
+                pipItem(
+                    when: TimeJSON.inDays(8, words: "kal"), cite: 20, quote: "pakka bhej dungi", relation: "same_as",
+                    handle: "F1")
+            ])
         let open = try world.store.queries.openItems(readBy: .team)
-        #expect(HelperReader.open(open, spec: .team).contains("eta=2026-09-29"))
-        #expect(!HelperReader.open(open, spec: .team).contains("eta=2026-09-25"))
+        #expect(HelperReader.open(open, spec: .team).contains("due=\(Days.first.adding(days: 9))"))
+        #expect(!HelperReader.open(open, spec: .team).contains("due=\(Days.first.adding(days: 4))"))
     }
 
     @Test func aSameAsWithAnotherOwnerIsDroppedAndTheSameOwnerPasses() async throws {
@@ -184,7 +201,8 @@ import Testing
             world,
             [
                 pipItem(cite: 20, quote: "deck", relation: "same_as", handle: "F1"),
-                pipItem(eta: "2026-10-09", cite: 20, quote: "bhej", relation: "same_as", handle: "F1"),
+                pipItem(
+                    when: TimeJSON.inDays(9, words: "kal"), cite: 20, quote: "bhej", relation: "same_as", handle: "F1"),
                 pipItem(
                     "done", "Deck sent", cite: 20, quote: "dungi", relation: "closes", handle: "F1", outcome: "kept"),
             ])

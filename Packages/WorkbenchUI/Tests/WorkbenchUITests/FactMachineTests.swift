@@ -23,7 +23,7 @@ import WorkbenchCore
         try source.choose(try #require(source.groups.first { $0.jid == teamJID }))
         let model = KeyedModel([
             "You keep the facts of a founder's company":
-                #"{"items":[{"kind":"status","text":"Login API is done","person":"Asha","project":"Login API","eta":"","asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":@login API done@,"quote":"login API done"},{"kind":"question","text":"No project","person":"Asha","project":" ","eta":"","asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":@login API done@,"quote":"login API done"}]}"#
+                #"{"items":[{"kind":"status","text":"Login API is done","person":"Asha","project":"Login API","when":{"direction":"unclear","offset_days":0,"weekday":"none","week":"none","part_of_day":"none","offset_minutes":0,"day_of_month":0,"month":0,"month_which":"none","year":0,"clock_hour":-1,"clock_minute":0,"meridiem":"none","precision":"none","ambiguous":false,"words":""},"asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":@login API done@,"quote":"login API done"},{"kind":"question","text":"No project","person":"Asha","project":" ","when":{"direction":"unclear","offset_days":0,"weekday":"none","week":"none","part_of_day":"none","offset_minutes":0,"day_of_month":0,"month":0,"month_which":"none","year":0,"clock_hour":-1,"clock_minute":0,"meridiem":"none","precision":"none","ambiguous":false,"words":""},"asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":@login API done@,"quote":"login API done"}]}"#
         ])
         var spec = HelperSpec.team
         spec.task = "team.ledger-1"
@@ -38,7 +38,7 @@ import WorkbenchCore
         try addMessage(30, "payments blocked on keys", at: noon.addingTimeInterval(600), to: container)
         model.replies.withLock {
             $0["You keep the facts of a founder's company"] =
-                #"{"items":[{"kind":"status","text":"Payments are blocked on keys","person":"Asha","project":"Login API","eta":"","asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":@payments blocked on keys@,"quote":"payments blocked on keys"}]}"#
+                #"{"items":[{"kind":"status","text":"Payments are blocked on keys","person":"Asha","project":"Login API","when":{"direction":"unclear","offset_days":0,"weekday":"none","week":"none","part_of_day":"none","offset_minutes":0,"day_of_month":0,"month":0,"month_which":"none","year":0,"clock_hour":-1,"clock_minute":0,"meridiem":"none","precision":"none","ambiguous":false,"words":""},"asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":@payments blocked on keys@,"quote":"payments blocked on keys"}]}"#
         }
         await pip.read()
         let input = try #require(model.inputs.withLock { $0.last })
@@ -57,7 +57,7 @@ import WorkbenchCore
         try source.choose(try #require(source.groups.first { $0.jid == teamJID }))
         let model = KeyedModel([
             "You keep the facts of a founder's company":
-                #"{"items":[{"kind":"commitment","text":"Ship the login API","person":"Asha","project":"Login API","eta":"","asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":@login API done@,"quote":"login API done"}]}"#
+                #"{"items":[{"kind":"commitment","text":"Ship the login API","person":"Asha","project":"Login API","when":{"direction":"unclear","offset_days":0,"weekday":"none","week":"none","part_of_day":"none","offset_minutes":0,"day_of_month":0,"month":0,"month_which":"none","year":0,"clock_hour":-1,"clock_minute":0,"meridiem":"none","precision":"none","ambiguous":false,"words":""},"asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":@login API done@,"quote":"login API done"}]}"#
         ])
         var spec = HelperSpec.team
         spec.task = "team.ledger-1"
@@ -73,7 +73,7 @@ import WorkbenchCore
         try addMessage(40, "login shipped to everyone", at: tomorrow, to: container)
         model.replies.withLock {
             $0["You keep the facts of a founder's company"] =
-                #"{"items":[{"kind":"done","text":"Login shipped","person":"Asha","project":"Login API","eta":"","asks":"team","stance":"said","relation":{"kind":"closes","handle":"F1","outcome":"kept"},"cite":@login shipped to everyone@,"quote":"login shipped"}]}"#
+                #"{"items":[{"kind":"done","text":"Login shipped","person":"Asha","project":"Login API","when":{"direction":"unclear","offset_days":0,"weekday":"none","week":"none","part_of_day":"none","offset_minutes":0,"day_of_month":0,"month":0,"month_which":"none","year":0,"clock_hour":-1,"clock_minute":0,"meridiem":"none","precision":"none","ambiguous":false,"words":""},"asks":"team","stance":"said","relation":{"kind":"closes","handle":"F1","outcome":"kept"},"cite":@login shipped to everyone@,"quote":"login shipped"}]}"#
         }
         pip.show(WorkDay(containing: tomorrow))
         await pip.read()
@@ -104,7 +104,7 @@ import WorkbenchCore
             Item(
                 task: HelperSpec.team.task, day: WorkDay(containing: now), scope: teamJID, source: .whatsapp,
                 citeFirst: 11, citeLast: 11, start: now, end: now,
-                fields: ["person": person, "kind": kind, "text": text, "eta": ""], quote: "login API done", run: run)
+                fields: ["person": person, "kind": kind, "text": text], quote: "login API done", run: run)
         }
         let grant = try await store.grant(for: .whatsapp, label: teamJID, at: now)
         try store.saveReading(

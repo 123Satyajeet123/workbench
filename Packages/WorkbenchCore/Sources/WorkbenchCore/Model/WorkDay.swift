@@ -28,6 +28,11 @@ public struct WorkDay: Sendable, Hashable, Comparable, CustomStringConvertible {
         guard description == text else { return nil }
     }
 
+    /// The name of the day of the week in English, such as "Sunday": a model cannot count weekdays from a date.
+    public var weekdayName: String {
+        start.formatted(Date.FormatStyle().weekday(.wide).locale(Locale(identifier: "en_US")))
+    }
+
     public func adding(days: Int, calendar: Calendar = .current) -> WorkDay {
         WorkDay(containing: calendar.date(byAdding: .day, value: days, to: start)!.addingTimeInterval(3600))
     }

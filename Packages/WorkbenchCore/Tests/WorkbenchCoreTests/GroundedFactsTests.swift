@@ -30,7 +30,7 @@ import Testing
     }
 
     private func item(cite: Int, quote: String, person: String = "Asha") -> String {
-        #"{"person":"\#(person)","project":"Login","kind":"commitment","text":"t","eta":"","asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":\#(cite),"quote":"\#(quote)"}"#
+        #"{"person":"\#(person)","project":"Login","kind":"commitment","text":"t","when":{"direction":"unclear","offset_days":0,"weekday":"none","week":"none","part_of_day":"none","offset_minutes":0,"day_of_month":0,"month":0,"month_which":"none","year":0,"clock_hour":-1,"clock_minute":0,"meridiem":"none","precision":"none","ambiguous":false,"words":""},"asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":\#(cite),"quote":"\#(quote)"}"#
     }
 
     private func read(_ items: [String], store: Store) async throws -> HelperReader.Result {

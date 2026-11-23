@@ -8,6 +8,7 @@ let package = Package(
         .executable(name: "claim-eval", targets: ["ClaimEvalRunner"]),
         .executable(name: "outbound-eval", targets: ["OutboundEvalRunner"]),
         .executable(name: "transcribe-bakeoff", targets: ["TranscribeBakeoff"]),
+        .executable(name: "kal-label", targets: ["KalLabelRunner"]),
     ],
     dependencies: [.package(path: "../Packages/WorkbenchCore")],
     targets: [
@@ -15,6 +16,7 @@ let package = Package(
         .executableTarget(name: "ClaimEvalRunner", dependencies: ["Evals", "WorkbenchCore"]),
         .executableTarget(name: "OutboundEvalRunner", dependencies: ["Evals", "WorkbenchCore"]),
         .executableTarget(name: "TranscribeBakeoff", dependencies: ["Evals", "WorkbenchCore"]),
+        .executableTarget(name: "KalLabelRunner", dependencies: ["Evals", "WorkbenchCore"]),
         .testTarget(name: "EvalsTests", dependencies: ["Evals", "WorkbenchCore"]),
     ]
 )

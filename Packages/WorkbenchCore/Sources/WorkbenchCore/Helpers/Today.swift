@@ -1,13 +1,19 @@
 import Foundation
 
-/// What Today and the People and Projects pages read from facts: fields a model filled (`asks`, `eta`, `severity`)
-/// and the founder's own marks. Code reads no words.
+/// What Today and the People and Projects pages read from facts: fields a model filled (`asks`, `severity`), the due
+/// time code resolved, and the founder's own marks. Code reads no words.
 extension Item {
     /// Whether the field a mark names holds the mark's value.
     func carries(_ mark: HelperSpec.Attention.Mark?) -> Bool { mark.map { self[$0.field] == $0.value } ?? false }
 
-    /// The day the fact is due: the date its latest `due_changed` event gave, else its `eta` when that holds a date.
-    public var dueDay: WorkDay? { WorkDay(dueChanged ?? self["eta"]) }
+    /// The due time the fact was opened with.
+    public var openedDue: Due? { try? Coding.value(Due.self, from: self[Item.dueField]) }
+
+    /// When the fact is due now: the time its latest `due_changed` event gave, else the one it was opened with.
+    public var due: Due? { dueChanged ?? openedDue }
+
+    /// The day the fact is due; nil when it has no due time.
+    public var dueDay: WorkDay? { due?.day }
 
     /// Whether lists show it at `now`: not marked wrong, not hidden, not snoozed.
     public func isListed(at now: Date) -> Bool { state != .rejected && !isHidden(at: now) }

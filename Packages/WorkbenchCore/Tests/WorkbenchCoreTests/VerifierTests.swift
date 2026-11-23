@@ -20,10 +20,11 @@ private func raw(_ json: String) throws -> [String: WorkbenchCore.JSONValue] {
     try JSONDecoder().decode([String: WorkbenchCore.JSONValue].self, from: Data(json.utf8))
 }
 
-private func proposal(cite: Int, quote: String, kind: String = "done", person: String = "Asha", extra: String = "")
-    -> String
-{
-    #"{"person":"\#(person)","project":"Login","kind":"\#(kind)","text":"t","eta":"","asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":\#(cite),"quote":"\#(quote)"\#(extra)}"#
+private func proposal(
+    cite: Int, quote: String, kind: String = "done", person: String = "Asha", when: String = TimeJSON.none,
+    extra: String = ""
+) -> String {
+    #"{"person":"\#(person)","project":"Login","kind":"\#(kind)","text":"t","when":\#(when),"asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":\#(cite),"quote":"\#(quote)"\#(extra)}"#
 }
 
 private func verifier(_ lines: [Evidence], settings: Verifier.Settings = Verifier.Settings(), read: Set<Int64> = [])
@@ -119,19 +120,93 @@ private func dropRule<Value>(_ judgment: Judgment<Value>) -> DropRule? {
 
     @Test func aDateFieldTakesAWorkDayOrNothing() throws {
         var spec = HelperSpec.team
-        spec.fields = spec.fields.map { $0.name == "eta" ? .init("eta", .date(required: false), meaning: "m") : $0 }
+        spec.fields.append(.init("by", .date(required: false), meaning: "m"))
         let there = verifier([line(10, "Asha: login done")])
-        func eta(_ value: String) throws -> Judgment<Item> {
-            try judge(
-                proposal(cite: 10, quote: "login").replacingOccurrences(of: #""eta":"""#, with: #""eta":"\#(value)""#),
-                in: there, spec: spec)
+        func by(_ value: String) throws -> Judgment<Item> {
+            try judge(proposal(cite: 10, quote: "login", extra: #","by":"\#(value)""#), in: there, spec: spec)
         }
-        #expect(try eta("2026-11-24").accepted != nil)
-        #expect(try eta("").accepted != nil)
-        #expect(dropRule(try eta("kal")) == .fieldKind)
-        #expect(dropRule(try eta("2026-13-45")) == .fieldKind)
-        spec.fields = spec.fields.map { $0.name == "eta" ? .init("eta", .date(required: true), meaning: "m") : $0 }
-        #expect(dropRule(try eta("")) == .fieldKind)
+        #expect(try by("2026-11-24").accepted != nil)
+        #expect(try by("").accepted != nil)
+        #expect(dropRule(try by("kal")) == .fieldKind)
+        #expect(dropRule(try by("2026-13-45")) == .fieldKind)
+        spec.fields[spec.fields.count - 1] = .init("by", .date(required: true), meaning: "m")
+        #expect(dropRule(try by("")) == .fieldKind)
+    }
+
+    // MARK: the time field
+
+    private func timed(_ when: String, said text: String = "Asha: login done kal tak") throws -> Judgment<Item> {
+        try judge(
+            proposal(cite: 10, quote: "login", when: when),
+            in: Verifier(
+                window: EvidenceSet(lines: [line(10, text)], context: ["members": ["Asha"]]),
+                zone: TimeZone(identifier: "Asia/Kolkata")!))
+    }
+
+    @Test func aTimeFieldKeepsTheWordsAndTheDueTimeCodeResolvedFromTheLinesOwnTime() throws {
+        let kept = try #require(try timed(TimeJSON.inDays(1, words: "kal tak")).accepted)
+        #expect(kept["when"] == "kal tak")
+        let due = try #require(kept.openedDue)
+        #expect(due.source == .resolved && due.zone == "Asia/Kolkata" && due.precision == .day)
+        let calendar = Calendar.gregorian(in: TimeZone(identifier: "Asia/Kolkata")!)
+        #expect(due.utc == calendar.endOfDay(of: calendar.date(byAdding: .day, value: 1, to: t0)!))
+        #expect(due.record?.offsetDays == 1)
+    }
+
+    @Test func aTimeFieldWithNoTimeKeepsNoWordsAndNoDueTime() throws {
+        let kept = try #require(try timed(TimeJSON.none).accepted)
+        #expect(kept["when"] == "" && kept.openedDue?.source == Due.Source.none && kept.dueDay == nil)
+    }
+
+    @Test func anAmbiguousOrPastRecordIsKeptWithItsRecordAndGivesNoDueTime() throws {
+        let ambiguous = TimeJSON.record(
+            "future", offset: 1, precision: "day", ambiguous: true, words: "kal tak")
+        let past = TimeJSON.record("past", offset: -1, precision: "day", words: "kal")
+        for when in [ambiguous, past] {
+            let kept = try #require(try timed(when).accepted)
+            #expect(kept.openedDue?.source == Due.Source.none && kept.openedDue?.utc == nil && kept.dueDay == nil)
+            #expect(kept.openedDue?.record != nil && kept["when"] != "")
+        }
+    }
+
+    @Test func aTimeRecordThatIsNotTheClosedRecordIsDropped() throws {
+        let dropped = [
+            #"{"direction":"future","offset_days":1}"#,
+            #"{"direction":"tomorrow","offset_days":1,"weekday":"none","week":"none","part_of_day":"none","offset_minutes":0,"day_of_month":0,"month":0,"month_which":"none","year":0,"clock_hour":-1,"clock_minute":0,"meridiem":"none","precision":"day","ambiguous":false,"words":"kal"}"#,
+            #"{"direction":"future","offset_days":1.5,"weekday":"none","week":"none","part_of_day":"none","offset_minutes":0,"day_of_month":0,"month":0,"month_which":"none","year":0,"clock_hour":-1,"clock_minute":0,"meridiem":"none","precision":"day","ambiguous":false,"words":"kal"}"#,
+            TimeJSON.record("future", offset: 400, precision: "day", words: "kal"),
+            TimeJSON.record("future", offset: -1, precision: "day", words: "kal"),
+            TimeJSON.record("future", weekday: "friday", precision: "day", words: "kal"),
+            TimeJSON.record("future", offset: 1, precision: "day", words: ""),
+            TimeJSON.record("future", precision: "hour", words: "kal", hour: 17, meridiem: "pm"),
+            TimeJSON.record("future", part: "evening", precision: "hour", words: "kal", hour: 5, meridiem: "am"),
+            TimeJSON.record("future", precision: "day", words: "kal", dayOfMonth: 30),
+            TimeJSON.record("future", precision: "hour", words: "kal", minutes: 90),
+            TimeJSON.record("future", precision: "month", words: "kal", month: 3, monthWhich: "this"),
+            #""2026-11-24""#,
+        ]
+        for when in dropped { #expect(dropRule(try timed(when)) == .fieldKind, "\(when)") }
+    }
+
+    @Test func aClockTimeADateAndAMonthResolveThroughTheVerifierAndAnHourWithNoMeridiemGivesNoDueTime() throws {
+        let kolkata = Calendar.gregorian(in: TimeZone(identifier: "Asia/Kolkata")!)
+        let tomorrow = kolkata.date(byAdding: .day, value: 1, to: kolkata.startOfDay(for: t0))!
+        let evening = TimeJSON.record(
+            "future", offset: 1, part: "evening", precision: "hour", words: "kal tak", hour: 5)
+        let kept = try #require(try timed(evening).accepted)
+        #expect(kept.openedDue?.utc == kolkata.date(bySettingHour: 17, minute: 0, second: 0, of: tomorrow))
+        let bare = TimeJSON.record("future", offset: 1, precision: "hour", words: "kal tak", hour: 5)
+        let unknown = try #require(try timed(bare).accepted)
+        #expect(unknown.openedDue?.source == Due.Source.none && unknown.openedDue?.record != nil)
+        let dec = TimeJSON.record("future", precision: "day", words: "kal tak", dayOfMonth: 31, month: 4, year: 2027)
+        #expect(try timed(dec).accepted?.openedDue?.source == Due.Source.none, "April has 30 days: no due time")
+    }
+
+    @Test func theWordsOfATimeMustBeInTheCitedLine() throws {
+        let said = TimeJSON.inDays(1, words: "kal tak")
+        #expect(try timed(said).accepted != nil)
+        #expect(dropRule(try timed(said, said: "Asha: login done parson tak")) == .quoteNotInLines)
+        #expect(try timed(TimeJSON.inDays(1, words: "KAL  tak"), said: "Asha: login done kal tak").accepted != nil)
     }
 
     @Test func aCheckThatFailsDropsTheProposalWithAReason() {

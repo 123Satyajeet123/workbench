@@ -23,7 +23,7 @@ import WorkbenchCore
 
     private func reading(_ source: WhatsAppSource, _ store: Store, person: String, cites words: String) async {
         let reply =
-            #"{"items":[{"person":"\#(person)","project":"Login","kind":"done","text":"Work","eta":"","asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":@\#(words)@,"quote":"\#(words)"}]}"#
+            #"{"items":[{"person":"\#(person)","project":"Login","kind":"done","text":"Work","when":{"direction":"unclear","offset_days":0,"weekday":"none","week":"none","part_of_day":"none","offset_minutes":0,"day_of_month":0,"month":0,"month_which":"none","year":0,"clock_hour":-1,"clock_minute":0,"meridiem":"none","precision":"none","ambiguous":false,"words":""},"asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":@\#(words)@,"quote":"\#(words)"}]}"#
         let pip = HelperModel(
             machine: .test(.team, "Pip"), source: source, store: store,
             makeModel: { _ in RecordedModel(ScriptedModel(reply), store: store) })

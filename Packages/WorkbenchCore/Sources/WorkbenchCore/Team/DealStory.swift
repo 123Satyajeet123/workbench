@@ -116,7 +116,7 @@ public struct DealStory: Equatable, Sendable {
 
     private static func entries(of action: Item) -> [Entry] {
         let id = "action\(action.id ?? 0)"
-        let due = action["eta"].isEmpty ? "" : ", due \(action["eta"])"
+        let due = action.dueDay.map { ", due \($0)" } ?? ""
         var entries = [
             Entry(
                 id: id, at: action.start, kind: .actionOpened, actor: action["person"], isMachine: false,

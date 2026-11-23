@@ -93,7 +93,10 @@ import WorkbenchCore
     @Test func theLivePipOfAnEarlierVersionIsOfferedTheUpdateOnceAndKeepsItsTask() throws {
         let store = try scratchStore()
         var old = HelperSpec.team
-        old.fields = old.fields.filter { ["person", "kind", "text", "eta"].contains($0.name) }
+        old.fields =
+            old.fields.filter { ["person", "kind", "text"].contains($0.name) } + [
+                .init("eta", .text(required: false), meaning: "m")
+            ]
         old.lifecycle = nil
         try store.seedMachines([(old, "Pip"), (HelperSpec.timeline, "Timeline")])
         let crew = Crew(

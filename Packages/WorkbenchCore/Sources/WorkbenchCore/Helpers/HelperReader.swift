@@ -35,10 +35,13 @@ public struct HelperReader: Sendable {
 
     public let spec: HelperSpec
     public let model: RecordedModel
+    /// The owner's time zone: the zone a time in a line is resolved in.
+    public let zone: TimeZone
 
-    public init(spec: HelperSpec, model: RecordedModel) {
+    public init(spec: HelperSpec, model: RecordedModel, zone: TimeZone = .current) {
         self.spec = spec
         self.model = model
+        self.zone = zone
     }
 
     /// `marked` may hold any of the machine's items; only those the leave-one-day-out rule allows become examples.
@@ -60,7 +63,7 @@ public struct HelperReader: Sendable {
                 + Self.input(day: day, evidence: evidence),
             holding: [spec.source.kind],
             window: evidence.lines.compactMap { line in line.lineID.map { WindowLine(number: line.id, lineID: $0) } })
-        let verifier = Verifier(window: evidence, settings: try model.verifierSettings())
+        let verifier = Verifier(window: evidence, settings: try model.verifierSettings(), zone: zone)
         let proposals = try verifier.settle(
             reply.items, part: "items",
             check: { try verifier.proposal($0, spec: spec, open: open, day: day, scope: scope, run: run) },
@@ -82,6 +85,7 @@ public struct HelperReader: Sendable {
                 "- \(field.name): a date written YYYY-MM-DD\(required ? "" : ", or empty when there is none"). \(field.meaning)"
             case .label(let set):
                 "- \(field.name): reuse a name from the \(set) list when it fits; otherwise a short new name. \(field.meaning)"
+            case .time: "- \(field.name): \(Self.timeRule) \(field.meaning)"
             }
         }
         let citeRules =
@@ -115,6 +119,26 @@ public struct HelperReader: Sendable {
             when you are not sure: a missed item costs less than a wrong one.\(exampleRule)\(lifecycleRule)\(followRule)
             """
     }
+
+    /// What every time field is: the closed record, part by part. The words of a machine's own examples are in its field's
+    /// meaning.
+    private static let timeRule = """
+        an object. Always give every part. direction: past, future or unclear. precision says which parts count: day, \
+        part_of_day, hour (a clock time on the hour, or whole hours from the line), minute (a clock time with minutes, \
+        or minutes from the line), week, month, or none when the line states no time a date can be worked out from. \
+        A day is named one way: offset_days (whole days from the calendar day the line was sent, negative for the \
+        past), or weekday (monday to sunday) with week (this: the Monday-to-Sunday week the line was sent in; next: the \
+        week after), or day_of_month (1 to 31) with either month (1 to 12, and year when stated, else 0) or month_which \
+        (this or next: counted from the month the line was sent in). With precision week, week is this or next. With \
+        precision month, month_which is this or next, or month and year name the month; the due time is the last day \
+        of it. part_of_day: morning, afternoon, evening, night or none. A clock time is clock_hour (as written, 0 to \
+        23; -1 for none), clock_minute (0 to 59) and meridiem (am, pm or none; only for an hour of 1 to 12 that the \
+        line says is before or after noon). With no meridiem, part_of_day morning, afternoon or evening tells it; with \
+        neither, leave meridiem none and never guess it. offset_minutes: minutes from the line, for "in two hours"; \
+        then give no day and no clock time. Use 0, none or -1 for every part the precision does not use. ambiguous: \
+        true when two readings give different dates. words: the exact words of the cited line that state the time, \
+        copied character for character; empty when precision is none. Never write a date.
+        """
 
     private var followRule: String {
         guard spec.follows != nil, spec.lifecycle == nil else { return "" }
@@ -173,19 +197,24 @@ public struct HelperReader: Sendable {
     }
 
     private static func followedValues(of item: Item) -> String {
-        item.fields.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }.joined(separator: " ")
+        let fields = item.fields.filter { $0.key != Item.dueField }.sorted { $0.key < $1.key }
+        return (fields.map { "\($0.key)=\($0.value)" } + dueText(of: item)).joined(separator: " ")
     }
 
     private static func values(of item: Item, spec: HelperSpec) -> String {
-        let value = { (field: String) in spec.lifecycle?.due == field ? item.dueChanged ?? item[field] : item[field] }
-        return spec.fields.filter { !$0.kind.isComputed }.map { "\($0.name)=\(value($0.name))" }.joined(separator: " ")
+        let fields = spec.fields.filter { !$0.kind.isComputed }.map { "\($0.name)=\(item[$0.name])" }
+        return (fields + dueText(of: item)).joined(separator: " ")
     }
+
+    /// The day a fact is due now, as the model sees it: code resolved it, the model never writes one.
+    private static func dueText(of item: Item) -> [String] { item.dueDay.map { ["due=\($0)"] } ?? [] }
 
     public var schema: JSONSchema {
         let fields =
             spec.fields.compactMap { field -> JSONSchema.Property? in
                 switch field.kind {
                 case .text, .member, .label, .date: .init(field.name, .string)
+                case .time: .init(field.name, TimeMention.schema)
                 case .choice(let values): .init(field.name, .enumeration(values))
                 case .computed: nil
                 }
@@ -223,12 +252,15 @@ public struct HelperReader: Sendable {
             return "[\(line.id)] \(line.start.formatted(time))–\(end.formatted(time)) (\(minutes)) \(line.line)"
         }
         guard evidence.hasBeenRead else {
-            return (["Work day: \(day)"] + context + [""] + evidence.lines.map(format)).joined(separator: "\n")
+            return (["Work day: \(day) (\(day.weekdayName))"] + context + [""] + evidence.lines.map(format)).joined(
+                separator: "\n")
         }
         let seen = evidence.lines.filter { evidence.isRead($0.id) }.map(format)
         let new = evidence.newLines.map(format)
         return
-            (["Work day: \(day)"] + context + ["", "Read before; context only, cite nothing here:"] + seen
+            (["Work day: \(day) (\(day.weekdayName))"] + context + [
+                "", "Read before; context only, cite nothing here:",
+            ] + seen
             + ["", "New since the last reading; give items only from these lines:"] + new).joined(separator: "\n")
     }
 }

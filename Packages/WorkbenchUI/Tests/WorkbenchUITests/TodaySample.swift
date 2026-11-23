@@ -106,14 +106,14 @@ enum TodaySample {
         let run = try await run(machine.task, in: store)
         let items = facts.enumerated().map { index, fact -> Item in
             let at = today.start.addingTimeInterval(Double(index + 1) * 600)
-            let due = fact.due.map { today.adding(days: $0).description } ?? ""
+            let due = fact.due.map { Due.stated(on: today.adding(days: $0)) }
             return Item(
                 task: machine.task, day: today, scope: scope, source: .whatsapp, citeFirst: Int64(index + 1),
                 citeLast: Int64(index + 1), start: at, end: at,
                 fields: [
-                    "person": fact.person, "project": fact.project, "kind": fact.kind, "text": fact.text, "eta": due,
+                    "person": fact.person, "project": fact.project, "kind": fact.kind, "text": fact.text,
                     "stance": "said", "asks": fact.asksFounder ? "founder" : "team",
-                ], quote: fact.quote, run: run)
+                ], quote: fact.quote, run: run, due: due)
         }
         try store.saveReading(
             HelperReader.Result(items: items, dropped: 0, run: run), of: machine.spec, day: today, scope: scope,

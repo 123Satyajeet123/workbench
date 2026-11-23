@@ -112,7 +112,7 @@ import Testing
             try store.requireAction(of: deal, what: "Get the cap table from the founder", due: friday, owner: "Asha"))
         let open = try store.queries.openDealActions()
         #expect(open.map(\.id) == [first])
-        #expect(open[0]["eta"] == "2026-09-25" && open[0].dueDay == friday && open[0]["deal"] == "deal-1")
+        #expect(open[0].openedDue?.source == .stated && open[0].dueDay == friday && open[0]["deal"] == "deal-1")
         #expect(
             open[0]["text"] == "Get the cap table from the founder"
                 && open[0].carries(HelperSpec.Attention.builtIn.asksMe))
@@ -123,6 +123,8 @@ import Testing
         #expect(try store.queries.openDealActions().map(\.id) == [second])
         let all = try store.queries.dealActions(of: "deal-1")
         #expect(all.map(\.id) == [first, second] && all[0].closed?.outcome == "dropped")
+        #expect(try store.queries.timers(of: first).map(\.isCancelled) == [true], "the replaced ask has no timer")
+        #expect(try store.queries.timers(of: second).map(\.source) == [.stated])
         let blank = try store.requireAction(of: deal, what: "  ", due: friday, owner: "Asha")
         #expect(blank == nil)
     }
@@ -262,7 +264,11 @@ import Testing
         let deal = try #require(WorkObject.fold(events, viewer: "Asha").first)
         var action = Item(
             id: 8, task: DealAction.task, day: day, scope: "", source: .typed, citeFirst: 0, citeLast: 0,
-            start: t0.addingTimeInterval(400), end: t0, fields: ["text": "Get the cap table", "eta": "2026-09-25"],
+            start: t0.addingTimeInterval(400), end: t0,
+            fields: [
+                "text": "Get the cap table",
+                Item.dueField: try Coding.json(Due.stated(on: #require(WorkDay("2026-09-25")))),
+            ],
             quote: "Get the cap table", run: nil)
         action.closed = Item.Closed(outcome: "done", quote: nil, at: t0.addingTimeInterval(900))
 

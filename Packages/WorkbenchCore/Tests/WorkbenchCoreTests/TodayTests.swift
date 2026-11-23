@@ -7,13 +7,21 @@ private let today = WorkDay(containing: t0)
 
 private func fact(
     _ id: Int64, person: String = "Asha", project: String = "Deck", kind: String = "plan", asks: String = "team",
-    eta: String = "", day: WorkDay = today, state: Mark = .proposed
+    due: WorkDay? = nil, rawDue: String? = nil, day: WorkDay = today, state: Mark = .proposed
 ) -> Item {
     Item(
         id: id, task: "team.ledger", day: day, scope: "work", source: .whatsapp, citeFirst: id, citeLast: id,
         start: day.start.addingTimeInterval(Double(id)), end: day.start.addingTimeInterval(Double(id)),
-        fields: ["person": person, "project": project, "kind": kind, "text": "fact \(id)", "asks": asks, "eta": eta],
+        fields: ["person": person, "project": project, "kind": kind, "text": "fact \(id)", "asks": asks].merging(
+            dueFields(due, rawDue)
+        ) { _, new in new },
         quote: "q\(id)", state: state, run: RunID(1))
+}
+
+/// The field a fact holds its due time in: a day a person typed, or any text the test puts there.
+private func dueFields(_ due: WorkDay?, _ raw: String?) -> [String: String] {
+    if let raw { return [Item.dueField: raw] }
+    return due.map { [Item.dueField: try! Coding.json(Due.stated(on: $0))] } ?? [:]
 }
 
 private func finding(_ id: Int64, severity: String) -> Item {
@@ -42,7 +50,7 @@ private func closed(_ item: Item) -> Item {
 
     @Test func factsThatAskTheFounderAndFactsDueTodayNeedYouAndOtherFactsDoNot() {
         let needs = pick(facts: [
-            fact(1, asks: "founder"), fact(2, eta: today.description), fact(3, eta: today.adding(days: 1).description),
+            fact(1, asks: "founder"), fact(2, due: today), fact(3, due: today.adding(days: 1)),
             fact(4), fact(5, kind: "question", asks: "founder"),
         ])
         #expect(needs.map(\.id) == [1, 5, 2])
@@ -50,12 +58,13 @@ private func closed(_ item: Item) -> Item {
 
     @Test func aFactDueBeforeTodayIsOverdueAndStillNeedsYou() {
         let overdue = today.adding(days: -2)
-        let needs = pick(facts: [fact(1, eta: today.description), fact(2, eta: overdue.description)])
+        let needs = pick(facts: [fact(1, due: today), fact(2, due: overdue)])
         #expect(needs.map(\.reason) == [.due(overdue), .due(today)])
     }
 
-    @Test func anEtaThatIsNotADateIsNeverDue() {
-        #expect(pick(facts: [fact(1, eta: "kal tak"), fact(2, eta: "2026-13-40")]).isEmpty)
+    @Test func aFactWithNoDueTimeOrAnUnreadableOneIsNeverDue() throws {
+        let noTime = try Coding.json(Due.unresolved(.none, zone: .current))
+        #expect(pick(facts: [fact(1, rawDue: "kal tak"), fact(2, rawDue: noTime), fact(3, rawDue: "")]).isEmpty)
     }
 
     @Test func findingsOfSeverityActComeFirstAndWatchLastAndInfoIsLeftOut() {
@@ -110,7 +119,7 @@ private func closed(_ item: Item) -> Item {
 
     @Test func theSoonestDueFactComesFirstAmongTheOpenOnes() {
         let result = groups([
-            fact(1, eta: today.adding(days: 3).description), fact(2), fact(3, eta: today.adding(days: 1).description),
+            fact(1, due: today.adding(days: 3)), fact(2), fact(3, due: today.adding(days: 1)),
         ])
         #expect(result[0].open.map(\.id) == [3, 1, 2])
     }

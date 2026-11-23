@@ -61,7 +61,7 @@ public struct Link: Sendable, Equatable {
 
     public enum Effect: Sendable, Equatable {
         case restate
-        case dueChanged(String)
+        case dueChanged(Due)
         /// The fact is replaced by the one opened at this place in `Result.items`.
         case supersede(by: Int)
         case closeProposed(outcome: String)

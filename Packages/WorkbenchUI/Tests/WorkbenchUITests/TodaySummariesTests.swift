@@ -117,7 +117,10 @@ private final class SummaryModel: StructuredModel, Sendable {
         let store = try scratchStore(clock: { noon })
         try store.savePolicy(CapturePolicy(switches: [.whatsapp: true], allowList: [.whatsapp: ["team"]]))
         var old = HelperSpec.team
-        old.fields = old.fields.filter { ["person", "kind", "text", "eta"].contains($0.name) }
+        old.fields =
+            old.fields.filter { ["person", "kind", "text"].contains($0.name) } + [
+                .init("eta", .text(required: false), meaning: "m")
+            ]
         old.lifecycle = nil
         try store.seedMachines([(old, "Pip")])
         let today = WorkDay(containing: noon)

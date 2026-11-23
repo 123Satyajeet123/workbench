@@ -26,7 +26,7 @@ public final class Store: Sendable {
     let ingestGate = SerialGate()
 
     public init(
-        directory: URL, clock: @escaping @Sendable () -> Date = { Date() },
+        directory: URL, clock: @escaping @Sendable () -> Date = { Date() }, ownerZone: TimeZone = .current,
         busyTimeout: TimeInterval = 10
     ) throws {
         self.directory = directory
@@ -37,7 +37,7 @@ public final class Store: Sendable {
         try Self.createPrivateFile(databaseFile)
         try Self.restrict(databaseFile, to: 0o600)
         writer = try StoreDatabase.open(at: databaseFile, busyTimeout: busyTimeout)
-        try Schema.open(writer)
+        try Schema.open(writer, ownerZone: ownerZone)
         queries = Queries(reader: writer, directory: directory)
     }
 

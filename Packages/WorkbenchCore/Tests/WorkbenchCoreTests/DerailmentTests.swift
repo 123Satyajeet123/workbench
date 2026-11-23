@@ -41,7 +41,7 @@ private func reply(_ findings: String...) -> String { #"{"items":["# + findings.
         let store = try makeStore()
         let pip = try store.createMachine(from: .team, name: "Pip")
         let factsReply =
-            #"{"items":[{"kind":"commitment","text":"Send the deck","person":"Asha","project":"Deck","eta":"Fri 25 Sep","asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":1,"quote":"send the deck"},{"kind":"question","text":"Hire a designer?","person":"Raj","project":"Team","eta":"","asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":2,"quote":"hire a designer?"}]}"#
+            #"{"items":[{"kind":"commitment","text":"Send the deck","person":"Asha","project":"Deck","when":{"direction":"future","offset_days":4,"weekday":"none","week":"none","part_of_day":"none","offset_minutes":0,"day_of_month":0,"month":0,"month_which":"none","year":0,"clock_hour":-1,"clock_minute":0,"meridiem":"none","precision":"day","ambiguous":false,"words":"Friday"},"asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":1,"quote":"send the deck"},{"kind":"question","text":"Hire a designer?","person":"Raj","project":"Team","when":{"direction":"unclear","offset_days":0,"weekday":"none","week":"none","part_of_day":"none","offset_minutes":0,"day_of_month":0,"month":0,"month_which":"none","year":0,"clock_hour":-1,"clock_minute":0,"meridiem":"none","precision":"none","ambiguous":false,"words":""},"asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":2,"quote":"hire a designer?"}]}"#
         let reader = HelperReader(spec: pip.spec, model: RecordedModel(ScriptedModel(factsReply), store: store))
         let result = try await reader.read(day: first, scope: "work", evidence: dayOne)
         try store.saveReading(result, of: pip.spec, day: first, scope: "work", grant: chatGrant)
@@ -63,9 +63,11 @@ private func reply(_ findings: String...) -> String { #"{"items":["# + findings.
         let (store, sentinel) = try await watch()
         let (result, model) = try await read(store, sentinel, reply(finding()))
         let input = try #require(model.inputs.withLock { $0.first })
-        #expect(input.contains("Still open from earlier days:\nF1 (\(first)) asks=team eta=Fri 25 Sep kind=commitment"))
-        #expect(input.contains(#"person=Asha project=Deck stance=said text=Send the deck — "send the deck""#))
-        #expect(input.contains("F2 (\(first)) asks=team eta= kind=question"))
+        #expect(input.contains("Still open from earlier days:\nF1 (\(first)) asks=team kind=commitment"))
+        #expect(input.contains("when=Friday") && input.contains("due=\(first.adding(days: 4))"))
+        #expect(input.contains(#"person=Asha project=Deck stance=said text=Send the deck when=Friday"#))
+        #expect(input.contains(#" — "send the deck""#))
+        #expect(input.contains("F2 (\(first)) asks=team kind=question"))
         #expect(result.items.count == 1 && result.dropped == 0)
 
         try store.saveReading(result, of: sentinel, day: second, scope: "work", grant: chatGrant)
@@ -198,7 +200,9 @@ private func reply(_ findings: String...) -> String { #"{"items":["# + findings.
         let (result, model) = try await read(store, sentinel, reply(silent), day: second, evidence: quietDay)
         #expect(model.inputs.withLock { $0.count } == 1)
         let input = try #require(model.inputs.withLock { $0.first })
-        #expect(input.contains("Work day: \(second)") && input.contains("F1 (\(first)) asks=team eta=Fri 25 Sep"))
+        #expect(
+            input.contains("Work day: \(second)") && input.contains("F1 (\(first)) asks=team")
+                && input.contains("due=\(first.adding(days: 4))"))
         let item = try #require(result.items.first)
         #expect(result.items.count == 1 && result.run != nil)
         #expect(item.start == second.start && item.end == second.start && item.citeFirst == 0)

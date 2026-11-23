@@ -26,7 +26,9 @@ extension Store {
                         SameClaim.holds(item, $0, citation: spec.citation, choices: spec.choiceFields)
                     })
                 else { return nil }
-                return try insert(item, day: day, scope: scope, db)
+                let id = try insert(item, day: day, scope: scope, db)
+                if spec.lifecycle != nil { try reconcileTimers(db, item: id) }
+                return id
             }
             let added = opened.compactMap { $0 }
             if !added.isEmpty {
@@ -80,7 +82,7 @@ extension Store {
         var successor: Int64?
         switch link.effect {
         case .restate, .flag: break
-        case .dueChanged(let date): due = date
+        case .dueChanged(let changed): due = try Coding.json(changed)
         case .supersede(let index): successor = opened[index]
         case .closeProposed(let proposed): outcome = proposed
         }
@@ -137,7 +139,11 @@ extension Store {
                 item, kind.rawValue, outcome, model?.line, model?.quote, at.stored, clock().stored, model?.run,
                 model == nil ? "person" : "model", until?.stored, due, successor,
             ])
+        if Self.changesTimers.contains(kind) { try reconcileTimers(db, item: item) }
     }
+
+    /// The events after which the timers of a fact may differ: a new due time, and each that ends or reopens it.
+    private static let changesTimers = EventKind.statusKinds + [.dueChanged]
 
     /// Marks are history: each one is a new row, and the latest is the item's state. Taking a mark back is a mark. A
     /// mark on an item the app picked is an audit mark, with the chance the item had.
@@ -169,6 +175,11 @@ extension Queries {
             LEFT JOIN item_due ON item_due.item_id = item_mark.id
             LEFT JOIN item_proposal ON item_proposal.item_id = item_mark.id
         """
+
+    /// One item, inside a transaction already open on `db`.
+    static func item(_ db: Database, id: Int64) throws -> Item? {
+        try db.fetch("item", "SELECT \(itemColumns) FROM \(itemRows) WHERE id = ?", [id], as: Item.init(row:)).first
+    }
 
     /// The items of a machine still open: of a value its lifecycle keeps open, not rejected, and not closed since.
     /// The newest `limit`, oldest first. With `day`, the items as they stood on that day: opened by the day's end and
@@ -317,7 +328,7 @@ extension Item {
             proposedClose = Closed(
                 outcome: outcome, quote: try row.optionalValue("proposal_quote"), at: try row.date("proposal_at"))
         }
-        dueChanged = try row.optionalValue("due_value")
+        dueChanged = (try row.optionalValue("due_value") as String?).flatMap { try? Coding.value(Due.self, from: $0) }
         hiding = try Self.hiding(row)
     }
 

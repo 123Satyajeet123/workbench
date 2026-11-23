@@ -36,7 +36,7 @@ import WorkbenchCore
         let container = try whatsApp(at: noon)
         let model = KeyedModel([
             Self.pipKey:
-                #"{"items":[{"kind":"commitment","text":"Ship the login API","person":"Asha","project":"Login API","eta":"","asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":@login API done@,"quote":"login API done"}]}"#,
+                #"{"items":[{"kind":"commitment","text":"Ship the login API","person":"Asha","project":"Login API","when":{"direction":"unclear","offset_days":0,"weekday":"none","week":"none","part_of_day":"none","offset_minutes":0,"day_of_month":0,"month":0,"month_which":"none","year":0,"clock_hour":-1,"clock_minute":0,"meridiem":"none","precision":"none","ambiguous":false,"words":""},"asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":@login API done@,"quote":"login API done"}]}"#,
             Self.sentinelKey: Self.overdue,
         ])
         let notifier = FakeNotifier()
@@ -168,7 +168,7 @@ import WorkbenchCore
         let live = try #require(s.pip.open.first)
         s.model.replies.withLock {
             $0[Self.pipKey] =
-                #"{"items":[{"kind":"done","text":"Login API","person":"Asha","project":"Login API","eta":"","asks":"team","stance":"said","relation":{"kind":"closes","handle":"F1","outcome":"kept"},"cite":@login API done@,"quote":"login API done"}]}"#
+                #"{"items":[{"kind":"done","text":"Login API","person":"Asha","project":"Login API","when":{"direction":"unclear","offset_days":0,"weekday":"none","week":"none","part_of_day":"none","offset_minutes":0,"day_of_month":0,"month":0,"month_which":"none","year":0,"clock_hour":-1,"clock_minute":0,"meridiem":"none","precision":"none","ambiguous":false,"words":""},"asks":"team","stance":"said","relation":{"kind":"closes","handle":"F1","outcome":"kept"},"cite":@login API done@,"quote":"login API done"}]}"#
         }
         s.pip.show(yesterday)
         await s.pip.startTrial(brief: HelperSpec.team.brief + " Be brief.")

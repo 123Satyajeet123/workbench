@@ -90,7 +90,7 @@ import WorkbenchCore
     }
 
     private let oneEntry = #"""
-        {"items":[{"person":"Asha","project":"Login","kind":"done","text":"Login API","eta":"","asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":@login API done@,"quote":"login API done"}]}
+        {"items":[{"person":"Asha","project":"Login","kind":"done","text":"Login API","when":{"direction":"unclear","offset_days":0,"weekday":"none","week":"none","part_of_day":"none","offset_minutes":0,"day_of_month":0,"month":0,"month_which":"none","year":0,"clock_hour":-1,"clock_minute":0,"meridiem":"none","precision":"none","ambiguous":false,"words":""},"asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":@login API done@,"quote":"login API done"}]}
         """#
 
     @Test func listingGroupsAllowsNoChatAndChoosingOneAllowsOnlyThatOne() throws {
@@ -109,8 +109,8 @@ import WorkbenchCore
     @Test func readingADaySendsOnlyTheTeamGroupAndStoresCheckedEntriesWithTheirRun() async throws {
         let reply = #"""
             {"items":[
-              {"person":"Asha","project":"Login","kind":"done","text":"Login API","eta":"","asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":@login API done@,"quote":"login API done"},
-              {"person":"Asha","project":"Login","kind":"done","text":"Invented","eta":"","asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":@login API done@,"quote":"payments done"}]}
+              {"person":"Asha","project":"Login","kind":"done","text":"Login API","when":{"direction":"unclear","offset_days":0,"weekday":"none","week":"none","part_of_day":"none","offset_minutes":0,"day_of_month":0,"month":0,"month_which":"none","year":0,"clock_hour":-1,"clock_minute":0,"meridiem":"none","precision":"none","ambiguous":false,"words":""},"asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":@login API done@,"quote":"login API done"},
+              {"person":"Asha","project":"Login","kind":"done","text":"Invented","when":{"direction":"unclear","offset_days":0,"weekday":"none","week":"none","part_of_day":"none","offset_minutes":0,"day_of_month":0,"month":0,"month_which":"none","year":0,"clock_hour":-1,"clock_minute":0,"meridiem":"none","precision":"none","ambiguous":false,"words":""},"asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":@login API done@,"quote":"payments done"}]}
             """#
         let (team, store, _, model, source) = try makeTeam(reply: reply)
         try source.loadGroups()
@@ -142,8 +142,8 @@ import WorkbenchCore
     @Test func aReadingAsksAboutOneOfItsItemsUntilItIsAnswered() async throws {
         let reply = #"""
             {"items":[
-              {"person":"Asha","project":"Login","kind":"done","text":"Login API","eta":"","asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":@login API done@,"quote":"login API done"},
-              {"person":"Bharat","project":"Login","kind":"plan","text":"Payments","eta":"","asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":@login API done@,"quote":"login API"}]}
+              {"person":"Asha","project":"Login","kind":"done","text":"Login API","when":{"direction":"unclear","offset_days":0,"weekday":"none","week":"none","part_of_day":"none","offset_minutes":0,"day_of_month":0,"month":0,"month_which":"none","year":0,"clock_hour":-1,"clock_minute":0,"meridiem":"none","precision":"none","ambiguous":false,"words":""},"asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":@login API done@,"quote":"login API done"},
+              {"person":"Bharat","project":"Login","kind":"plan","text":"Payments","when":{"direction":"unclear","offset_days":0,"weekday":"none","week":"none","part_of_day":"none","offset_minutes":0,"day_of_month":0,"month":0,"month_which":"none","year":0,"clock_hour":-1,"clock_minute":0,"meridiem":"none","precision":"none","ambiguous":false,"words":""},"asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":@login API done@,"quote":"login API"}]}
             """#
         let (team, store, _, _, source) = try makeTeam(reply: reply)
         try source.loadGroups()
@@ -177,7 +177,7 @@ import WorkbenchCore
         let container = try whatsApp(at: noon)
         try addPhoto("OTA 4.1.11 installed", to: container, at: noon.addingTimeInterval(120))
         let model = ScriptedModel(
-            #"{"items":[{"person":"Asha","project":"Login","kind":"done","text":"Installed the OTA","eta":"","asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":@[photo]@,"quote":"OTA 4.1.11 installed"}]}"#
+            #"{"items":[{"person":"Asha","project":"Login","kind":"done","text":"Installed the OTA","when":{"direction":"unclear","offset_days":0,"weekday":"none","week":"none","part_of_day":"none","offset_minutes":0,"day_of_month":0,"month":0,"month_which":"none","year":0,"clock_hour":-1,"clock_minute":0,"meridiem":"none","precision":"none","ambiguous":false,"words":""},"asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":@[photo]@,"quote":"OTA 4.1.11 installed"}]}"#
         )
         let source = try WhatsAppSource(
             store: store, capture: try CaptureService(store: store), task: HelperSpec.team.task, founder: { "Kabir" },
@@ -314,7 +314,7 @@ import WorkbenchCore
         let store = try scratchStore()
         let capture = try CaptureService(store: store)
         let reply = #"""
-            {"items":[{"person":"Asha","project":"Login","kind":"done","text":"Login API","eta":"","asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":@login API done@,"quote":"login API done"}]}
+            {"items":[{"person":"Asha","project":"Login","kind":"done","text":"Login API","when":{"direction":"unclear","offset_days":0,"weekday":"none","week":"none","part_of_day":"none","offset_minutes":0,"day_of_month":0,"month":0,"month_which":"none","year":0,"clock_hour":-1,"clock_minute":0,"meridiem":"none","precision":"none","ambiguous":false,"words":""},"asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":@login API done@,"quote":"login API done"}]}
             """#
         let model = ScriptedModel(reply)
         let source = try WhatsAppSource(

@@ -29,7 +29,7 @@ private let screen = EvidenceSet(lines: [
 ])
 
 private func entry(_ person: String, _ kind: String = "done", cite: Int, quote: String, text: String = "t") -> String {
-    #"{"person":"\#(person)","project":"Login","kind":"\#(kind)","text":"\#(text)","eta":"","asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":\#(cite),"quote":"\#(quote)"}"#
+    #"{"person":"\#(person)","project":"Login","kind":"\#(kind)","text":"\#(text)","when":{"direction":"unclear","offset_days":0,"weekday":"none","week":"none","part_of_day":"none","offset_minutes":0,"day_of_month":0,"month":0,"month_which":"none","year":0,"clock_hour":-1,"clock_minute":0,"meridiem":"none","precision":"none","ambiguous":false,"words":""},"asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":\#(cite),"quote":"\#(quote)"}"#
 }
 
 private func block(_ first: Int, _ last: Int, task: String = "Work", quote: String) -> String {

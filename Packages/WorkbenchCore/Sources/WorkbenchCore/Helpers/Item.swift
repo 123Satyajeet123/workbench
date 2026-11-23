@@ -29,8 +29,8 @@ public struct Item: Sendable, Equatable, Identifiable {
     public var closed: Closed?
     /// A model read that a line closes it, and nobody has acted on it since. A person confirms or ignores it.
     public var proposedClose: Closed?
-    /// The date the latest `due_changed` event gave it; nil when no line changed it.
-    public var dueChanged: String?
+    /// The due time the latest `due_changed` event gave it; nil when no line changed it.
+    public var dueChanged: Due?
     /// Set when the founder hid the item or snoozed it; nil otherwise. See `isHidden(at:)`.
     public var hiding: Hiding?
     /// Where the quote is in the line it came from. Nil for an item whose quote is not from a line: a fact the person
@@ -60,7 +60,7 @@ public struct Item: Sendable, Equatable, Identifiable {
         id: Int64? = nil, task: String, day: WorkDay, scope: String, source: SourceKind, citeFirst: Int64,
         citeLast: Int64, start: Date, end: Date, fields: [String: String], quote: String, state: Mark = .proposed,
         run: RunID?, askedWith: Double? = nil, quoteSpan: QuoteSpan? = nil, label: Label? = nil,
-        authority: Authority = .unknown
+        authority: Authority = .unknown, due: Due? = nil
     ) {
         self.id = id
         self.task = task
@@ -71,6 +71,8 @@ public struct Item: Sendable, Equatable, Identifiable {
         self.citeLast = citeLast
         self.start = start
         self.end = end
+        var fields = fields
+        if let due, let json = try? Coding.json(due) { fields[Self.dueField] = json }
         self.fields = fields
         self.quote = quote
         self.state = state
@@ -93,6 +95,10 @@ public struct Item: Sendable, Equatable, Identifiable {
 
     /// The field that holds the store ids of the facts a finding cites, as a comma-separated list.
     static let factsField = "facts"
+
+    /// The field that holds the due time a fact was opened with, as JSON of a `Due`. Code writes it: the verifier
+    /// from a time record, or the store from a day a person typed. It holds none of a message's words.
+    static let dueField = "due"
 
     public subscript(field: String) -> String { fields[field] ?? "" }
 }

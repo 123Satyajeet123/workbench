@@ -13,7 +13,7 @@ enum Schema {
     /// file waits, then finds the steps done. Foreign keys are off while the steps run, because a step may rebuild a
     /// table that others reference (a drop with foreign keys on would cascade into them). They are checked before the
     /// transaction commits and switched on again after it.
-    static func open(_ writer: some DatabaseWriter) throws {
+    static func open(_ writer: some DatabaseWriter, ownerZone: TimeZone = .current) throws {
         try writer.writeWithoutTransaction { db in
             try db.execute(sql: "PRAGMA foreign_keys = OFF")
             defer { try? db.execute(sql: "PRAGMA foreign_keys = ON") }
@@ -22,6 +22,9 @@ enum Schema {
                 guard found <= steps.count else { throw SchemaError.newerVersion }
                 guard found < steps.count else { return .commit }
                 for statement in steps[found...].joined() { try db.execute(sql: statement) }
+                if let index = steps.firstIndex(of: timers), found <= index {
+                    try moveLegacyDueDays(db, zone: ownerZone)
+                }
                 try db.checkForeignKeys()
                 try db.execute(sql: "PRAGMA user_version = \(version)")
                 return .commit
@@ -33,7 +36,7 @@ enum Schema {
 
     static let steps = [
         baseline, itemEvents, runText, summaries, itemActions, mail, typedItems, quoteMarks, newsArticles, evidence,
-        runWindow, sourceDeleted, groundedFacts, factLifecycle,
+        runWindow, sourceDeleted, groundedFacts, factLifecycle, timers,
     ]
 
     /// Items that open and close (research 32): a later line closes a commitment or answers a question. An event is

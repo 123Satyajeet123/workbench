@@ -25,8 +25,17 @@ public struct LifecycleDryRun: Sendable, Equatable {
     /// `directory` is not opened, so its schema does not change; a copy of a store already at this step reports the
     /// changes that step logged.
     public static func run(onCopyOf directory: URL) throws -> LifecycleDryRun {
+        try Store.withCopy(of: directory) { try $0.queries.lifecycleRebuild() }
+    }
+}
+
+extension Store {
+    /// Opens a copy of the store in `directory` for `body` and deletes the copy after. The store in `directory` is
+    /// never opened, so its schema, its bytes and its `user_version` stay as they were: a tool that reads a store
+    /// that may be older than this app goes through here.
+    public static func withCopy<Result>(of directory: URL, _ body: (Store) throws -> Result) throws -> Result {
         let manager = FileManager.default
-        let copy = manager.temporaryDirectory.appending(path: "lifecycle-dry-run-\(UUID().uuidString)")
+        let copy = manager.temporaryDirectory.appending(path: "store-copy-\(UUID().uuidString)")
         defer { try? manager.removeItem(at: copy) }
         try manager.createDirectory(at: copy, withIntermediateDirectories: true)
         for name in ["workbench.sqlite", "workbench.sqlite-wal", "workbench.sqlite-shm"] {
@@ -35,7 +44,7 @@ public struct LifecycleDryRun: Sendable, Equatable {
                 try manager.copyItem(at: source, to: copy.appending(path: name))
             }
         }
-        return try Store(directory: copy).queries.lifecycleRebuild()
+        return try body(try Store(directory: copy))
     }
 }
 

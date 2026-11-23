@@ -23,9 +23,16 @@ extension Verifier {
         let cited = try cited(raw, spec: spec, day: day, open: open)
         var fields: [String: String] = [:]
         for field in spec.fields where !field.kind.isComputed {
-            guard let value = raw[field.name]?.string else { throw Refusal(.malformed) }
-            try Self.require(value, fitsInto: field.kind, context: window.context)
-            fields[field.name] = value
+            guard let given = raw[field.name] else { throw Refusal(.malformed) }
+            if field.kind == .time {
+                let mention = try time(given, citing: cited.lines)
+                fields[field.name] = mention.words
+                fields[Item.dueField] = try Coding.json(mention.due)
+            } else {
+                guard let value = given.string else { throw Refusal(.malformed) }
+                try Self.require(value, fitsInto: field.kind, context: window.context)
+                fields[field.name] = value
+            }
         }
         fields.merge(spec.criteria?.readings(raw, evidence: window) ?? [:]) { _, reading in reading }
         if !cited.facts.isEmpty {
@@ -38,11 +45,33 @@ extension Verifier {
             quoteSpan: cited.span, label: standing.label, authority: standing.authority)
     }
 
-    /// A proposal that passed its checks: the item it states, how it relates to the open facts, and the date it gives.
+    /// The words of a time and the due time code worked out from its record.
+    private struct Timed {
+        var words: String
+        var due: Due
+    }
+
+    /// A time field: a record that is exactly the closed record, whose parts agree, and whose words are in a cited line
+    /// when there are any (and there are when the precision is not none). The due time is resolved against that line's
+    /// own time, in the owner's zone.
+    private func time(_ value: JSONValue, citing lines: [Evidence]) throws -> Timed {
+        guard let mention = TimeMention(value), mention.record.isCoherent,
+            mention.record.precision == .none || mention.words.cleaned != nil
+        else { throw Refusal(.fieldKind) }
+        guard let source = try lineHolding(mention.words, in: lines) else {
+            return Timed(words: "", due: .unresolved(mention.record, zone: zone))
+        }
+        let hours = settings.dayHours ?? DayHours()
+        return Timed(
+            words: mention.words,
+            due: TimeResolver.resolve(mention.record, anchor: source.start, zone: zone, hours: hours))
+    }
+
+    /// A proposal that passed its checks: the item it states, how it relates to the open facts, and the due time it gives.
     struct Checked: Sendable {
         var item: Item
         var relation: Relation
-        var due: String?
+        var due: Due?
     }
 
     /// The proposal of `spec`'s machine, whole: its item passes `item(_:spec:open:day:scope:run:)`, and its relation
@@ -53,7 +82,7 @@ extension Verifier {
         let item = try item(raw, spec: spec, open: open, day: day, scope: scope, run: run)
         return Checked(
             item: item, relation: try relation(raw, spec: spec, open: open, item: item),
-            due: spec.lifecycle?.due.flatMap { raw[$0]?.string })
+            due: item.openedDue)
     }
 
     /// How a proposal relates to the open facts shown to the model. A machine with no lifecycle shows none, so every
@@ -153,7 +182,7 @@ extension Verifier {
             case .member(let set): context[set]?.contains(value) == true
             case .label: value.cleaned != nil
             case .date(let required): value.isEmpty ? !required : WorkDay(value) != nil
-            case .computed: false
+            case .computed, .time: false
             }
         guard fits else { throw Refusal(.fieldKind) }
     }

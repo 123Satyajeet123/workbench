@@ -19,7 +19,7 @@ import Testing
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         let queue = try DatabaseQueue(path: folder.appending(path: "workbench.sqlite").path)
         try queue.write { db in
-            let before = Schema.steps.count - 1
+            let before = Schema.steps.firstIndex(of: Schema.factLifecycle)!
             for statement in Schema.steps.prefix(before).joined() { try db.execute(sql: statement) }
             try db.execute(sql: "PRAGMA user_version = \(before)")
             try db.execute(
@@ -122,7 +122,8 @@ import Testing
         let version = try DatabaseQueue(path: folder.appending(path: "workbench.sqlite").path).read {
             try Int.fetchOne($0, sql: "PRAGMA user_version")
         }
-        #expect(version == Schema.steps.count - 1, "the store the dry run read is not migrated")
+        #expect(
+            version == Schema.steps.firstIndex(of: Schema.factLifecycle)!, "the store the dry run read is not migrated")
         let store = try Store(directory: folder)
         #expect(try store.queries.lifecycleRebuild() == report, "the real step logs what the dry run said")
     }

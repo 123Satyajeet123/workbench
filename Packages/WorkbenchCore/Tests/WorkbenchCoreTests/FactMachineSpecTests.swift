@@ -7,7 +7,7 @@ import Testing
     @Test func theFactMachineKeepsPipsTaskAndFieldsAndOpensPlansAndBlockers() {
         let spec = HelperSpec.team
         #expect(spec.task == "team.ledger")
-        #expect(spec.fields.map(\.name) == ["person", "project", "kind", "text", "eta", "stance", "asks"])
+        #expect(spec.fields.map(\.name) == ["person", "project", "kind", "text", "when", "stance", "asks"])
         #expect(spec.lifecycle?.field == "kind")
         #expect(spec.lifecycle?.open == ["plan", "blocker", "commitment", "question", "decision"])
         #expect(spec.lifecycle?.outcomes == ["kept", "answered", "resolved", "reversed", "dropped"])

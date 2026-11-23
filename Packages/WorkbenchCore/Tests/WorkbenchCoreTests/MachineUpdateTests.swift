@@ -8,7 +8,9 @@ import Testing
     /// Pip as it shipped before it became the fact machine.
     private var oldPip: HelperSpec {
         var spec = HelperSpec.team
-        spec.fields = spec.fields.filter { ["person", "kind", "text", "eta"].contains($0.name) }
+        spec.fields =
+            spec.fields.filter { ["person", "kind", "text"].contains($0.name) }
+            + [.init("eta", .text(required: false), meaning: "The date it is due.")]
         spec.lifecycle = nil
         spec.brief = "You keep a team ledger."
         return spec
@@ -17,6 +19,7 @@ import Testing
     @Test func anOlderDesignSaysWhatTheUpdateAddsAndACurrentOneSaysNothing() throws {
         let changes = try #require(oldPip.update(toward: .team))
         #expect(changes.contains("adds project") && changes.contains("lets facts open and close"))
+        #expect(changes.contains("reads when a fact is due, as a day and part of day") && changes.contains("drops eta"))
         #expect(HelperSpec.team.update(toward: .team) == nil)
         var editedBrief = HelperSpec.team
         editedBrief.brief = "The founder's own improved brief."

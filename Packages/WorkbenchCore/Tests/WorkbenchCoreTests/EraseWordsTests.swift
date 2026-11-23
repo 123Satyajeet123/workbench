@@ -15,7 +15,9 @@ import Testing
         let words = "Asha will do \(planted.secret) tomorrow"
         let fields = [
             "person": "Asha", "project": "Hiring \(planted.secret)", "kind": "commitment", "text": words,
-            "eta": "2026-09-25", "stance": "said", "asks": "team",
+            "when": "\(planted.secret) by Friday",
+            Item.dueField: try Coding.json(Due.stated(on: #require(WorkDay("2026-09-25")))),
+            "stance": "said", "asks": "team",
         ].merging(extra) { _, new in new }
         return try planted.world.store.writer.write { db in
             try db.execute(
@@ -44,7 +46,8 @@ import Testing
         #expect(report.flaggedItems >= 1)
 
         let item = try #require(try store.queries.items(of: pip.task, on: EvidenceCopiesTests.workDay).first)
-        #expect(item["text"] == "" && item["project"] == "" && item["eta"] == "", "the words the model wrote")
+        #expect(item["text"] == "" && item["project"] == "" && item["when"] == "", "the words the model wrote")
+        #expect(item.dueDay == WorkDay("2026-09-25"), "the due day holds no words and stays")
         #expect(item["person"] == "Asha" && item["kind"] == "commitment" && item["asks"] == "team")
         #expect(item["stance"] == "said", "the choices stay")
         #expect(item.quote == "" && item.isSourceDeleted && item.state == .confirmed)
@@ -108,7 +111,8 @@ import Testing
     }
 
     @Test func theFieldsWithoutWordsAreTheChoicesMembersDatesAndComputedValues() {
-        #expect(HelperSpec.team.fieldsWithoutWords == ["person", "kind", "stance", "asks", Item.factsField])
-        #expect(HelperSpec.derailment.fieldsWithoutWords == ["kind", "severity", Item.factsField])
+        #expect(
+            HelperSpec.team.fieldsWithoutWords == ["person", "kind", "stance", "asks", Item.factsField, Item.dueField])
+        #expect(HelperSpec.derailment.fieldsWithoutWords == ["kind", "severity", Item.factsField, Item.dueField])
     }
 }

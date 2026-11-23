@@ -36,7 +36,8 @@ extension Store {
         return try writer.write { db in
             try dropActions(of: deal.id, db)
             var fields = [
-                "kind": "commitment", "person": owner, "project": deal.title, "text": what, "eta": due.description,
+                "kind": "commitment", "person": owner, "project": deal.title, "text": what,
+                Item.dueField: try Coding.json(Due.stated(on: due)),
                 "stance": "said", DealAction.dealField: deal.id,
             ]
             if let asksMe = HelperSpec.Attention.builtIn.asksMe { fields[asksMe.field] = asksMe.value }
@@ -49,7 +50,9 @@ extension Store {
                     DealAction.task, WorkDay(containing: now).description, "", SourceKind.typed.rawValue,
                     now.stored, now.stored, try Coding.json(fields), what, now.stored, Authority.ownWords.rawValue,
                 ])
-            return db.lastInsertedRowID
+            let id = db.lastInsertedRowID
+            try reconcileTimers(db, item: id)
+            return id
         }
     }
 

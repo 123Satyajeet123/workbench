@@ -10,7 +10,7 @@ private func at(_ day: WorkDay, _ minutes: Double) -> Date { day.start.addingTim
 private let chatGrant = grant(.whatsapp, label: "work")
 
 private func fact(_ kind: String, _ text: String, cite: Int, quote: String) -> String {
-    #"{"kind":"\#(kind)","text":"\#(text)","person":"Asha","project":"Deck","eta":"","asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":\#(cite),"quote":"\#(quote)"}"#
+    #"{"kind":"\#(kind)","text":"\#(text)","person":"Asha","project":"Deck","when":{"direction":"unclear","offset_days":0,"weekday":"none","week":"none","part_of_day":"none","offset_minutes":0,"day_of_month":0,"month":0,"month_which":"none","year":0,"clock_hour":-1,"clock_minute":0,"meridiem":"none","precision":"none","ambiguous":false,"words":""},"asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":\#(cite),"quote":"\#(quote)"}"#
 }
 
 /// A line that shows an open fact is over: a fact of its own, related to the open one by `closes`.

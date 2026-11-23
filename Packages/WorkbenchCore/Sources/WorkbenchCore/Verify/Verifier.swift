@@ -23,18 +23,24 @@ public struct Verifier: Sendable {
     public struct Settings: Codable, Sendable, Equatable {
         /// The fewest words a quote may have, unless it is a whole line. Nil: the rule is off.
         public var minimumQuoteWords: Int?
+        /// The hours that parts of the day stand for when a time is resolved. Nil: the defaults of `DayHours`.
+        public var dayHours: DayHours?
 
-        public init(minimumQuoteWords: Int? = nil) {
+        public init(minimumQuoteWords: Int? = nil, dayHours: DayHours? = nil) {
             self.minimumQuoteWords = minimumQuoteWords
+            self.dayHours = dayHours
         }
     }
 
     public let window: EvidenceSet
     public let settings: Settings
+    /// The owner's time zone: the zone a time in a line is resolved in.
+    public let zone: TimeZone
 
-    public init(window: EvidenceSet, settings: Settings = Settings()) {
+    public init(window: EvidenceSet, settings: Settings = Settings(), zone: TimeZone = .current) {
         self.window = window
         self.settings = settings
+        self.zone = zone
     }
 
     /// The verdict of one proposal's checks. A check refuses with its rule, or fails with another error, and then the
@@ -91,6 +97,17 @@ public struct Verifier: Sendable {
             }
         }
         throw Refusal(.quoteNotInLines)
+    }
+
+    /// The line of `lines` that holds `words`, found as a quote is and with no minimum length: a time is often one
+    /// word. Nil for no words.
+    func lineHolding(_ words: String, in lines: [Evidence]) throws -> Evidence? {
+        let words = FoldedText(words)
+        guard !words.scalars.isEmpty else { return nil }
+        guard let line = lines.first(where: { $0.quotable.contains { FoldedText($0).range(of: words) != nil } }) else {
+            throw Refusal(.quoteNotInLines)
+        }
+        return line
     }
 
     /// Like `quote(_:in:)`, and when no line holds the words, the quote of a fact the proposal cites may. That gives no

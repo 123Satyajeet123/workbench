@@ -25,7 +25,7 @@ extension HelperReader {
             switch proposal.relation {
             case .sameAs(let id):
                 links.append(link(.stored(id), .restate))
-                if let due = proposal.due, !due.isEmpty, due != dueNow(of: id, in: open, spec: spec) {
+                if let due = proposal.due, due.utc != nil, due.utc != open.first(where: { $0.id == id })?.due?.utc {
                     links.append(link(.stored(id), .dueChanged(due)))
                 }
             case .new:
@@ -42,11 +42,5 @@ extension HelperReader {
             }
         }
         return (items, links)
-    }
-
-    /// The date an open fact is due now: the latest one a line gave, else the one it was opened with.
-    private static func dueNow(of id: Int64, in open: [Item], spec: HelperSpec) -> String {
-        guard let fact = open.first(where: { $0.id == id }) else { return "" }
-        return fact.dueChanged ?? spec.lifecycle?.due.map { fact[$0] } ?? ""
     }
 }

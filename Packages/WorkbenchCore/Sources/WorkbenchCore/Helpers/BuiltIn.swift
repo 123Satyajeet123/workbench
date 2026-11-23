@@ -41,10 +41,23 @@ extension HelperSpec {
             ),
             Field("text", .text(required: true), meaning: "One short English line in your words."),
             Field(
-                "eta", .text(required: false),
-                meaning:
-                    "The date it is due, as YYYY-MM-DD, worked out from the work day and the person's words (\"kal tak\" is the next day, \"Fri\" the coming Friday); empty when no time was said, never guessed."
-            ),
+                "when", .time,
+                meaning: """
+                    When it is due, from the words of the line, as a record: you never write a date. Read the tense \
+                    of the sentence for the direction: "kal" and "parson" are the days before today in a sentence \
+                    about the past ("kal deck bheja") and the days after today in one about a promise or a plan \
+                    ("kal tak bhej dunga"). "kal tak" is one day from the line, "parson" two, "narson" three; \
+                    "aaj shaam" is today, evening; EOD and COB are today, evening. "kal subah 10 baje" is one day \
+                    from the line, morning, hour 10; "5 baje" alone has no meridiem. "2 ghante mein" is 120 minutes. \
+                    "30 tareekh tak" is day 30 of this month; "agle mahine ki 15" is day 15, month next; "15 Dec" is \
+                    day 15, month 12. "mahine ke end tak" is precision month, this; "agle hafte" is precision week, \
+                    next; "is hafte" or EOW is week, this. A range such as "Monday se Wednesday" is due at its end. \
+                    When the line was sent late at night, after midnight and before the writer likely slept, and it \
+                    says "kal", "aaj" or "parson", two days fit: set ambiguous to true. Set ambiguous to true too \
+                    when "next Monday" or "agle Monday" can mean two Mondays. A quarter, a repeat ("har Monday"), a \
+                    festival or working days have no field: set precision none, and give the words. When the line \
+                    says no time, set precision none, direction unclear and words empty.
+                    """),
             Field(
                 "stance", .choice(["said", "reported"]),
                 meaning: "said: written by the person it is about. reported: written by someone else."),
@@ -55,7 +68,7 @@ extension HelperSpec {
             ),
         ],
         citation: .one, view: .board(groupBy: "person", expected: "members"), title: "text",
-        badges: ["project", "eta"],
+        badges: ["project"],
         tones: [
             "plan": .neutral, "done": .good, "blocker": .bad, "commitment": .neutral, "decision": .neutral,
             "question": .attention, "status": .neutral,
@@ -63,7 +76,7 @@ extension HelperSpec {
         itemsNoun: "entries", nudge: Nudge(field: "person", expected: "members", message: "No update today from"),
         lifecycle: Lifecycle(
             field: "kind", open: ["plan", "blocker", "commitment", "question", "decision"],
-            outcomes: ["kept", "answered", "resolved", "reversed", "dropped"], owner: "person", due: "eta",
+            outcomes: ["kept", "answered", "resolved", "reversed", "dropped"], owner: "person",
             doneOutcomes: ["blocker": "resolved"]))
 
     /// The day timeline: the founder's screen sessions joined into blocks of work.
@@ -170,7 +183,7 @@ extension HelperSpec {
             record (plans, blockers, commitments, questions, decisions), each with a handle, and the new lines of a work chat. Today's \
             date is the work day you are given. Decide from the facts and the lines what is off track. A finding is \
             one of:
-            - overdue: a plan or commitment is past its eta, or its time has clearly passed, and no new line shows it done;
+            - overdue: a plan or commitment is past its due day (due=), or its time has clearly passed, and no new line shows it done;
             - quiet: a thread or a person that should be moving has gone silent for longer than is usual for them;
             - blocked: work waits on something or someone and nothing moves it;
             - drift: the lines show work moving away from what the founder said matters;

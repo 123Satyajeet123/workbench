@@ -20,7 +20,7 @@ import WorkbenchCore
         let blocker = Item(
             task: HelperSpec.team.task, day: yesterday, scope: "", source: .whatsapp, citeFirst: 5, citeLast: 5,
             start: yesterday.start.addingTimeInterval(36_000), end: yesterday.start.addingTimeInterval(36_000),
-            fields: ["person": "Asha", "kind": "blocker", "text": "No OTA push yet", "eta": ""], quote: "nai aaya",
+            fields: ["person": "Asha", "kind": "blocker", "text": "No OTA push yet"], quote: "nai aaya",
             run: run)
         try store.saveReading(
             .init(items: [blocker], dropped: 0, run: run), of: .team, day: yesterday, scope: "",

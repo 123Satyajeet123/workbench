@@ -121,4 +121,9 @@ run "87 a driver run opens more pages than its cap" $C/Driver/PageDriver.swift '
 run "88 a page the plain fetch read is opened in the browser too" $C/Driver/RoutedPageReader.swift 's/if let page = try\? await fetcher\.fetch\(url\), Self\.isReadable\(page\) \{ return \.fetched\(page\) \}\n//' WorkbenchCore
 run "89 a driver tab stays open after its open failed" ../Extension/background/driver.js 's/      await closeTab\(tab\.id\);\n      throw error;/      throw error;/' WorkbenchCore
 run "90 the relay is silent when the app goes away" WorkbenchCore/Sources/PagesRelay/PagesRelay.swift 's/        if lost \{ browser\.write\(PagesRelay\.appUnavailable\) \}\n//' WorkbenchCore
+run "85 an ambiguous time gets a date" $C/Time/TimeResolver.swift 's/direction == \.future, !record\.ambiguous, /direction == .future, /' WorkbenchCore
+run "86 kal resolves against the wrong anchor" $C/Verify/Verifier+Spec.swift 's/anchor: source\.start,/anchor: Date(),/' WorkbenchCore
+run "87 a fired timer closes a fact" $C/Store/StoreTimers.swift 's/(let row = rows\[decision\.id\]!\n)/$1                try addEvent(db, item: row["item_id"], kind: .close, outcome: "kept", at: now)\n/' WorkbenchCore
+run "88 a closed fact keeps its timer" $C/Store/StoreTimers.swift 's/item\.closed == nil \? Timers\.rows/true ? Timers.rows/' WorkbenchCore
+run "89 the labelling tool accepts a held-out day" ../Testing/Sources/Evals/KalLabelling.swift 's/        try heldOut\.require\(noneOf: week\)\n//' ../Testing
 echo DONE
