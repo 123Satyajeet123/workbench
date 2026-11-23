@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 enum SettingsTab: Hashable {
-    case general, capture, team, advanced
+    case general, capture, team, notifications, advanced
 }
 
 struct SettingsView: View {
@@ -14,6 +14,9 @@ struct SettingsView: View {
             Tab("General", systemImage: "gearshape", value: SettingsTab.general) { GeneralSettingsView() }
             Tab("Capture", systemImage: "eye", value: SettingsTab.capture) { CaptureSettingsView() }
             Tab("Team", systemImage: "person.3", value: SettingsTab.team) { TeamSettingsView() }
+            Tab("Notifications", systemImage: "bell", value: SettingsTab.notifications) {
+                NotificationSettingsView()
+            }
             Tab("Advanced", systemImage: "gauge.with.dots.needle.33percent", value: SettingsTab.advanced) {
                 AdvancedSettingsView()
             }

@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Observation
 import os
@@ -14,9 +15,55 @@ final class Notifications {
 
     @ObservationIgnored let notifier: Notifier
     @ObservationIgnored private var waiting: [() -> Void] = []
+    @ObservationIgnored private let defaults: UserDefaults
+    @ObservationIgnored private let clock: () -> Date
+    @ObservationIgnored private let windowInFront: @MainActor () -> Bool
 
-    init(notifier: Notifier = SystemNotifier()) {
+    init(
+        notifier: Notifier = SystemNotifier(), defaults: UserDefaults = .standard,
+        clock: @escaping () -> Date = Date.init,
+        windowInFront: @escaping @MainActor () -> Bool = Notifications.appWindowIsInFront
+    ) {
         self.notifier = notifier
+        self.defaults = defaults
+        self.clock = clock
+        self.windowInFront = windowInFront
+    }
+
+    static func appWindowIsInFront() -> Bool {
+        NSApp.isActive && NSApp.keyWindow?.isMainWindow == true
+    }
+
+    /// Shows a fact when the gate allows it. Returns whether it showed one. A notification that macOS blocks, or
+    /// that the gate holds back, does not count against the daily cap.
+    @discardableResult
+    func notify(_ notice: FactNotice, itemOpen: Bool) async throws -> Bool {
+        let access = await notifier.authorize()
+        blocked = access == .blocked
+        guard access == .allowed else { return false }
+        let now = clock()
+        var sent = DailyCount.stored(in: defaults)
+        guard
+            NotificationGate.shows(
+                now: now, windowInFront: windowInFront(), sentToday: sent.sent(on: now),
+                policy: .saved(in: defaults), itemOpen: itemOpen)
+        else { return false }
+        sent.record(at: now)
+        sent.store(in: defaults)
+        do {
+            try await notifier.post(notice)
+        } catch {
+            var kept = DailyCount.stored(in: defaults)
+            kept.withdraw()
+            kept.store(in: defaults)
+            throw error
+        }
+        return true
+    }
+
+    /// Removes the notification of a fact that was handled, in the window, the menu bar or a notification.
+    func clear(itemID: Int64) {
+        notifier.removeDelivered(itemID: itemID)
     }
 
     /// Runs `turnOn` when macOS allows notifications: now, or once the founder allows them in System Settings.
@@ -56,5 +103,66 @@ final class Notifications {
                 Self.log.error("Could not show \"\(title, privacy: .public)\": \(error.localizedDescription)")
             }
         }
+    }
+}
+
+/// Whether to show a notification now. One pure answer; every input is a reason to hold it back.
+enum NotificationGate {
+    static func shows(
+        now: Date, windowInFront: Bool, sentToday: Int, policy: NotificationPolicy, itemOpen: Bool,
+        calendar: Calendar = .current
+    ) -> Bool {
+        itemOpen && !windowInFront && sentToday < policy.dailyCap && !policy.quiet.contains(now, calendar: calendar)
+    }
+}
+
+/// How many notifications went out on one day. The count restarts when the day changes.
+struct DailyCount: Equatable {
+    private(set) var day: Date
+    private(set) var count: Int
+
+    private static let dayKey = "notifications.sentDay"
+    private static let countKey = "notifications.sentCount"
+
+    static func stored(in defaults: UserDefaults) -> Self {
+        Self(
+            day: defaults.object(forKey: dayKey) as? Date ?? .distantPast, count: defaults.integer(forKey: countKey))
+    }
+
+    func store(in defaults: UserDefaults) {
+        defaults.set(day, forKey: Self.dayKey)
+        defaults.set(count, forKey: Self.countKey)
+    }
+
+    func sent(on now: Date, calendar: Calendar = .current) -> Int {
+        calendar.isDate(day, inSameDayAs: now) ? count : 0
+    }
+
+    mutating func record(at now: Date, calendar: Calendar = .current) {
+        count = sent(on: now, calendar: calendar) + 1
+        day = now
+    }
+
+    mutating func withdraw() {
+        count = max(0, count - 1)
+    }
+}
+
+/// Holds what the founder did on a notification until the app can act on it. macOS can launch the app for an
+/// action, and the response arrives before the window and its models exist.
+final class NotificationReplies {
+    private var waiting: [NotificationReply] = []
+
+    var handler: ((NotificationReply) -> Void)? {
+        didSet {
+            guard let handler else { return }
+            let pending = waiting
+            waiting = []
+            pending.forEach(handler)
+        }
+    }
+
+    func receive(_ reply: NotificationReply) {
+        if let handler { handler(reply) } else { waiting.append(reply) }
     }
 }

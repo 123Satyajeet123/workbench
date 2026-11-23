@@ -8,6 +8,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     lazy var launch = AppLaunch.start(storeFolder: storeFolder)
     private let storeFolder: URL
     private var island: IslandPanel?
+    /// What the founder did on a notification. The window sets `handler` once it can mark a fact.
+    let replies = NotificationReplies()
 
     init(storeFolder: URL) {
         self.storeFolder = storeFolder
@@ -20,6 +22,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         UNUserNotificationCenter.current().delegate = self
+        SystemNotifier.registerCategories()
         AppTheme.saved().apply()
     }
 
@@ -44,14 +47,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
-/// A click on a Workbench notification opens the page it is about; one shown while Workbench is in front still
-/// appears.
+/// A mark chosen on a Workbench notification goes to `replies` and opens nothing. A click on the body opens the page
+/// it is about, and tells `replies` which fact.
 extension AppDelegate: UNUserNotificationCenterDelegate {
     func userNotificationCenter(
         _ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse
     ) async {
-        guard let page = SystemNotifier.page(of: response) else { return }
-        await MainActor.run { _ = NSWorkspace.shared.open(page) }
+        let reply = SystemNotifier.reply(to: response)
+        let page = response.actionIdentifier == NotificationReply.bodyClick ? SystemNotifier.page(of: response) : nil
+        await MainActor.run {
+            if let reply { replies.receive(reply) }
+            if let page { _ = NSWorkspace.shared.open(page) }
+        }
     }
 
     func userNotificationCenter(
