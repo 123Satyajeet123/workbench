@@ -19,7 +19,12 @@ public final class TDLibTelegram: TelegramService, @unchecked Sendable {
     private var myName: String?
     private var myUsernames: [String] = []
 
-    public init(folder: URL) { self.folder = folder }
+    private let deletions: TelegramDeletions
+
+    public init(folder: URL) {
+        self.folder = folder
+        deletions = TelegramDeletions(folder: folder)
+    }
 
     public func connect(
         _ keys: TelegramKeys, policy: CapturePolicy, onChange: @escaping @Sendable (TelegramLogin) -> Void
@@ -156,6 +161,8 @@ public final class TDLibTelegram: TelegramService, @unchecked Sendable {
         return found
     }
 
+    public func deletedMessages(in chat: Int64) async throws -> [Int64] { deletions.messages(in: chat, at: .now) }
+
     public func disconnect() {
         let client: TDLibClient? = locked {
             guard let client else { return nil }
@@ -224,6 +231,8 @@ public final class TDLibTelegram: TelegramService, @unchecked Sendable {
         switch update {
         case .updateAuthorizationState(let change): authorization(change.authorizationState, client)
         case .updateUser(let change): _ = remember(change.user)
+        case .updateDeleteMessages(let change) where change.isPermanent && !change.fromCache:
+            deletions.record(chat: change.chatId, messages: change.messageIds, at: .now)
         default: break
         }
     }

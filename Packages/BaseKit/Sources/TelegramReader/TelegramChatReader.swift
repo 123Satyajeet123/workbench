@@ -67,7 +67,10 @@ public struct TelegramChatReader: EvidenceSource {
             guard newcomers.isEmpty else { throw TelegramConsentMissing(people: newcomers) }
             guard let audience = Self.audience(of: members, chat: chat) else { throw ReadError.audienceUnknown }
             let messages = try await service.messages(in: chat, from: window.lowerBound, to: window.upperBound, me: me)
-            let lines = messages.filter { $0.chat == chat && window.contains($0.date) }.compactMap(observedLine)
+            let deleted = try await service.deletedMessages(in: chat)
+            let lines =
+                messages.filter { $0.chat == chat && window.contains($0.date) }.compactMap(observedLine)
+                + deleted.compactMap(tombstone)
             return SourceRead(
                 readings: [
                     SourceReading(
@@ -77,6 +80,15 @@ public struct TelegramChatReader: EvidenceSource {
         } catch {
             return SourceRead(failures: [LabelFailure(label: label, error: error)])
         }
+    }
+
+    /// A message Telegram deleted for good. It goes through the writer's revoke: the text lines of the message and every
+    /// copy of their words are erased, as for a WhatsApp message deleted for everyone.
+    private func tombstone(_ message: Int64) -> ObservedLine? {
+        guard let key = try? EntityKey.telegram(chatID: chat, messageID: message) else { return nil }
+        return ObservedLine(
+            line: .tombstone(entity: key, readerVersion: Self.readerVersion), quality: .stable,
+            messageRef: String(message))
     }
 
     private func observedLine(_ message: TelegramMessage) -> ObservedLine? {
