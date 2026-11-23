@@ -154,7 +154,7 @@ struct RunTextDeleteTests {
                 start: t0, end: t0, fields: ["text": "x"], quote: "x", run: run)
             try store.saveReading(
                 .init(items: [item], dropped: 0, run: run), of: .team, day: item.day, scope: "work",
-                grant: grant(.whatsapp, label: "work"), pick: { _ in 0 })
+                grant: grant(.whatsapp, label: "work"), isAudited: { $0 == 0 })
         }
         try plant(Trial.task(of: "team.ledger"), run: myTrial)
         try plant(Trial.task(of: "day.timeline"), run: otherTrial)

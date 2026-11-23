@@ -126,4 +126,10 @@ run "86 kal resolves against the wrong anchor" $C/Verify/Verifier+Spec.swift 's/
 run "87 a fired timer closes a fact" $C/Store/StoreTimers.swift 's/(let row = rows\[decision\.id\]!\n)/$1                try addEvent(db, item: row["item_id"], kind: .close, outcome: "kept", at: now)\n/' WorkbenchCore
 run "88 a closed fact keeps its timer" $C/Store/StoreTimers.swift 's/item\.closed == nil \? Timers\.rows/true ? Timers.rows/' WorkbenchCore
 run "89 the labelling tool accepts a held-out day" ../Testing/Sources/Evals/KalLabelling.swift 's/        try heldOut\.require\(noneOf: week\)\n//' ../Testing
+run "85 an item on a trial day shapes an edit" $C/Helpers/Improvement.swift 's/DevHalf\(\$0\.day\) == \.learn && \$0\.state/EvalSplit(\$0.day) == .dev && \$0.state/' WorkbenchCore WorkbenchUI
+run "86 an item on a trial day becomes an example" $C/Helpers/Exemplars.swift 's/DevHalf\(\$0\.day\) == \.learn/EvalSplit(\$0.day) == .dev/' WorkbenchCore WorkbenchUI
+run "87 a trial replays days the proposer learned from" WorkbenchUI/Sources/WorkbenchUI/Workbench/Helpers/HelperImprovement.swift 's/DevHalf\(\$0\) == \.trial/EvalSplit(\$0) == .dev/g' WorkbenchUI
+run "88 a certificate ignores the chance an audit item had" $C/Runs/Certificate.swift 's/var share: Double \{ min\(1 \/ chance, Certificate\.heaviestWeight\) \/ Certificate\.heaviestWeight \}/var share: Double { 1 }/' WorkbenchCore WorkbenchUI ../Testing
+run "89 a certificate lets one answer weigh more than the heaviest" $C/Runs/Certificate.swift 's/min\(1 \/ chance, Certificate\.heaviestWeight\)/(1 \/ chance)/' WorkbenchCore
+run "91 an audited item is logged with a chance other than the one it was picked with" $C/Store/ItemStore.swift 's/arguments: \[AuditPolicy\.pickChance, id\]/arguments: [1.0 \/ Double(opened.count), id]/' WorkbenchCore
 echo DONE

@@ -5,7 +5,8 @@ import Testing
 
 @Suite struct ExemplarTests {
     private let today = WorkDay(containing: t0)
-    private var devDays: [WorkDay] { (1...30).map { today.adding(days: -$0) }.filter { EvalSplit($0) == .dev } }
+    private var devDays: [WorkDay] { (1...30).map { today.adding(days: -$0) }.filter { DevHalf($0) == .learn } }
+    private var trialDay: WorkDay { (1...30).map { today.adding(days: -$0) }.first { DevHalf($0) == .trial }! }
     private var heldOut: WorkDay { (1...30).map { today.adding(days: -$0) }.first { EvalSplit($0) == .heldOut }! }
 
     private func item(_ quote: String, _ state: Mark, on day: WorkDay) -> Item {
@@ -22,7 +23,7 @@ import Testing
             item("same day", .confirmed, on: devDays[0]), item("right new", .confirmed, on: devDays[1]),
             item("right old", .confirmed, on: devDays[3]), item("wrong new", .rejected, on: devDays[1]),
             item("wrong older", .rejected, on: devDays[2]), item("held-out right", .confirmed, on: heldOut),
-            item("unmarked", .proposed, on: devDays[1]),
+            item("unmarked", .proposed, on: devDays[1]), item("trial right", .confirmed, on: trialDay),
         ]
     }
 
@@ -34,8 +35,9 @@ import Testing
     @Test func atMostHalfAreWrongNewestFirstAndNoneWhenOff() {
         #expect(Exemplars.pick(marked, for: today, count: 3).map(\.quote) == ["same day", "right new", "wrong new"])
         #expect(Exemplars.pick(marked, for: today, count: 0).isEmpty)
-        let noTraining = marked.filter { $0.quote == "held-out right" }
-        #expect(Exemplars.pick(noTraining, for: today, count: 5).isEmpty, "held-out items never become examples")
+        let noTraining = marked.filter { $0.quote == "held-out right" || $0.quote == "trial right" }
+        #expect(
+            Exemplars.pick(noTraining, for: today, count: 5).isEmpty, "held-out and trial items never become examples")
     }
 }
 
@@ -43,7 +45,7 @@ import Testing
     @Test func turningExamplesOnIsANewVersionAndTheyComeBeforeTheDay() async throws {
         let store = try makeStore()
         let today = WorkDay(containing: t0)
-        let other = (1...30).map { today.adding(days: -$0) }.first { EvalSplit($0) == .dev }!
+        let other = (1...30).map { today.adding(days: -$0) }.first { DevHalf($0) == .learn }!
         var withExamples = HelperSpec.timeline
         withExamples.examples = 2
         #expect(

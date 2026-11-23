@@ -71,7 +71,7 @@ public struct Quality: Sendable, Equatable, Identifiable {
     public var dev: Tally
     public var heldOut: Tally
     public var audited: AuditEstimate
-    /// Audit answers on held-out days only: what the certificate is computed from.
+    /// Audit answers on held-out days only, in the order given: what the certificate is computed from.
     public var heldOutAudit: Certificate
     public var usage: Usage
 
@@ -138,7 +138,7 @@ extension Queries {
                     task: task, model: model, prompt: prompt, version: versions[prompt], runs: try row.value(3),
                     kept: try row.value(4), dropped: try row.value(5), dev: split[.dev] ?? Tally(),
                     heldOut: split[.heldOut] ?? Tally(), audited: audits[key] ?? AuditEstimate(),
-                    heldOutAudit: certificates[key] ?? Certificate(answers: 0, wrong: 0),
+                    heldOutAudit: certificates[key] ?? Certificate(),
                     usage: Usage(
                         inputTokens: try row.value(6), cacheReadTokens: try row.value(7),
                         cacheWriteTokens: try row.value(8), outputTokens: try row.value(9),
@@ -183,6 +183,7 @@ extension Queries {
             """
             SELECT r.task, r.model, r.prompt, m.asked_with, m.state, m.day FROM run r JOIN item_mark m ON m.run_id = r.id
             WHERE r.outcome = 'done' AND m.asked_with IS NOT NULL AND m.state <> 'proposed'
+            ORDER BY (SELECT MAX(id) FROM mark WHERE mark.item_id = m.id)
             """
         ) { row in
             (
@@ -199,8 +200,8 @@ extension Queries {
             audits[answer.key, default: AuditEstimate()].weight += weight
             if answer.right { audits[answer.key, default: AuditEstimate()].rightWeight += weight }
             if answer.split == .heldOut {
-                certificates[answer.key, default: Certificate(answers: 0, wrong: 0)].answers += 1
-                if !answer.right { certificates[answer.key, default: Certificate(answers: 0, wrong: 0)].wrong += 1 }
+                certificates[answer.key, default: Certificate()].answers.append(
+                    Certificate.Answer(wrong: !answer.right, chance: answer.chance))
             }
         }
         return (audits, certificates)

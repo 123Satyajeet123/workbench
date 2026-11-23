@@ -18,7 +18,7 @@ import WorkbenchCore
         let on = CapturePolicy(switches: [.screen: true])
         try store.savePolicy(on)
         let today = WorkDay(containing: .now)
-        let days = (1...14).map { today.adding(days: -$0) }.filter { EvalSplit($0) == .dev }.prefix(2)
+        let days = (1...14).map { today.adding(days: -$0) }.filter { DevHalf($0) == .trial }.prefix(2)
         var engine = CaptureEngine()
         for day in days {
             for (index, title) in ["Open PR", "Brave Staff", "Memo draft"].enumerated() {

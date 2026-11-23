@@ -13,11 +13,22 @@ public struct SharedMachine: TeamFile, Equatable, Identifiable {
         /// Answers to random picks, and the share right (weighted, as on Runs).
         public var audited = 0
         public var auditedPrecision: Double?
-        /// Audit answers on held-out days, and how many were wrong: what trust is earned from.
-        public var heldOutAnswers = 0
-        public var heldOutWrong = 0
+        /// Trust as its author earned it from audit answers on held-out days. It is shown, never carried over: an
+        /// adopter starts at zero.
+        public var trust = Certificate().status
 
         public init() {}
+
+        /// A record from an earlier version has no trust: it shows as none earned.
+        public init(from decoder: Decoder) throws {
+            let values = try decoder.container(keyedBy: CodingKeys.self)
+            runs = try values.decode(Int.self, forKey: .runs)
+            kept = try values.decode(Int.self, forKey: .kept)
+            dropped = try values.decode(Int.self, forKey: .dropped)
+            audited = try values.decode(Int.self, forKey: .audited)
+            auditedPrecision = try values.decodeIfPresent(Double.self, forKey: .auditedPrecision)
+            trust = try values.decodeIfPresent(Certificate.Status.self, forKey: .trust) ?? Certificate().status
+        }
 
         /// The record of a machine's current prompt version, from the quality rows.
         public init(task: String, quality: [Quality]) {
@@ -27,12 +38,8 @@ public struct SharedMachine: TeamFile, Equatable, Identifiable {
             dropped = row.dropped
             audited = row.audited.marks
             auditedPrecision = row.audited.precision
-            heldOutAnswers = row.heldOutAudit.answers
-            heldOutWrong = row.heldOutAudit.wrong
+            trust = row.heldOutAudit.status
         }
-
-        /// Trust as its author earned it. It is shown, never carried over: an adopter starts at zero.
-        public var trust: Certificate.Status { Certificate(answers: heldOutAnswers, wrong: heldOutWrong).status }
     }
 
     public var author: String

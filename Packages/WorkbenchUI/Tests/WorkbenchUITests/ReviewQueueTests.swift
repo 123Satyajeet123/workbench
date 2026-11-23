@@ -15,7 +15,7 @@ import WorkbenchCore
     private func crew() throws -> (Crew, ReviewModel, Store) {
         let start = Date.now.addingTimeInterval(-3 * 3600)
         let clock = TestClock(start)
-        let store = try scratchStore(clock: { clock.now })
+        let store = try scratchStore(clock: { clock.now }, isAudited: { $0 == 0 })
         let on = CapturePolicy(switches: [.screen: true])
         try store.savePolicy(on)
         var engine = CaptureEngine()

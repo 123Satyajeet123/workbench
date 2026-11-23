@@ -18,7 +18,7 @@ import WorkbenchCore
         Reminders, FakeNotifier, TestClock, ScriptedModel
     ) {
         let clock = TestClock(monday)
-        let store = try scratchStore(clock: { clock.now })
+        let store = try scratchStore(clock: { clock.now }, isAudited: { $0 == 0 })
         try store.savePolicy(CapturePolicy(switches: [.screen: true]))
         try store.seedMachines(MachineTemplate.seeded.map { ($0.spec, $0.name) })
         let crew = Crew(

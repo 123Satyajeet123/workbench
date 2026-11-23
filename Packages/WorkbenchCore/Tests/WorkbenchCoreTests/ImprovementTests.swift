@@ -5,7 +5,8 @@ import Testing
 @testable import WorkbenchCore
 
 @Suite struct ProposerTests {
-    private let devDays = (1...40).map { WorkDay(containing: t0).adding(days: -$0) }.filter { EvalSplit($0) == .dev }
+    private let devDays = (1...40).map { WorkDay(containing: t0).adding(days: -$0) }.filter { DevHalf($0) == .learn }
+    private let trialDay = (1...40).map { WorkDay(containing: t0).adding(days: -$0) }.first { DevHalf($0) == .trial }!
     private let heldOutDay = (1...40).map { WorkDay(containing: t0).adding(days: -$0) }.first {
         EvalSplit($0) == .heldOut
     }!
@@ -23,6 +24,7 @@ import Testing
             item(1, .rejected, on: devDays[0], quote: "Lunch"), item(2, .rejected, on: devDays[1], quote: "Coffee"),
             item(3, .rejected, on: devDays[2], quote: "Break"), item(4, .confirmed, on: devDays[0], quote: "Write PR"),
             item(9, .rejected, on: heldOutDay, quote: "Secret held-out"),
+            item(10, .rejected, on: trialDay, quote: "Secret trial day"),
         ]
     }
 
@@ -31,7 +33,7 @@ import Testing
         return (Improver(model: RecordedModel(scripted, store: try makeStore())), scripted)
     }
 
-    @Test func aCitedSmallEditIsKeptAndHeldOutItemsNeverReachTheModel() async throws {
+    @Test func aCitedSmallEditIsKeptAndHeldOutAndTrialDayItemsNeverReachTheModel() async throws {
         let (improver, scripted) = try improver(
             #"{"kind":"add","text":"Leave out meals and breaks.","why":"Three wrong blocks were breaks","cites":[1,2,3]}"#
         )
@@ -42,13 +44,16 @@ import Testing
         let input = try #require(scripted.inputs.withLock { $0.first })
         #expect(input.contains("[1] wrong task=Lunch") && input.contains("[4] right task=Write PR"))
         #expect(!input.contains("Secret held-out"))
+        #expect(!input.contains("Secret trial day"))
+        #expect(!input.contains("[10]"))
     }
 
-    @Test func withTooFewWrongItemsNoCallIsMade() async throws {
+    @Test func withTooFewWrongItemsOnLearnDaysNoCallIsMade() async throws {
         let (improver, scripted) = try improver(#"{"kind":"none","text":"","why":"","cites":[]}"#)
         let few = marked.filter { $0.id != 3 }
         let (edit, run) = try await improver.propose(spec: .timeline, marked: few)
-        #expect(edit == nil && run == nil && scripted.inputs.withLock { $0.isEmpty })
+        #expect(
+            edit == nil && run == nil && scripted.inputs.withLock { $0.isEmpty }, "item 10 is wrong, on a trial day")
     }
 
     @Test func anEditThatCitesWhatItWasNotGivenRemovesWhatTheBriefLacksOrGrowsTooMuchIsDropped() {

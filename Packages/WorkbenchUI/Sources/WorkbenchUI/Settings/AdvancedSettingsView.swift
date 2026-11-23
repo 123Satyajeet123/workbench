@@ -75,7 +75,7 @@ struct AdvancedSettingsView: View {
                     }
                 }
                 Text(
-                    "Right is the share of your marks that say right. Held-out days (3 in 10, fixed by date) only judge a prompt; they never shape one. Audited counts only your answers to the item each reading picked at random, so it is the fair number."
+                    "Right is the share of your marks that say right. Held-out days (3 in 10, fixed by date) only judge a prompt; they never shape one. Audited counts only your answers to the items the app picked at random (each new item has a \(AuditPolicy.pickChance.formatted(.percent)) chance), so it is the fair number."
                 )
                 .textStyle(.callout).foregroundStyle(.supporting)
             }

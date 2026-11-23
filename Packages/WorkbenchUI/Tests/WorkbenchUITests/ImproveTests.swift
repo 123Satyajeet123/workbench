@@ -15,7 +15,10 @@ import WorkbenchCore
         let on = CapturePolicy(switches: [.screen: true])
         try store.savePolicy(on)
         let today = WorkDay(containing: .now)
-        let days = (1...20).map { today.adding(days: -$0) }.filter { EvalSplit($0) == .dev }.prefix(3)
+        let recent = (1...20).map { today.adding(days: -$0) }
+        let learnDays = Array(recent.filter { DevHalf($0) == .learn }.prefix(3))
+        let trialDays = Array(recent.filter { DevHalf($0) == .trial }.prefix(2))
+        let days = learnDays + trialDays
         var engine = CaptureEngine()
         for day in days {
             for (index, title) in ["Open PR", "Brave Staff"].enumerated() {
@@ -46,7 +49,7 @@ import WorkbenchCore
             await timeline.read()
             for item in timeline.items where item.quote == "Staff" {
                 timeline.mark(item, as: .rejected)
-                wrong.append(try #require(item.id))
+                if learnDays.contains(day) { wrong.append(try #require(item.id)) }
             }
         }
         model.replies.withLock {
@@ -57,7 +60,9 @@ import WorkbenchCore
         let trial = try #require(timeline.trial)
         #expect(trial.by == .proposer && trial.why == "Staff chats were marked wrong")
         #expect(trial.version.brief == HelperSpec.timeline.brief + " Leave out staff chats.")
-        #expect(trial.days.count == 3, "every marked training day is replayed")
+        #expect(Set(trial.days) == Set(trialDays), "every marked trial day is replayed, and no learn day")
+        let judged = (trial.result.dropped + trial.result.added).compactMap(\.id)
+        #expect(Set(wrong).isDisjoint(with: judged), "an item the edit cites is never a trial outcome")
         #expect(timeline.spec.brief == HelperSpec.timeline.brief, "the live machine does not change")
 
         timeline.keepCurrent()

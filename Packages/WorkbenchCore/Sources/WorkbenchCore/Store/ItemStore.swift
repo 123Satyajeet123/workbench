@@ -10,12 +10,12 @@ extension Store {
     /// closed, hid or marked stays as the founder left it. A reading adds the facts it opens, and the events it
     /// writes on facts (a restatement, a new date, a replacement, a proposal to close, a flag), each with the run,
     /// the line and the quote that show it. A machine with no lifecycle adds no item that repeats one stored before
-    /// it, or a finding of facts told before (`toldBeforeDays`). Of the new items, the app picks one at random to ask
-    /// the founder about, and keeps the chance it had. The grant is asked after the model ran, so consent withdrawn
+    /// it, or a finding of facts told before (`toldBeforeDays`). The app picks each new item on its own, with
+    /// the chance `AuditPolicy.pickChance`, to ask the founder about, and keeps the chance it had. The grant is asked after the model ran, so consent withdrawn
     /// meanwhile stops the write.
     public func saveReading(
         _ result: HelperReader.Result, of spec: HelperSpec, day: WorkDay, scope: String, grant: CaptureGrant,
-        pick: (Int) -> Int = { Int.random(in: 0..<$0) }
+        isAudited: ((Int) -> Bool)? = nil
     ) throws {
         try check(grant, kind: spec.source.kind, label: scope.isEmpty ? nil : scope)
         try writer.write { db in
@@ -30,11 +30,9 @@ extension Store {
                 if spec.lifecycle != nil { try reconcileTimers(db, item: id) }
                 return id
             }
-            let added = opened.compactMap { $0 }
-            if !added.isEmpty {
+            for (index, id) in opened.compactMap({ $0 }).enumerated() where (isAudited ?? self.isAudited)(index) {
                 try db.execute(
-                    sql: "UPDATE item SET asked_with = ? WHERE id = ?",
-                    arguments: [1 / Double(added.count), added[pick(added.count)]])
+                    sql: "UPDATE item SET asked_with = ? WHERE id = ?", arguments: [AuditPolicy.pickChance, id])
             }
             if let run = result.run {
                 for link in result.links { try apply(link, opened: opened, run: run, db) }

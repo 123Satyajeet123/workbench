@@ -123,10 +123,10 @@ private let fixture = [
         #expect(!input.contains("Zed") && !input.contains("Secret") && !input.contains("Examples the founder marked"))
     }
 
-    @Test func theImproverSeesOnlyItemsOnDevDaysAndNeverAPastDeal() async throws {
+    @Test func theImproverSeesOnlyItemsOnLearnDaysAndNeverAPastDeal() async throws {
         let store = try makeStore()
         let model = ScriptedModel(#"{"kind":"add","text":"Skip newsletters.","why":"w","cites":[1]}"#)
-        let devDay = (1...60).map { day.adding(days: -$0) }.first { EvalSplit($0) == .dev }!
+        let devDay = (1...60).map { day.adding(days: -$0) }.first { DevHalf($0) == .learn }!
         let heldDay = (1...60).map { day.adding(days: -$0) }.first { EvalSplit($0) == .heldOut }!
         func wrong(_ id: Int64, on day: WorkDay) -> Item {
             var item = Item(

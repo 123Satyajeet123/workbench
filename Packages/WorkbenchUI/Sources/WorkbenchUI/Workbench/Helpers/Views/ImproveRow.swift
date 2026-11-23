@@ -1,7 +1,7 @@
 import SwiftUI
 import WorkbenchCore
 
-/// The proposer: Mochi reads the founder's marks on training days and puts one clear fix on trial.
+/// The proposer: Mochi reads the founder's marks on learn days and puts one clear fix on trial on trial days.
 struct ImproveRow: View {
     let model: HelperModel
     @State private var asking = false
@@ -18,7 +18,7 @@ struct ImproveRow: View {
                 }
                 .disabled(asking || model.isPaused)
                 .help(
-                    "Mochi reads the items you marked on training days and tries one small change on past days. You decide."
+                    "Mochi reads the items you marked on half of your training days and tries one small change on the other half, so a change is never judged on the items that gave the idea. With fewer marks on each side, the trial says \"not sure\" more often. You decide."
                 )
                 Menu("Try another model") {
                     ForEach(ModelChoice.choices.filter { $0.id != model.spec.runner }) { choice in
@@ -31,7 +31,7 @@ struct ImproveRow: View {
                     Button("Learn from my marked examples") { Task { await model.learnFromMarks() } }
                         .disabled(asking || model.isPaused)
                         .help(
-                            "The machine sees a few items you marked on other training days when it reads. It is tried on past days first; you decide."
+                            "The machine sees a few items you marked on learn days when it reads. It is tried on the other half of your training days first, with fewer marks to judge it; you decide."
                         )
                 }
                 if let note = model.improveNote { Text(note).textStyle(.callout).foregroundStyle(.supporting) }

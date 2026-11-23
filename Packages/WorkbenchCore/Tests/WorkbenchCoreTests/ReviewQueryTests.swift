@@ -18,7 +18,7 @@ import Testing
         }
         try store.saveReading(
             .init(items: items, dropped: 0, run: run), of: spec, day: day, scope: "", grant: grant(.screen),
-            pick: { _ in pick })
+            isAudited: { $0 == pick })
     }
 
     @Test func theQueueHoldsEveryMachinesUnmarkedItemsWithTheAppsPicksFirst() async throws {

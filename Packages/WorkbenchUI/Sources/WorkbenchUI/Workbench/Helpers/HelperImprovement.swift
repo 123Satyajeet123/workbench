@@ -27,7 +27,7 @@ struct TrialRun {
 final class HelperImprovement {
     /// Most past days a trial reads: each is one model call.
     static let trialDays = 30
-    /// Without marked training days, a trial reads this many recent ones.
+    /// Without marked trial days, a trial reads this many recent ones.
     static let unmarkedTrialDays = 5
     /// Challengers tried within this window share the test's error budget.
     static let budgetWindow: TimeInterval = 90 * 86_400
@@ -61,8 +61,9 @@ final class HelperImprovement {
     }
 
     /// Replays a new version (brief, example policy and model) on stored evidence beside the current one (research
-    /// 20 §4): every training day the founder marked, newest first, so old marks carry over to the items both versions
-    /// give; or, with no marks yet, recent training days. Held-out days are never read. Each day's reader gets the
+    /// 20 §4): every trial day the founder marked, newest first, so old marks carry over to the items both versions
+    /// give; or, with no marks yet, recent trial days. Learn days and held-out days are never read: the version never
+    /// saw the items it is judged on, and no item that shaped an edit can vote for it. Each day's reader gets the
     /// open items as of that day, and the closes it gives are not stored: nothing live changes.
     func startTrial(_ version: HelperModel.Version, by: Decision.By, why: String) async {
         let spec = context.spec
@@ -74,12 +75,12 @@ final class HelperImprovement {
         challenger.task = Trial.task(of: spec.task)
         let scope = context.source.scope
         do {
-            var days = try store.queries.markedDays(of: spec.task).filter { EvalSplit($0) == .dev }
+            var days = try store.queries.markedDays(of: spec.task).filter { DevHalf($0) == .trial }
                 .prefix(Self.trialDays)
             if days.isEmpty {
                 let since = context.today.adding(days: -14)
                 days = Set(try store.queries.items(of: spec.task, since: since).map(\.day)).filter {
-                    EvalSplit($0) == .dev
+                    DevHalf($0) == .trial
                 }
                 .sorted(by: >).prefix(Self.unmarkedTrialDays)
             }
@@ -130,7 +131,7 @@ final class HelperImprovement {
         await startTrial(version, by: .person, why: "Learn from my marked examples")
     }
 
-    /// The proposer reads the founder's marks on training days and, when it finds one clear fix, starts a trial of it.
+    /// The proposer reads the founder's marks on learn days and, when it finds one clear fix, starts a trial of it.
     func improve() async {
         guard trial == nil, trialPhase != .reading else { return }
         improveNote = nil

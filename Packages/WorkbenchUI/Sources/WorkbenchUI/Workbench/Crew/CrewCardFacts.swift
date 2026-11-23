@@ -23,7 +23,7 @@ struct CrewCardFacts: Equatable {
     private static func health(_ row: Quality?) -> String {
         health(
             right: row?.all.confirmed ?? 0, of: row?.all.marked ?? 0,
-            trust: row?.heldOutAudit.status ?? Certificate(answers: 0, wrong: 0).status)
+            trust: row?.heldOutAudit.status ?? Certificate().status)
     }
 
     /// How right the machine was by the founder's marks, and what is left before it runs on its own.

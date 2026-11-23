@@ -16,7 +16,10 @@ import WorkbenchCore
         reply: String = #"{"items":[]}"#, clock: TestClock? = nil, notifier: FakeNotifier = FakeNotifier()
     ) throws -> (HelperModel, Store, CaptureService, ScriptedModel, WhatsAppSource) {
         let now = noon
-        let store = try clock.map { clock in try scratchStore(clock: { clock.now }) } ?? scratchStore(clock: { now })
+        let picksFirst: @Sendable (Int) -> Bool = { $0 == 0 }
+        let store =
+            try clock.map { clock in try scratchStore(clock: { clock.now }, isAudited: picksFirst) }
+            ?? scratchStore(clock: { now }, isAudited: picksFirst)
         let capture = try CaptureService(store: store)
         let model = ScriptedModel(reply)
         let source = try WhatsAppSource(
@@ -139,7 +142,7 @@ import WorkbenchCore
         #expect(team.problem?.hasPrefix("Could not read the day") == true)
     }
 
-    @Test func aReadingAsksAboutOneOfItsItemsUntilItIsAnswered() async throws {
+    @Test func aReadingAsksAboutAnItemUntilItIsAnswered() async throws {
         let reply = #"""
             {"items":[
               {"person":"Asha","project":"Login","kind":"done","text":"Login API","when":{"direction":"unclear","offset_days":0,"weekday":"none","week":"none","part_of_day":"none","offset_minutes":0,"day_of_month":0,"month":0,"month_which":"none","year":0,"clock_hour":-1,"clock_minute":0,"meridiem":"none","precision":"none","ambiguous":false,"words":""},"asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":@login API done@,"quote":"login API done"},
@@ -153,13 +156,15 @@ import WorkbenchCore
         await team.read()
         let question = try #require(team.question)
         #expect(team.mood == .asking)
-        #expect(question.askedWith == 0.5)
+        #expect(question.askedWith == AuditPolicy.pickChance)
         #expect(team.items.filter { $0.askedWith != nil }.count == 1)
         team.mark(question, as: .confirmed)
         #expect(team.question == nil)
         #expect(team.mood == .calm)
         #expect(team.trust != nil)
-        #expect(try store.queries.quality().first?.audited == AuditEstimate(marks: 1, rightWeight: 2, weight: 2))
+        #expect(
+            try store.queries.quality().first?.audited
+                == AuditEstimate(marks: 1, rightWeight: 1 / AuditPolicy.pickChance, weight: 1 / AuditPolicy.pickChance))
     }
 
     @Test func withNoGroupChosenNothingIsRead() async throws {

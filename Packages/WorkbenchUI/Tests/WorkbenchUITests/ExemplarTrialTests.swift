@@ -16,7 +16,10 @@ import WorkbenchCore
         let on = CapturePolicy(switches: [.screen: true])
         try store.savePolicy(on)
         let today = WorkDay(containing: clock.now)
-        let devDays = (1...20).map { today.adding(days: -$0) }.filter { EvalSplit($0) == .dev }.prefix(3)
+        let recent = (1...20).map { today.adding(days: -$0) }
+        let devDays =
+            Array(recent.filter { DevHalf($0) == .learn }.prefix(3))
+            + Array(recent.filter { DevHalf($0) == .trial }.prefix(3))
         var engine = CaptureEngine()
         let start = clock.now
         for day in devDays {
@@ -51,7 +54,7 @@ import WorkbenchCore
         let trial = try #require(timeline.trial)
         #expect(trial.version.examples == 5 && trial.version.brief == HelperSpec.timeline.brief)
         #expect(timeline.spec.examples == nil, "the live machine does not change")
-        #expect(model.calls.withLock { $0 } - callsBefore == 3, "one replay call per marked training day")
+        #expect(model.calls.withLock { $0 } - callsBefore == 3, "one replay call per marked trial day")
         let replayed = model.inputs.withLock { Array($0.suffix(3)) }
         #expect(replayed.allSatisfy { $0.hasPrefix("Examples the founder marked on other days:") })
         #expect(replayed.allSatisfy { $0.contains("- wrong: task=Chat") }, "it sees its own past mistakes")
@@ -75,7 +78,7 @@ import WorkbenchCore
                 start: day.start, end: day.start.addingTimeInterval(600), fields: ["task": "t"], quote: "q", run: run)
             try store.saveReading(
                 .init(items: [item], dropped: 0, run: run), of: timeline.spec, day: day, scope: "",
-                grant: try await store.grant(for: .screen, at: clock.now), pick: { _ in 0 })
+                grant: try await store.grant(for: .screen, at: clock.now), isAudited: { $0 == 0 })
             timeline.show(day)
             timeline.mark(try #require(timeline.items.first), as: .rejected)
         }
@@ -89,7 +92,7 @@ import WorkbenchCore
         let on = CapturePolicy(switches: [.screen: true])
         try store.savePolicy(on)
         let today = WorkDay(containing: clock.now)
-        let devDay = try #require((1...20).map { today.adding(days: -$0) }.first { EvalSplit($0) == .dev })
+        let devDay = try #require((1...20).map { today.adding(days: -$0) }.first { DevHalf($0) == .trial })
         var engine = CaptureEngine()
         let start = clock.now
         for (index, title) in ["Open PR", "Brave Staff"].enumerated() {
@@ -145,7 +148,7 @@ import WorkbenchCore
                 start: day.start, end: day.start.addingTimeInterval(600), fields: ["task": "t"], quote: "q", run: run)
             try store.saveReading(
                 .init(items: [item], dropped: 0, run: run), of: timeline.spec, day: day, scope: "",
-                grant: try await store.grant(for: .screen, at: clock.now), pick: { _ in 0 })
+                grant: try await store.grant(for: .screen, at: clock.now), isAudited: { $0 == 0 })
             timeline.show(day)
             timeline.mark(try #require(timeline.items.first), as: .rejected)
         }

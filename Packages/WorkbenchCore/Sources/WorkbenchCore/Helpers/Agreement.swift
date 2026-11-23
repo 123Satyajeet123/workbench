@@ -69,13 +69,13 @@ public struct AgreementReport: Sendable, Equatable {
     }
 
     /// The agreement rate the held-out deals support with 90 percent confidence: an exact binomial (Clopper-Pearson)
-    /// bound, the same one that earns trust.
+    /// bound.
     public var agreementFloor: Double? {
-        total == 0 ? nil : 1 - Certificate.upperBound(wrong: total - agreed, of: total)
+        total == 0 ? nil : 1 - ClopperPearson.upperBound(wrong: total - agreed, of: total)
     }
 
     /// The most hot-missed deals the held-out calls support among deals the investor calls hot, at 90 percent.
     public var hotMissedCeiling: Double? {
-        calledHot == 0 ? nil : Certificate.upperBound(wrong: hotMissed, of: calledHot)
+        calledHot == 0 ? nil : ClopperPearson.upperBound(wrong: hotMissed, of: calledHot)
     }
 }

@@ -19,7 +19,7 @@ import Testing
             end: day.start.addingTimeInterval(600), fields: ["task": secret], quote: secret, run: run)
         try store.saveReading(
             .init(items: [item], dropped: 1, run: run), of: machine.spec, day: day, scope: "", grant: grant(.screen),
-            pick: { _ in 0 })
+            isAudited: { $0 == 0 })
         try store.mark(
             item: try #require(store.queries.items(of: machine.task, day: day, scope: "").first?.id), as: .confirmed)
 

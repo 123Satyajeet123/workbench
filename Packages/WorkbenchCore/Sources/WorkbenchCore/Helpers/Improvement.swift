@@ -33,7 +33,7 @@ public struct Decision: Sendable, Equatable {
     }
 }
 
-/// The proposer: one model call reads the items the person marked on training days and drafts at most one small edit
+/// The proposer: one model call reads the items the person marked on learn days and drafts at most one small edit
 /// to the machine's brief (research 20 §2.3: small typed edits; a rewrite collapses). The edit is only a challenger:
 /// it starts a trial, and the person's marks decide. Code keeps an edit only when it cites marked items it was given,
 /// removes text the brief has, and keeps the brief within the growth cap.
@@ -66,7 +66,7 @@ public struct Improver: Sendable {
     }
 
     public static let task = "machine.improve"
-    /// No call until this many items on training days are marked wrong: with fewer, an edit has nothing to fix.
+    /// No call until this many items on learn days are marked wrong: with fewer, an edit has nothing to fix.
     /// A placeholder; research 20 suggests about 30 wrong of 100 marks for a reflective proposer to pay.
     public static let minimumWrong = 3
     /// Characters one edit may add (research 20 §2.3, rule 4: the Willison run grew the prompt 3.7 times).
@@ -97,9 +97,9 @@ public struct Improver: Sendable {
     }
 
     /// Nil when there is too little to learn from (no call) or the model's edit fails a check. Items on held-out days
-    /// are dropped here, before the model sees anything: they judge versions and never shape them.
+    /// and trial days are dropped here, before the model sees anything: they judge versions and never shape them.
     public func propose(spec: HelperSpec, marked: [Item]) async throws -> (edit: Edit?, run: RunID?) {
-        let training = marked.filter { EvalSplit($0.day) == .dev && $0.state != .proposed && $0.id != nil }
+        let training = marked.filter { DevHalf($0.day) == .learn && $0.state != .proposed && $0.id != nil }
         guard training.filter({ $0.state == .rejected }).count >= Self.minimumWrong else { return (nil, nil) }
         let (reply, run) = try await model.generate(
             Reply.self, schema: Self.schema, task: Self.task, instructions: Self.instructions,

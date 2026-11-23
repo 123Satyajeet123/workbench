@@ -1,58 +1,97 @@
 import Foundation
 
-/// Whether a helper has earned trust: from audit answers on held-out days, an exact binomial bound (Clopper-Pearson)
-/// on how often its items are wrong. "Earned" means the bound is at most `allowedWrong` with chance `confidence` —
-/// a finite-sample guarantee for an item picked the way audits pick, not an average that hides a bad streak.
+/// Whether a helper has earned trust, from its audit answers on held-out days in the order they were given. A bettor
+/// bets, answer after answer, that the helper's wrong rate is above `allowedWrong`. Each right answer makes the bettor
+/// poorer and each wrong one richer, so the bettor's wealth is an e-value against "wrong more than allowedWrong"
+/// (Waudby-Smith and Ramdas, arXiv 2010.09686). "Earned" means the wealth is at least 1 / (1 − `confidence`). When the
+/// true wrong rate is `allowedWrong` or higher, the chance that the wealth ever reaches that bar is at most
+/// 1 − `confidence` (Ville's inequality), however often the certificate is read.
+///
+/// An answer weighs one over the chance its item had of being picked. `AuditPolicy` gives every item the same chance,
+/// so every answer weighs `heaviestWeight` and the weights change nothing; they keep the test valid for answers picked
+/// under another chance. A weight above `heaviestWeight` counts as `heaviestWeight`.
 public struct Certificate: Sendable, Equatable {
-    public enum Status: Sendable, Equatable {
-        /// At least this many more answers, all right, before the bound can reach the allowed rate.
+    public enum Status: Sendable, Equatable, Codable {
+        /// At least this many more answers, all right and all at the heaviest weight, before it is earned.
         case needsMore(Int)
-        /// The bound is at or below the allowed rate.
+        /// The wrong rate is at most this, with `confidence`, however often the answers were read.
         case earned(bound: Double)
+    }
+
+    public struct Answer: Sendable, Equatable {
+        public var wrong: Bool
+        /// The chance the answered item had of being the one picked, above 0 and at most 1.
+        public var chance: Double
+
+        public init(wrong: Bool, chance: Double) {
+            self.wrong = wrong
+            self.chance = chance
+        }
+
+        /// The weight over the heaviest weight: above 0 and at most 1.
+        var share: Double { min(1 / chance, Certificate.heaviestWeight) / Certificate.heaviestWeight }
+    }
+
+    /// The wealth of a bettor against "wrong at most `rate`", averaged over a grid of bet sizes (a mean of
+    /// e-processes is an e-process). A bet is a share `g` of the most the bettor may risk, 1 / (1 − rate) per unit of
+    /// weight share, so the wealth stays above zero for any answer.
+    public struct Wealth: Sendable, Equatable {
+        private let rate: Double
+        private var perBet = Array(repeating: 1.0, count: EProcess.grid.count)
+
+        public init(against rate: Double = Certificate.allowedWrong) {
+            self.rate = rate
+        }
+
+        public mutating func add(_ answer: Answer) {
+            let outcome = answer.wrong ? 1.0 : 0.0
+            for (index, bet) in EProcess.grid.enumerated() {
+                perBet[index] *= 1 + bet / (1 - rate) * answer.share * (rate - outcome)
+            }
+        }
+
+        public var value: Double { perBet.reduce(0, +) / Double(perBet.count) }
     }
 
     public static let allowedWrong = 0.1
     public static let confidence = 0.9
+    public static let heaviestWeight = 1 / AuditPolicy.pickChance
+    public static var threshold: Double { 1 / (1 - confidence) }
 
-    public var answers: Int
-    public var wrong: Int
+    public var answers: [Answer]
 
-    public init(answers: Int, wrong: Int) {
+    public init(answers: [Answer] = []) {
         self.answers = answers
-        self.wrong = wrong
     }
 
     public var status: Status {
-        let bound = Self.upperBound(wrong: wrong, of: answers)
-        if bound <= Self.allowedWrong { return .earned(bound: bound) }
-        return .needsMore(max(1, Self.fewestAnswers(wrong: wrong) - answers))
+        let wealth = wealth(against: Self.allowedWrong)
+        return wealth.value >= Self.threshold
+            ? .earned(bound: upperBound) : .needsMore(rightAnswersToEarn(from: wealth))
     }
 
-    /// The largest wrong-rate p with P(at most `wrong` wrong in `answers` | p) ≥ 1 − confidence.
-    public static func upperBound(wrong: Int, of answers: Int, confidence: Double = confidence) -> Double {
-        guard answers > 0, wrong < answers else { return 1 }
-        var (low, high) = (0.0, 1.0)
-        for _ in 0..<100 {
+    private func wealth(against rate: Double) -> Wealth {
+        answers.reduce(into: Wealth(against: rate)) { $0.add($1) }
+    }
+
+    private func rightAnswersToEarn(from start: Wealth) -> Int {
+        var wealth = start
+        var more = 0
+        while wealth.value < Self.threshold {
+            wealth.add(Answer(wrong: false, chance: 1 / Self.heaviestWeight))
+            more += 1
+        }
+        return more
+    }
+
+    /// The least wrong rate the bettor can still bet against with enough wealth to count: the upper end of the
+    /// confidence sequence. The wealth only grows with the rate, so a bisection finds it below `allowedWrong`.
+    private var upperBound: Double {
+        var (low, high) = (0.0, Self.allowedWrong)
+        for _ in 0..<40 {
             let middle = (low + high) / 2
-            if binomialCDF(wrong, answers, middle) > 1 - confidence { low = middle } else { high = middle }
+            if wealth(against: middle).value >= Self.threshold { high = middle } else { low = middle }
         }
         return high
-    }
-
-    /// The fewest answers with `wrong` of them wrong that can still earn the certificate.
-    public static func fewestAnswers(wrong: Int) -> Int {
-        var answers = wrong + 1
-        while upperBound(wrong: wrong, of: answers) > allowedWrong { answers += 1 }
-        return answers
-    }
-
-    private static func binomialCDF(_ k: Int, _ n: Int, _ p: Double) -> Double {
-        guard p > 0 else { return 1 }
-        guard p < 1 else { return k >= n ? 1 : 0 }
-        let (logP, logQ) = (log(p), log1p(-p))
-        return (0...k).reduce(0) { sum, i in
-            let logChoose = lgamma(Double(n + 1)) - lgamma(Double(i + 1)) - lgamma(Double(n - i + 1))
-            return sum + exp(logChoose + Double(i) * logP + Double(n - i) * logQ)
-        }
     }
 }

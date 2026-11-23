@@ -181,7 +181,7 @@ private func read(
 
     private func readAndSave(_ items: [String], into store: Store, pick: Int) async throws {
         let (result, _) = try await read(.team, items, evidence: chat, store: store)
-        try store.saveReading(result, of: .team, day: day, scope: "team", grant: chatGrant, pick: { _ in pick })
+        try store.saveReading(result, of: .team, day: day, scope: "team", grant: chatGrant, isAudited: { $0 == pick })
     }
 
 }

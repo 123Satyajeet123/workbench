@@ -18,8 +18,10 @@ func scratchFolder() -> URL {
     FileManager.default.temporaryDirectory.appending(path: "wbui-\(UUID().uuidString)")
 }
 
-func scratchStore(clock: @escaping @Sendable () -> Date = { Date() }) throws -> Store {
-    try Store(directory: scratchFolder(), clock: clock)
+func scratchStore(
+    clock: @escaping @Sendable () -> Date = { Date() }, isAudited: @escaping @Sendable (Int) -> Bool = AuditPolicy.picks
+) throws -> Store {
+    try Store(directory: scratchFolder(), clock: clock, isAudited: isAudited)
 }
 
 @MainActor

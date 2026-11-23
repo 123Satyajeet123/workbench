@@ -23,14 +23,17 @@ public final class Store: Sendable {
     public let queries: Queries
     let writer: DatabasePool
     public let clock: @Sendable () -> Date
+    /// Whether the new item at an index of a reading is picked to ask about, unless a reading says otherwise.
+    let isAudited: @Sendable (Int) -> Bool
     let ingestGate = SerialGate()
 
     public init(
         directory: URL, clock: @escaping @Sendable () -> Date = { Date() }, ownerZone: TimeZone = .current,
-        busyTimeout: TimeInterval = 10
+        busyTimeout: TimeInterval = 10, isAudited: @escaping @Sendable (Int) -> Bool = AuditPolicy.picks
     ) throws {
         self.directory = directory
         self.clock = clock
+        self.isAudited = isAudited
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         try Self.restrict(directory, to: 0o700)
         let databaseFile = directory.appending(path: "workbench.sqlite")

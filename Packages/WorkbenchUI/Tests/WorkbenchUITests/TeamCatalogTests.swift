@@ -44,7 +44,7 @@ import WorkbenchCore
         formTeam(founder: catalog, others: [aditya])
         var record = SharedMachine.Record()
         record.runs = 12
-        record.heldOutAnswers = 22
+        record.trust = .earned(bound: 0.0885)
         let theirs = Machine(
             id: 7, name: "Inbound deals", template: HelperSpec.team.task,
             spec: {
@@ -59,7 +59,7 @@ import WorkbenchCore
         let shared = try #require(catalog.teammates.first)
         #expect(shared.author == "Aditya" && shared.record.runs == 12)
         guard case .earned = shared.record.trust else {
-            Issue.record("22 right held-out answers earn trust for its author")
+            Issue.record("an earned record shows as trusted for its author")
             return
         }
         let id = try #require(catalog.adopt(shared))

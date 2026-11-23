@@ -60,7 +60,7 @@ import WorkbenchCore
             start: day.start, end: day.start.addingTimeInterval(600), fields: ["task": "t\(run)"], quote: "q", run: run)
         try s.store.saveReading(
             .init(items: [item], dropped: 0, run: run), of: s.timeline.spec, day: day, scope: "",
-            grant: try await s.store.grant(for: .screen, at: s.clock.now), pick: { _ in 0 })
+            grant: try await s.store.grant(for: .screen, at: s.clock.now), isAudited: { $0 == 0 })
         s.timeline.show(day)
         return try #require(s.timeline.items.last { $0.fields["task"] == "t\(run)" })
     }

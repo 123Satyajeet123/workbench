@@ -33,7 +33,7 @@ struct CallSiteKindTests {
 
     @Test func anImprovementHoldsTheKindsOfTheMarkedItemsItReads() async throws {
         let store = try makeStore()
-        let devDays = (1...40).map { today.adding(days: -$0) }.filter { EvalSplit($0) == .dev }
+        let devDays = (1...40).map { today.adding(days: -$0) }.filter { DevHalf($0) == .learn }
         let marked = [
             item(1, .screen, on: devDays[0], .rejected), item(2, .screen, on: devDays[1], .rejected),
             item(3, .screen, on: devDays[2], .rejected),

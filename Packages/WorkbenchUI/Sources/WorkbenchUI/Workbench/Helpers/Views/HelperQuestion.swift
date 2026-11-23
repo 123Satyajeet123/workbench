@@ -1,8 +1,8 @@
 import SwiftUI
 import WorkbenchCore
 
-/// The one item the app picked from the last reading. Answering it measures the helper without your choice of what
-/// to check.
+/// An item the app picked from the last reading. Answering it measures the helper without your choice of what to
+/// check.
 struct HelperQuestion: View {
     let model: HelperModel
     let item: Item
@@ -11,8 +11,10 @@ struct HelperQuestion: View {
         VStack(alignment: .leading, spacing: Space.s) {
             Label("\(model.name) asks: is this right?", systemImage: "questionmark.bubble").textStyle(.headline)
             ItemRow(model: model, item: item, showsSpan: model.spec.citation == .range)
-            Text("Picked at random from this reading, so your answer shows how often \(model.name) is right.")
-                .textStyle(.callout).foregroundStyle(.supporting)
+            Text(
+                "Picked at random: every new item has a \(AuditPolicy.pickChance.formatted(.percent)) chance of being asked, so your answer shows how often \(model.name) is right."
+            )
+            .textStyle(.callout).foregroundStyle(.supporting)
             if let trust = model.trust { TrustLine(name: model.name, status: trust) }
         }
         .padding(Space.m)
@@ -20,7 +22,7 @@ struct HelperQuestion: View {
     }
 }
 
-/// Progress toward trust: the exact binomial bound from audit answers on held-out days.
+/// Progress toward trust: a betting test on audit answers on held-out days, valid however often it is read.
 struct TrustLine: View {
     let name: String
     let status: Certificate.Status
