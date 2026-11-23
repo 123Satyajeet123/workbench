@@ -70,6 +70,7 @@ extension Crew {
         case "draft": return "Drafts"
         case "machine": return "Brief improvements"
         case "usage": return "Plan checks"
+        case "call": return "Echo"
         default: return task
         }
     }

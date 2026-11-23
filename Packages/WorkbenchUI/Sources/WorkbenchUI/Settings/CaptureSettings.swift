@@ -20,6 +20,7 @@ final class CaptureSettings {
     private(set) var failure: (any Error)?
     /// What stops each source now, as last refreshed. The one place any page asks.
     private(set) var sourceHealth: [SourceHealth] = []
+    @ObservationIgnored var onCallSaved: () -> Void = {}
 
     init(
         service: CaptureService, profile: Profile = .yours, staleSites: @escaping () -> [String] = { [] },
@@ -113,7 +114,11 @@ final class CaptureSettings {
 
     func dismissFailure() { failure = nil }
 
-    func stopCall() { attempt { try service.stopCall() } }
+    func stopCall() {
+        guard service.call != nil else { return }
+        attempt { try service.stopCall() }
+        onCallSaved()
+    }
 
     func refreshLog() {
         attempt { log = try service.keptToday(limit: 20).compactMap(CaptureLogEntry.init) }
@@ -239,7 +244,7 @@ struct CaptureSource: Identifiable {
             reason: "Today's meetings: title, time and who is in them. Never written to the calendar."),
         CaptureSource(
             source: .call, name: "Calls", symbol: "phone",
-            reason: "Your microphone and the other side's audio, only when you start a recording."),
+            reason: "Your microphone and the other side's audio, only for calls you choose to record."),
     ]
 }
 

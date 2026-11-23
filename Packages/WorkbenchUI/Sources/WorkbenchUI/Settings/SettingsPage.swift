@@ -152,6 +152,11 @@ struct SettingsItem {
         SettingsItem(title: "Web research", section: .webResearch, words: "search provider claims queries internet"),
         SettingsItem(
             title: "Source health", section: .capture, words: "health ready permission problem broken access sources"),
+        SettingsItem(
+            title: "Record calls automatically", section: .capture,
+            words: "spot detect calls always record zoom meet teams microphone"),
+        SettingsItem(
+            title: "Save recordings in", section: .capture, words: "folder location where calls recordings saved echo"),
         SettingsItem(title: "Never capture", section: .capture, words: "deny block exclude private apps websites"),
         SettingsItem(title: "Delete WhatsApp messages", section: .capture, words: "whatsapp delete erase remove data"),
         SettingsItem(title: "Kept today", section: .capture, words: "log activity windows delete history"),

@@ -10,13 +10,13 @@ import Testing
     }
 
     @Test func theIslandKeepsItsPublicSpaceBehaviourForTheDayThePrivateSpaceIsGone() {
-        let panel = IslandPanel(state: { _ in .idle }, open: { _ in }, stop: {})
+        let panel = IslandPanel(state: { _ in .idle }, open: { _ in }, act: { _ in })
         #expect(panel.collectionBehavior.isSuperset(of: [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]))
     }
 
     @Test func theIslandIsHandedToTheSpaceOnlyWhereItShows() {
         let space = SpaceSpy()
-        let panel = IslandPanel(state: { _ in .idle }, open: { _ in }, stop: {}, space: space)
+        let panel = IslandPanel(state: { _ in .idle }, open: { _ in }, act: { _ in }, space: space)
         let shows = IslandMetrics.screen != nil
         #expect(space.held.count == (shows ? 1 : 0))
         #expect(space.held.allSatisfy { $0 === panel })

@@ -11,7 +11,8 @@ struct IslandMetrics: Equatable {
     static let detailHeight: CGFloat = 34
     /// Between the expanded shape's side and the detail line.
     static let detailInset: CGFloat = 14
-    static let stopSize = CGSize(width: 56, height: 22)
+    static let actionHeight: CGFloat = 22
+    static let actionGap: CGFloat = 8
 
     static let sample = IslandMetrics(notch: CGSize(width: 221, height: 38))
 
@@ -53,12 +54,16 @@ struct IslandMetrics: Equatable {
             height: size.height)
     }
 
-    /// The Stop button in the detail line, in the panel's flipped coordinates.
-    var stopRect: CGRect {
-        CGRect(
-            x: Self.overshoot + openWidth - Self.detailInset - Self.stopSize.width,
-            y: notchHeight + (Self.detailHeight - Self.stopSize.height) / 2, width: Self.stopSize.width,
-            height: Self.stopSize.height)
+    /// The buttons of the detail line, laid out from its right edge, in the panel's flipped coordinates.
+    func actionRects(_ actions: [IslandAction]) -> [(action: IslandAction, rect: CGRect)] {
+        var right = Self.overshoot + openWidth - Self.detailInset
+        return actions.map { action in
+            let rect = CGRect(
+                x: right - action.width, y: notchHeight + (Self.detailHeight - Self.actionHeight) / 2,
+                width: action.width, height: Self.actionHeight)
+            right = rect.minX - Self.actionGap
+            return (action, rect)
+        }
     }
 
     /// The first screen with a notch.

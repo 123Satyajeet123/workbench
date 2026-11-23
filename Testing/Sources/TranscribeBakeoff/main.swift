@@ -1,5 +1,6 @@
 import Evals
 import Foundation
+import LocalSources
 import WorkbenchCore
 
 // Research 05's bake-off: every engine on every call in a folder, scored by word error rate against the founder's

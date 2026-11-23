@@ -11,10 +11,10 @@ final class IslandPanel: NSPanel {
     private let space: (any SpaceHolding)?
 
     /// `state` is read where SwiftUI tracks it, so the island follows what it reads. `open` runs on a click, with the
-    /// page of what shows. `stop` runs on the Stop button of a recording.
+    /// page of what shows. `act` runs on a button of the detail line.
     init(
         state: @escaping (IslandShows) -> IslandState, open: @escaping (SidebarSelection) -> Void,
-        stop: @escaping () -> Void, space: (any SpaceHolding)? = IslandSpace()
+        act: @escaping (IslandAction) -> Void, space: (any SpaceHolding)? = IslandSpace()
     ) {
         self.space = space
         super.init(
@@ -30,7 +30,7 @@ final class IslandPanel: NSPanel {
         ignoresMouseEvents = true
         sharingType = .none
         let content = NSHostingView(
-            rootView: IslandRoot(presenter: presenter, state: state, open: open, stop: stop) { [weak self] look in
+            rootView: IslandRoot(presenter: presenter, state: state, open: open, act: act) { [weak self] look in
                 self?.ignoresMouseEvents = !look.takesClicks
                 self?.sharingType = look.sharingType
                 self?.fit()
@@ -52,6 +52,7 @@ final class IslandPanel: NSPanel {
             state: { shows in
                 IslandState(
                     recordingSince: session.capture.call?.startedAt,
+                    offering: session.callWatcher.offer?.source.service,
                     reading: session.crew.machines.filter { $0.phase == .reading }.map {
                         (name: $0.name, page: SidebarSelection.machine($0.machine.id))
                     },
@@ -60,7 +61,14 @@ final class IslandPanel: NSPanel {
                         ? session.planUsage.limits.flatMap { $0.fiveHour ?? $0.week } : nil,
                     shows: shows)
             },
-            open: { NSWorkspace.shared.open($0.url) }, stop: session.capture.stopCall)
+            open: { NSWorkspace.shared.open($0.url) },
+            act: { action in
+                switch action {
+                case .stop: session.capture.stopCall()
+                case .record: session.callWatcher.record()
+                case .notNow: session.callWatcher.dismiss()
+                }
+            })
     }
 
     deinit { screenChanges?.cancel() }
@@ -99,7 +107,7 @@ private struct IslandRoot: View {
     let presenter: IslandPresenter
     let state: (IslandShows) -> IslandState
     let open: (SidebarSelection) -> Void
-    let stop: () -> Void
+    let act: (IslandAction) -> Void
     let didChange: (PanelLook) -> Void
     @AppStorage(IslandKey.recording) private var showsRecording = true
     @AppStorage(IslandKey.reading) private var showsReading = true
@@ -123,7 +131,13 @@ private struct IslandRoot: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .onChange(of: look, initial: true) { _, look in didChange(look) }
             .onChange(of: current, initial: true) { _, state in presenter.show(state, reduceMotion: reduceMotion) }
+            .task(id: current.isOffer) {
+                if current.isOffer { await presenter.announce(for: Self.offerShown, reduceMotion: reduceMotion) }
+            }
     }
+
+    /// How long an offer to record shows its buttons before it waits for a hover.
+    static let offerShown = Duration.seconds(10)
 
     private func hover(_ isHovered: Bool) {
         presenter.hover(isHovered, reduceMotion: reduceMotion)
@@ -136,8 +150,9 @@ private struct IslandRoot: View {
 
     private func click(at point: CGPoint) {
         let content = presenter.content
-        if presenter.isDetailVisible, content.isRecording, presenter.metrics.stopRect.contains(point) {
-            stop()
+        let pressed = presenter.metrics.actionRects(content.actions).first { $0.rect.contains(point) }
+        if presenter.isDetailVisible, let pressed {
+            act(pressed.action)
         } else if let page = content.page {
             open(page)
         }

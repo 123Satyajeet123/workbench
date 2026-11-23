@@ -12,29 +12,61 @@ public struct Recording: Sendable, Equatable, Identifiable {
     public var endedAt: Date?
     public var state: State
     public var error: String?
+    public var service: String?
+    public var title: String?
+
+    public var source: CallSource { CallSource(service: service ?? app, title: title ?? "") }
 }
 
 extension Store {
     static let recordingsFolder = "recordings"
+    static let recordingsPlaceKey = "calls.folder"
+
+    public var defaultRecordingsPlace: URL { directory.appending(path: Self.recordingsFolder) }
+
+    public func recordingsPlace() throws -> URL? {
+        try queries.state(forKey: Self.recordingsPlaceKey).flatMap { $0.isEmpty ? nil : URL(filePath: $0) }
+    }
+
+    public func setRecordingsPlace(_ place: URL?) throws {
+        try saveState(place?.path ?? "", forKey: Self.recordingsPlaceKey)
+    }
+
+    func resolve(_ stored: String) -> URL { Self.resolve(stored, in: directory) }
+
+    static func resolve(_ stored: String, in directory: URL) -> URL {
+        stored.hasPrefix("/") ? URL(filePath: stored) : directory.appending(path: stored)
+    }
 
     /// The only way to start a recording: a live grant for a call.
-    public func startRecording(app: String, bundleID: String, grant: CaptureGrant) throws -> Recording {
+    public func startRecording(
+        app: String, bundleID: String, source: CallSource? = nil, grant: CaptureGrant
+    ) throws -> Recording {
         try check(grant, kind: .call)
         let now = clock()
-        let parent = directory.appending(path: Self.recordingsFolder)
-        try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
-        try Self.restrict(parent, to: 0o700)
-        let name = "\(Self.recordingsFolder)/\(UUID().uuidString)"
-        try FileManager.default.createDirectory(at: directory.appending(path: name), withIntermediateDirectories: false)
+        let name: String
+        if let place = try recordingsPlace() {
+            try FileManager.default.createDirectory(at: place, withIntermediateDirectories: true)
+            name = place.appending(path: UUID().uuidString).path
+        } else {
+            let parent = defaultRecordingsPlace
+            try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
+            try Self.restrict(parent, to: 0o700)
+            name = "\(Self.recordingsFolder)/\(UUID().uuidString)"
+        }
+        try FileManager.default.createDirectory(at: resolve(name), withIntermediateDirectories: false)
+        try Self.restrict(resolve(name), to: 0o700)
         let id = try writer.write { db in
             try db.execute(
-                sql: "INSERT INTO recording(app, bundle_id, folder, started_at, state) VALUES (?,?,?,?,'recording')",
-                arguments: [app, bundleID, name, now.stored])
+                sql: """
+                    INSERT INTO recording(app, bundle_id, folder, started_at, state, service, title)
+                    VALUES (?,?,?,?,'recording',?,?)
+                    """, arguments: [app, bundleID, name, now.stored, source?.service, source?.title])
             return db.lastInsertedRowID
         }
         return Recording(
-            id: id, app: app, bundleID: bundleID, folder: directory.appending(path: name), startedAt: now, endedAt: nil,
-            state: .recording, error: nil)
+            id: id, app: app, bundleID: bundleID, folder: resolve(name), startedAt: now, endedAt: nil,
+            state: .recording, error: nil, service: source?.service, title: source?.title)
     }
 
     public func finishRecording(_ id: Int64, error: String? = nil) throws {
@@ -60,13 +92,17 @@ extension Queries {
         try reader.read { db in
             try db.fetch(
                 "recording",
-                "SELECT id, app, bundle_id, folder, started_at, ended_at, state, error FROM recording ORDER BY id DESC"
+                """
+                SELECT id, app, bundle_id, folder, started_at, ended_at, state, error, service, title
+                FROM recording ORDER BY id DESC
+                """
             ) { row in
                 Recording(
                     id: try row.value("id"), app: try row.value("app"), bundleID: try row.value("bundle_id"),
-                    folder: directory.appending(path: try row.value("folder") as String),
+                    folder: Store.resolve(try row.value("folder"), in: directory),
                     startedAt: try row.date("started_at"), endedAt: try row.optionalDate("ended_at"),
-                    state: try row.enumeration("state"), error: try row.optionalValue("error"))
+                    state: try row.enumeration("state"), error: try row.optionalValue("error"),
+                    service: try row.optionalValue("service"), title: try row.optionalValue("title"))
             }
         }
     }

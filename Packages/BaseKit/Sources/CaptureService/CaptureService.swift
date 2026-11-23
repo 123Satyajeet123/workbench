@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Kernel
 import LocalSources
@@ -17,6 +18,8 @@ public final class CaptureService {
     public private(set) var call: Recording?
     /// Apps playing sound now, refreshed every tick: the calls that can be recorded.
     public private(set) var playingApps: [AudioApp] = []
+    public private(set) var listeningApps: [AudioApp] = []
+    @ObservationIgnored public var onListening: (([AudioApp]) -> Void)?
     /// The last write or delete that failed in the background, in plain words. Nil after the next one succeeds.
     public private(set) var problem: String?
 
@@ -135,7 +138,8 @@ public final class CaptureService {
         case .deny(let reason): throw CallStartError.denied(reason)
         }
         guard await CallAudioRecorder.requestMicrophone() else { throw CallAudioError.microphoneDenied }
-        let recording = try store.startRecording(app: app?.name ?? "In person", bundleID: label, grant: grant)
+        let recording = try store.startRecording(
+            app: app?.name ?? "In person", bundleID: label, source: source(of: app), grant: grant)
         let recorder = CallAudioRecorder(app: app, folder: recording.folder)
         do {
             try recorder.start()
@@ -163,6 +167,25 @@ public final class CaptureService {
 
     static let inPerson = "in-person"
 
+    /// The service and meeting of a call in `app`. The call window's title and address are screen content, so they
+    /// are read only under the app's own screen consent; without it the call is named by its app.
+    public func source(of app: AudioApp?) -> CallSource {
+        guard let app else {
+            return CallSource.identify(app: "", bundleID: Self.inPerson, windowTitle: "", address: "")
+        }
+        let running = NSRunningApplication.runningApplications(withBundleIdentifier: app.bundleID).first
+        let screen = policy.authorize(CaptureRequest(kind: .screen, label: app.bundleID), at: store.clock()).grant
+        guard ScreenReader.isTrusted, let running, let screen else {
+            return CallSource.identify(app: app.name, bundleID: app.bundleID, windowTitle: "", address: "")
+        }
+        let front = FrontApp(
+            pid: running.processIdentifier, name: app.name, bundleID: app.bundleID,
+            isBrowser: running.bundleURL.map(WebBrowserApp.isBrowser) ?? false)
+        let window = ScreenReader().read(front, grant: screen, withText: false)
+        return CallSource.identify(
+            app: app.name, bundleID: app.bundleID, windowTitle: window.title, address: window.document)
+    }
+
     /// Deletes every kind of captured data older than the retention, at most once an hour.
     func pruneIfDue(at now: Date) async {
         guard now.timeIntervalSince(lastPrune) >= 3600 else { return }
@@ -174,6 +197,9 @@ public final class CaptureService {
         refreshStatus()
         let apps = AudioApps.playing()
         if apps != playingApps { playingApps = apps }
+        let listening = AudioApps.listening()
+        if listening != listeningApps { listeningApps = listening }
+        onListening?(listening)
         let now = store.clock()
         Task { await pruneIfDue(at: now) }
         let isCapturing = status == .capturing || status == .needsPermission

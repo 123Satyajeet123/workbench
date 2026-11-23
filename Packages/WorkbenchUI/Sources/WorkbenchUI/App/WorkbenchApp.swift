@@ -82,6 +82,9 @@ extension View {
             .environment(session.runs)
             .environment(session.browsers)
             .environment(session.planUsage)
+            .environment(session.calls)
+            .environment(session.callWatcher)
+            .environment(session.playback)
             .environment(session.navigation)
     }
 }

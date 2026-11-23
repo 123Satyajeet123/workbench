@@ -33,6 +33,18 @@ import WorkbenchCore
         #expect(IslandState(recordingSince: nil, reading: [], needsYou: []) == .idle)
     }
 
+    @Test func aCallToRecordComesAfterARecordingAndBeforeEverythingElse() {
+        #expect(
+            IslandState(recordingSince: since, offering: "Zoom", reading: [atlas], needsYou: [])
+                == .recording(since: since))
+        let offered = IslandState(recordingSince: nil, offering: "Zoom", reading: [atlas], needsYou: ["Pip"])
+        #expect(offered == .offer("Zoom") && offered.page == .calls && offered.detail == "Zoom call")
+        #expect(
+            IslandState(
+                recordingSince: nil, offering: "Zoom", reading: [atlas], needsYou: [],
+                shows: IslandShows(recording: false)) == .reading(names: ["Atlas"], page: .machine(4)))
+    }
+
     @Test func whatTheFounderSwitchedOffIsSkipped() {
         let quiet = IslandShows(recording: false, reading: false, needsYou: true)
         #expect(

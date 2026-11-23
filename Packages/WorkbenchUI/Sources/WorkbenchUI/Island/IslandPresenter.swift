@@ -16,6 +16,7 @@ final class IslandPresenter {
     private(set) var isTall = false
     @ObservationIgnored private var target = IslandState.idle
     @ObservationIgnored private var isHovered = false
+    @ObservationIgnored private var isAnnouncing = false
     @ObservationIgnored private var moves: Task<Void, Never>?
 
     init(metrics: IslandMetrics) {
@@ -50,12 +51,23 @@ final class IslandPresenter {
         move(reduceMotion: reduceMotion)
     }
 
+    /// Expands the island under the notch for `duration` with no hover, so a question is seen. It ends early when the
+    /// calling task is cancelled.
+    func announce(for duration: Duration, reduceMotion: Bool) async {
+        isAnnouncing = true
+        move(reduceMotion: reduceMotion)
+        try? await Task.sleep(for: duration)
+        isAnnouncing = false
+        move(reduceMotion: reduceMotion)
+    }
+
     private func move(reduceMotion: Bool) {
         moves?.cancel()
         let shown = IslandShown(
             content: content, isOpen: isOpen, isContentVisible: isContentVisible, isExpanded: isExpanded,
             isDetailVisible: isDetailVisible)
-        let steps = IslandSequence.steps(from: shown, to: target, isHovered: isHovered, reduceMotion: reduceMotion)
+        let steps = IslandSequence.steps(
+            from: shown, to: target, isHovered: isHovered || isAnnouncing, reduceMotion: reduceMotion)
         moves = Task {
             for step in steps {
                 guard !Task.isCancelled else { return }

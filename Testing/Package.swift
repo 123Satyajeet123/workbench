@@ -25,7 +25,9 @@ let package = Package(
         .target(name: "Evals", dependencies: ["WorkbenchCore"]),
         .executableTarget(name: "ClaimEvalRunner", dependencies: ["Evals", "WorkbenchCore"]),
         .executableTarget(name: "OutboundEvalRunner", dependencies: ["Evals", "WorkbenchCore"]),
-        .executableTarget(name: "TranscribeBakeoff", dependencies: ["Evals", "WorkbenchCore"]),
+        .executableTarget(
+            name: "TranscribeBakeoff",
+            dependencies: ["Evals", "WorkbenchCore", .product(name: "LocalSources", package: "BaseKit")]),
         .executableTarget(name: "KalLabelRunner", dependencies: ["Evals", "WorkbenchCore"]),
         .executableTarget(name: "TrustSimRunner", dependencies: ["Evals"]),
         .executableTarget(

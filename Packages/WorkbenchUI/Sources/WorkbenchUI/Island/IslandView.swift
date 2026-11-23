@@ -47,10 +47,12 @@ struct IslandView: View {
         HStack(spacing: Space.s) {
             Text(presenter.content.detail).lineLimit(1).minimumScaleFactor(0.8).foregroundStyle(.white.opacity(0.85))
             Spacer(minLength: 0)
-            if presenter.content.isRecording {
-                Text("Stop").textStyle(.callout, weight: .semibold).foregroundStyle(.white)
-                    .frame(width: IslandMetrics.stopSize.width, height: IslandMetrics.stopSize.height)
-                    .background(Tone.bad.color, in: .capsule)
+            HStack(spacing: IslandMetrics.actionGap) {
+                ForEach(presenter.content.actions.reversed(), id: \.title) { action in
+                    Text(action.title).textStyle(.callout, weight: .semibold).foregroundStyle(.white)
+                        .frame(width: action.width, height: IslandMetrics.actionHeight)
+                        .background(action == .notNow ? Color.white.opacity(0.18) : Tone.bad.color, in: .capsule)
+                }
             }
         }
         .textStyle(.callout, weight: .medium)
@@ -63,6 +65,7 @@ struct IslandView: View {
         case .idle: EmptyView()
         case .plan(let window): PlanRing(window: window, size: 16)
         case .recording: PulsingDot(isStill: reduceMotion)
+        case .offer: Image(systemName: "record.circle").foregroundStyle(Tone.bad.color)
         case .reading: SpinningRing(isStill: reduceMotion)
         case .needsYou: Image(systemName: "tray.full.fill").foregroundStyle(Tone.attention.color)
         }
@@ -73,6 +76,7 @@ struct IslandView: View {
         case .idle: EmptyView()
         case .plan(let window): Text(PlanRing.percent(window.used)).monospacedDigit()
         case .recording(let since): Text(since, style: .timer).monospacedDigit()
+        case .offer: Text("Record?")
         case .reading(let names, _):
             Text(IslandState.readingLabel(of: names) ?? "").lineLimit(1).truncationMode(.middle)
         case .needsYou(let machines): Text("\(machines.count)").monospacedDigit()
@@ -85,6 +89,7 @@ struct IslandView: View {
         case .idle: ""
         case .plan(let window): "Claude plan \(PlanRing.percent(window.used)) used. Click to open Usage."
         case .recording: "Recording a call. Hover for Stop. Click to open Echo."
+        case .offer: "\(content.detail). Record it? Hover for Record or Not now."
         case .reading: "\(content.detail). Click to open."
         case .needsYou: "\(content.detail). Click to open Today."
         }

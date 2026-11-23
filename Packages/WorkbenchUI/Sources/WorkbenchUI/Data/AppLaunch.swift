@@ -37,6 +37,9 @@ struct AppSession {
     /// The right to write the store, held until the app ends.
     let writerLock: StoreLock
     let planUsage: PlanUsage
+    let calls: CallNotes
+    let callWatcher: CallWatcher
+    let playback = CallPlayback()
     let navigation = Navigation()
 }
 
@@ -95,6 +98,14 @@ enum AppLaunch {
                 notify: {
                     (try? await notifications.notifySummary(title: $0, body: "Open Today", page: .day)) == true
                 })
+            let calls = CallNotes(
+                store: store, listener: CallNotes.appleListener(), founder: { identity.identity.name },
+                defaultPlace: storeFolder == profile.defaultFolder ? CallNotes.documentsPlace : nil)
+            capture.onCallSaved = { Task { await calls.processPending() } }
+            let callWatcher = CallWatcher(
+                store: store, controls: capture,
+                announce: { notifications.announce(title: $0, body: $1, page: .calls) }, identify: service.source(of:))
+            service.onListening = { callWatcher.update(listening: $0, at: .now) }
             let session = AppSession(
                 profile: profile, store: store, capture: capture, onboarding: onboarding, identity: identity,
                 team: onboarding.teamModel, models: ModelSettings(store: store, secrets: secrets),
@@ -111,8 +122,9 @@ enum AppLaunch {
                 pages: pages,
                 browsers: BrowserSetup(
                     capture: capture, connectedBrowsers: { Set(pages.connectedBrowsers.map(\.browser)) }),
-                writerLock: writerLock, planUsage: PlanUsage(store: store))
+                writerLock: writerLock, planUsage: PlanUsage(store: store), calls: calls, callWatcher: callWatcher)
             if profile.startsCapture { service.start() }
+            Task { await calls.start() }
             session.reminders.start()
             session.morning.start()
             return .ready(session)
