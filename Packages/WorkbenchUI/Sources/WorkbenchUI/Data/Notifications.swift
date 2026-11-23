@@ -34,10 +34,22 @@ final class Notifications {
         NSApp.isActive && NSApp.keyWindow?.isMainWindow == true
     }
 
-    /// Shows a fact when the gate allows it. Returns whether it showed one. A notification that macOS blocks, or
-    /// that the gate holds back, does not count against the daily cap.
+    /// Shows a fact when the gate allows it. Returns whether it showed one.
     @discardableResult
     func notify(_ notice: FactNotice, itemOpen: Bool) async throws -> Bool {
+        try await gated(itemOpen: itemOpen) { try await self.notifier.post(notice) }
+    }
+
+    /// Shows one summary, such as "3 things need you today", under the same daily cap, quiet hours and window rule
+    /// as fact notifications. A click opens `page`. Returns whether it showed one.
+    @discardableResult
+    func notifySummary(title: String, body: String, page: SidebarSelection) async throws -> Bool {
+        try await gated(itemOpen: true) { try await self.notifier.post(title: title, body: body, page: page) }
+    }
+
+    /// Posts when macOS and the gate allow it. A notification that macOS blocks, that the gate holds back, or that
+    /// fails to post does not count against the daily cap.
+    private func gated(itemOpen: Bool, _ post: () async throws -> Void) async throws -> Bool {
         let access = await notifier.authorize()
         blocked = access == .blocked
         guard access == .allowed else { return false }
@@ -51,7 +63,7 @@ final class Notifications {
         sent.record(at: now)
         sent.store(in: defaults)
         do {
-            try await notifier.post(notice)
+            try await post()
         } catch {
             var kept = DailyCount.stored(in: defaults)
             kept.withdraw()

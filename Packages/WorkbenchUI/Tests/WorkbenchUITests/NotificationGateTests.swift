@@ -9,10 +9,14 @@ private final class RecordingNotifier: Notifier {
     var access = SystemAccess.allowed
     var failure: Error?
     var shown: [FactNotice] = []
+    var summaries: [String] = []
     var removed: [Int64] = []
 
     func authorize() async -> SystemAccess { access }
-    func post(title: String, body: String, page: SidebarSelection) async throws {}
+    func post(title: String, body: String, page: SidebarSelection) async throws {
+        if let failure { throw failure }
+        summaries.append(title)
+    }
     func post(_ notice: FactNotice) async throws {
         if let failure { throw failure }
         shown.append(notice)
@@ -144,6 +148,27 @@ private let notice = FactNotice(itemID: 7, title: "Send Asha the term sheet", so
                 FactNotice(itemID: Int64(id), title: "A", source: "B", offer: .open), itemOpen: true)
         }
         #expect(notifier.shown.map(\.itemID) == [1, 2, 3])
+    }
+
+    @Test func aSummaryAndFactsShareOneDailyCap() async throws {
+        let notifier = RecordingNotifier()
+        let center = notifications(notifier)
+        #expect(try await center.notifySummary(title: "3 things need you today", body: "", page: .day))
+        for id in 1...3 {
+            try await center.notify(
+                FactNotice(itemID: Int64(id), title: "A", source: "B", offer: .open), itemOpen: true)
+        }
+        #expect(notifier.summaries == ["3 things need you today"])
+        #expect(notifier.shown.map(\.itemID) == [1, 2], "a summary and facts count against two budgets")
+    }
+
+    @Test func aSummaryKeepsQuietHoursAndTheWindowRule() async throws {
+        let notifier = RecordingNotifier()
+        #expect(try await !notifications(notifier, now: at(23, 23)).notifySummary(title: "S", body: "", page: .day))
+        #expect(try await !notifications(notifier, front: true).notifySummary(title: "S", body: "", page: .day))
+        #expect(notifier.summaries.isEmpty)
+        #expect(try await notifications(notifier).notifySummary(title: "S", body: "", page: .day))
+        #expect(notifier.summaries == ["S"])
     }
 
     @Test func aHeldBackFactDoesNotUseUpTheCap() async throws {
