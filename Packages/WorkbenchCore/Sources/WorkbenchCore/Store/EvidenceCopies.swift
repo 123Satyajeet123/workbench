@@ -93,8 +93,9 @@ extension Store {
             .map { try Coding.value(HelperSpec.self, from: $0) }
     }
 
-    /// Items that cite one of the lines: by their cited numbers in the window of their run, or, for an item made
-    /// before runs kept their windows, by the old citation ids of its chat.
+    /// Items that cite one of the lines: by their cited numbers in the window of their run; for an item with no run, by
+    /// the line its quote is in, numbered by its evidence row; or, for an item made before runs kept their windows, by
+    /// the old citation ids of its chat.
     private static func citingItems(of lines: LineSelection, in db: Database) throws -> [Citing] {
         let byWindow = try Citing.fetchAll(
             db,
@@ -102,6 +103,12 @@ extension Store {
                 SELECT item.id, item.scope, '' AS container FROM item
                 JOIN run_window w ON w.run_id = item.run_id AND w.ordinal BETWEEN item.cite_first AND item.cite_last
                 WHERE item.source_deleted = 0 AND w.line_id IN (\(lines.sql))
+                """, arguments: lines.arguments)
+        let byQuote = try Citing.fetchAll(
+            db,
+            sql: """
+                SELECT item.id, item.scope, '' AS container FROM item JOIN evidence e ON e.id = item.quote_line
+                WHERE item.source_deleted = 0 AND item.run_id IS NULL AND e.line_id IN (\(lines.sql))
                 """, arguments: lines.arguments)
         let byOldID = try LegacySpace.byKind.flatMap { kind, space in
             try Citing.fetchAll(
@@ -115,7 +122,7 @@ extension Store {
                     """,
                 arguments: StatementArguments([space.rawValue, kind.rawValue]) + lines.arguments)
         }
-        return Self.distinct(byWindow + byOldID.filter(\.isInItsOwnChat))
+        return Self.distinct(byWindow + byQuote + byOldID.filter(\.isInItsOwnChat))
     }
 
     /// Closes the model wrote with the closing words of one of the lines, found the same two ways.

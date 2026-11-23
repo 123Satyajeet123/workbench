@@ -1,4 +1,5 @@
 import Foundation
+import GRDB
 import Kernel
 import Lines
 
@@ -46,26 +47,23 @@ extension Store {
         let lines = try FileText.pages(in: file).map { page in
             ObservedLine(
                 line: Line(
-                    entity: try ownEntity(deal: deal, item: "\(name)/\(digest)/\(page.page)"), text: page.text,
-                    readerVersion: Self.readerVersion),
+                    entity: try ownEntity(container: deal, item: "\(name)/\(digest)/\(page.page)"),
+                    text: page.text, readerVersion: Self.readerVersion),
                 eventTime: UTCInstant(clock()), actor: WhatsAppAudience.owner,
                 coordinate: try Coding.json(FilePlace(file: name, page: page.page)))
         }
-        return try recordOwn(lines, of: .droppedFile, label: name, deal: deal, owner: owner).inserted
+        return try recordOwn(lines, of: .droppedFile, label: name, container: deal, owner: owner) { _ in }
+            .report.inserted
     }
 
     /// Types a claim on a deal. It is a line of the deal's evidence, in the person's own words, and a claim that cites
     /// that line, so it is checked like a claim read from a deck. Nil when the words are empty.
     @discardableResult
     public func addTypedClaim(_ words: String, to deal: String, owner: PersonID) throws -> Int64? {
-        guard let words = words.cleaned else { return nil }
-        let line = Line(
-            entity: try ownEntity(deal: deal, item: "typed/\(UUID().uuidString)"), text: words,
-            readerVersion: Self.readerVersion)
-        try recordOwn(
-            [ObservedLine(line: line, eventTime: UTCInstant(clock()), actor: WhatsAppAudience.owner)],
-            of: .typedNote, label: "claim", deal: deal, owner: owner)
-        guard let stored = try queries.line(withID: line.id) else { return nil }
+        guard let words = words.cleaned,
+            let stored = try recordTypedWords(
+                words, label: "claim", container: deal, owner: owner, then: { line, _ in line })
+        else { return nil }
         let standing = Standing(citing: [stored.evidence], facts: [], window: [stored.evidence])
         let claim = Claim(
             deal: deal, text: words, type: "", value: "", quote: words, line: 0, label: standing.label,
@@ -74,22 +72,38 @@ extension Store {
         return try saveClaims([claim], run: nil, grant: grant).first
     }
 
-    private func ownEntity(deal: String, item: String) throws -> EntityKey {
-        try EntityKey.web(site: "workbench", container: deal, itemID: item)
+    /// Writes words the person typed as one line of `container`, under a by-hand grant for `label`, and runs `then` on
+    /// the stored line in the same transaction. The line's own id is its `message_ref`. Nil when the line is not stored.
+    func recordTypedWords<Then>(
+        _ words: String, label: String, container: String, owner: PersonID,
+        then: (StoredLine, Database) throws -> Then
+    ) throws -> Then? {
+        let ref = "typed/\(UUID().uuidString)"
+        let line = Line(
+            entity: try ownEntity(container: container, item: ref), text: words, readerVersion: Self.readerVersion)
+        return try recordOwn(
+            [ObservedLine(line: line, eventTime: UTCInstant(clock()), actor: WhatsAppAudience.owner, messageRef: ref)],
+            of: .typedNote, label: label, container: container, owner: owner
+        ) { db in try Queries.line(withID: line.id, in: db).map { try then($0, db) } }.then
     }
 
-    @discardableResult
-    private func recordOwn(
-        _ lines: [ObservedLine], of descriptor: SourceDescriptor, label: String, deal: String, owner: PersonID
-    ) throws -> IngestReport {
+    private func ownEntity(container: String, item: String) throws -> EntityKey {
+        try EntityKey.web(site: "workbench", container: container, itemID: item)
+    }
+
+    /// Writes lines the person gave by hand, as one reading the owner alone hears, and runs `then` in its transaction.
+    private func recordOwn<Then>(
+        _ lines: [ObservedLine], of descriptor: SourceDescriptor, label: String, container: String, owner: PersonID,
+        then: (Database) throws -> Then
+    ) throws -> (report: IngestReport, then: Then) {
         guard let grant = CaptureGrant.byHand(descriptor.consent, label: label, at: clock()) else {
-            return IngestReport()
+            throw EvidenceError.consentWithdrawn
         }
         return try record(
             SourceReading(
-                grant: grant, label: label, container: deal,
+                grant: grant, label: label, container: container,
                 audience: AudienceDigest(owner: WhatsAppAudience.owner, members: [String]()), lines: lines,
                 cursorAfter: nil, readerVersion: Self.readerVersion),
-            of: descriptor, owner: owner)
+            of: descriptor, owner: owner, then: then)
     }
 }

@@ -125,13 +125,22 @@ extension Store {
         return report
     }
 
-    /// Writes one reading. The grant must be live, and the policy must allow the chat inside the write transaction
-    /// itself (what the person gave by hand needs no policy): a revoke between the read and the write writes nothing, and none can slip in between the check and the
-    /// write. The lines, the erasure that a revoke asks for, the cursor (when the source has one) and the note that
-    /// old ids were mapped commit together or not at all; then the log is truncated if any text was erased.
+    /// Writes one reading, with nothing else in its transaction.
     public func record(_ reading: SourceReading, of descriptor: SourceDescriptor, owner: PersonID) throws
         -> IngestReport
     {
+        try record(reading, of: descriptor, owner: owner) { _ in }.report
+    }
+
+    /// Writes one reading. The grant must be live, and the policy must allow the chat inside the write transaction
+    /// itself (what the person gave by hand needs no policy): a revoke between the read and the write writes nothing, and none can slip in between the check and the
+    /// write. The lines, the erasure that a revoke asks for, the cursor (when the source has one), the note that
+    /// old ids were mapped and what `then` writes after them commit together or not at all; then the log is truncated
+    /// if any text was erased. Returns the report and what `then` returned.
+    func record<Then>(
+        _ reading: SourceReading, of descriptor: SourceDescriptor, owner: PersonID,
+        then: (Database) throws -> Then
+    ) throws -> (report: IngestReport, then: Then) {
         try check(reading.grant, kind: descriptor.consent, label: reading.label)
         let request = CaptureRequest(kind: descriptor.consent, label: reading.label)
         let source = try descriptor.sourceID(owner: owner)
@@ -139,7 +148,7 @@ extension Store {
         let stamp = EvidenceStamp(
             source: source, label: Label(source: source).id, grantID: grantID, reading: reading,
             descriptor: descriptor, now: UTCInstant(clock()))
-        var report = try writer.write { db in
+        let (report, value) = try writer.write { db in
             guard try descriptor.consent.isByHand || Queries.policy(in: db).authorize(request, at: clock()).grant != nil
             else { throw EvidenceError.consentWithdrawn }
             if descriptor.requiresAgreedAudience {
@@ -160,13 +169,13 @@ extension Store {
                 try Self.saveCursor(cursor, grantID: grantID, in: db, at: clock())
                 if reading.mapsLegacyRefs { try Self.noteLegacyMapped(cursor, grantID: grantID, in: db) }
             }
-            return report
+            report.census = reading.census
+            report.unkeyed = reading.unkeyed
+            report.undated = reading.undated
+            return (report, try then(db))
         }
-        report.census = reading.census
-        report.unkeyed = reading.unkeyed
-        report.undated = reading.undated
         if report.erasedLines > 0 || report.flaggedItems > 0 { try truncateLog() }
-        return report
+        return (report, value)
     }
 
     /// Keeps the cursor that is further on: two reads that finish out of order cannot undo each other.

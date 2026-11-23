@@ -1,5 +1,6 @@
 import Foundation
 import GRDB
+import Kernel
 import Testing
 
 @testable import WorkbenchCore
@@ -7,9 +8,10 @@ import Testing
 /// A fact the person adds by hand: no run, their own words, and the same item, marks and lifecycle as any fact.
 @Suite struct HandFactTests {
     private let today = WorkDay(containing: t0)
+    private let owner = try! PersonID("owner-1")
 
     private func added(_ store: Store, _ fact: HandFact) throws -> Item {
-        let id = try #require(try store.addFact(fact))
+        let id = try #require(try store.addFact(fact, owner: owner))
         return try #require(try store.queries.items(of: HelperSpec.team.task, on: today).first { $0.id == id })
     }
 
@@ -59,20 +61,20 @@ import Testing
         let store = try makeStore()
         #expect(
             HelperSpec.team.factKinds == ["plan", "done", "blocker", "commitment", "decision", "question", "status"])
-        #expect(try store.addFact(HandFact(kind: "rumour", text: "Heard a thing")) == nil)
+        #expect(try store.addFact(HandFact(kind: "rumour", text: "Heard a thing"), owner: owner) == nil)
         #expect(try store.queries.items(of: HelperSpec.team.task, on: today).isEmpty)
     }
 
     @Test func emptyWordsAddNothing() throws {
         let store = try makeStore()
-        #expect(try store.addFact(HandFact(kind: "plan", text: "   ")) == nil)
+        #expect(try store.addFact(HandFact(kind: "plan", text: "   "), owner: owner) == nil)
         #expect(try store.queries.items(of: HelperSpec.team.task, on: today).isEmpty)
     }
 
     @Test func aMachineWithNoKindsTakesNoHandFacts() throws {
         let store = try makeStore()
         #expect(HelperSpec.team.takesHandFacts && !HelperSpec.timeline.takesHandFacts)
-        #expect(try store.addFact(HandFact(kind: "plan", text: "x"), to: .timeline) == nil)
+        #expect(try store.addFact(HandFact(kind: "plan", text: "x"), to: .timeline, owner: owner) == nil)
     }
 
     @Test func theWordsKeepTheirSpellingInHindiAndEmoji() throws {

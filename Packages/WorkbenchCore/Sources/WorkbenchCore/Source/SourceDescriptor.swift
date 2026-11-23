@@ -94,11 +94,13 @@ extension SourceDescriptor {
 }
 
 extension SourceDescriptor {
-    /// The words the person typed on a deal. The person's act is the consent.
+    /// The words the person typed by hand: a claim on a deal, or a fact they added. The person's act is the consent.
     public static let typedNote = SourceDescriptor(
         key: "note.typed", aliases: [], consent: .typed,
-        grammar: "what the person typed on a deal. Each line is `[number] who: the words`.", retention: .file,
-        obtainedBy: .db, editWindow: 0)
+        grammar: """
+            what the person typed by hand: a claim on a deal, or a fact they added. Each line is `[number] who: the \
+            words`.
+            """, retention: .file, obtainedBy: .db, editWindow: 0)
 
     /// A file the person added to a deal: the text of its pages. The person's act is the consent.
     public static let droppedFile = SourceDescriptor(

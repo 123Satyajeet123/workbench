@@ -17,8 +17,8 @@ public enum DeleteSelector: Sendable {
     /// run text go too. Its run rows stay in the meter.
     case machine(String)
     /// Every captured kind, and all run text before the cutoff. What the person typed goes too, when no cutoff is
-    /// given; with a cutoff (the retention) only the typed facts that are closed and older than it go, so an open
-    /// action stays until the person closes it. The consent history and the run rows (the meter) hold no captured
+    /// given; with a cutoff (the retention) only the typed facts that are closed and older than it go, with the lines
+    /// they quote, so an open action stays until the person closes it. The consent history and the run rows (the meter) hold no captured
     /// content, and stay.
     case everything(before: Date?)
 }
@@ -155,16 +155,25 @@ extension Store {
     }
 
     /// What the person gave by hand, with the copies of it in run text and summaries. Without a cutoff all of it goes,
-    /// the lines of the files and notes they gave too; with one, only the facts that are closed and started before it.
+    /// the lines of the files and notes they gave too; with one, only the facts that are closed and started before it,
+    /// and the typed lines they quote.
     private func removeByHand(_ db: Database, before cutoff: Date?) throws {
         let closed = cutoff == nil ? "" : "AND status_kind = 'close'"
         let kinds = SourceKind.byHand.sorted { $0.rawValue < $1.rawValue }
-        try db.execute(
+        let removed = """
+            source IN (SELECT value FROM json_each(?)) AND start_at < ? AND id IN (
+                SELECT id FROM item_mark LEFT JOIN item_status ON item_status.item_id = item_mark.id WHERE 1 = 1 \(closed))
+            """
+        let arguments: StatementArguments = [try Coding.json(kinds.map(\.rawValue)), (cutoff ?? .distantFuture).stored]
+        let quoted = try String.fetchAll(
+            db,
             sql: """
-                DELETE FROM item WHERE source IN (SELECT value FROM json_each(?)) AND start_at < ? AND id IN (
-                    SELECT id FROM item_mark LEFT JOIN item_status ON item_status.item_id = item_mark.id
-                    WHERE 1 = 1 \(closed))
-                """, arguments: [try Coding.json(kinds.map(\.rawValue)), (cutoff ?? .distantFuture).stored])
+                SELECT message_ref FROM evidence WHERE message_ref IS NOT NULL
+                    AND id IN (SELECT quote_line FROM item WHERE run_id IS NULL AND \(removed))
+                """, arguments: arguments)
+        _ = try Self.eraseEvidence(
+            EvidenceErasure(grantPrefix: Self.grantID(kind: .typed, label: ""), messageRefs: quoted), in: db)
+        try db.execute(sql: "DELETE FROM item WHERE \(removed)", arguments: arguments)
         try removeRunText(db, holding: kinds, before: cutoff)
         try removeSummaries(db, holding: kinds, before: cutoff ?? .distantFuture)
         if cutoff == nil { for kind in kinds { _ = try Self.eraseEvidence(.kind(kind, before: nil), in: db) } }

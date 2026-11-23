@@ -38,14 +38,12 @@ extension Queries {
     }
 
     /// The stored line with this id; nil when none is stored.
-    public func line(withID id: LineID) throws -> StoredLine? {
-        try reader.read { db in
-            try StoredLine.fetchAll(
-                db,
-                sql: "SELECT e.id AS number, \(StoredLine.columns) FROM evidence e WHERE e.line_id = ?",
-                arguments: [Data(id.bytes)]
-            ).first
-        }
+    static func line(withID id: LineID, in db: Database) throws -> StoredLine? {
+        try StoredLine.fetchAll(
+            db,
+            sql: "SELECT e.id AS number, \(StoredLine.columns) FROM evidence e WHERE e.line_id = ?",
+            arguments: [Data(id.bytes)]
+        ).first
     }
 
     private static let currentVersion = """
