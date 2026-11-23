@@ -78,7 +78,7 @@ extension AgentCLIError: ClassifiedFailure {
     public var failure: Run.Failure {
         switch self {
         case .notInstalled: .notInstalled
-        case .noAPIKey: .signedOut
+        case .noAPIKey: .noAPIKey
         case .unsafePlan: .unsafePlan
         case .timedOut: .timedOut
         case .planLimit: .limit

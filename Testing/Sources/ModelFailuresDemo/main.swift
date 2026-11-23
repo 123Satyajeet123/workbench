@@ -144,7 +144,7 @@ await gate("G1 each failure kind, from a fake CLI output") {
 
     let noKey = try World("nokey", [.output(answered)], requiresAPIKey: true)
     await noKey.ask()
-    check(noKey.shapes == ["failed/signedOut"], "billing is a key and none is saved: \(noKey.shapes)")
+    check(noKey.shapes == ["failed/noAPIKey"], "billing is a key and none is saved: \(noKey.shapes)")
 
     let unsafe = try World("unsafe", [.output(answered)], kind: .codex, tools: .webSearch)
     await unsafe.ask()

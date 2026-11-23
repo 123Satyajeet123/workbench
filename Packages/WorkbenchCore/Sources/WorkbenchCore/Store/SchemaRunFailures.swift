@@ -13,7 +13,7 @@ extension Schema {
             input_tokens INTEGER NOT NULL DEFAULT 0, cache_read_tokens INTEGER NOT NULL DEFAULT 0,
             cache_write_tokens INTEGER NOT NULL DEFAULT 0, output_tokens INTEGER NOT NULL DEFAULT 0,
             cost_usd REAL NOT NULL DEFAULT 0, kept INTEGER, dropped INTEGER,
-            failure TEXT CHECK(failure IN ('limit','timedOut','notInstalled','signedOut','unsafePlan','other')),
+            failure TEXT CHECK(failure IN ('limit','timedOut','notInstalled','noAPIKey','unsafePlan','other')),
             CHECK((outcome = 'running') = (ended_at IS NULL)), CHECK((outcome = 'failed') = (error IS NOT NULL)),
             CHECK((outcome = 'failed') = (failure IS NOT NULL)))
         """,

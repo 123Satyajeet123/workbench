@@ -4,7 +4,7 @@ extension Run {
     /// Why a failed run failed. A kind comes from a typed source (an error type, or the plan limits the CLI reports),
     /// never from the words of a message.
     public enum Failure: String, Sendable, CaseIterable {
-        case limit, timedOut, notInstalled, signedOut, unsafePlan, other
+        case limit, timedOut, notInstalled, noAPIKey, unsafePlan, other
     }
 }
 
@@ -55,7 +55,7 @@ extension Store {
         try saveState(until.stored, forKey: Self.pauseKey(plan: plan))
     }
 
-    func pausedUntil(plan: String) -> Date? {
+    public func pausedUntil(plan: String) -> Date? {
         guard let text = (try? queries.state(forKey: Self.pauseKey(plan: plan))).flatMap({ $0 }),
             let until = try? Date(text, strategy: .iso8601), until > clock()
         else { return nil }
