@@ -164,6 +164,15 @@ func addPhoto(_ text: String, to container: URL, at date: Date) throws -> Int64 
     return 20
 }
 
+func addChat(_ id: Int64, jid: String, name: String, to container: URL) throws {
+    var db: OpaquePointer?
+    defer { sqlite3_close(db) }
+    guard sqlite3_open(container.appending(path: "ChatStorage.sqlite").path, &db) == SQLITE_OK,
+        sqlite3_exec(db, "INSERT INTO ZWACHATSESSION VALUES (\(id), '\(jid)', 0, '\(name)', 3);", nil, nil, nil)
+            == SQLITE_OK
+    else { throw CocoaError(.fileWriteUnknown) }
+}
+
 func addGroupMember(_ id: Int64, chat: Int, jid: String, name: String, to container: URL) throws {
     let sql = "INSERT INTO ZWAGROUPMEMBER VALUES (\(id), \(chat), '\(jid)', '\(name)', NULL, 1);"
     var db: OpaquePointer?
@@ -184,6 +193,14 @@ func addMessage(_ id: Int64, _ text: String, member: Int? = 1, at date: Date, to
     guard sqlite3_open(container.appending(path: "ChatStorage.sqlite").path, &db) == SQLITE_OK,
         sqlite3_exec(db, sql, nil, nil, nil) == SQLITE_OK
     else { throw CocoaError(.fileWriteUnknown) }
+}
+
+final class HiddenWindow: NSWindow {
+    init(size: CGSize) {
+        super.init(
+            contentRect: CGRect(origin: .zero, size: size), styleMask: [.titled], backing: .buffered, defer: false)
+        level = NSWindow.Level(Int(CGWindowLevelForKey(.desktopWindow)) - 1)
+    }
 }
 
 func renderPNG(_ view: some View, named name: String, width: CGFloat = 640) throws {

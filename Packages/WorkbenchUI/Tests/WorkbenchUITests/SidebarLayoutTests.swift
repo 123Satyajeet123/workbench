@@ -14,13 +14,15 @@ struct SidebarLayoutTests {
 
     @Test func everyPageOfTheWindowButDealsAndTeamIsInTheSidebarOnceInItsOrder() {
         #expect(pages == [.day, .people, .projects, .calls, .mochi, .crew, .review])
-        let windowPages = SidebarSelection.fixed.filter { ![.advanced, .deals, .catalog].contains($0) }
+        let windowPages = SidebarSelection.fixed.filter { ![.deals, .catalog, .usage, .settings].contains($0) }
         #expect(Set(pages) == Set(windowPages) && pages.count == windowPages.count)
     }
 
     @Test func aSavedPageWithNoRowIsNotListedSoTheWindowFallsBackToToday() {
-        #expect(!SidebarLayout.lists(.deals) && !SidebarLayout.lists(.catalog) && !SidebarLayout.lists(.advanced))
+        #expect(!SidebarLayout.lists(.deals) && !SidebarLayout.lists(.catalog))
         #expect(SidebarLayout.lists(.day) && SidebarLayout.lists(.calls) && SidebarLayout.lists(.machine(7)))
+        #expect(SidebarLayout.lists(.usage), "Usage has its own row above Settings")
+        #expect(SidebarLayout.lists(.settings), "Settings has its own row at the bottom")
     }
 
     @Test func machinesSitInTheCrewSectionBetweenCrewAndReview() throws {

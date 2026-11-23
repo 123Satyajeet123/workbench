@@ -5,7 +5,7 @@ struct WindowButtons: Equatable {
     var center: CGFloat
     var trailing: CGFloat
 
-    static let unified = WindowButtons(center: 26, trailing: 74)
+    static let compact = WindowButtons(center: 20, trailing: 72)
 }
 
 struct WindowChrome: NSViewRepresentable {
@@ -33,7 +33,7 @@ struct WindowChrome: NSViewRepresentable {
             window.titlebarSeparatorStyle = .none
             if window.toolbar == nil { window.toolbar = NSToolbar(identifier: "workbench.chrome") }
             window.toolbar?.allowsUserCustomization = false
-            window.toolbarStyle = .unified
+            window.toolbarStyle = .unifiedCompact
             DispatchQueue.main.async { [weak self] in self?.measure() }
         }
 

@@ -9,6 +9,7 @@ public struct AgentRunner: StructuredModel {
     public var timeout: Duration
     public var apiKey: String?
     public var requiresAPIKey: Bool
+    public var onLimits: (@Sendable (PlanLimits) -> Void)?
     private let launcher: any ProcessLauncher
     private let inheritedEnvironment: [String: String]
 
@@ -18,8 +19,9 @@ public struct AgentRunner: StructuredModel {
         kind: AgentCLIKind, model: String, effort: String, timeout: Duration,
         launcher: any ProcessLauncher = SystemProcessLauncher(), executable: URL? = nil,
         environment: [String: String] = ProcessInfo.processInfo.environment, apiKey: String? = nil,
-        requiresAPIKey: Bool = false
+        requiresAPIKey: Bool = false, onLimits: (@Sendable (PlanLimits) -> Void)? = nil
     ) {
+        self.onLimits = onLimits
         self.apiKey = apiKey
         self.requiresAPIKey = requiresAPIKey
         self.kind = kind
@@ -38,6 +40,7 @@ public struct AgentRunner: StructuredModel {
             prompt: input, instructions: instructions, schemaText: try schema.jsonText, model: model,
             effort: effort, timeout: timeout)
         let output = try await launch(call)
+        if kind == .claude, let limits = PlanLimits.last(inClaude: output.stdout, at: .now) { onLimits?(limits) }
         let (answer, answeredBy, usage) = try kind == .claude ? claudeAnswer(output) : codexAnswer(output)
         do {
             let value = try JSONDecoder().decode(T.self, from: Data(answer.utf8))

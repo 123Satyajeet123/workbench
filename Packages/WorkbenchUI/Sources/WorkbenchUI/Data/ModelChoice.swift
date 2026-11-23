@@ -29,11 +29,16 @@ struct ModelChoice: Codable, Hashable, Identifiable {
 
     func save(to store: Store) throws { try Self.stateKey.save(self, to: store) }
 
+    nonisolated private static func recordLimits(in store: Store) -> @Sendable (PlanLimits) -> Void {
+        { limits in Task { @MainActor in PlanUsage.record(limits, in: store) } }
+    }
+
     func model(store: Store, secrets: SecretStore = KeychainSecrets()) -> RecordedModel {
         let byKey = kind == .claude && Billing.saved(in: store) == .apiKey
         let runner = AgentRunner(
             kind: kind, model: model, effort: "medium", timeout: .seconds(300),
-            apiKey: byKey ? secrets.read(Billing.keyName) : nil, requiresAPIKey: byKey)
+            apiKey: byKey ? secrets.read(Billing.keyName) : nil, requiresAPIKey: byKey,
+            onLimits: kind == .claude && !byKey ? Self.recordLimits(in: store) : nil)
         return RecordedModel(runner, store: store)
     }
 }

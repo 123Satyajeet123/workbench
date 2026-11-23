@@ -12,19 +12,28 @@ private final class FakeTelegram: TelegramService, Sendable {
     let people = Mutex<[TelegramMember]>([])
     let history = Mutex<[TelegramMessage]>([])
     let connected = Mutex<[TelegramKeys]>([])
+    let tags = Mutex<[String]>([])
+    let disconnects = Mutex(0)
+    let report = Mutex<(@Sendable (TelegramLogin) -> Void)?>(nil)
 
     func connect(_ keys: TelegramKeys, policy: CapturePolicy, onChange: @escaping @Sendable (TelegramLogin) -> Void)
         throws
     {
         try TelegramGate.check(policy)
         connected.withLock { $0.append(keys) }
+        report.withLock { $0 = onChange }
         onChange(.ready(name: "Kabir"))
+    }
+    func disconnect() {
+        disconnects.withLock { $0 += 1 }
+        report.withLock { $0 }?(.paused)
     }
     func checkPassword(_ password: String) async throws {}
     func groups() async throws -> [TelegramChat] { [team, family] }
     func members(of chat: Int64) async throws -> [TelegramMember] { people.withLock { $0 } }
-    func messages(in chat: Int64, from start: Date, to end: Date) async throws -> [TelegramMessage] {
-        history.withLock { $0 }
+    func messages(in chat: Int64, from start: Date, to end: Date, me: String) async throws -> [TelegramMessage] {
+        tags.withLock { $0.append(me) }
+        return history.withLock { $0 }
     }
     func signOut() async throws {}
 }
@@ -62,6 +71,27 @@ nonisolated private let apiHash = "0123456789abcdef0123456789abcdef"
     private func connected(_ source: TelegramSource) async throws {
         try source.account.connect(apiID: "12345", apiHash: apiHash)
         for _ in 0..<50 where !source.account.isReady { try await Task.sleep(for: .milliseconds(20)) }
+    }
+
+    @Test func aNewMachineReadsWhatsAppOrTelegram() {
+        #expect(MachineTemplate.addable == [.team, .teamTelegram])
+        #expect(MachineTemplate.addable.map(\.reads) == ["WhatsApp", "Telegram"])
+    }
+
+    @Test func switchingTelegramOrCaptureOffClosesTheConnectionAndConnectingAgainResumes() async throws {
+        let (_, _, capture, _, source, service) = try makeRelay()
+        try await connected(source)
+        try capture.update { $0.switches[.telegram] = false }
+        for _ in 0..<50 where source.account.login != .paused { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(service.disconnects.withLock { $0 } == 1 && source.account.login == .paused)
+        await #expect(throws: TelegramFailure.self) { try await source.account.waitUntilReady(polls: 1) }
+
+        try source.account.resume()
+        for _ in 0..<50 where !source.account.isReady { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(source.account.isReady && capture.policy.isEnabled(.telegram))
+        try capture.update { $0.mode = .off }
+        for _ in 0..<50 where source.account.login != .paused { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(service.disconnects.withLock { $0 } == 2)
     }
 
     @Test func keysThatAreNotAnIDAndAHashAreRefusedAndGoodOnesSwitchTelegramOn() async throws {
@@ -117,10 +147,12 @@ nonisolated private let apiHash = "0123456789abcdef0123456789abcdef"
         await relay.read()
 
         let input = try #require(model.inputs.withLock { $0.first })
-        #expect(input.contains("Kabir (founder): ki aaj kya kiya?"))
+        #expect(input.contains("Kabir (You): ki aaj kya kiya?"))
+        #expect(input.contains("Founder: Kabir (You)"))
         #expect(input.contains("Asha: login API done") && input.contains("Bharat: spec.pdf"))
         #expect(relay.items.map(\.quote) == ["login API done"])
         #expect(relay.items.map(\.source) == [.telegram])
+        #expect(service.tags.withLock { $0 } == ["Kabir (You)"])
     }
 
     @Test func someoneNewInTheGroupStopsTheReadUntilYouAskAgain() async throws {

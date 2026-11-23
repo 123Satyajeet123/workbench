@@ -28,6 +28,6 @@ struct PageIntroTests {
         for case .helper(let page) in SidebarLayout.sections.flatMap(\.entries) {
             #expect(page.intro?.isEmpty == false, "\(page) has no note")
         }
-        #expect(SidebarSelection.advanced.intro == nil && SidebarSelection.machine(1).intro == nil)
+        #expect(SidebarSelection.usage.intro == nil && SidebarSelection.machine(1).intro == nil)
     }
 }

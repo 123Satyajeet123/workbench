@@ -1,42 +1,14 @@
 import SwiftUI
 import WorkbenchCore
 
-struct AdvancedSettingsView: View {
+struct QualitySection: View {
     @Environment(Crew.self) private var crew
     @Environment(RunsModel.self) private var model
 
     var body: some View {
-        Page(
-            title: "Advanced",
-            subtitle: "Every call to a model, what it cost, and how often you marked its entries right.",
-            accessory: { Button("Refresh", systemImage: "arrow.clockwise", action: model.refresh) }
-        ) {
-            ProblemSlotBanner(slot: model.problems)
-            meter
-            quality
-            runs
-        }
-        .onAppear(perform: model.refresh)
-    }
-
-    private var meter: some View {
-        Card(title: "Usage", symbol: "gauge.with.dots.needle.33percent") {
-            HStack(alignment: .top, spacing: Space.xl) {
-                MeterCell(title: "Today", usage: model.meter.today)
-                MeterCell(title: "Last 7 days", usage: model.meter.week)
-                MeterCell(title: "All time", usage: model.meter.all)
-            }
-            Text(
-                "Cost is at list price, as Claude reports it. On a plan it is what the calls would cost, not what you pay. Codex reports tokens only."
-            )
-            .textStyle(.callout).foregroundStyle(.supporting)
-        }
-    }
-
-    private var quality: some View {
-        Card(title: "Quality", symbol: "checkmark.seal") {
+        VStack(alignment: .leading, spacing: Space.m) {
             if model.quality.isEmpty {
-                Text("No finished run yet. Read a day with a helper, then mark what it found.")
+                Text("No finished run yet. Read a day with a machine, then mark what it found.")
                     .foregroundStyle(.supporting)
             } else {
                 Grid(alignment: .leading, horizontalSpacing: Space.l, verticalSpacing: Space.s) {
@@ -45,13 +17,13 @@ struct AdvancedSettingsView: View {
                             ["Task", "Model", "Prompt", "Runs", "Dropped", "Right", "Held-out", "Audited", "Trust"],
                             id: \.self
                         ) {
-                            Text($0).textStyle(.callout, weight: .semibold).foregroundStyle(.supporting)
+                            Text($0).textStyle(.callout).foregroundStyle(.supporting)
                         }
                     }
                     ForEach(model.quality) { row in
                         GridRow {
-                            Text(crew.name(ofTask: row.task))
-                            Text(row.model)
+                            Text(crew.usageName(ofTask: row.task))
+                            Text(UsageReport.modelName(row.model))
                             Text(row.version.map { "v\($0)" } ?? "–").monospacedDigit().help(row.prompt)
                             Text("\(row.runs)").monospacedDigit()
                             Text("\(row.dropped) of \(row.kept + row.dropped)").monospacedDigit()
@@ -79,28 +51,23 @@ struct AdvancedSettingsView: View {
             }
         }
     }
-
-    private var runs: some View {
-        Card(title: "Calls", symbol: "list.bullet") {
-            if model.runs.isEmpty {
-                Text("No call yet.").foregroundStyle(.supporting)
-            }
-            ForEach(model.runs) { RunRow(run: $0) }
-        }
-    }
 }
 
-private struct MeterCell: View {
-    let title: String
-    let usage: Usage
+struct CallsSection: View {
+    private static let shown = 25
+
+    let runs: [Run]
+    @State private var showsAll = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Space.xs) {
-            Text(title).textStyle(.callout).foregroundStyle(.supporting)
-            Text(usage.tokensText + " tokens").textStyle(.title2, weight: .semibold).monospacedDigit()
-            Text(usage.costText).monospacedDigit().foregroundStyle(.supporting)
+        VStack(alignment: .leading, spacing: Space.m) {
+            if runs.isEmpty { Text("No call in this period.").foregroundStyle(.supporting) }
+            ForEach(showsAll ? runs : Array(runs.prefix(Self.shown))) { RunRow(run: $0) }
+            if !showsAll, runs.count > Self.shown {
+                Button("Show all \(runs.count) calls") { showsAll = true }.buttonStyle(.ghost)
+                    .foregroundStyle(.linkText)
+            }
         }
-        .accessibilityElement(children: .combine)
     }
 }
 
@@ -113,7 +80,7 @@ private struct RunRow: View {
             Image(systemName: run.outcome.symbol).foregroundStyle(run.outcome.tone.color)
                 .accessibilityLabel(run.outcome.rawValue)
             VStack(alignment: .leading, spacing: Space.xs) {
-                Text("\(crew.name(ofTask: run.task)) · \(run.model)")
+                Text("\(crew.usageName(ofTask: run.task)) · \(UsageReport.modelName(run.model))")
                 Text(detail).textStyle(.callout).foregroundStyle(.supporting)
                 if let error = run.error { Text(error).textStyle(.callout).foregroundStyle(Tone.bad.color) }
             }
@@ -124,7 +91,7 @@ private struct RunRow: View {
     }
 
     private var detail: String {
-        var parts = ["\(run.usage.tokensText) tokens", run.usage.costText]
+        var parts = ["\(run.usage.tokensText) tokens", run.usage.costUSD.usageCost]
         if let ended = run.endedAt {
             parts.append(Duration.seconds(ended.timeIntervalSince(run.startedAt)).formatted(.units(width: .narrow)))
         }

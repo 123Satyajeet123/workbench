@@ -20,6 +20,7 @@ final class TelegramAccount {
         self.capture = capture
         self.secrets = secrets
         hasKeys = keys != nil
+        followCapture()
     }
 
     var isReady: Bool { if case .ready = login { true } else { false } }
@@ -44,7 +45,7 @@ final class TelegramAccount {
 
     func resume() throws {
         switch login {
-        case .signedOut, .failed: if hasKeys { try start() }
+        case .signedOut, .failed, .paused: if hasKeys { try start() }
         case .connecting, .scan, .password, .ready: break
         }
     }
@@ -70,6 +71,9 @@ final class TelegramAccount {
             case .ready: return
             case .failed(let why): throw TelegramFailure(why)
             case .scan, .password: throw TelegramFailure("Sign in to Telegram first, on the machine's page.")
+            case .paused:
+                throw TelegramFailure(
+                    "Telegram is paused because capture or its switch is off. Connect again on the machine's page.")
             case .signedOut where !hasKeys: throw TelegramFailure("Connect Telegram first, on the machine's page.")
             case .signedOut, .connecting: try await Task.sleep(for: .milliseconds(100))
             }
@@ -83,6 +87,25 @@ final class TelegramAccount {
         }
         let databaseKey = secrets.read(Name.databaseKey).flatMap { Data(base64Encoded: $0) } ?? Data()
         return TelegramKeys(apiID: id, apiHash: hash, databaseKey: databaseKey)
+    }
+
+    private func followCapture() {
+        withObservationTracking {
+            _ = capture.policy
+        } onChange: { [weak self] in
+            Task { @MainActor in
+                self?.pauseIfSwitchedOff()
+                self?.followCapture()
+            }
+        }
+    }
+
+    private func pauseIfSwitchedOff() {
+        guard (try? TelegramGate.check(capture.policy)) == nil else { return }
+        switch login {
+        case .connecting, .scan, .password, .ready, .failed: service.disconnect()
+        case .signedOut, .paused: break
+        }
     }
 
     private func start() throws {

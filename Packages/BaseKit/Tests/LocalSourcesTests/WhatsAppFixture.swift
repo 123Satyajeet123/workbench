@@ -60,6 +60,14 @@ struct WhatsAppFixture {
         try run(sql)
     }
 
+    func own(phone: String, lid: String) throws {
+        let folder = container.appending(path: "Library/Preferences")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let data = try PropertyListSerialization.data(
+            fromPropertyList: ["OwnJabberID": phone, "lid": lid], format: .binary, options: 0)
+        try data.write(to: folder.appending(path: "group.net.whatsapp.WhatsApp.shared.plist"))
+    }
+
     func contacts(_ rows: [(lid: String, name: String)]) throws {
         let values = rows.map { "('\($0.lid)', NULL, '\($0.name)')" }.joined(separator: ", ")
         try run(

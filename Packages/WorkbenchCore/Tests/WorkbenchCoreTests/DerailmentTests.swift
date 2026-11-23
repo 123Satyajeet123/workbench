@@ -74,6 +74,21 @@ private func reply(_ findings: String...) -> String { #"{"items":["# + findings.
         #expect(saved["kind"] == "overdue" && saved["severity"] == "act" && saved.quote == "waiting on the deck")
     }
 
+    @Test func aFollowerAlsoWatchesEveryMachineThatKeepsTheSameKindOfFacts() async throws {
+        let (store, sentinel) = try await watch()
+        let relay = try store.createMachine(from: .teamTelegram, name: "Relay")
+        let timeline = try store.createMachine(from: .timeline, name: "Timeline")
+        let reply =
+            #"{"items":[{"kind":"blocker","text":"Waiting on the API keys","person":"Raj","project":"Payments","eta":"","asks":"founder","stance":"said","cite":1,"quote":"send the deck"}],"closes":[]}"#
+        let reader = HelperReader(spec: relay.spec, model: RecordedModel(ScriptedModel(reply), store: store))
+        let result = try await reader.read(day: first, scope: "group", evidence: dayOne)
+        try store.saveReading(
+            result, of: relay.spec, day: first, scope: "group", grant: grant(.telegram, label: "group"))
+        let followed = try store.queries.openItems(readBy: sentinel)
+        #expect(Set(followed.map(\.task)) == [sentinel.follows, relay.task])
+        #expect(followed.contains { $0["project"] == "Payments" } && !followed.contains { $0.task == timeline.task })
+    }
+
     @Test func aFindingOfSeveralFactsKeepsTheirIdsSortedAndOnceEach() async throws {
         let (store, sentinel) = try await watch()
         let (result, _) = try await read(store, sentinel, reply(finding(facts: #"["F2","F1","F2"]"#)))

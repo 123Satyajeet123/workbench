@@ -78,8 +78,7 @@ final class TodayModel {
         needs.isEmpty && team.isEmpty && unsummarized.isEmpty && projects.isEmpty && meetingCards.isEmpty
     }
 
-    private var factHelper: HelperModel? { crew.team }
-    private var factMachine: Machine? { factHelper?.machine }
+    private var factMachines: [Machine] { crew.factKeepers.map(\.machine) }
     private var sentinelTask: String? {
         crew.sentinel?.spec.task
     }
@@ -105,22 +104,27 @@ final class TodayModel {
         let now = store.clock()
         today = WorkDay(containing: now)
         let dealActions = try store.queries.openDealActions()
-        guard let machine = factMachine else {
+        guard let machine = factMachines.first else {
             clear()
             needs = Needs.pick(facts: dealActions, findings: [], today: today, now: now)
             buildMeetingCards()
             return
         }
         let lifecycle = machine.spec.lifecycleOrNone
-        let facts = try recentFacts(of: machine, lifecycle: lifecycle, since: today.adding(days: 1 - Self.days))
+        let since = today.adding(days: 1 - Self.days)
+        let facts = try factMachines.flatMap { try recentFacts(of: $0, lifecycle: lifecycle, since: since) }
         let findings = try sentinelTask.map { try store.queries.items(of: $0, on: today) } ?? []
         let listed = facts.filter { $0.isListed(at: now) }
         needs = Needs.pick(facts: facts + dealActions, findings: findings, today: today, now: now)
         people = group(facts, by: machine.spec.memberField, lifecycle, now)
         projectGroups = group(facts, by: machine.spec.labelField, lifecycle, now)
-        team = try rows(machine.spec.memberField, of: machine, day: today, listed: listed, groups: people)
+        team = try factMachines.flatMap {
+            try rows(machine.spec.memberField, of: $0, day: today, listed: listed, groups: people)
+        }
         unsummarized = withoutSummary(facts.filter { $0.day == today }, machine, lifecycle, now)
-        projects = try rows(machine.spec.labelField, of: machine, day: today, listed: listed, groups: projectGroups)
+        projects = try factMachines.flatMap {
+            try rows(machine.spec.labelField, of: $0, day: today, listed: listed, groups: projectGroups)
+        }
         buildMeetingCards()
     }
 
@@ -168,12 +172,12 @@ final class TodayModel {
     }
 
     func summarizeIfMissing() async {
-        guard !isSummarizing, !daysAsked.contains(today), let helper = factHelper, !helper.isPaused,
-            helper.hasMissingSummaries(on: today)
-        else { return }
+        let missing = crew.factKeepers.filter { !$0.isPaused && $0.hasMissingSummaries(on: today) }
+        guard !isSummarizing, !daysAsked.contains(today), !missing.isEmpty else { return }
         daysAsked.insert(today)
         isSummarizing = true
-        let isCurrent = await helper.summarize(today)
+        var isCurrent = true
+        for helper in missing where !(await helper.summarize(today)) { isCurrent = false }
         isSummarizing = false
         refresh()
         if !isCurrent { problems.show("Could not summarize your day. Its facts are listed without a summary.") }
@@ -222,11 +226,11 @@ final class TodayModel {
     }
 
     private func closing(_ items: [Item]) -> [ItemAction: [Int64]] {
-        let task = factMachine?.task
-        var plan = factMachine?.spec.lifecycle?.closing(items.filter { $0.task == task }) ?? [:]
+        let tasks = Set(factMachines.map(\.task))
+        var plan = factMachines.first?.spec.lifecycle?.closing(items.filter { tasks.contains($0.task) }) ?? [:]
         plan.merge(DealAction.lifecycle.closing(items.filter { $0.task == DealAction.task })) { $0 + $1 }
-        let findings = items.filter { $0.task != task && $0.task != DealAction.task && $0.closed == nil }.compactMap(
-            \.id)
+        let findings = items.filter { !tasks.contains($0.task) && $0.task != DealAction.task && $0.closed == nil }
+            .compactMap(\.id)
         if !findings.isEmpty { plan[.done(outcome: "handled")] = findings }
         return plan
     }

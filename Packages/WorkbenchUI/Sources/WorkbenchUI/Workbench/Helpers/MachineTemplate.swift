@@ -5,18 +5,21 @@ struct MachineTemplate: Identifiable, Hashable {
     let name: String
     let role: String
     let detail: String
+    var reads: String? = nil
 
     var id: String { spec.task }
 
     static let team = MachineTemplate(
         spec: .team, name: "Pip", role: "Team facts",
         detail:
-            "Reads the WhatsApp chats you choose and keeps each person's plans, done work, blockers, commitments, decisions and questions, by project."
+            "Reads the WhatsApp chats you choose and keeps each person's plans, done work, blockers, commitments, decisions and questions, by project.",
+        reads: "WhatsApp"
     )
     static let teamTelegram = MachineTemplate(
-        spec: .teamTelegram, name: "Relay", role: "Team facts from Telegram",
+        spec: .teamTelegram, name: "Relay", role: "Team facts",
         detail:
-            "Reads one Telegram group whose members all agreed, and keeps each person's plans, done work, blockers, commitments, decisions and questions, by project."
+            "Reads one Telegram group whose members all agreed, and keeps each person's plans, done work, blockers, commitments, decisions and questions, by project.",
+        reads: "Telegram"
     )
     static let timeline = MachineTemplate(
         spec: .timeline, name: "Timeline", role: "Day timeline",
@@ -42,6 +45,7 @@ struct MachineTemplate: Identifiable, Hashable {
     )
     static let all = [team, teamTelegram, timeline, pages, derailment, dealIntake, founderCheck, companySignals]
     static let seeded = [team, timeline]
+    static let addable = [team, teamTelegram]
 
     static func == (lhs: Self, rhs: Self) -> Bool { lhs.id == rhs.id }
     func hash(into hasher: inout Hasher) { hasher.combine(id) }

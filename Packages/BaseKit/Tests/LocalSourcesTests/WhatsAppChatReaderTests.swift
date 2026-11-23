@@ -67,6 +67,30 @@ import WorkbenchCore
         #expect(entry.text == "@Member ·3333 build bhejo, @99999999 bhi")
     }
 
+    @Test func aTagOfTheFounderByNumberOrPrivacyIDNamesTheFounder() async throws {
+        let fixture = try WhatsAppFixture()
+        try fixture.run("INSERT INTO ZWAGROUPMEMBER VALUES (10, 4, '111111111@lid', 'Rahul', '', 1);")
+        try fixture.own(phone: "919000000001@s.whatsapp.net", lid: "555555555@lid")
+        try fixture.message(
+            chat: 4, type: 0, text: "@555555555 approve karo, @919000000001 bhi, @111111111", member: 10)
+        let group = WhatsAppChatReader(
+            container: fixture.container, chatJID: groupJID, policy: whatsappOn, me: "Kabir (You)")
+        let entry = try #require(try await group.entries().first)
+        #expect(entry.text == "@Kabir (You) approve karo, @Kabir (You) bhi, @Rahul")
+    }
+
+    @Test func theFounderIsNotOneOfTheGroupsMembers() async throws {
+        let fixture = try WhatsAppFixture()
+        try fixture.run(
+            """
+            INSERT INTO ZWAGROUPMEMBER VALUES (10, 4, '555555555@lid', 'Kabir Rao', '', 1),
+                (11, 4, '919000000001@s.whatsapp.net', 'Kabir Rao', '', 0), (12, 4, '666666666@lid', 'Kabir Rao', '', 1);
+            """)
+        try fixture.own(phone: "919000000001@s.whatsapp.net", lid: "555555555@lid")
+        #expect(
+            try await reader(fixture, chat: groupJID).members().map(\.name) == ["Asha", "Bharat", "Kabir Rao"])
+    }
+
     @Test func withoutWhatsAppsAddressBookPushNamesStandIn() async throws {
         let fixture = try WhatsAppFixture()
         try fixture.run(
@@ -75,6 +99,17 @@ import WorkbenchCore
             INSERT INTO ZWAPROFILEPUSHNAME (ZJID, ZPUSHNAME) VALUES ('111111111@lid', 'Tattwa');
             """)
         #expect(try await reader(fixture, chat: groupJID).members().map(\.name) == ["Asha", "Bharat", "Tattwa"])
+    }
+
+    @Test func everyChatIsEveryGroupAndDirectChatNewestFirst() throws {
+        let fixture = try WhatsAppFixture()
+        try fixture.run("INSERT INTO ZWACHATSESSION VALUES (6, 'z@s.whatsapp.net', 0, NULL, 5);")
+        let every = try WhatsAppChatReader.everyChat(
+            container: fixture.container, policy: CapturePolicy(switches: [.whatsapp: true]))
+        #expect(every.map(\.name) == ["Team", "Family", "Friend", "Me", "z@s.whatsapp.net"])
+        #expect(throws: ReadError.denied(.sourceSwitchedOff)) {
+            try WhatsAppChatReader.everyChat(container: fixture.container, policy: CapturePolicy())
+        }
     }
 
     @Test func aSelectionTakesMatchingGroupsAndDirectChatsWithTheirMembersOnly() throws {

@@ -3,6 +3,7 @@ import SwiftUI
 struct MenuBarMenu: View {
     @Environment(CaptureSettings.self) private var capture
     @Environment(\.openWindow) private var openWindow
+    @Environment(Navigation.self) private var navigation
 
     var body: some View {
         Text("Capture \(capture.status.title.lowercased())")
@@ -25,7 +26,12 @@ struct MenuBarMenu: View {
                 capture.mode = $0 ? .privateHour : .on
             })
         Divider()
-        SettingsLink { Text("Settings…") }.keyboardShortcut(",")
+        Button("Settings…") {
+            navigation.openSettings()
+            openWindow(id: WorkbenchApp.mainWindowID)
+            NSApp.activate()
+        }
+        .keyboardShortcut(",")
         Button("Quit Workbench") { NSApp.terminate(nil) }.keyboardShortcut("q")
     }
 }

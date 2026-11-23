@@ -49,6 +49,31 @@ import WorkbenchCore
         #expect(day.model.team[0].facts.compactMap(\.id) == [1, 2, 7])
     }
 
+    @Test func relaysTelegramFactsSitBesidePipsAndDoneClosesThem() async throws {
+        let day = try await setup()
+        let relay = try day.store.createMachine(from: .teamTelegram, name: "Relay")
+        let reply =
+            #"{"items":[{"kind":"blocker","text":"Waiting on the API keys","person":"Neel","project":"Payments","eta":"","asks":"founder","stance":"said","cite":1,"quote":"need the API keys"}],"closes":[]}"#
+        let evidence = EvidenceSet(
+            lines: [Evidence(id: 1, start: noon, line: "Neel: need the API keys", quotable: ["need the API keys"])],
+            context: ["members": ["Neel"]])
+        let result = try await HelperReader(
+            spec: relay.spec, model: RecordedModel(ScriptedModel(reply), store: day.store)
+        ).read(day: day.today, scope: "group", evidence: evidence)
+        try day.store.savePolicy(CapturePolicy(switches: [.telegram: true], allowList: [.telegram: ["group"]]))
+        try day.store.saveReading(
+            result, of: relay.spec, day: day.today, scope: "group",
+            grant: try await day.store.grant(for: .telegram, label: "group", at: noon))
+        day.crew.reload()
+        day.model.refresh()
+
+        let neel = try #require(day.model.people.first { $0.name == "Neel" })
+        #expect(day.model.people.contains { $0.name == "Asha" })
+        #expect(day.model.needs.contains { $0.id == neel.open.first?.id })
+        day.model.perform(.done, on: neel.open, text: "Done")
+        #expect(try day.store.queries.items(of: relay.task, on: day.today).first?.closed?.outcome == "resolved")
+    }
+
     @Test func aDayWithNothingShowsNothingAndSaysSo() async throws {
         let day = try await setup(sample: false)
         #expect(day.model.isEmpty && day.model.team.isEmpty && day.model.projects.isEmpty)

@@ -3,5 +3,10 @@ import Observation
 @Observable
 final class Navigation {
     var requested: SidebarSelection?
-    var settingsTab = SettingsTab.general
+    var settingsSection = SettingsSection.general
+
+    func openSettings(_ section: SettingsSection = .general) {
+        settingsSection = section
+        requested = .settings
+    }
 }

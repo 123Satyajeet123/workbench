@@ -36,37 +36,69 @@ public struct HelperReader: Sendable {
         self.model = model
     }
 
+    public static let charactersPerRequest = 40_000
+
     public func read(
-        day: WorkDay, scope: String, evidence: EvidenceSet, marked: [Item] = [], open: [Item] = []
+        day: WorkDay, scope: String, evidence: EvidenceSet, marked: [Item] = [], open: [Item] = [],
+        budget: Int = charactersPerRequest
     ) async throws -> Result {
         let open = spec.lifecycle == nil && spec.follows == nil ? [] : open
         let followsOpenFacts = spec.follows != nil && !open.isEmpty
         guard !evidence.lines.isEmpty || followsOpenFacts else { return Result(items: [], dropped: 0, run: nil) }
         let examples = Exemplars.pick(marked, for: day, count: spec.examples ?? 0)
-        let (reply, run) = try await model.generate(
-            Reply.self, schema: schema, task: spec.task, instructions: instructions,
-            input: Self.examples(examples, spec: spec) + Self.open(open, spec: spec)
-                + Self.input(day: day, evidence: evidence),
-            holding: [spec.source.kind])
         var kept: [Item] = []
-        for raw in reply.items {
-            guard let item = item(raw, day: day, scope: scope, evidence: evidence, open: open, run: run),
-                spec.citation == .one
-                    || !kept.contains(where: { item.repeats($0, citation: spec.citation, choices: spec.choiceFields) })
-            else { continue }
-            kept.append(item)
-        }
-        let given = reply.closes ?? []
         var closes: [Close] = []
-        for raw in given {
-            guard let close = close(raw, open: open, evidence: evidence),
-                !closes.contains(where: { $0.item == close.item })
-            else { continue }
-            closes.append(close)
+        var dropped = 0
+        var run: RunID?
+        for part in Self.parts(of: evidence, budget: budget) {
+            let (reply, partRun) = try await model.generate(
+                Reply.self, schema: schema, task: spec.task, instructions: instructions,
+                input: Self.examples(examples, spec: spec) + Self.open(open, spec: spec)
+                    + Self.input(day: day, evidence: part),
+                holding: [spec.source.kind])
+            run = partRun
+            let keptBefore = kept.count
+            for raw in reply.items {
+                guard let item = item(raw, day: day, scope: scope, evidence: part, open: open, run: partRun),
+                    spec.citation == .one
+                        || !kept.contains(where: {
+                            item.repeats($0, citation: spec.citation, choices: spec.choiceFields)
+                        })
+                else { continue }
+                kept.append(item)
+            }
+            let given = reply.closes ?? []
+            let closedBefore = closes.count
+            for raw in given {
+                guard let close = close(raw, open: open, evidence: part),
+                    !closes.contains(where: { $0.item == close.item })
+                else { continue }
+                closes.append(close)
+            }
+            dropped += reply.items.count - (kept.count - keptBefore) + given.count - (closes.count - closedBefore)
         }
-        return Result(
-            items: kept, closes: closes, dropped: reply.items.count - kept.count + given.count - closes.count,
-            run: run)
+        return Result(items: kept, closes: closes, dropped: dropped, run: run)
+    }
+
+    static func parts(of evidence: EvidenceSet, budget: Int, context: Int = 20) -> [EvidenceSet] {
+        let new = evidence.newLines
+        guard new.reduce(0, { $0 + $1.line.count }) > budget else { return [evidence] }
+        var chunks: [[Evidence]] = [[]]
+        var size = 0
+        for line in new {
+            if size + line.line.count > budget, !(chunks.last?.isEmpty ?? true) {
+                chunks.append([])
+                size = 0
+            }
+            chunks[chunks.count - 1].append(line)
+            size += line.line.count
+        }
+        var before = evidence.lines.filter { $0.id <= (evidence.readUpTo ?? .min) }
+        return chunks.map { chunk in
+            let seen = Array(before.suffix(context))
+            before = chunk
+            return EvidenceSet(lines: seen + chunk, context: evidence.context, readUpTo: seen.last?.id)
+        }
     }
 
     public var instructions: String {

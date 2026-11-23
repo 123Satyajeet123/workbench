@@ -19,6 +19,7 @@ struct HelperPage: View {
 extension HelperModel {
     var chosenSource: String? {
         if let source = source as? WhatsAppSource {
+            if source.readsEveryChat { return "Every WhatsApp chat" }
             return source.isSeveral ? "\(source.chats.count) chats" : source.chat?.name
         }
         if let source = source as? TelegramSource, let chat = source.chat { return "Telegram · \(chat.title)" }

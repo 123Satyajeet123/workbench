@@ -12,6 +12,7 @@ final class WhatsAppSource: MachineSource {
     private(set) var members: [WhatsAppMember] = []
     private(set) var teamHandles: Set<String> = []
     private(set) var isChanging = false
+    private(set) var readsEveryChat = false
 
     @ObservationIgnored private let store: Store
     @ObservationIgnored private let capture: CaptureService
@@ -20,6 +21,7 @@ final class WhatsAppSource: MachineSource {
     @ObservationIgnored private let othersReading: () -> Set<String>
     @ObservationIgnored private let chatsKey: StateKey<[WhatsAppChat]>
     @ObservationIgnored private let membersKey: StateKey<[WhatsAppMember]>
+    @ObservationIgnored private let everyChatKey: StateKey<Bool>
 
     init(
         store: Store, capture: CaptureService, task: String, founder: @escaping () -> String,
@@ -32,6 +34,8 @@ final class WhatsAppSource: MachineSource {
         self.container = container
         chatsKey = MachineKey.chats(task)
         membersKey = MachineKey.members(task)
+        everyChatKey = MachineKey.everyChat(task)
+        readsEveryChat = try everyChatKey.load(from: store) ?? false
         chats = try chatsKey.load(from: store) ?? []
         members = try membersKey.load(from: store) ?? []
         try loadTeamHandles()
@@ -65,7 +69,14 @@ final class WhatsAppSource: MachineSource {
 
     func choose(_ group: WhatsAppChat) throws { try choose([group]) }
 
-    func choose(_ chosen: [WhatsAppChat]) throws {
+    func chooseEveryChat() throws {
+        try switchOn()
+        try choose(WhatsAppChatReader.everyChat(container: container, policy: capture.policy), everyChat: true)
+    }
+
+    func choose(_ chosen: [WhatsAppChat]) throws { try choose(chosen, everyChat: false) }
+
+    private func choose(_ chosen: [WhatsAppChat], everyChat: Bool) throws {
         let dropped = Set(chats.map(\.jid)).subtracting(chosen.map(\.jid)).subtracting(othersReading())
         try capture.update {
             $0.switches[.whatsapp] = true
@@ -73,7 +84,9 @@ final class WhatsAppSource: MachineSource {
             $0.allowList[.whatsapp, default: []].formUnion(chosen.map(\.jid))
         }
         try chatsKey.save(chosen, to: store)
+        try everyChatKey.save(everyChat, to: store)
         chats = chosen
+        readsEveryChat = everyChat
         keep()
     }
 
@@ -124,6 +137,7 @@ final class WhatsAppSource: MachineSource {
 
     func evidence(on day: WorkDay) async throws -> EvidenceSet {
         guard !chats.isEmpty else { return EvidenceSet(lines: []) }
+        if readsEveryChat { try takeInNewChats() }
         let (entries, people) = try await reader().read(from: day.start, to: day.end)
         try remember(people)
         let photos = await ImageText.texts(in: entries.compactMap(\.photo))
@@ -136,11 +150,21 @@ final class WhatsAppSource: MachineSource {
                 return named
             }
         }
-        return EvidenceSet(lines: lines, context: ["members": members.map(\.name)])
+        return EvidenceSet(
+            lines: lines,
+            context: ["members": members.map(\.name) + [founderLabel(founder())], "founder": [founderLabel(founder())]])
+    }
+
+    private func takeInNewChats() throws {
+        let every = try WhatsAppChatReader.everyChat(container: container, policy: capture.policy)
+        guard Set(every.map(\.jid)) != Set(chats.map(\.jid)) else { return }
+        try capture.update { $0.allowList[.whatsapp, default: []].formUnion(every.map(\.jid)) }
+        try chatsKey.save(every, to: store)
+        chats = every
     }
 
     private func reader() -> WhatsAppChatReader {
-        WhatsAppChatReader(container: container, chatJIDs: chats.map(\.jid), policy: store)
+        WhatsAppChatReader(container: container, chatJIDs: chats.map(\.jid), policy: store, me: founderLabel(founder()))
     }
 
     private func line(_ entry: WhatsAppEntry, photos: [URL: String]) -> Evidence? {
@@ -150,12 +174,14 @@ final class WhatsAppSource: MachineSource {
         guard !text.isEmpty else { return nil }
         let sender: String
         switch entry.sender {
-        case .me: sender = founder().isEmpty ? "Founder" : "\(founder()) (founder)"
+        case .me: sender = founderLabel(founder())
         case .member(_, let name): sender = name
         }
         return Evidence(id: entry.id, start: entry.date, line: "\(sender): \(text)", quotable: [text])
     }
 }
+
+func founderLabel(_ name: String) -> String { name.isEmpty ? "You" : "\(name) (You)" }
 
 extension WhatsAppEntry {
     fileprivate var photo: URL? {

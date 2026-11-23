@@ -31,6 +31,7 @@ struct TelegramChooser: View {
         case .signedOut where !source.account.hasKeys: TelegramKeysCard(model: model, account: source.account)
         case .failed(let why): TelegramFailedCard(model: model, account: source.account, why: why)
         case .signedOut: TelegramSignedOutCard(model: model, account: source.account)
+        case .paused: TelegramPausedCard(model: model, account: source.account)
         case .connecting: ProgressView("Connecting to Telegram…").controlSize(.small)
         case .scan(let link): TelegramScanCard(link: link)
         case .password(let hint): TelegramPasswordCard(model: model, account: source.account, hint: hint)
@@ -93,6 +94,22 @@ private struct TelegramSignedOutCard: View {
                     .buttonStyle(.primary)
                 Button("Use other keys") { model.attempt("forget the Telegram keys", account.forgetKeys) }
             }
+        }
+    }
+}
+
+private struct TelegramPausedCard: View {
+    let model: HelperModel
+    let account: TelegramAccount
+
+    var body: some View {
+        Card(title: "Telegram is paused", symbol: "pause.circle") {
+            Text(
+                "Capture or the Telegram switch is off, so Workbench closed its Telegram connection. You stay signed in."
+            )
+            .foregroundStyle(.supporting)
+            Button("Connect again") { model.attempt("connect to Telegram") { try account.resume() } }
+                .buttonStyle(.primary)
         }
     }
 }

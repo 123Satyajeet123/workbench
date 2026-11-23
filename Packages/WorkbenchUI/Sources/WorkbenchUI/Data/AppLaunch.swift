@@ -28,6 +28,7 @@ struct AppSession {
     let web: WebResearchSettings
     let claims: ClaimsModel
     let runs: RunsModel
+    let planUsage: PlanUsage
     let navigation = Navigation()
 }
 
@@ -67,7 +68,7 @@ enum AppLaunch {
                 catalog: catalog, actions: ActionsModel(store: store, founder: { identity.identity.name }),
                 deals: deals, memory: MemoryModel(store: store, crew: crew, deals: deals),
                 web: web, claims: ClaimsModel(store: store, me: { catalog.me }, web: web),
-                runs: RunsModel(store: store))
+                runs: RunsModel(store: store), planUsage: PlanUsage(store: store))
             service.start()
             session.reminders.start()
             return .ready(session)

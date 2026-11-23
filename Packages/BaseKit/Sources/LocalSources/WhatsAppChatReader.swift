@@ -76,15 +76,22 @@ public struct WhatsAppChatReader: Sendable {
     private let container: URL
     public let chatJIDs: [String]
     private let policy: any CapturePolicyProvider
+    private let me: String
 
-    public init(container: URL = defaultContainer, chatJIDs: [String], policy: any CapturePolicyProvider) {
+    public init(
+        container: URL = defaultContainer, chatJIDs: [String], policy: any CapturePolicyProvider,
+        me: String = "You"
+    ) {
         self.container = container
         self.chatJIDs = chatJIDs
         self.policy = policy
+        self.me = me
     }
 
-    public init(container: URL = defaultContainer, chatJID: String, policy: any CapturePolicyProvider) {
-        self.init(container: container, chatJIDs: [chatJID], policy: policy)
+    public init(
+        container: URL = defaultContainer, chatJID: String, policy: any CapturePolicyProvider, me: String = "You"
+    ) {
+        self.init(container: container, chatJIDs: [chatJID], policy: policy, me: me)
     }
 
     public static func chats(
@@ -126,6 +133,16 @@ public struct WhatsAppChatReader: Sendable {
         ).compactMap { row in row.text(0).map { WhatsAppChat(jid: $0, name: row.text(1) ?? $0) } }
     }
 
+    public static func everyChat(container: URL = defaultContainer, policy: CapturePolicy) throws -> [WhatsAppChat] {
+        guard policy.mode != .off else { throw ReadError.denied(.captureOff) }
+        guard policy.isEnabled(.whatsapp) else { throw ReadError.denied(.sourceSwitchedOff) }
+        let snapshot = try Self.snapshot(container)
+        return try snapshot.rows(
+            "SELECT ZCONTACTJID, ZPARTNERNAME FROM ZWACHATSESSION WHERE ZSESSIONTYPE IN (?, ?) ORDER BY ZLASTMESSAGEDATE DESC",
+            binding: [.integer(Int64(SessionType.group)), .integer(Int64(SessionType.person))]
+        ).compactMap { row in row.text(0).map { WhatsAppChat(jid: $0, name: row.text(1) ?? $0) } }
+    }
+
     public func entries(from start: Date = .distantPast, to end: Date = .distantFuture, now: Date = .now)
         async throws -> [WhatsAppEntry]
     {
@@ -161,15 +178,18 @@ public struct WhatsAppChatReader: Sendable {
                 .integer(Int64(MessageType.voiceNote)), .integer(Int64(MessageType.document)),
                 .real(start.timeIntervalSinceReferenceDate), .real(end.timeIntervalSinceReferenceDate),
             ])
-        let (names, active, chats) = try memberNames(snapshot)
+        let own = ownJIDs()
+        let (names, active, chats) = try memberNames(snapshot, except: Set(own))
         let members = active.compactMap { jid in
             names[jid].map { WhatsAppMember(jid: jid, name: $0, chats: chats[jid, default: []]) }
         }
         .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-        return (rows.compactMap { entry($0, names: names) }, members)
+        var tags = names
+        for jid in own { tags[jid] = me }
+        return (rows.compactMap { entry($0, names: names, tags: tags) }, members)
     }
 
-    private func memberNames(_ snapshot: SQLiteSnapshot) throws -> (
+    private func memberNames(_ snapshot: SQLiteSnapshot, except own: Set<String>) throws -> (
         names: [String: String], active: [String], chats: [String: [String]]
     ) {
         let marks = Self.marks(chatJIDs.count)
@@ -193,7 +213,7 @@ public struct WhatsAppChatReader: Sendable {
         var order: [String] = []
         var chats: [String: [String]] = [:]
         for row in groupRows + directRows {
-            guard let jid = row.text(0) else { continue }
+            guard let jid = row.text(0), !own.contains(jid) else { continue }
             if row.integer(3) == 1, let chat = row.text(4), !chats[jid, default: []].contains(chat) {
                 chats[jid, default: []].append(chat)
             }
@@ -248,7 +268,15 @@ public struct WhatsAppChatReader: Sendable {
         return snapshot
     }
 
-    private func entry(_ row: SQLiteRow, names: [String: String]) -> WhatsAppEntry? {
+    private func ownJIDs() -> [String] {
+        let file = container.appending(path: "Library/Preferences/group.net.whatsapp.WhatsApp.shared.plist")
+        guard let data = try? Data(contentsOf: file),
+            let settings = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
+        else { return [] }
+        return ["OwnJabberID", "LastOwnJabberID", "lid"].compactMap { settings[$0] as? String }
+    }
+
+    private func entry(_ row: SQLiteRow, names: [String: String], tags: [String: String]) -> WhatsAppEntry? {
         let kind: WhatsAppEntry.Kind
         switch Int(row.integer(2)) {
         case MessageType.text: kind = .text
@@ -264,7 +292,7 @@ public struct WhatsAppChatReader: Sendable {
         return WhatsAppEntry(
             id: row.integer(0), chat: chat, date: Date(timeIntervalSinceReferenceDate: row.real(1)), kind: kind,
             sender: sender,
-            text: MemberNames.mentions(in: row.text(3) ?? "", names: names), title: row.text(5),
+            text: MemberNames.mentions(in: row.text(3) ?? "", names: tags), title: row.text(5),
             media: kind == .text ? nil : media(atRelativePath: row.text(4)))
     }
 

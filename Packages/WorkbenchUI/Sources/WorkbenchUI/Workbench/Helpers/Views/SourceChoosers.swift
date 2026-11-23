@@ -67,45 +67,105 @@ struct SiteChooser: View {
 struct GroupChooser: View {
     let model: HelperModel
     let source: WhatsAppSource
-    @State private var query = ""
+    @State private var scope: ChatScope?
 
     var body: some View {
         VStack(alignment: .leading, spacing: Space.m) {
             Text("Choose what \(model.name) reads. It reads only those chats, and only the day you ask it to.")
                 .foregroundStyle(.supporting)
-            Card(title: "One group", symbol: "person.3") {
-                Text("Your team's WhatsApp group.").foregroundStyle(.supporting)
-                if source.groups.isEmpty {
-                    Button("Show my WhatsApp groups") { model.attempt("list your WhatsApp groups", source.loadGroups) }
-                        .buttonStyle(.primary)
-                } else {
-                    TextField("Search your groups", text: $query, prompt: Text("Search your groups"))
-                        .textFieldStyle(.roundedBorder)
-                    let found = FuzzySearch.filter(source.groups, by: query, name: \.name)
-                    if found.isEmpty {
-                        Text("No group matches “\(query)”.").foregroundStyle(.supporting)
-                    }
-                    VStack(alignment: .leading, spacing: 0) {
-                        ForEach(found) { group in
-                            HStack {
-                                Text(group.name).lineLimit(1)
-                                Spacer()
-                                Button("Choose") {
-                                    model.attempt("save the group") { try source.choose(group) }
-                                    model.reload()
-                                }
-                                .buttonStyle(.ghost).foregroundStyle(.linkText)
-                            }
-                            .padding(.vertical, Space.xs)
-                            if group.id != found.last?.id { Divider() }
-                        }
-                    }
-                }
+            Picker("Reads", selection: Binding(get: { scope ?? current }, set: { scope = $0 })) {
+                ForEach(ChatScope.allCases, id: \.self) { Text("\($0.title) · \($0.line)").tag($0) }
             }
-            SeveralChatsChooser(model: model, source: source)
+            .pickerStyle(.radioGroup).labelsHidden()
+            switch scope ?? current {
+            case .one: OneGroupChooser(model: model, source: source)
+            case .several: SeveralChatsChooser(model: model, source: source)
+            case .every: EveryChatChooser(model: model, source: source)
+            }
             if source.isChanging, let current = model.chosenSource {
                 Button("Keep \(current)", action: source.keep)
             }
+        }
+    }
+
+    private var current: ChatScope {
+        source.readsEveryChat ? .every : source.isSeveral ? .several : .one
+    }
+}
+
+enum ChatScope: CaseIterable {
+    case one, several, every
+
+    var title: String {
+        switch self {
+        case .one: "One group"
+        case .several: "Several chats"
+        case .every: "Every chat"
+        }
+    }
+
+    var line: String {
+        switch self {
+        case .one: "your team's WhatsApp group"
+        case .several: "groups whose name holds some words"
+        case .every: "all your chats, personal ones too"
+        }
+    }
+}
+
+private struct OneGroupChooser: View {
+    let model: HelperModel
+    let source: WhatsAppSource
+    @State private var query = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Space.s) {
+            if source.groups.isEmpty {
+                Button("Show my WhatsApp groups") { model.attempt("list your WhatsApp groups", source.loadGroups) }
+                    .buttonStyle(.primary)
+            } else {
+                TextField("Search your groups", text: $query, prompt: Text("Search your groups"))
+                    .textFieldStyle(.roundedBorder)
+                let found = FuzzySearch.filter(source.groups, by: query, name: \.name)
+                if found.isEmpty {
+                    Text("No group matches “\(query)”.").foregroundStyle(.supporting)
+                }
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(found) { group in
+                        HStack {
+                            Text(group.name).lineLimit(1)
+                            Spacer()
+                            Button("Choose") {
+                                model.attempt("save the group") { try source.choose(group) }
+                                model.reload()
+                            }
+                            .buttonStyle(.ghost).foregroundStyle(.linkText)
+                        }
+                        .padding(.vertical, Space.xs)
+                        if group.id != found.last?.id { Divider() }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct EveryChatChooser: View {
+    let model: HelperModel
+    let source: WhatsAppSource
+    @Environment(ModelSettings.self) private var models
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Space.s) {
+            Text(
+                "All your WhatsApp chats, groups and direct ones, family and personal too, and chats you start later. Each reading sends that day's messages from every chat to \(models.choice.title)."
+            )
+            .foregroundStyle(.supporting)
+            Button("Read every chat") {
+                model.attempt("save the chats", source.chooseEveryChat)
+                model.reload()
+            }
+            .buttonStyle(.primary).disabled(source.readsEveryChat)
         }
     }
 }
@@ -117,9 +177,8 @@ struct SeveralChatsChooser: View {
     @State private var direct = true
 
     var body: some View {
-        Card(title: "Several chats", symbol: "text.magnifyingglass") {
-            Text("Groups whose name holds some words. You see every chat before any is read.")
-                .foregroundStyle(.supporting)
+        VStack(alignment: .leading, spacing: Space.s) {
+            Text("You see every chat before any is read.").foregroundStyle(.supporting)
             TextField("Words in the group names, such as Acme", text: $words)
                 .textFieldStyle(.roundedBorder).frame(maxWidth: 420)
                 .onSubmit(find)
