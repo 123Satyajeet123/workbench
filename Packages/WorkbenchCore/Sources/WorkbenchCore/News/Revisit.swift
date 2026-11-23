@@ -31,9 +31,9 @@ extension Store {
     public func setRevisit(of deal: WorkObject, on due: WorkDay, reason: String?) throws -> Int64 {
         let now = clock()
         let reason = reason?.cleaned
-        let line = Revisit.line(company: deal.title, reason: reason)
+        let line = Revisit.line(company: deal.name, reason: reason)
         let fields = [
-            "kind": "revisit", Revisit.dealField: deal.id, "company": deal.title, "why": reason ?? "",
+            "kind": "revisit", Revisit.dealField: deal.id, "company": deal.name, "why": reason ?? "",
             Item.dueField: try Coding.json(Due.stated(on: due)), "text": line, "asks": "",
         ]
         return try writer.write { db in

@@ -129,7 +129,8 @@ final class ProofModel {
         let helper = helper(of: item)
         let chat = (helper?.source as? WhatsAppSource)?.chats.first { $0.jid == item.scope }?.name
         return InspectorCard(
-            headline: FactHeadline(item: item, title: titleOf(item)), meta: InspectorWords.meta(of: item, words),
+            headline: FactHeadline(item: item, title: titleOf(item)),
+            meta: InspectorWords.meta(of: item, home: item.id.flatMap { try? store.queries.filing(of: $0) }, words),
             source: InspectorWords.source(of: item, chat: chat, words), proof: content(for: item, words),
             history: known?.key == Key(item) ? (known?.history.sentences(of: item, words) ?? []) : [])
     }

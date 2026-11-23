@@ -158,7 +158,7 @@ final class ClaimsModel {
             }
             let grants = try store.grants(for: lines)
             let rater = DealRater(model: try makeModel.current(), criteria: criteria)
-            if let rating = try await rater.rate(deal: deal.id, company: deal.title, lines: lines),
+            if let rating = try await rater.rate(deal: deal.id, company: deal.name, lines: lines),
                 let grant = rating.source.flatMap({ kind in grants.first { $0.key.kind == kind }?.value })
             {
                 try store.saveRating(rating, grant: grant)
@@ -196,7 +196,7 @@ final class ClaimsModel {
                 let checker = ClaimChecker(
                     model: try makeModel.current(), session: session, types: types)
                 do {
-                    let done = try await checker.check(claim, company: deal.title)
+                    let done = try await checker.check(claim, company: deal.name)
                     try store.saveCheck(done.check, claimQuote: claim.quote, run: done.run, session: session)
                 } catch WebBlock.labelUnknown {
                     refusals.append("\u{201C}\(claim.text)\u{201D}: \(WebBlock.labelUnknown.localizedDescription)")

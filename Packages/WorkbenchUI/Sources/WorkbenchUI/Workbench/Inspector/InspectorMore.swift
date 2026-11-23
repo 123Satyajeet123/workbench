@@ -58,7 +58,7 @@ struct InspectorMore: View {
             VStack(alignment: .leading, spacing: Space.xs) {
                 if deals.deals.isEmpty { Text("No deals yet.").text(.meta).padding(Space.s) }
                 ForEach(deals.deals) { deal in
-                    Button(deal.title) { add(to: deal) }.buttonStyle(.ghost).frame(
+                    Button(deal.name) { add(to: deal) }.buttonStyle(.ghost).frame(
                         maxWidth: .infinity, alignment: .leading)
                 }
             }
@@ -85,7 +85,7 @@ struct InspectorMore: View {
         deals.problems.dismiss()
         Task {
             await deals.link(item, from: helper, to: deal.id)
-            if deals.problem == nil { linked = "Added to \(deal.title)." }
+            if deals.problem == nil { linked = "Added to \(deal.name)." }
         }
     }
 }

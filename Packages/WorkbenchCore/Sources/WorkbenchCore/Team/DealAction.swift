@@ -35,7 +35,7 @@ extension Store {
         return try writer.write { db in
             try dropActions(of: deal.id, db)
             var fields = [
-                "kind": "commitment", "person": owner, "project": deal.title, "text": what,
+                "kind": "commitment", "person": owner, "project": deal.name, "text": what,
                 Item.dueField: try Coding.json(Due.stated(on: due)),
                 "stance": "said", DealAction.dealField: deal.id,
             ]

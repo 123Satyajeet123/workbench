@@ -14,10 +14,12 @@ extension HelperReader {
 
     /// The facts the checked proposals open and the events they write. A `same_as` opens no fact: it restates the open
     /// one, and gives a new date when its date differs from the open fact's.
-    static func apply(_ proposals: [Verifier.Checked], spec: HelperSpec, open: [Item]) -> ([Item], [Link]) {
+    static func apply(_ proposals: [Verifier.Checked], spec: HelperSpec, open: [Item]) -> Applied {
         var items: [Item] = []
         var links: [Link] = []
+        var homes: [HomeProposal] = []
         for proposal in proposals {
+            let opened = items.count
             let item = proposal.item
             let link = { (subject: Link.Subject, effect: Link.Effect) in
                 Link(subject: subject, effect: effect, line: item.citeFirst, quote: item.quote, at: item.start)
@@ -40,7 +42,26 @@ extension HelperReader {
                 items.append(item)
                 links.append(link(.stored(id), .closeProposed(outcome: outcome)))
             }
+            if items.count > opened, case .place(let home) = proposal.home {
+                homes.append(HomeProposal(item: opened, object: home))
+            }
         }
-        return (items, links)
+        return Applied(items: items, links: links, homes: homes)
+    }
+
+    /// A drop row for each kept proposal whose home names a place the model was not shown. The proposal stays and goes
+    /// to its default home; the row's ordinal is its place among the kept.
+    func refusedHomes(of kept: [Verifier.Checked]) throws -> [Drop] {
+        try kept.enumerated().compactMap { ordinal, proposal in
+            guard case .refused(let handle) = proposal.home else { return nil }
+            return Drop(part: "items.object", ordinal: ordinal, rule: .unknownHandle, proposal: try Coding.json(handle))
+        }
+    }
+
+    /// What the checked proposals of a reading come to.
+    struct Applied {
+        var items: [Item]
+        var links: [Link]
+        var homes: [HomeProposal]
     }
 }

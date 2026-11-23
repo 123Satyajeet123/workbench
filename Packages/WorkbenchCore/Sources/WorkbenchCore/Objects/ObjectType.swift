@@ -4,6 +4,10 @@ public typealias TypeID = String
 public typealias StageID = String
 public typealias FieldID = String
 public typealias FactID = String
+/// The id of a work object: a folder, a page, a machine page, a deal or a project. Events and notes name it.
+public typealias WorkObjectID = String
+/// The store id of a fact.
+public typealias ItemID = Int64
 
 /// What code may know about a stage. Code reads the meaning, never the label. The meaning of one stage id never
 /// changes; a new meaning is a new stage id.

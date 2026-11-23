@@ -44,7 +44,7 @@ final class HelperReading {
                 return true
             }
             let model = context.makeModel(try context.runner(for: .init(spec)))
-            let reader = HelperReader(spec: spec, model: model)
+            let reader = HelperReader(spec: spec, model: model, places: try store.queries.placesToFile())
             let result = try await reader.read(
                 day: day, scope: scope, evidence: evidence, marked: try context.marked(), open: open)
             try store.saveReading(

@@ -23,7 +23,7 @@ import Testing
     @Test func aMoveThatSawTheLastOneReplacesIt() throws {
         let events = start + [event("s2", .stage, by: "Kabir", clock: 4, "Diligence", replaces: ["s1"])]
         let deal = try #require(WorkObject.fold(events, viewer: "Kabir").first)
-        #expect(deal.title == "Acme" && deal.stageLabels == ["Diligence"] && deal.stageHeads == ["s2"])
+        #expect(deal.name == "Acme" && deal.stageLabels == ["Diligence"] && deal.stageHeads == ["s2"])
     }
 
     @Test func twoMovesThatDidNotSeeEachOtherBothStandUntilOneMoveReplacesBoth() throws {

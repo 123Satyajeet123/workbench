@@ -7,7 +7,7 @@ extension Store {
         try writer.write { db in
             for (spec, name) in builtIns
             where try Int.fetchOne(db, sql: "SELECT 1 FROM machine WHERE task = ?", arguments: [spec.task]) == nil {
-                try addMachine(db, spec: spec, template: spec.task, name: name)
+                try addMachine(db, spec: spec, template: spec.task, name: name, folder: nil)
             }
         }
     }
@@ -36,12 +36,15 @@ extension Store {
     /// A new machine from a template, with its own task so its items, settings and trust are its own. The task is the
     /// template's with a dash, never a dot, so no machine's settings key starts with another machine's task.
     /// `template` names the template the spec came from; it defaults to the spec's own task, for a template itself.
+    /// The machine gets a page in `folder`, or in the default folder of its template.
     @discardableResult
-    public func createMachine(from spec: HelperSpec, template: String? = nil, name: String) throws -> Machine {
+    public func createMachine(
+        from spec: HelperSpec, template: String? = nil, name: String, in folder: WorkObjectID? = nil
+    ) throws -> Machine {
         let template = template ?? spec.task
         var spec = spec
         spec.task = "\(template)-\(UUID().uuidString.prefix(8).lowercased())"
-        return try writer.write { db in try addMachine(db, spec: spec, template: template, name: name) }
+        return try writer.write { db in try addMachine(db, spec: spec, template: template, name: name, folder: folder) }
     }
 
     /// Moves a machine to a newer built-in design: the built-in's brief, fields, lifecycle and checks, with the
@@ -125,11 +128,15 @@ extension Store {
     }
 
     @discardableResult
-    private func addMachine(_ db: Database, spec: HelperSpec, template: String, name: String) throws -> Machine {
+    private func addMachine(
+        _ db: Database, spec: HelperSpec, template: String, name: String, folder: WorkObjectID?
+    ) throws -> Machine {
         try db.execute(
             sql: "INSERT INTO machine(task, template, created_at) VALUES (?,?,?)",
             arguments: [spec.task, template, clock().stored])
-        let machine = Machine(id: db.lastInsertedRowID, name: name, template: template, spec: spec, state: .active)
+        let id = db.lastInsertedRowID
+        let page = try WorkObjectRows.addMachinePage(db, machine: id, template: template, name: name, folder: folder)
+        let machine = Machine(id: id, name: name, template: template, spec: spec, state: .active, page: page)
         try change(db, machine, name: name, spec: spec, state: .active)
         return machine
     }
@@ -142,6 +149,9 @@ extension Store {
         try db.execute(
             sql: "INSERT INTO machine_change(machine_id, at, name, spec, state) VALUES (?,?,?,?,?)",
             arguments: [machine.id, clock().stored, name, try Coding.json(spec), state.rawValue])
+        try db.execute(
+            sql: "UPDATE work_object SET name = ? WHERE id = (SELECT page_id FROM machine WHERE id = ?)",
+            arguments: [name, machine.id])
     }
 }
 
@@ -156,7 +166,7 @@ extension Queries {
         try reader.read { db in
             try db.fetch(
                 "machine_now",
-                "SELECT id, name, template, spec, state FROM machine_now WHERE state <> 'deleted' ORDER BY id",
+                "SELECT id, name, template, spec, state, page_id FROM machine_now WHERE state <> 'deleted' ORDER BY id",
                 as: Machine.init(row:))
         }
     }
@@ -182,7 +192,7 @@ extension Machine {
         self.init(
             id: try row.value("id"), name: try row.value("name"), template: template,
             spec: (try row.json("spec") as HelperSpec).filling(from: MachineTemplate.of(id: template)?.spec),
-            state: try row.enumeration("state"))
+            state: try row.enumeration("state"), page: try row.optionalValue("page_id"))
     }
 }
 

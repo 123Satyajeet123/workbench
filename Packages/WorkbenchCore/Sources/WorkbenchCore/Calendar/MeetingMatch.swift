@@ -19,8 +19,8 @@ public struct DealIdentity: Sendable, Equatable {
     /// The deal's title and company names, and the domains written in its title and linked items.
     public init(_ deal: WorkObject) {
         let companies = deal.items.compactMap { $0.item.fields["company"] }
-        let written = deal.items.compactMap { $0.item.fields["from"] } + companies + [deal.title]
-        self.init(id: deal.id, names: [deal.title] + companies, domains: written.flatMap(MeetingMatch.domains(in:)))
+        let written = deal.items.compactMap { $0.item.fields["from"] } + companies + [deal.name]
+        self.init(id: deal.id, names: [deal.name] + companies, domains: written.flatMap(MeetingMatch.domains(in:)))
     }
 }
 

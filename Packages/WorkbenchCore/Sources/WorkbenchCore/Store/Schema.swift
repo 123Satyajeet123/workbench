@@ -25,6 +25,7 @@ enum Schema {
                 if let index = steps.firstIndex(of: timers), found <= index {
                     try moveLegacyDueDays(db, zone: ownerZone)
                 }
+                if let index = steps.firstIndex(of: filing), found <= index { try WorkObjectsMove.run(db) }
                 try db.checkForeignKeys()
                 try db.execute(sql: "PRAGMA user_version = \(version)")
                 return .commit
@@ -37,7 +38,7 @@ enum Schema {
     static let steps = [
         baseline, itemEvents, runText, summaries, itemActions, mail, typedItems, quoteMarks, newsArticles, evidence,
         runWindow, sourceDeleted, groundedFacts, factLifecycle, timers, evidenceForwarded,
-        morningList, notes, pendingRevokes,
+        morningList, notes, pendingRevokes, filing,
     ]
 
     /// Items that open and close (research 32): a later line closes a commitment or answers a question. An event is

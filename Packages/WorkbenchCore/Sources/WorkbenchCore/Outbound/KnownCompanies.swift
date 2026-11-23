@@ -24,7 +24,7 @@ public struct KnownCompanies: Sendable, Equatable {
     public init(deals: [WorkObject], entries: [WatchEntry], rejections: [Rejection]) {
         let extras = Dictionary(entries.compactMap { entry in entry.deal.map { ($0, entry) } }) { first, _ in first }
         for deal in deals where deal.kind == "deal" {
-            add(name: deal.title, aliases: extras[deal.id]?.aliases ?? [], domain: extras[deal.id]?.domain)
+            add(name: deal.name, aliases: extras[deal.id]?.aliases ?? [], domain: extras[deal.id]?.domain)
         }
         for entry in entries where entry.deal == nil {
             add(name: entry.name, aliases: entry.aliases, domain: entry.domain)

@@ -43,15 +43,15 @@ final class MemoryModel {
             for note in deal.notes {
                 entries.append(
                     MemoryEntry(
-                        id: "note:\(note.id)", source: "\(deal.title) · note by \(note.author)",
-                        text: "\(deal.title): \(note.text)", quote: note.text))
+                        id: "note:\(note.id)", source: "\(deal.name) · note by \(note.author)",
+                        text: "\(deal.name): \(note.text)", quote: note.text))
             }
             for linked in deal.items where linked.item.state != .rejected {
                 let values = linked.item.columns.compactMap { linked.item.fields[$0] }.filter { !$0.isEmpty }
                 entries.append(
                     MemoryEntry(
-                        id: "link:\(linked.event.id)", source: "\(deal.title) · \(linked.item.machine)",
-                        text: ([deal.title] + values + [linked.item.quote]).joined(separator: " — "),
+                        id: "link:\(linked.event.id)", source: "\(deal.name) · \(linked.item.machine)",
+                        text: ([deal.name] + values + [linked.item.quote]).joined(separator: " — "),
                         quote: linked.item.quote, kinds: linked.item.source.map { [$0] } ?? [],
                         kindUnknown: linked.item.source == nil))
             }

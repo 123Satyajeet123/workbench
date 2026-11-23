@@ -165,7 +165,7 @@ struct OutboundWorld {
         let deals = world.fixture.deals
         await deals.addCandidate(top.item, of: world.helper, from: world.source)
         world.helper.reload()
-        let made = try #require(deals.deals.first { $0.title == "Ledgerly" })
+        let made = try #require(deals.deals.first { $0.name == "Ledgerly" })
         #expect(deals.deals.count == 1 && made.stageLabels == [ObjectTypes.deal.orderedStages[0].label])
         let linked = try #require(made.items.first)
         #expect(made.items.count == 1 && linked.item.task == world.helper.spec.task)

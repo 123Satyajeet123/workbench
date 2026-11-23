@@ -1,8 +1,9 @@
 import Foundation
 
-/// The built-in object types. A team's own types come later; these are data in code.
+/// The built-in object types. A team's own types come later; these are data in code. A folder and a page are types
+/// with no stages: the tree holds every kind of work object, so there is no second kind of folder.
 public enum ObjectTypes {
-    public static let builtIn = [deal, project]
+    public static let builtIn = [deal, project, company, folder, page, machinePage]
 
     public static func type(for kind: String) -> ObjectType {
         builtIn.first { $0.id == kind } ?? .unlisted(kind)
@@ -33,6 +34,18 @@ public enum ObjectTypes {
                 id: "deal.rejected", label: "Rejected", order: 9, meaning: .watch, requires: ["reason"],
                 after: [TimerRule(field: "revisit", defaultAfterDays: 180)]),
         ])
+}
+
+extension ObjectTypes {
+    public static let company = ObjectType(
+        id: "company", noun: "company", fields: [FieldDef(id: "domain", label: "Website", kind: .text)], stages: [])
+    public static let folder = ObjectType(id: "folder", noun: "folder", stages: [])
+    public static let page = ObjectType(id: "page", noun: "page", stages: [])
+    /// The page of one machine. Its parent is the folder the machine serves.
+    public static let machinePage = ObjectType(id: "machine-page", noun: "machine", stages: [])
+
+    /// The kinds a fact may be filed under: every kind except the pages that hold setup or words.
+    public static let homes = builtIn.filter { $0.id != page.id && $0.id != machinePage.id }
 }
 
 extension WorkObject {

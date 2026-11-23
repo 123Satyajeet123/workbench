@@ -11,8 +11,9 @@ extension Store {
     /// writes on facts (a restatement, a new date, a replacement, a proposal to close, a flag), each with the run,
     /// the line and the quote that show it. A machine with no lifecycle adds no item that repeats one stored before
     /// it, or a finding of facts told before (`toldBeforeDays`). The app picks each new item on its own, with
-    /// the chance `AuditPolicy.pickChance`, to ask the founder about, and keeps the chance it had. The grant is asked after the model ran, so consent withdrawn
-    /// meanwhile stops the write.
+    /// the chance `AuditPolicy.pickChance`, to ask the founder about, and keeps the chance it had. Each new item is
+    /// filed in the folder of its machine; a home the model proposed is filed after it. The grant is asked after the
+    /// model ran, so consent withdrawn meanwhile stops the write.
     public func saveReading(
         _ result: HelperReader.Result, of spec: HelperSpec, day: WorkDay, scope: String, grant: CaptureGrant,
         isAudited: ((Int) -> Bool)? = nil
@@ -36,6 +37,9 @@ extension Store {
             for (index, id) in opened.compactMap({ $0 }).enumerated() where (isAudited ?? self.isAudited)(index) {
                 try db.execute(
                     sql: "UPDATE item SET asked_with = ? WHERE id = ?", arguments: [AuditPolicy.pickChance, id])
+            }
+            for proposal in result.homes {
+                if let item = opened[proposal.item] { try fileProposal(db, item: item, into: proposal.object) }
             }
             if let run = result.run {
                 for link in result.links { try apply(link, opened: opened, run: run, db) }
@@ -68,7 +72,9 @@ extension Store {
                 now.stored, item.quoteSpan?.line, item.quoteSpan?.part, item.quoteSpan?.start, item.quoteSpan?.end,
                 try item.label.map { try Coding.json(StoredLabel($0)) }, item.authority.rawValue,
             ])
-        return db.lastInsertedRowID
+        let id = db.lastInsertedRowID
+        try FactFiling.fileInDefaultHomes(db, item: id)
+        return id
     }
 
     /// Writes the event of one link. An event on a fact this reading did not open, or opened as a repeat, is not

@@ -1,12 +1,12 @@
 import Foundation
 
-/// The name of a project note. A project has one note, so its id is the project's id: it is also the container of the
-/// note's lines.
+/// The name of the note of a work object. A work object has one note, so its id is the work object's id: it is also
+/// the container of the note's lines.
 public struct NoteID: Hashable, Sendable {
     public let rawValue: String
 
-    public init?(project: String) {
-        let text = project.precomposedStringWithCanonicalMapping
+    public init?(object: WorkObjectID) {
+        let text = object.precomposedStringWithCanonicalMapping
         guard !text.isEmpty else { return nil }
         rawValue = text
     }

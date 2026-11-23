@@ -12,7 +12,7 @@ public enum DropRule: String, CaseIterable, Sendable {
     case quoteTooShort = "quote_too_short"
     /// A field value does not fit the kind of its field.
     case fieldKind = "field_kind"
-    /// It names an open fact that the model was not shown.
+    /// It names an open fact or a place that the model was not shown.
     case unknownHandle = "unknown_handle"
     /// It says it is the same fact as an open one with another owner.
     case identityMismatch = "identity_mismatch"

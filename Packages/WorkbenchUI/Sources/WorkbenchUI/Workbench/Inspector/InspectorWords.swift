@@ -37,10 +37,16 @@ struct DateWords {
 
 /// The plain-words lines of the inspector that are not proof lines.
 enum InspectorWords {
-    static func meta(of item: Item, _ words: DateWords) -> String {
+    static func meta(of item: Item, home: Filing? = nil, _ words: DateWords) -> String {
         var parts = ["project", "company", "event", "feed"].map { item[$0] }.filter { !$0.isEmpty }
         if let due = item.dueDay { parts.append("due \(words.date(due.start))") }
+        if let home { parts.append(Self.home(home)) }
         return parts.joined(separator: " · ")
+    }
+
+    /// Where the fact is filed. A home a model proposed ends in a question: one key confirms or moves it.
+    static func home(_ filing: Filing) -> String {
+        filing.isProposal ? "Filed to \(filing.object.name)?" : "in \(filing.object.name)"
     }
 
     /// Where the fact came from: the source, the chat if it has one, and the moment of the message.

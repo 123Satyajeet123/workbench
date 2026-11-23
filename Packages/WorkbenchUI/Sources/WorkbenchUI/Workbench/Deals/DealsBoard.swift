@@ -48,7 +48,7 @@ struct DealCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Space.xs) {
             HStack {
-                Text(deal.title).fontWeight(.medium)
+                Text(deal.name).fontWeight(.medium)
                 Spacer(minLength: Space.xs)
                 if let rating = digest?.triage?.rating {
                     Text(rating.rawValue.capitalized).textStyle(.caption, weight: .semibold)

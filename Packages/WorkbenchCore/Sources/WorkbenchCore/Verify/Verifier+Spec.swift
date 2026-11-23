@@ -67,22 +67,43 @@ extension Verifier {
             due: TimeResolver.resolve(mention.record, anchor: source.start, zone: zone, hours: hours))
     }
 
-    /// A proposal that passed its checks: the item it states, how it relates to the open facts, and the due time it gives.
+    /// The home a proposal names for its item. It is a hint, so a bad one never drops the item.
+    enum HomeChoice: Sendable, Equatable {
+        case none
+        case place(WorkObjectID)
+        /// A handle that names none of the places the model was shown.
+        case refused(String)
+    }
+
+    /// A proposal that passed its checks: the item it states, how it relates to the open facts, the due time it gives,
+    /// and the home it names.
     struct Checked: Sendable {
         var item: Item
         var relation: Relation
         var due: Due?
+        var home: HomeChoice
     }
 
     /// The proposal of `spec`'s machine, whole: its item passes `item(_:spec:open:day:scope:run:)`, and its relation
-    /// passes `relation(_:spec:open:item:)`.
+    /// passes `relation(_:spec:open:item:)`. Its home is read by `home(_:places:)` and never refuses the proposal.
     func proposal(
-        _ raw: [String: JSONValue], spec: HelperSpec, open: [Item], day: WorkDay, scope: String, run: RunID
+        _ raw: [String: JSONValue], spec: HelperSpec, open: [Item], places: [WorkObject] = [], day: WorkDay,
+        scope: String, run: RunID
     ) throws -> Checked {
         let item = try item(raw, spec: spec, open: open, day: day, scope: scope, run: run)
         return Checked(
-            item: item, relation: try relation(raw, spec: spec, open: open, item: item),
-            due: item.openedDue)
+            item: item, relation: try relation(raw, spec: spec, open: open, item: item), due: item.openedDue,
+            home: home(raw, places: places))
+    }
+
+    /// The place a proposal files its item under. The model sees the places by handle, so a handle that names none of
+    /// them is refused. An empty handle names none, and so does a reading that showed no places.
+    func home(_ raw: [String: JSONValue], places: [WorkObject]) -> HomeChoice {
+        guard !places.isEmpty, let handle = raw["object"]?.string, !handle.isEmpty else { return .none }
+        guard handle.first == "O", let index = Int(handle.dropFirst()), places.indices.contains(index - 1) else {
+            return .refused(handle)
+        }
+        return .place(places[index - 1].id)
     }
 
     /// How a proposal relates to the open facts shown to the model. A machine with no lifecycle shows none, so every

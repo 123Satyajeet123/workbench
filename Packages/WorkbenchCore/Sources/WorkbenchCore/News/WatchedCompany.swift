@@ -51,7 +51,7 @@ public struct WatchedCompany: Sendable, Equatable, Identifiable {
                 deal.meanings.contains(.won) ? .portfolio : deal.meanings.contains(.watch) ? .passed : nil
             return status.map {
                 WatchedCompany(
-                    id: deal.id, name: deal.title, aliases: extras[deal.id]?.aliases ?? [],
+                    id: deal.id, name: deal.name, aliases: extras[deal.id]?.aliases ?? [],
                     domain: extras[deal.id]?.domain, status: $0, isDeal: true)
             }
         }

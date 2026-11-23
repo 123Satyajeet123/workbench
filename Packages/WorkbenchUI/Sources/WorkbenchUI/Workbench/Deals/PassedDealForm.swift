@@ -13,7 +13,7 @@ struct PassedDealForm: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Space.m) {
-            Text("Pass on \(deal.title)").textStyle(.title3)
+            Text("Pass on \(deal.name)").textStyle(.title3)
             TextField("Why you pass, for example: no revenue", text: $reason).onSubmit(save)
             Toggle("Remind me to look again", isOn: $revisits)
             if revisits {

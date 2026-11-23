@@ -61,7 +61,7 @@ import WorkbenchCore
 
         asha.refresh()
         let seen = try #require(asha.deal(id))
-        #expect(seen.title == "Acme" && seen.stageLabels == ["Inbox"])
+        #expect(seen.name == "Acme" && seen.stageLabels == ["Inbox"])
         #expect(seen.items.map(\.item.quote) == ["login API done"], "the group item came; the screen item stayed")
         #expect(!(try ashaStore.queries.workEvents()).contains { $0.item?.quote == "Term sheet - Acme.pdf" })
 

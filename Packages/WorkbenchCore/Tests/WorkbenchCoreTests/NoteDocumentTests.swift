@@ -6,7 +6,7 @@ import Testing
 /// The editor's side of a note: which blocks keep their names, which are new and how each ended. Every edit is a
 /// replaced range of the note's text; the document reads nothing else.
 @Suite struct NoteDocumentTests {
-    static let note = NoteID(project: "Bolt Pay")!
+    static let note = NoteID(object: "Bolt Pay")!
 
     /// A counter that gives each new block a name `n1`, `n2`, ... so a test reads the names.
     final class Names: @unchecked Sendable {

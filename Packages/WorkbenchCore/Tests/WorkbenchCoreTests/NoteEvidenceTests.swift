@@ -11,8 +11,8 @@ import Testing
 /// the one writer and erased through the one erase path.
 @Suite struct NoteEvidenceTests {
     static let owner = try! PersonID("owner-1")
-    static let boltPay = NoteID(project: "Bolt Pay")!
-    static let atlas = NoteID(project: "Atlas")!
+    static let boltPay = NoteID(object: "Bolt Pay")!
+    static let atlas = NoteID(object: "Atlas")!
 
     final class World: Sendable {
         let store: Store

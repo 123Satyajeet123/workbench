@@ -104,10 +104,14 @@ extension Store {
                 try db.execute(
                     sql: "DELETE FROM state WHERE key LIKE ? ESCAPE '\\'", arguments: [Self.likePrefix(task)])
                 let machines = try db.fetch(
-                    "machine_now", "SELECT id, name, template, spec, state FROM machine_now WHERE task = ?", [task],
+                    "machine_now", "SELECT id, name, template, spec, state, page_id FROM machine_now WHERE task = ?",
+                    [task],
                     as: Machine.init(row:))
                 if let machine = machines.first {
                     try change(db, machine, name: machine.name, spec: machine.spec, state: .deleted)
+                    try db.execute(
+                        sql: "UPDATE work_object SET archived_at = ? WHERE id = ?",
+                        arguments: [clock().stored, machine.page])
                 }
                 return [String]()
             case .everything(let cutoff):

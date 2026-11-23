@@ -15,7 +15,7 @@ struct DealDetail: View {
         ScrollView {
             VStack(alignment: .leading, spacing: Space.m) {
                 HStack {
-                    Text(deal.title).textStyle(.title3)
+                    Text(deal.name).textStyle(.title3)
                     Spacer()
                     Button("Close", systemImage: "xmark", action: close).labelStyle(.iconOnly).buttonStyle(.ghost)
                 }
@@ -132,7 +132,7 @@ struct ActionRequiredForm: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Space.m) {
-            Text("What does \(deal.title) need?").textStyle(.title3)
+            Text("What does \(deal.name) need?").textStyle(.title3)
             TextField("For example: get the cap table from the founder", text: $what).onSubmit(save)
             DatePicker("By when", selection: $due, displayedComponents: .date)
             Text(

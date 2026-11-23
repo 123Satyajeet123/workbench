@@ -23,7 +23,7 @@ import WorkbenchCore
 
         let id = try #require(await deals.newDeal(from: item, of: intake))
         var deal = try #require(deals.deal(id))
-        #expect(deal.title == "Acme" && deals.deals(in: dealStage("Inbox")).map(\.id) == [id])
+        #expect(deal.name == "Acme" && deals.deals(in: dealStage("Inbox")).map(\.id) == [id])
         #expect(deal.items.map(\.item.quote) == ["Acme is raising a 2M seed"], "the founder sees their own item")
         #expect(deal.items.first?.item.audience == ["Aditya"], "a page item's audience is its owner alone")
 

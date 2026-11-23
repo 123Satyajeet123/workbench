@@ -13,7 +13,7 @@ import WorkbenchCore
 @MainActor
 @Suite struct NoteEditorTests {
     static let owner = try! PersonID("owner-1")
-    static let note = NoteID(project: "Bolt Pay")!
+    static let note = NoteID(object: "Bolt Pay")!
 
     struct Editor {
         let store: Store

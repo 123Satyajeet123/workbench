@@ -17,7 +17,7 @@ import WorkbenchCore
         let store = try scratchStore()
         let notes = ProjectNotes(store: store, owner: Self.owner)
         guard !texts.isEmpty else { return notes }
-        var document = NoteDocument(note: try #require(NoteID(project: project)))
+        var document = NoteDocument(note: try #require(NoteID(object: project)))
         document.replace(0..<0, with: texts.joined(separator: "\n"))
         _ = try await store.saveNote(try #require(document.pendingChange()), owner: Self.owner)
         return notes

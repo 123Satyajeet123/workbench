@@ -66,7 +66,7 @@ enum MeetingPrep {
     private static func deal(_ deal: WorkObject, actions: [Item], now: Date) -> Prep {
         let latest = deal.items.sorted { $0.item.day > $1.item.day }.prefix(quotesShown)
         return Prep(
-            subject: .deal(deal.id), name: deal.title, line: nil, stage: deal.stageLabels.first,
+            subject: .deal(deal.id), name: deal.name, line: nil, stage: deal.stageLabels.first,
             facts: actions.filter {
                 $0[DealAction.dealField] == deal.id && $0.isOpen(in: DealAction.lifecycle, at: now)
             },

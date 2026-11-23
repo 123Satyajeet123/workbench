@@ -68,7 +68,7 @@ extension Queries {
                         SELECT e.container, e.message_ref FROM chain JOIN evidence e ON e.entity_key = chain.entity
                         WHERE e.message_ref IS NOT NULL ORDER BY chain.depth DESC, e.id DESC LIMIT 1
                         """, arguments: [lineID]),
-                let note = NoteID(project: row["container"]), let into = BlockID(row["message_ref"])
+                let note = NoteID(object: row["container"]), let into = BlockID(row["message_ref"])
             else { return nil }
             return ParagraphMove(note: note, into: into)
         }

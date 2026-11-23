@@ -18,7 +18,7 @@ final class ProjectNotes {
 
     func editor(for project: String) -> NoteEditorModel? {
         if let known = editors[project] { return known }
-        guard let note = NoteID(project: project) else { return nil }
+        guard let note = NoteID(object: project) else { return nil }
         let editor = NoteEditorModel(note: note, store: store, owner: owner)
         editors[project] = editor
         return editor

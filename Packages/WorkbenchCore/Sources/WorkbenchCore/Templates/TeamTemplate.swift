@@ -92,6 +92,15 @@ public struct TeamTemplate: Sendable, Equatable, Identifiable {
         }
     }
 
+    /// The folder that holds a machine made from the machine template `template` when no folder is named: the name of
+    /// the first built-in team template that makes it, or a general folder for a machine no team template lists.
+    public static func folderName(forMachine template: String) -> String {
+        builtIn.first { team in (team.machines + team.optionalMachines).contains { $0.template == template } }?.name
+            ?? generalFolder
+    }
+
+    public static let generalFolder = "General"
+
     private var known: [(machine: TeamMachine, template: MachineTemplate)] {
         machines.compactMap { machine in MachineTemplate.of(id: machine.template).map { (machine, $0) } }
     }
