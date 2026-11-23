@@ -21,7 +21,6 @@ public protocol ProcessLauncher: Sendable {
     func launch(_ plan: ProcessPlan, timeout: Duration) async throws -> ProcessOutput
 }
 
-/// Every child the launcher has started and not yet seen end.
 public enum RunningChildren {
     private static let killGrace: Duration = .seconds(5)
     private static let pids = Mutex<Set<Int32>>([])

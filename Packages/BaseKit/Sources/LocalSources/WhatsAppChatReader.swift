@@ -106,7 +106,6 @@ public struct WhatsAppChatReader: Sendable {
             WHERE s.ZCONTACTJID IN (\(marks)) AND s.ZSESSIONTYPE = ?
             """,
             binding: chatJIDs.map { .text($0) } + [.integer(Int64(SessionType.person))])
-        // One person per ID, in whichever chats: in a chat now if in any of them now.
         var byID: [String: (jid: String, contactName: String?, pushName: String?, active: Bool)] = [:]
         var order: [String] = []
         var chats: [String: [String]] = [:]

@@ -1,7 +1,6 @@
 import Foundation
 import WorkbenchCore
 
-/// The `result` event that ends a claude run.
 public struct ClaudeResult: Sendable, Equatable {
     public let isError: Bool
     public let text: String?
@@ -27,7 +26,6 @@ public struct ClaudeResult: Sendable, Equatable {
             costUSD: Self.number(object["total_cost_usd"]))
     }
 
-    /// The last result event in the output of one run, if any.
     public static func last(in stdout: String) -> ClaudeResult? {
         stdout.split(separator: "\n").reversed().lazy.compactMap { ClaudeResult(line: String($0)) }.first
     }

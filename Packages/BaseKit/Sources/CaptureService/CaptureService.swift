@@ -14,7 +14,6 @@ public final class CaptureService {
 
     public private(set) var policy: CapturePolicy
     public private(set) var status: CaptureStatus
-    /// The call being recorded now, if any.
     public private(set) var call: Recording?
     /// Apps playing sound now, refreshed every tick: the calls that can be recorded.
     public private(set) var playingApps: [AudioApp] = []

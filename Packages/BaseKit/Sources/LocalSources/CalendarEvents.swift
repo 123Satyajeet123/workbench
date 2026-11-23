@@ -14,7 +14,6 @@ public enum CalendarAccess: Sendable, Equatable {
     case allowed
     /// The person said no, now or before; only System Settings can change it.
     case blocked
-    /// macOS refused with an error, in its words.
     case failed(String)
 }
 
@@ -22,7 +21,6 @@ public enum CalendarError: Error, Equatable {
     case accessRefused(CalendarAccess)
 }
 
-/// What one read found: every calendar the person could choose, and today's meetings in the chosen ones.
 public struct CalendarDay: Sendable, Equatable {
     public var calendars: [CalendarInfo]
     public var meetings: [Meeting]

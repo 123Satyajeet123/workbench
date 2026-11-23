@@ -1,7 +1,6 @@
 import Foundation
 import WorkbenchCore
 
-/// What the JSON event stream of one `codex exec --json` run says about usage and failure.
 struct CodexEvents: Sendable, Equatable {
     private(set) var usage = Usage()
     private(set) var completed = false

@@ -180,7 +180,6 @@ final class ProcessTap {
         }
     }
 
-    /// Stops the tap, then closes its files.
     func stop() throws -> [URL] {
         stopDevice()
         defer { sink = nil }

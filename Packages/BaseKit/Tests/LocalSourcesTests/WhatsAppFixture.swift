@@ -88,7 +88,6 @@ struct WhatsAppFixture {
     /// WhatsApp's Core Data store identity changed: the store is a new one.
     func changeStoreIdentity(to uuid: String) throws { try run("UPDATE Z_METADATA SET Z_UUID = '\(uuid)'") }
 
-    /// WhatsApp's copy of the founder's address book: (member ID, full name) rows.
     func contacts(_ rows: [(lid: String, name: String)]) throws {
         let values = rows.map { "('\($0.lid)', NULL, '\($0.name)')" }.joined(separator: ", ")
         try run(

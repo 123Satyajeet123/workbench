@@ -100,7 +100,6 @@ struct CaptureServiceTests {
 
 }
 
-/// Answers every call with an empty object.
 private struct EmptyItemsModel: StructuredModel {
     let name = "empty"
 

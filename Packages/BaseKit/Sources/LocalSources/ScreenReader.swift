@@ -60,7 +60,6 @@ public final class ScreenReader: ScreenReading {
 
     public static var isTrusted: Bool { AXIsProcessTrusted() }
 
-    /// Shows the system prompt that opens Privacy & Security › Accessibility.
     public static func requestTrust() {
         AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
     }
@@ -110,7 +109,6 @@ public final class ScreenReader: ScreenReading {
         return document
     }
 
-    /// The first text field whose value reads as a web address.
     private func findAddressBar(in window: AXUIElement) -> AXUIElement? {
         var queue = [window]
         var next = 0

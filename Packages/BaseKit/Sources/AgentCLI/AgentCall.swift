@@ -1,6 +1,5 @@
 import Foundation
 
-/// The command-line agents Workbench can run a model through. Each uses the founder's own plan and login.
 public enum AgentCLIKind: String, Sendable, CaseIterable, Codable {
     case claude, codex
 
