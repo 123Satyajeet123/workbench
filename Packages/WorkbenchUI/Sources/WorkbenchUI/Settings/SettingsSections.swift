@@ -6,6 +6,8 @@ struct SettingsSectionView: View {
     @Environment(IdentityModel.self) private var identityModel
     @Environment(ModelSettings.self) private var models
     @Environment(CaptureSettings.self) private var capture
+    @Environment(Crew.self) private var crew
+    @Environment(Notifications.self) private var notifications
     @AppStorage(AppTheme.key) private var theme = AppTheme.system
 
     var body: some View {
@@ -14,12 +16,19 @@ struct SettingsSectionView: View {
             case .general:
                 you
                 model
+                ProfileSection(
+                    profile: capture.profile, reading: crew.machines.filter { $0.phase == .reading }.map(\.name))
+            case .team: TeamSection()
             case .appearance: appearance
             case .notch: IslandSection()
-            case .notifications: RemindersSection()
+            case .notifications:
+                RemindersSection()
+                NotificationPolicySection(defaults: notifications.defaults)
             case .capture:
                 sources
+                SourceHealthSection()
                 DenyListSection()
+                WhatsAppDeleteSection()
                 keptToday
             case .webResearch: WebResearchSection()
             case .startup: Section { LoginItemToggle() }
@@ -28,7 +37,11 @@ struct SettingsSectionView: View {
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
         .onChange(of: theme) { _, theme in theme.apply() }
-        .onAppear { if section == .capture { capture.refreshLog() } }
+        .onAppear {
+            guard section == .capture else { return }
+            capture.refreshLog()
+            capture.refreshHealth()
+        }
     }
 
     @ViewBuilder private var you: some View {
@@ -61,6 +74,9 @@ struct SettingsSectionView: View {
                     .labelsHidden().fixedSize()
                 }
                 if models.billing == .apiKey { APIKeyField() }
+            }
+            if models.choice.kind == .codex || models.billing == .plan {
+                ModelReaderRows(store: models.store, kind: models.choice.kind)
             }
         } header: {
             Text("Model")
@@ -141,7 +157,7 @@ private struct IslandSection: View {
     }
 }
 
-private struct SettingRow<Control: View>: View {
+struct SettingRow<Control: View>: View {
     let title: String
     let detail: String
     @ViewBuilder let control: Control
@@ -165,7 +181,6 @@ private struct SettingRow<Control: View>: View {
 
 private struct APIKeyField: View {
     @Environment(ModelSettings.self) private var models
-    @AppStorage(AppTheme.key) private var theme = AppTheme.system
     @State private var typed = ""
 
     var body: some View {

@@ -118,7 +118,7 @@ private struct BriefCard: View {
                         .textStyle(.callout).foregroundStyle(.supporting)
                 }
             } else {
-                Text("No brief yet. Mochi writes one each morning when it is on in Settings › Reminders.")
+                Text("No brief yet. Mochi writes one each morning when it is on in Settings › Notifications.")
                     .foregroundStyle(.supporting)
             }
             if let problem = mochi.briefProblem { Text(problem).textStyle(.callout).foregroundStyle(.supporting) }

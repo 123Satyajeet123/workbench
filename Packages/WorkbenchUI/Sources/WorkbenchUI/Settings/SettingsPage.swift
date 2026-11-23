@@ -1,16 +1,17 @@
 import SwiftUI
 
 enum SettingsSection: String, CaseIterable, Hashable {
-    case general, appearance, notch, notifications, capture, webResearch, startup
+    case general, team, appearance, notch, notifications, capture, webResearch, startup
 
     static let groups: [(title: String?, sections: [SettingsSection])] = [
-        (nil, [.general, .appearance, .notch, .notifications]),
+        (nil, [.general, .team, .appearance, .notch, .notifications]),
         ("This computer", [.capture, .webResearch, .startup]),
     ]
 
     var title: String {
         switch self {
         case .general: "General"
+        case .team: "Team"
         case .appearance: "Appearance"
         case .notch: "Notch"
         case .notifications: "Notifications"
@@ -23,6 +24,7 @@ enum SettingsSection: String, CaseIterable, Hashable {
     var symbol: String {
         switch self {
         case .general: "gearshape"
+        case .team: "person.3"
         case .appearance: "paintpalette"
         case .notch: "rectangle.topthird.inset.filled"
         case .notifications: "bell"
@@ -126,6 +128,13 @@ struct SettingsItem {
         SettingsItem(title: "Your name", section: .general, words: "name you founder"),
         SettingsItem(title: "Model", section: .general, words: "read with claude opus sonnet codex ai"),
         SettingsItem(title: "Billing and API key", section: .general, words: "bill to plan anthropic api key pay"),
+        SettingsItem(
+            title: "Plan conditions", section: .general,
+            words: "confirm conditions terms training reader signed subscription consent"),
+        SettingsItem(title: "Demo", section: .general, words: "demo synthetic sample example profile switch back data"),
+        SettingsItem(
+            title: "Team name and people", section: .team, words: "team people person role add remove members"),
+        SettingsItem(title: "Team folder", section: .team, words: "share sharing folder icloud sync"),
         SettingsItem(title: "Theme", section: .appearance, words: "appearance dark mode light system colour color"),
         SettingsItem(
             title: "Show in the notch", section: .notch,
@@ -133,12 +142,18 @@ struct SettingsItem {
         SettingsItem(title: "When nothing is happening", section: .notch, words: "idle claude plan ring usage"),
         SettingsItem(
             title: "Reminders", section: .notifications, words: "digest morning brief notifications weekly mochi"),
+        SettingsItem(title: "Most a day", section: .notifications, words: "notifications how many limit cap daily"),
+        SettingsItem(
+            title: "Quiet hours", section: .notifications, words: "notifications quiet night disturb from until"),
         SettingsItem(title: "Open at login", section: .startup, words: "startup login launch start"),
         SettingsItem(
             title: "Capture sources", section: .capture,
             words: "screen files calls microphone whatsapp telegram mail switches capture"),
         SettingsItem(title: "Web research", section: .webResearch, words: "search provider claims queries internet"),
+        SettingsItem(
+            title: "Source health", section: .capture, words: "health ready permission problem broken access sources"),
         SettingsItem(title: "Never capture", section: .capture, words: "deny block exclude private apps websites"),
+        SettingsItem(title: "Delete WhatsApp messages", section: .capture, words: "whatsapp delete erase remove data"),
         SettingsItem(title: "Kept today", section: .capture, words: "log activity windows delete history"),
     ]
 }

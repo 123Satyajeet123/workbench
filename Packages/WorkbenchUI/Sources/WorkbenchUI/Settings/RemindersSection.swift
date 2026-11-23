@@ -1,7 +1,7 @@
 import SwiftUI
 import WorkbenchCore
 
-/// Settings › General › Reminders: the digest and Mochi's weekly run, both off until turned on.
+/// Settings › Notifications › Reminders: the digest and Mochi's weekly run, both off until turned on.
 struct RemindersSection: View {
     @Environment(Reminders.self) private var reminders
     @Environment(Notifications.self) private var notifications

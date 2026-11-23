@@ -14,20 +14,25 @@ struct ModelReaderRows: View {
 
     var body: some View {
         Group {
-            if kind == .claude { LabeledContent("Reader", value: status.map(Self.describe) ?? "Checking…") }
-            ForEach(ModelTerms.conditions, id: \.self) { Text($0).font(.callout) }
-            Toggle("I confirm both conditions", isOn: confirmed)
+            if kind == .claude {
+                SettingRow("Reader", status.map(Self.describe) ?? "Checking…") { EmptyView() }
+            }
+            SettingRow("I confirm both conditions", Self.conditions) {
+                Toggle("I confirm both conditions", isOn: confirmed).labelsHidden().toggleStyle(.switch)
+            }
             if let confirmation {
                 FormNote("Confirmed on \(confirmation.confirmedAt.formatted(date: .abbreviated, time: .omitted)).")
             } else {
                 FormNote("Workbench makes no call with your plan until you confirm.")
             }
         }
-        .task {
+        .task(id: kind) {
             confirmation = store.currentModelTermsConfirmation()
             if kind == .claude { status = await readStatus(store) }
         }
     }
+
+    private static let conditions = ModelTerms.conditions.map { "• \($0)" }.joined(separator: "\n")
 
     private var confirmed: Binding<Bool> {
         Binding(

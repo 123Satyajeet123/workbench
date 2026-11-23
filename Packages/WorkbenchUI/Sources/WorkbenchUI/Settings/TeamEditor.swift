@@ -29,20 +29,14 @@ struct TeamEditor: View {
     }
 }
 
-struct TeamSettingsView: View {
+/// Settings › Team: the team editor, saved by hand, and the folder the team shares through.
+struct TeamSection: View {
     @Environment(TeamModel.self) private var model
     @Environment(TeamCatalogModel.self) private var catalog
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Space.l) {
+        Section("People") {
             TeamEditor()
-            LabeledContent("Team folder") {
-                HStack {
-                    Text(catalog.folder?.path(percentEncoded: false) ?? "None").foregroundStyle(.supporting).lineLimit(
-                        1)
-                    FolderButton()
-                }
-            }
             ProblemSlotBanner(slot: model.problems)
             HStack {
                 Spacer()
@@ -50,8 +44,9 @@ struct TeamSettingsView: View {
                 Button("Save", action: model.save).buttonStyle(.primary).keyboardShortcut(.defaultAction)
             }
         }
-        .padding(Space.l)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onAppear(perform: model.reload)
+        Section("Sharing") {
+            SettingRow("Team folder", catalog.folder?.path(percentEncoded: false) ?? "None") { FolderButton() }
+        }
     }
 }

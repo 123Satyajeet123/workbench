@@ -15,7 +15,7 @@ final class Notifications {
 
     @ObservationIgnored let notifier: Notifier
     @ObservationIgnored private var waiting: [() -> Void] = []
-    @ObservationIgnored private let defaults: UserDefaults
+    @ObservationIgnored let defaults: UserDefaults
     @ObservationIgnored private let clock: () -> Date
     @ObservationIgnored private let windowInFront: @MainActor () -> Bool
 

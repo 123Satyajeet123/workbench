@@ -45,43 +45,47 @@ struct NotificationPolicy: Equatable {
     }
 }
 
-/// Settings › Notifications: how many a day, and the quiet hours.
-struct NotificationSettingsView: View {
+/// Settings › Notifications: how many a day, and the quiet hours. Kept in the defaults the notification gate reads.
+struct NotificationPolicySection: View {
     private let defaults: UserDefaults
     @State private var policy: NotificationPolicy
 
-    init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaults) {
         self.defaults = defaults
         _policy = State(initialValue: .saved(in: defaults))
     }
 
     var body: some View {
-        Form {
-            Section {
-                Picker("Most a day", selection: $policy.dailyCap) {
+        Section {
+            SettingRow("Most a day", "Workbench shows no notification while its window is in front.") {
+                Picker("Most a day", selection: saved.dailyCap) {
                     ForEach(NotificationPolicy.capChoices, id: \.self) { Text("\($0)").tag($0) }
                 }
-            } header: {
-                Text("How many")
-            } footer: {
-                FormNote(
-                    "Workbench shows no notification while its window is in front."
-                )
+                .labelsHidden().fixedSize()
             }
-            Section {
-                Toggle("Quiet hours", isOn: $policy.quiet.isOn)
-                if policy.quiet.isOn {
-                    DatePicker("From", selection: minutes($policy.quiet.start), displayedComponents: .hourAndMinute)
-                    DatePicker("Until", selection: minutes($policy.quiet.end), displayedComponents: .hourAndMinute)
-                }
-            } header: {
-                Text("When")
-            } footer: {
-                FormNote("In quiet hours Workbench shows no notification, even when a fact needs you.")
-            }
+        } header: {
+            Text("How many")
         }
-        .formStyle(.grouped)
-        .onChange(of: policy) { _, policy in policy.save(in: defaults) }
+        Section {
+            SettingRow("Quiet hours", "In quiet hours Workbench shows no notification, even when a fact needs you.") {
+                Toggle("Quiet hours", isOn: saved.quiet.isOn).labelsHidden().toggleStyle(.switch)
+            }
+            if policy.quiet.isOn {
+                DatePicker("From", selection: minutes(saved.quiet.start), displayedComponents: .hourAndMinute)
+                DatePicker("Until", selection: minutes(saved.quiet.end), displayedComponents: .hourAndMinute)
+            }
+        } header: {
+            Text("When")
+        }
+    }
+
+    private var saved: Binding<NotificationPolicy> {
+        Binding(
+            get: { policy },
+            set: { changed in
+                policy = changed
+                changed.save(in: defaults)
+            })
     }
 
     private func minutes(_ minutes: Binding<Int>) -> Binding<Date> {

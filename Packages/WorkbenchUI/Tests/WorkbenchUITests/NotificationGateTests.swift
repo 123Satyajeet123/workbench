@@ -305,7 +305,8 @@ private let notice = FactNotice(itemID: 7, title: "Send Asha the term sheet", so
         NotificationPolicy(quiet: QuietHours(isOn: false, start: 1320, end: 480)).save(in: off)
         for (name, defaults) in [("quiet-on", on), ("quiet-off", off)] {
             for (dark, label) in [(false, "light"), (true, "dark")] {
-                let data = try png(of: NotificationSettingsView(defaults: defaults), dark: dark)
+                let data = try png(
+                    of: Form { NotificationPolicySection(defaults: defaults) }.formStyle(.grouped), dark: dark)
                 try data.write(to: folder().appending(path: "settings-notifications-\(name)-\(label).png"))
                 #expect(data.count > 10_000)
             }

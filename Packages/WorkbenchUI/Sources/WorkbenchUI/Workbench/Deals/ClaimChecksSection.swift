@@ -95,7 +95,7 @@ struct ClaimChecksSection: View {
             Button(isBusy ? "Working…" : "Rate against our thesis") { Task { await claims.rate(deal) } }
             if !state.chosen.isEmpty {
                 Button("Check \(state.chosen.count) chosen on the web") { Task { await claims.checkChosen(in: deal) } }
-                Text("Sends search queries about these claims to your search provider. See Settings › Capture.")
+                Text("Sends search queries about these claims to your search provider. See Settings › Web research.")
                     .textStyle(.callout).foregroundStyle(.supporting)
             }
         }

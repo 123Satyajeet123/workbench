@@ -4,7 +4,7 @@ import WorkbenchCore
 
 /// The pages of the main window: Today (the home), People, Projects, Echo (calls), Mochi, Crew, and one page per
 /// machine. A fixed page's name, role and face live here, the one place to rename it; a machine's come from its record.
-/// `advanced` is not a page of the window: it names Settings › Advanced, so an old `runs` link still opens it.
+/// `advanced` and `runs` are old names of the Usage page, so an old link still opens it.
 enum SidebarSelection: Hashable, Identifiable, RawRepresentable {
     case day, people, projects, mochi, crew, review, calls, deals, catalog, usage, settings
     case machine(Int64)
