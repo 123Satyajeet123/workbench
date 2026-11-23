@@ -11,6 +11,7 @@ let package = Package(
         .executable(name: "kal-label", targets: ["KalLabelRunner"]),
         .executable(name: "trust-sim", targets: ["TrustSimRunner"]),
         .executable(name: "independent-flows", targets: ["IndependentFlowsDemo"]),
+        .executable(name: "model-access", targets: ["ModelAccessDemo"]),
     ],
     dependencies: [
         .package(path: "../Packages/WorkbenchCore"), .package(path: "../Packages/WorkbenchUI"),
@@ -29,6 +30,10 @@ let package = Package(
                 "WorkbenchCore", "WorkbenchUI", .product(name: "CaptureService", package: "BaseKit"),
                 .product(name: "Kernel", package: "Kernel"), .product(name: "Lines", package: "Kernel"),
             ],
+            swiftSettings: [.defaultIsolation(MainActor.self)]),
+        .executableTarget(
+            name: "ModelAccessDemo",
+            dependencies: ["WorkbenchCore", "WorkbenchUI", .product(name: "AgentCLI", package: "BaseKit")],
             swiftSettings: [.defaultIsolation(MainActor.self)]),
         .testTarget(name: "EvalsTests", dependencies: ["Evals", "WorkbenchCore"]),
     ]

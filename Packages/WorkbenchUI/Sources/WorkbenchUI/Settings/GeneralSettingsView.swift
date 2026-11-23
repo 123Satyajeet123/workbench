@@ -28,6 +28,7 @@ struct GeneralSettingsView: View {
                         ForEach(Billing.allCases) { Text($0.title).tag($0) }
                     }
                     if models.billing == .apiKey { APIKeyField() }
+                    if models.billing == .plan { ModelReaderRows(store: models.store) }
                 }
             } header: {
                 Text("Model")

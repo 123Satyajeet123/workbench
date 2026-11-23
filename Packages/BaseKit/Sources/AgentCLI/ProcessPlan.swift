@@ -58,6 +58,27 @@ extension ProcessPlan {
             answerFile: kind == .codex ? answerFileName(callID: callID) : nil, apiKey: apiKey, tools: call.tools)
     }
 
+    /// A question to the Claude CLI that makes no model call and sends no input.
+    public enum ReaderQuery: Sendable {
+        case authStatus, version
+
+        var arguments: [String] {
+            switch self {
+            case .authStatus: ["auth", "status", "--json"]
+            case .version: ["--version"]
+            }
+        }
+    }
+
+    public static func readerQuery(
+        _ query: ReaderQuery, executable: URL, environment inherited: [String: String], workDirectory: URL
+    ) -> ProcessPlan {
+        ProcessPlan(
+            kind: .claude, executable: executable, arguments: query.arguments,
+            environment: environment(kind: .claude, executable: executable, inherited: inherited), stdin: "",
+            workDirectory: workDirectory, callID: UUID().uuidString, inputFiles: [:], answerFile: nil, apiKey: nil)
+    }
+
     static let apiKeyVariable = "ANTHROPIC_API_KEY"
 
     /// A credential from the founder's shell never reaches the CLI. The one exception is the key the founder chose

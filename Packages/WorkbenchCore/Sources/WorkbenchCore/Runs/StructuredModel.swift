@@ -132,8 +132,14 @@ public struct ModelAnswer<Value: Sendable>: Sendable {
 public protocol StructuredModel: Sendable {
     /// The model asked for, such as "opus".
     var name: String { get }
+    /// The calls go through the person's own Claude plan sign-in, so they need the person's yes first.
+    var billedToClaudePlan: Bool { get }
     func generate<T: Decodable & Sendable>(_ type: T.Type, schema: JSONSchema, instructions: String, input: String)
         async throws -> ModelAnswer<T>
+}
+
+extension StructuredModel {
+    public var billedToClaudePlan: Bool { false }
 }
 
 public enum StructuredModelError: Error, Equatable {

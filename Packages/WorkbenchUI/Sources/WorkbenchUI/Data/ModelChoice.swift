@@ -101,7 +101,7 @@ final class ModelSettings {
     }
     private(set) var hasAPIKey: Bool
 
-    @ObservationIgnored private let store: Store
+    @ObservationIgnored let store: Store
     @ObservationIgnored private let secrets: SecretStore
 
     init(store: Store, secrets: SecretStore = KeychainSecrets()) {

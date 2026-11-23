@@ -67,6 +67,7 @@ public struct RecordedModel: Sendable {
         _ type: T.Type, schema: JSONSchema, task: String, instructions: String, input: String,
         holding kinds: Set<SourceKind>, holdingUnknown: Bool = false, window: [WindowLine] = []
     ) async throws -> (value: T, run: RunID) {
+        try store.requireModelTerms(for: model)
         let schemaText = try schema.jsonText
         let prompt = Digest.sha256(instructions + "\n" + schemaText)
         try store.keepPrompt(hash: prompt, task: task, instructions: instructions, schema: schemaText)

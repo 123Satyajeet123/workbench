@@ -22,6 +22,8 @@ public struct AgentRunner: StructuredModel {
 
     public var name: String { "\(kind.rawValue) \(model)" }
 
+    public var billedToClaudePlan: Bool { kind == .claude && !requiresAPIKey && apiKey == nil }
+
     public init(
         kind: AgentCLIKind, model: String, effort: String, timeout: Duration,
         launcher: any ProcessLauncher = SystemProcessLauncher(), executable: URL? = nil,
@@ -92,7 +94,7 @@ public struct AgentRunner: StructuredModel {
         return try await launcher.launch(plan, timeout: call.timeout)
     }
 
-    private static func prepare(_ directory: URL) throws {
+    static func prepare(_ directory: URL) throws {
         let files = FileManager.default
         try files.createDirectory(
             at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
