@@ -132,4 +132,6 @@ run "87 a trial replays days the proposer learned from" WorkbenchUI/Sources/Work
 run "88 a certificate ignores the chance an audit item had" $C/Runs/Certificate.swift 's/var share: Double \{ min\(1 \/ chance, Certificate\.heaviestWeight\) \/ Certificate\.heaviestWeight \}/var share: Double { 1 }/' WorkbenchCore WorkbenchUI ../Testing
 run "89 a certificate lets one answer weigh more than the heaviest" $C/Runs/Certificate.swift 's/min\(1 \/ chance, Certificate\.heaviestWeight\)/(1 \/ chance)/' WorkbenchCore
 run "91 an audited item is logged with a chance other than the one it was picked with" $C/Store/ItemStore.swift 's/arguments: \[AuditPolicy\.pickChance, id\]/arguments: [1.0 \/ Double(opened.count), id]/' WorkbenchCore
+run "every model call runs in the one fixed folder" BaseKit/Sources/AgentCLI/AgentRunner.swift 's/try Self\.prepare\(workDirectory\)/let workDirectory = workDirectory.appending(path: UUID().uuidString); try Self.prepare(workDirectory)/' BaseKit
+run "a finished model call leaves its files in the fixed folder" BaseKit/Sources/AgentCLI/ProcessLauncher.swift 's/        defer \{ for file in callFiles[^\n]*\n//' BaseKit
 echo DONE

@@ -14,6 +14,9 @@ public struct AgentRunner: StructuredModel {
     /// Billing is set to an API key, so a missing key stops the call instead of falling back to the sign-in.
     public var requiresAPIKey: Bool
     public var tools: AgentTools
+    /// The one empty folder every call runs in. The CLI keys its prompt cache on the folder, so a fixed folder lets
+    /// calls reuse the cache.
+    public var workDirectory: URL
     private let launcher: any ProcessLauncher
     private let inheritedEnvironment: [String: String]
 
@@ -23,9 +26,11 @@ public struct AgentRunner: StructuredModel {
         kind: AgentCLIKind, model: String, effort: String, timeout: Duration,
         launcher: any ProcessLauncher = SystemProcessLauncher(), executable: URL? = nil,
         environment: [String: String] = ProcessInfo.processInfo.environment, apiKey: String? = nil,
-        requiresAPIKey: Bool = false, tools: AgentTools = .none
+        requiresAPIKey: Bool = false, tools: AgentTools = .none,
+        workDirectory: URL = URL.applicationSupportDirectory.appending(path: "Workbench/agent-work")
     ) {
         self.tools = tools
+        self.workDirectory = workDirectory
         self.apiKey = apiKey
         self.requiresAPIKey = requiresAPIKey
         self.kind = kind
@@ -79,14 +84,18 @@ public struct AgentRunner: StructuredModel {
     func launch(_ call: AgentCall) async throws -> ProcessOutput {
         guard let executable else { throw AgentCLIError.notInstalled(kind) }
         if requiresAPIKey, apiKey?.isEmpty != false { throw AgentCLIError.noAPIKey }
-        let files = FileManager.default
-        let workDirectory = files.temporaryDirectory.appending(path: "agent-\(UUID().uuidString)")
-        try files.createDirectory(at: workDirectory, withIntermediateDirectories: true)
-        defer { try? files.removeItem(at: workDirectory) }
+        try Self.prepare(workDirectory)
         let plan = ProcessPlan.make(
             call: call, kind: kind, executable: executable, environment: inheritedEnvironment,
             workDirectory: workDirectory, apiKey: kind == .claude ? apiKey : nil)
         try plan.validate()
         return try await launcher.launch(plan, timeout: call.timeout)
+    }
+
+    private static func prepare(_ directory: URL) throws {
+        let files = FileManager.default
+        try files.createDirectory(
+            at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        try files.setAttributes([.posixPermissions: 0o700], ofItemAtPath: directory.path)
     }
 }

@@ -56,9 +56,11 @@ public struct SystemProcessLauncher: ProcessLauncher {
 
     public func launch(_ plan: ProcessPlan, timeout: Duration) async throws -> ProcessOutput {
         let directory = plan.workDirectory
-        let stdinFile = directory.appending(path: "stdin.txt")
-        let stdoutFile = directory.appending(path: "stdout.txt")
-        let stderrFile = directory.appending(path: "stderr.txt")
+        let stdinFile = directory.appending(path: "\(plan.callID)-stdin.txt")
+        let stdoutFile = directory.appending(path: "\(plan.callID)-stdout.txt")
+        let stderrFile = directory.appending(path: "\(plan.callID)-stderr.txt")
+        let callFiles = [stdinFile, stdoutFile, stderrFile] + plan.fileNames.map { directory.appending(path: $0) }
+        defer { for file in callFiles { try? FileManager.default.removeItem(at: file) } }
         try Data(plan.stdin.utf8).write(to: stdinFile)
         for (name, content) in plan.inputFiles { try Data(content.utf8).write(to: directory.appending(path: name)) }
         FileManager.default.createFile(atPath: stdoutFile.path, contents: nil)

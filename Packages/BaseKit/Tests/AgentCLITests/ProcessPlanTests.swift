@@ -104,8 +104,8 @@ import WorkbenchCore
     @Test func aCodexCallIsEphemeralReadOnlyWithoutToolsOrSearch() throws {
         let plan = makePlan(kind: .codex)
         try plan.validate()
-        #expect(plan.inputFiles == [ProcessPlan.schemaFileName: sampleCall.schemaText])
-        #expect(plan.answerFile == ProcessPlan.answerFileName)
+        #expect(plan.inputFiles == [ProcessPlan.schemaFileName(callID: plan.callID): sampleCall.schemaText])
+        #expect(plan.answerFile == ProcessPlan.answerFileName(callID: plan.callID))
         #expect(plan.environment["DISABLE_TELEMETRY"] == nil)
     }
 

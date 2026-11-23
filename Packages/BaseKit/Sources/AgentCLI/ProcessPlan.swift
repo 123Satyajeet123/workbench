@@ -7,7 +7,10 @@ public struct ProcessPlan: Sendable, Equatable {
     public var arguments: [String]
     public var environment: [String: String]
     public var stdin: String
+    /// The one folder every call runs in. Many calls share it, so each call names its files after `callID`.
     public var workDirectory: URL
+    /// Makes the names of this call's files differ from the names of every other call in the folder.
+    public var callID: String
     /// Files written into the work directory before the run: name and content.
     public var inputFiles: [String: String]
     /// A file in the work directory that holds the answer after the run.
@@ -20,8 +23,11 @@ public struct ProcessPlan: Sendable, Equatable {
 }
 
 extension ProcessPlan {
-    static let schemaFileName = "schema.json"
-    static let answerFileName = "answer.json"
+    /// Every file this call puts in the work directory, besides the three the launcher spools.
+    var fileNames: [String] { Array(inputFiles.keys) + [answerFile].compactMap { $0 } }
+
+    static func schemaFileName(callID: String) -> String { "\(callID)-schema.json" }
+    static func answerFileName(callID: String) -> String { "\(callID)-answer.json" }
 
     private static let forbiddenNames: Set<String> = [
         "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "OPENAI_API_KEY", "CODEX_API_KEY",
@@ -38,17 +44,18 @@ extension ProcessPlan {
 
     public static func make(
         call: AgentCall, kind: AgentCLIKind, executable: URL, environment inherited: [String: String],
-        workDirectory: URL, apiKey: String? = nil
+        workDirectory: URL, callID: String = UUID().uuidString, apiKey: String? = nil
     ) -> ProcessPlan {
         var environment = environment(kind: kind, executable: executable, inherited: inherited)
         if let apiKey { environment[apiKeyVariable] = apiKey }
         return ProcessPlan(
             kind: kind, executable: executable,
-            arguments: kind == .claude ? claudeArguments(call) : codexArguments(call, workDirectory: workDirectory),
+            arguments: kind == .claude
+                ? claudeArguments(call) : codexArguments(call, workDirectory: workDirectory, callID: callID),
             environment: environment, stdin: kind == .claude ? call.data : "\(call.systemPrompt)\n\n\(call.data)",
-            workDirectory: workDirectory,
-            inputFiles: kind == .codex ? [schemaFileName: call.schemaText] : [:],
-            answerFile: kind == .codex ? answerFileName : nil, apiKey: apiKey, tools: call.tools)
+            workDirectory: workDirectory, callID: callID,
+            inputFiles: kind == .codex ? [schemaFileName(callID: callID): call.schemaText] : [:],
+            answerFile: kind == .codex ? answerFileName(callID: callID) : nil, apiKey: apiKey, tools: call.tools)
     }
 
     static let apiKeyVariable = "ANTHROPIC_API_KEY"
@@ -136,13 +143,13 @@ extension ProcessPlan {
         }
     }
 
-    private static func codexArguments(_ call: AgentCall, workDirectory: URL) -> [String] {
+    private static func codexArguments(_ call: AgentCall, workDirectory: URL, callID: String) -> [String] {
         ["exec", "--ephemeral", "--skip-git-repo-check", "--ignore-user-config", "--sandbox", "read-only"]
             + disabledCodexFeatures.flatMap { ["--disable", $0] }
             + ["--cd", workDirectory.path, "--model", call.model]
             + (["model_reasoning_effort=\"\(call.effort)\""] + codexSettings).flatMap { ["--config", $0] }
-            + ["--output-schema", workDirectory.appending(path: schemaFileName).path, "--json"]
-            + ["--output-last-message", workDirectory.appending(path: answerFileName).path, "-"]
+            + ["--output-schema", workDirectory.appending(path: schemaFileName(callID: callID)).path, "--json"]
+            + ["--output-last-message", workDirectory.appending(path: answerFileName(callID: callID)).path, "-"]
     }
 
     private static func environment(kind: AgentCLIKind, executable: URL, inherited: [String: String]) -> [String:

@@ -89,7 +89,8 @@ import WorkbenchCore
         #expect(answer.value == Verdict(label: "codex"))
         #expect(answer.model == "gpt-6")
         #expect(answer.usage == Usage(inputTokens: 200, cacheReadTokens: 800, outputTokens: 50))
-        #expect(launcher.plans.first?.inputFiles[ProcessPlan.schemaFileName] == sampleCall.schemaText)
+        let plan = try #require(launcher.plans.first)
+        #expect(plan.inputFiles[ProcessPlan.schemaFileName(callID: plan.callID)] == sampleCall.schemaText)
     }
 
 }

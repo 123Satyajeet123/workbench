@@ -53,7 +53,8 @@ struct ModelChoice: Codable, Hashable, Identifiable {
         let byKey = kind == .claude && Billing.saved(in: store) == .apiKey
         let runner = AgentRunner(
             kind: kind, model: model, effort: effort, timeout: timeout,
-            apiKey: byKey ? secrets.read(Billing.keyName) : nil, requiresAPIKey: byKey, tools: tools)
+            apiKey: byKey ? secrets.read(Billing.keyName) : nil, requiresAPIKey: byKey, tools: tools,
+            workDirectory: store.directory.appending(path: "agent-work"))
         return RecordedModel(runner, store: store)
     }
 }
