@@ -71,7 +71,7 @@ enum WorkObjectRows {
     static func addMachinePage(
         _ db: Database, machine: Int64, template: String, name: String, folder: WorkObjectID?
     ) throws -> WorkObjectID {
-        let folder = try folder ?? Self.folder(db, named: TeamTemplate.folderName(forMachine: template))
+        let folder = try folder ?? Self.folder(db, named: GalleryTemplate.folderName(forMachine: template))
         let page = try insert(db, type: ObjectTypes.machinePage.id, parent: folder, name: name)
         try db.execute(sql: "UPDATE machine SET page_id = ? WHERE id = ?", arguments: [page, machine])
         return page

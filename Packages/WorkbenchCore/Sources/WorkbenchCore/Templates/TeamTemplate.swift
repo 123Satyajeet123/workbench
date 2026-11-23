@@ -27,7 +27,8 @@ public struct SpecOverrides: Codable, Sendable, Equatable {
     }
 }
 
-/// One machine a team template makes: the machine template's id, the machine's name, and what the team changes.
+/// One item of a team template: the gallery template's id, the name of the machine it makes, and what the team
+/// changes in that machine. An item with no machine sets up only its folder.
 public struct TeamMachine: Sendable, Equatable {
     public let template: String
     public var name: String
@@ -40,8 +41,8 @@ public struct TeamMachine: Sendable, Equatable {
     }
 }
 
-/// How a team starts, as data: the kinds of work object it tracks and the machines it makes. A new kind of team is
-/// a new value of this type, never new code.
+/// How a team starts, as data: the kinds of work object it tracks and the gallery items it sets up. A new kind of
+/// team is a new value of this type, never new code.
 public struct TeamTemplate: Sendable, Equatable, Identifiable {
     public let id: String
     public var name: String
@@ -74,9 +75,14 @@ public struct TeamTemplate: Sendable, Equatable, Identifiable {
     /// Whether a machine of this template follows companies in the news.
     public var watchesCompanies: Bool { seeds.contains { $0.spec.source == .news } }
 
-    /// The machines to make, each with its spec set. A machine whose template is unknown is left out.
+    /// The gallery items it sets up, in order. An item whose template is unknown is left out.
+    public var items: [GalleryTemplate] { known.map(\.item) }
+
+    /// The machines to make, each with its spec set.
     public var seeds: [(spec: HelperSpec, name: String)] {
-        known.map { ($0.machine.overrides.applied(to: $0.template.spec), $0.machine.name) }
+        known.compactMap { entry in
+            entry.item.machine.map { (entry.machine.overrides.applied(to: $0.spec), entry.machine.name) }
+        }
     }
 
     /// The kinds of source the machines read, each once, in the order the machines first need them.
@@ -85,24 +91,16 @@ public struct TeamTemplate: Sendable, Equatable, Identifiable {
     /// Each kind of source the machines read, with the first machine that needs it and the reason that machine gives.
     public var sourceNeeds: [SourceNeed] {
         known.reduce(into: []) { needs, entry in
-            let kind = entry.template.spec.source.kind
+            guard let template = entry.item.machine else { return }
+            let kind = template.spec.source.kind
             if !needs.contains(where: { $0.kind == kind }) {
-                needs.append(SourceNeed(kind: kind, machine: entry.machine.name, reason: entry.template.detail))
+                needs.append(SourceNeed(kind: kind, machine: entry.machine.name, reason: template.detail))
             }
         }
     }
 
-    /// The folder that holds a machine made from the machine template `template` when no folder is named: the name of
-    /// the first built-in team template that makes it, or a general folder for a machine no team template lists.
-    public static func folderName(forMachine template: String) -> String {
-        builtIn.first { team in (team.machines + team.optionalMachines).contains { $0.template == template } }?.name
-            ?? generalFolder
-    }
-
-    public static let generalFolder = "General"
-
-    private var known: [(machine: TeamMachine, template: MachineTemplate)] {
-        machines.compactMap { machine in MachineTemplate.of(id: machine.template).map { (machine, $0) } }
+    private var known: [(machine: TeamMachine, item: GalleryTemplate)] {
+        machines.compactMap { machine in GalleryTemplate.of(id: machine.template).map { (machine, $0) } }
     }
 }
 

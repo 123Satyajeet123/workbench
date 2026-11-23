@@ -133,6 +133,8 @@ extension TeamTemplate {
             TeamMachine(template: MachineTemplate.outbound.id, name: MachineTemplate.outbound.name),
             TeamMachine(template: MachineTemplate.founderCheck.id, name: MachineTemplate.founderCheck.name),
             TeamMachine(template: MachineTemplate.newsSignals.id, name: MachineTemplate.newsSignals.name),
+            TeamMachine(template: GalleryTemplate.claimCheck.id, name: GalleryTemplate.claimCheck.name),
+            TeamMachine(template: GalleryTemplate.companyResearch.id, name: GalleryTemplate.companyResearch.name),
         ],
         optionalMachines: [
             TeamMachine(template: MachineTemplate.dealsFromChats.id, name: MachineTemplate.dealsFromChats.name)

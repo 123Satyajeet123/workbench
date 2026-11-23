@@ -34,7 +34,28 @@ public struct GalleryTemplate: Sendable, Identifiable, Equatable {
         self.needs = needs
     }
 
-    public static func of(id: String) -> GalleryTemplate? { all.first { $0.id == id } }
+    /// The gallery template of this id. A machine template with no gallery entry of its own gives a plain one: its
+    /// source's picker and its facts, in the general folder.
+    public static func of(id: String) -> GalleryTemplate? {
+        all.first { $0.id == id } ?? MachineTemplate.of(id: id).map(plain)
+    }
+
+    static func plain(_ machine: MachineTemplate) -> GalleryTemplate {
+        let kind = machine.spec.source.kind
+        return GalleryTemplate(
+            id: machine.id, name: machine.name, icon: "gearshape", detail: machine.detail,
+            folder: FolderStart(name: generalFolder), machine: machine, job: machine.detail,
+            blocks: (StartBlock.pickable.contains(kind) ? [.picker(kind)] : []) + [
+                .facts(task: machine.id, view: "table")
+            ])
+    }
+
+    /// The folder that holds a machine made from the machine template `template` when no folder is named.
+    public static func folderName(forMachine template: String) -> String {
+        of(id: template)?.folder.name ?? generalFolder
+    }
+
+    public static let generalFolder = "General"
 
     /// The folder a template makes: its name, and the type of the objects it holds (nil for a plain folder).
     public struct FolderStart: Sendable, Equatable {
@@ -57,6 +78,9 @@ public struct GalleryTemplate: Sendable, Identifiable, Equatable {
         case input(SetupQuestion.Kind)
         /// The facts of one task, in one of the views its spec can fill (`HelperSpec.views`).
         case facts(task: String, view: String)
+
+        /// The kinds of source a person can choose on a page: a chat or group, a mail label, sites, files.
+        public static let pickable: Set<SourceKind> = [.whatsapp, .mail, .screenText, .dropped]
     }
 
     public enum Need: String, Sendable, Hashable {
