@@ -14,6 +14,7 @@ struct WorkbenchView: View {
     @Environment(Crew.self) private var crew
     @Environment(TodayModel.self) private var today
     @Environment(Navigation.self) private var navigation
+    @Environment(CaptureSettings.self) private var capture
     @Environment(\.uiScale) private var scale
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -127,11 +128,16 @@ struct WorkbenchView: View {
                     pages: SidebarLayout.pages + [.usage, .settings],
                     machines: crew.crew.map { ($0.machine.id, $0.name) },
                     people: today.people.map(\.name), projects: today.projectGroups.map(\.name),
-                    settings: SettingsItem.all),
+                    settings: SettingsItem.all, switchTo: ProfileSwitch.available(from: capture.profile)),
                 open: { entry, inNewTab in
-                    if let section = entry.settingsSection { navigation.settingsSection = section }
-                    if inNewTab { tabs.openNewTab(entry.page) } else { tabs.open(entry.page) }
                     isSearching = false
+                    switch entry.target {
+                    case .page(let page, let section):
+                        if let section { navigation.settingsSection = section }
+                        if inNewTab { tabs.openNewTab(page) } else { tabs.open(page) }
+                    case .switchProfile(let profile):
+                        ProfileSwitch.go(to: profile)
+                    }
                 },
                 close: { isSearching = false }
             )

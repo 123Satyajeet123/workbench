@@ -51,6 +51,9 @@ public final class CaptureService {
     /// The owner of every source this Mac reads. Throws why there is none.
     public func owner() throws -> PersonID { try ownerResult.get() }
 
+    /// Whether the sensors are being read now.
+    public var isRunning: Bool { ticker != nil }
+
     public func start() {
         guard ticker == nil else { return }
         ticker = Task { [weak self] in

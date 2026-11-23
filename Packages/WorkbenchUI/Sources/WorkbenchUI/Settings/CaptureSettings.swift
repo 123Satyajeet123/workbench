@@ -13,18 +13,22 @@ final class CaptureSettings {
     private let staleSites: () -> [String]
     private let installedBrowsers: () -> [InstalledBrowser]
     private let telegramKeysKnown: () -> Bool
+    /// The data this app opened. Capture settings and the controls that start capture are shown only for a profile
+    /// that captures.
+    let profile: Profile
     private(set) var log: [CaptureLogEntry] = []
     private(set) var failure: (any Error)?
     /// What stops each source now, as last refreshed. The one place any page asks.
     private(set) var sourceHealth: [SourceHealth] = []
 
     init(
-        service: CaptureService, staleSites: @escaping () -> [String] = { [] },
+        service: CaptureService, profile: Profile = .yours, staleSites: @escaping () -> [String] = { [] },
         installedBrowsers: @escaping () -> [InstalledBrowser] = BrowserRegistry.installedHere,
         telegramKeysKnown: @escaping () -> Bool = { TelegramAccount.keysSaved(in: KeychainSecrets()) }
     ) {
         self.telegramKeysKnown = telegramKeysKnown
         self.service = service
+        self.profile = profile
         self.staleSites = staleSites
         self.installedBrowsers = installedBrowsers
         refreshLog()
@@ -32,6 +36,9 @@ final class CaptureSettings {
     }
 
     var status: CaptureStatus { service.status }
+
+    /// Whether the sensors are being read now. False for a profile that does not capture.
+    var isRunning: Bool { service.isRunning }
 
     var mode: CaptureMode {
         get { CaptureMode(service.policy.mode, at: .now) }

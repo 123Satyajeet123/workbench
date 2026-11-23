@@ -4,6 +4,8 @@ import SwiftUI
 struct GeneralSettingsView: View {
     @Environment(IdentityModel.self) private var identityModel
     @Environment(ModelSettings.self) private var models
+    @Environment(CaptureSettings.self) private var capture
+    @Environment(Crew.self) private var crew
     @AppStorage(AppTheme.key) private var theme = AppTheme.system
 
     var body: some View {
@@ -54,9 +56,33 @@ struct GeneralSettingsView: View {
             Section("Startup") {
                 LoginItemToggle()
             }
+            ProfileSection(
+                profile: capture.profile, reading: crew.machines.filter { $0.phase == .reading }.map(\.name))
         }
         .formStyle(.grouped)
         .onChange(of: theme) { _, theme in theme.apply() }
+    }
+}
+
+/// The one way into the demo, and the one way back. Switching restarts the app and changes no data.
+struct ProfileSection: View {
+    let profile: Profile
+    let reading: [String]
+
+    private var target: Profile { profile.isDemo ? .yours : .demo }
+
+    var body: some View {
+        Section {
+            Button(ProfileSwitch.title(to: target)) { ProfileSwitch.go(to: target) }
+                .disabled(target.isDemo && !ProfileSwitch.demoIsBuilt)
+        } header: {
+            Text(profile.isDemo ? ProfileSwitch.bannerText : "Demo")
+        } footer: {
+            FormNote(
+                target.isDemo && !ProfileSwitch.demoIsBuilt
+                    ? "The demo is not on this Mac yet." : ProfileSwitch.sentence(to: target))
+            if let warning = ProfileSwitch.readingWarning(machines: reading) { FormNote(warning) }
+        }
     }
 }
 

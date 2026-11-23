@@ -16,7 +16,7 @@ final class Crew {
     @ObservationIgnored private let capture: CaptureService
     @ObservationIgnored private let founder: () -> String
     @ObservationIgnored private let makeModel: ((ModelChoice) -> RecordedModel)?
-    @ObservationIgnored private let whatsAppContainer: URL
+    @ObservationIgnored let whatsAppContainer: URL
     @ObservationIgnored private let alarm: VersionAlarm
     @ObservationIgnored private let openWebSession: () throws -> WebSession
     let notifications: Notifications
@@ -50,7 +50,7 @@ final class Crew {
         self.telegram =
             telegram
             ?? TelegramAccount(
-                service: TDLibTelegram(folder: AppLaunch.defaultStoreFolder.appending(path: "Telegram")),
+                service: TDLibTelegram(folder: store.directory.appending(path: "Telegram")),
                 capture: capture, store: store)
         alarm = VersionAlarm(store: store, notifications: notifications, problems: problems)
         reload()

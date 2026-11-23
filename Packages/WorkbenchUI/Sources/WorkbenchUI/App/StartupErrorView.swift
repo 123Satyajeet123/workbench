@@ -9,7 +9,12 @@ struct StartupErrorView: View {
             Text("Workbench cannot open its store").textStyle(.title2, weight: .bold)
             Text(failure.cause).foregroundStyle(.supporting).textSelection(.enabled)
             Text(failure.storeFolder.path).textStyle(.caption).foregroundStyle(.supporting).textSelection(.enabled)
-            Button("Quit") { NSApplication.shared.terminate(nil) }
+            HStack {
+                if failure.profile.isDemo {
+                    Button(ProfileSwitch.title(to: .yours)) { ProfileSwitch.go(to: .yours) }
+                }
+                Button("Quit") { NSApplication.shared.terminate(nil) }
+            }
         }
         .multilineTextAlignment(.center)
         .padding(Space.page)

@@ -13,6 +13,7 @@ let package = Package(
         .executable(name: "independent-flows", targets: ["IndependentFlowsDemo"]),
         .executable(name: "model-access", targets: ["ModelAccessDemo"]),
         .executable(name: "gallery", targets: ["GalleryDemo"]),
+        .executable(name: "demo-builder", targets: ["DemoBuilder"]),
     ],
     dependencies: [
         .package(path: "../Packages/WorkbenchCore"), .package(path: "../Packages/WorkbenchUI"),
@@ -38,6 +39,14 @@ let package = Package(
             dependencies: ["WorkbenchCore", "WorkbenchUI", .product(name: "AgentCLI", package: "BaseKit")],
             swiftSettings: [.defaultIsolation(MainActor.self)]),
         .executableTarget(name: "GalleryDemo", dependencies: ["WorkbenchCore"]),
+        .target(
+            name: "DemoBuild",
+            dependencies: [
+                "WorkbenchCore", .product(name: "WorkbenchUI", package: "WorkbenchUI"),
+                .product(name: "LocalSources", package: "BaseKit"), .product(name: "Kernel", package: "Kernel"),
+            ],
+            swiftSettings: [.defaultIsolation(MainActor.self)]),
+        .executableTarget(name: "DemoBuilder", dependencies: ["DemoBuild"]),
         .testTarget(name: "EvalsTests", dependencies: ["Evals", "WorkbenchCore"]),
     ]
 )

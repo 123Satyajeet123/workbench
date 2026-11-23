@@ -8,27 +8,43 @@ enum QuickOpen {
             case person = "Person"
             case project = "Project"
             case setting = "Setting"
+            case action = "Action"
+        }
+
+        /// What choosing the entry does: open a page (a settings entry also names its section), or switch the data
+        /// the app has open.
+        enum Target: Equatable {
+            case page(SidebarSelection, section: SettingsSection? = nil)
+            case switchProfile(Profile)
         }
 
         var title: String
         var kind: Kind
-        var page: SidebarSelection
-        var settingsSection: SettingsSection?
+        var target: Target
         var words = ""
         var id: String { "\(kind.rawValue):\(title)" }
     }
 
+    /// `switchTo` is the data the app can switch to now, if any; its entry is listed last.
     static func entries(
         pages: [SidebarSelection], machines: [(id: Int64, name: String)], people: [String], projects: [String],
-        settings: [SettingsItem] = []
+        settings: [SettingsItem] = [], switchTo: Profile? = nil
     ) -> [Entry] {
-        pages.map { Entry(title: $0.title, kind: .page, page: $0) }
-            + machines.map { Entry(title: $0.name, kind: .machine, page: .machine($0.id)) }
-            + people.map { Entry(title: $0, kind: .person, page: .people) }
-            + projects.map { Entry(title: $0, kind: .project, page: .projects) }
+        pages.map { Entry(title: $0.title, kind: .page, target: .page($0)) }
+            + machines.map { Entry(title: $0.name, kind: .machine, target: .page(.machine($0.id))) }
+            + people.map { Entry(title: $0, kind: .person, target: .page(.people)) }
+            + projects.map { Entry(title: $0, kind: .project, target: .page(.projects)) }
             + settings.map {
-                Entry(title: $0.title, kind: .setting, page: .settings, settingsSection: $0.section, words: $0.words)
+                Entry(
+                    title: $0.title, kind: .setting, target: .page(.settings, section: $0.section), words: $0.words)
             }
+            + (switchTo.map {
+                [
+                    Entry(
+                        title: ProfileSwitch.title(to: $0), kind: .action, target: .switchProfile($0),
+                        words: "demo synthetic sample example")
+                ]
+            } ?? [])
     }
 
     static func search(_ entries: [Entry], for query: String) -> [Entry] {

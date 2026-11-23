@@ -7,9 +7,11 @@ import WorkbenchCore
 struct StartupFailure: Error, Equatable {
     let cause: String
     let storeFolder: URL
+    let profile: Profile
 }
 
 struct AppSession {
+    let profile: Profile
     let store: Store
     let capture: CaptureSettings
     let onboarding: OnboardingModel
@@ -42,28 +44,39 @@ enum AppLaunch {
     case ready(AppSession)
     case failed(StartupFailure)
 
-    static var defaultStoreFolder: URL {
-        URL.applicationSupportDirectory.appending(path: "Workbench")
+    /// Opens the profile's store folder. A profile that refuses its folder never creates it.
+    static func start(
+        profile: Profile = .yours, storeFolder: URL? = nil, secrets: SecretStore = KeychainSecrets()
+    ) -> AppLaunch {
+        let folder = storeFolder ?? profile.defaultFolder
+        if let refusal = profile.refusal(for: folder) {
+            return .failed(StartupFailure(cause: refusal, storeFolder: folder, profile: profile))
+        }
+        return open(profile: profile, storeFolder: folder, secrets: secrets)
     }
 
-    static func start(storeFolder: URL = defaultStoreFolder) -> AppLaunch {
+    static func open(
+        profile: Profile, storeFolder: URL, secrets: SecretStore, clock: @escaping @Sendable () -> Date = { Date() }
+    ) -> AppLaunch {
         do {
             let writerLock = try StoreLock(directory: storeFolder)
-            let store = try Store(directory: storeFolder)
-            let owner = OwnerIdentity.result(secrets: KeychainSecrets())
+            let store = try Store(directory: storeFolder, clock: clock)
+            let owner = profile.owner(secrets: secrets)
             let service = try CaptureService(store: store, owner: owner)
             let capture = CaptureSettings(
-                service: service, staleSites: { (try? store.queries.staleAdapters()) ?? [] })
+                service: service, profile: profile, staleSites: { (try? store.queries.staleAdapters()) ?? [] },
+                telegramKeysKnown: { TelegramAccount.keysSaved(in: secrets) })
             let identity = IdentityModel(store: store)
-            let notifications = Notifications()
+            let notifications = Notifications(notifier: profile.notifier, defaults: profile.notificationDefaults)
             let pages = try PageHostListener(path: PagesSocket.path(in: storeFolder), store: store, owner: owner)
             let web = WebResearchSettings(store: store, browser: pages)
             let crew = Crew(
                 store: store, capture: service, founder: { identity.identity.name }, makeModel: nil,
                 notifications: notifications, openWebSession: { try web.openSession() },
+                whatsAppContainer: profile.whatsAppContainer(in: storeFolder),
                 telegram: TelegramAccount(
-                    service: TDLibTelegram(folder: storeFolder.appending(path: "Telegram")), capture: service,
-                    store: store))
+                    service: TDLibTelegram(folder: store.directory.appending(path: "Telegram")), capture: service,
+                    store: store, secrets: secrets))
             let onboarding = OnboardingModel(store: store, identity: identity, teamStarted: crew.reload)
             let review = ReviewModel(store: store, crew: crew)
             let mochi = MochiModel(store: store, crew: crew)
@@ -71,7 +84,7 @@ enum AppLaunch {
             let deals = DealsModel(store: store, catalog: catalog)
             crew.onItemsChanged { deals.refresh() }
             let today = TodayModel(
-                store: store, crew: crew, calendar: EventKitCalendar(), deals: { deals.deals },
+                store: store, crew: crew, calendar: profile.calendar, deals: { deals.deals },
                 me: { identity.identity.name })
             let morning = MorningSchedule(
                 store: store, notifications: notifications,
@@ -83,13 +96,15 @@ enum AppLaunch {
                     (try? await notifications.notifySummary(title: $0, body: "Open Today", page: .day)) == true
                 })
             let session = AppSession(
-                store: store, capture: capture, onboarding: onboarding, identity: identity,
-                team: onboarding.teamModel, models: ModelSettings(store: store),
+                profile: profile, store: store, capture: capture, onboarding: onboarding, identity: identity,
+                team: onboarding.teamModel, models: ModelSettings(store: store, secrets: secrets),
                 crew: crew, review: review, mochi: mochi,
                 today: today,
                 reminders: Reminders(store: store, review: review, mochi: mochi, notifications: notifications),
                 morning: morning,
-                catalog: catalog, actions: ActionsModel(store: store, founder: { identity.identity.name }),
+                catalog: catalog,
+                actions: ActionsModel(
+                    store: store, founder: { identity.identity.name }, reminders: profile.reminders),
                 deals: deals, memory: MemoryModel(store: store, crew: crew, deals: deals),
                 web: web, claims: ClaimsModel(store: store, me: { catalog.me }, web: web, owner: owner),
                 runs: RunsModel(store: store),
@@ -97,12 +112,13 @@ enum AppLaunch {
                 browsers: BrowserSetup(
                     capture: capture, connectedBrowsers: { Set(pages.connectedBrowsers.map(\.browser)) }),
                 writerLock: writerLock, planUsage: PlanUsage(store: store))
-            service.start()
+            if profile.startsCapture { service.start() }
             session.reminders.start()
             session.morning.start()
             return .ready(session)
         } catch {
-            return .failed(StartupFailure(cause: error.localizedDescription, storeFolder: storeFolder))
+            return .failed(
+                StartupFailure(cause: error.localizedDescription, storeFolder: storeFolder, profile: profile))
         }
     }
 }

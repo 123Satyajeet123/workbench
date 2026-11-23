@@ -5,22 +5,27 @@ import UserNotifications
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Opened when the app first asks for it, so making a delegate opens no store.
-    lazy var launch = AppLaunch.start(storeFolder: storeFolder)
+    lazy var launch = AppLaunch.start(profile: profile, storeFolder: storeFolder)
     private let storeFolder: URL
+    private let profile: Profile
     private var island: IslandPanel?
     private var notch: NotchPanel?
     private var session: AppSession?
     private var defaultsChanges: Task<Void, Never>?
+    private var demoBanner: DemoBannerWindows?
     /// What the founder did on a notification, held until the session can act on it.
     let replies = NotificationReplies()
 
-    init(storeFolder: URL) {
+    init(storeFolder: URL, profile: Profile = .yours) {
         self.storeFolder = storeFolder
+        self.profile = profile
         super.init()
     }
 
+    /// The saved profile chooses the folder, once, here.
     override convenience init() {
-        self.init(storeFolder: AppLaunch.defaultStoreFolder)
+        let profile = Profile.saved()
+        self.init(storeFolder: profile.defaultFolder, profile: profile)
     }
 
     func applicationWillFinishLaunching(_ notification: Notification) {
@@ -30,6 +35,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        if profile.isDemo { demoBanner = DemoBannerWindows { ProfileSwitch.go(to: .yours) } }
         if case .ready(let session) = launch {
             self.session = session
             showNotchOrIsland()
