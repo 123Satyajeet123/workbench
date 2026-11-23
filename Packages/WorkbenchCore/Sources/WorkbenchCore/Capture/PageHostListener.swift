@@ -44,22 +44,43 @@ public final class PageHostListener: Sendable {
         sessions.endAll()
     }
 
-    /// The connections being served, so stopping the listener ends them: a host then finds the app gone.
+    /// The connections being served, so stopping the listener ends them: a host then finds the app gone. A connection
+    /// has a link: the place its replies and the app's commands go out.
     private final class Sessions: Sendable {
-        private let open = Mutex<Set<Int32>>([])
+        private struct Open {
+            var clients: Set<Int32> = []
+            var links: [Int32: BrowserLink] = [:]
+        }
+        private let open = Mutex(Open())
 
-        func begin(_ client: Int32) { open.withLock { _ = $0.insert(client) } }
+        func begin(_ client: Int32, link: BrowserLink) {
+            open.withLock {
+                $0.clients.insert(client)
+                $0.links[client] = link
+            }
+        }
 
         func end(_ client: Int32) {
-            open.withLock { _ = $0.remove(client) }
+            open.withLock {
+                $0.clients.remove(client)
+                return $0.links.removeValue(forKey: client)
+            }?.end()
             close(client)
         }
 
         func endAll() {
-            open.withLock { clients in
-                for client in clients { shutdown(client, SHUT_RDWR) }
-            }
+            for client in open.withLock({ $0.clients }) { shutdown(client, SHUT_RDWR) }
         }
+
+        /// The links whose browser is known and allowed, newest first.
+        var commandLinks: [BrowserLink] {
+            open.withLock { Array($0.links.values) }.filter(\.isAllowed).sorted { $0.opened > $1.opened }
+        }
+    }
+
+    /// The browsers connected now, newest first.
+    public var connectedBrowsers: [(browser: String, opened: Date)] {
+        sessions.commandLinks.compactMap { link in link.browser.map { ($0, link.opened) } }
     }
 
     private static func listen(on path: String) throws -> Int32 {
@@ -94,11 +115,13 @@ public final class PageHostListener: Sendable {
             if browser == nil {
                 fputs("workbench: a page host connected from a process that is not a browser app\n", stderr)
             }
-            sessions.begin(client)
+            let link = BrowserLink(browser: browser, write: { PagesSocket.write(client, $0) })
+            sessions.begin(client, link: link)
             Thread.detachNewThread {
                 PageHost.serve(
                     read: { PagesSocket.read(client, count: $0) },
-                    write: { PagesSocket.write(client, $0) }, store: store, browser: browser)
+                    write: { link.write($0) }, store: store, browser: browser,
+                    commands: link)
                 sessions.end(client)
             }
         }
@@ -108,6 +131,14 @@ public final class PageHostListener: Sendable {
         var peer = uid_t()
         var group = gid_t()
         return getpeereid(client, &peer, &group) == 0 && peer == user
+    }
+}
+
+/// A command goes only to a connection whose browser is known and allowed: the newest one.
+extension PageHostListener: DriverTransport {
+    public func send(_ command: DriverCommand, timeout: TimeInterval) async throws -> DriverReply {
+        guard let link = sessions.commandLinks.first else { throw DriverFailure.noBrowserConnected }
+        return try await link.send(command, timeout: timeout).get()
     }
 }
 

@@ -137,6 +137,8 @@ extension WebPage {
 /// answer whether it was kept.
 public enum PageHost {
     public struct Reply: Codable, Equatable {
+        /// The id of the message this answers; the extension matches replies to messages by it.
+        public var id: Int?
         public var kept: Bool
         public var error: String?
         /// The Gmail labels mail may be read in now; answers a "mail_status" message.
@@ -144,7 +146,10 @@ public enum PageHost {
         /// The attached files of a mail message whose decks the host still lacks.
         public var wantDecks: [String]?
 
-        public init(kept: Bool, error: String? = nil, labels: [String]? = nil, wantDecks: [String]? = nil) {
+        public init(
+            id: Int? = nil, kept: Bool, error: String? = nil, labels: [String]? = nil, wantDecks: [String]? = nil
+        ) {
+            self.id = id
             self.kept = kept
             self.error = error
             self.labels = labels
@@ -157,6 +162,7 @@ public enum PageHost {
     /// A message with no type is a page; mail messages name theirs.
     private struct Envelope: Decodable {
         var type: String?
+        var id: Int?
     }
 
     /// What the reply says when the browser behind the connection is not known: no page or mail is kept.
@@ -168,6 +174,12 @@ public enum PageHost {
     public static func answer(
         _ message: Data, store: Store, browser: String?, decks: DeckAssembly = DeckAssembly()
     ) -> Reply {
+        var reply = keep(message, store: store, browser: browser, decks: decks)
+        reply.id = (try? JSONDecoder().decode(Envelope.self, from: message))?.id
+        return reply
+    }
+
+    private static func keep(_ message: Data, store: Store, browser: String?, decks: DeckAssembly) -> Reply {
         do {
             let decoder = JSONDecoder()
             switch try decoder.decode(Envelope.self, from: message).type {
@@ -200,9 +212,10 @@ public enum PageHost {
 
     /// Serves a browser: reads one frame, answers it at once, and repeats until the input ends. A browser keeps the
     /// pipe open until it has the answer, so the host must never wait for the end of the input before it answers.
-    /// A broken or oversize frame is answered and ends the session.
+    /// A broken or oversize frame is answered and ends the session. A command result from the browser goes to
+    /// `commands` and gets no reply.
     public static func serve(
-        read: (Int) -> Data, write: (Data) -> Void, store: Store, browser: String?
+        read: (Int) -> Data, write: (Data) -> Void, store: Store, browser: String?, commands: BrowserLink? = nil
     ) {
         let decks = DeckAssembly()
         while true {
@@ -212,6 +225,7 @@ public enum PageHost {
                 write(Reply(kept: false, error: "\(failure)").framed)
                 return
             case .message(let message):
+                if commands?.take(message) == true { continue }
                 write(answer(message, store: store, browser: browser, decks: decks).framed)
             }
         }

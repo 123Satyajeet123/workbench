@@ -6,6 +6,8 @@
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA9/HcJpZYRgOJNzLRnUbuVX4NppN7cTb9aKIcApVVjhv+W2x5ZqZAfXON+uiPwPYyRhBliREyhWPoe3+Zjj8YsGa49xSMD8gdEC858oB48ZxYEsozVPZo1I7A59iy0RwmWxVehY4PizCCSSeVoEJG0YpIvAasZQ7P+fhrwhBTRr8a8f3i8DmSEG+OHM0iQKlYBV+q3TqDAfkpXjrfP4dEWPxNZYUX8Jx51aCgI2HZijcAzU2kkZWw+pvVC2YAxI7nBqLfaIkxwaskIaIgqLhYeL1gY0ATA6D4w7ErlSab2tOtaX65oqiKcIMJQ3vMK/4NhZ/pAqypA/foosOjxKcUhQIDAQAB",
   "permissions": [
     "nativeMessaging",
+    "storage",
+    "tabGroups",
     "webNavigation"
   ],
   "background": {

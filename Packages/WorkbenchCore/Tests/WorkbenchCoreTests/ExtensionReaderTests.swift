@@ -229,16 +229,81 @@ struct ExtensionBackgroundTests {
         let host = try #require(try run()["host"] as? [String: Any])
         #expect(host["connects"] as? Int == 1, "two messages, one port")
         #expect((host["sent"] as? [[String: Int]])?.map { $0["n"] } == [1, 2])
-        let answers = try #require(host["answers"] as? [[String: Bool]])
-        #expect(answers.map { $0["kept"] } == [true, false], "each reply goes to the oldest waiting message")
+        let answers = try #require(host["answers"] as? [[String: Any]])
+        #expect(answers.map { $0["kept"] as? Bool } == [true, false], "the replies came in the other order")
         for failed in ["whenTheHostDies", "askDuringTheWait", "whenNoHostIsInstalled"] {
             let answer = try #require(host[failed] as? [String: Any])
             #expect(answer["kept"] as? Bool == false && answer["error"] is String, "\(failed) is an error answer")
         }
         #expect(host["connectsDuringTheWait"] as? Int == 1, "no new port while the retry wait runs")
-        #expect(ExtensionHarness.same(host["afterTheWait"], ["kept": true]))
+        #expect((host["afterTheWait"] as? [String: Any])?["kept"] as? Bool == true)
         #expect(host["connectsAfterTheWait"] as? Int == 2, "the port opens again after the wait")
         #expect(host["nothingWaitingAfterAFailure"] as? Bool == true)
+    }
+
+    @Test func aSlowCommandNeverHoldsAPageMessageBack() throws {
+        let commands = try #require(try run()["commands"] as? [String: Any])
+        #expect((commands["pageAnswer"] as? [String: Any])?["kept"] as? Bool == true, "the page was answered at once")
+        #expect(commands["beforeSlowEnds"] as? [Int] == [42], "the quick command answered while the slow one ran")
+        #expect(commands["afterSlowEnds"] as? [Int] == [42, 41], "the slow command answered when it ended")
+        #expect(
+            (commands["quickResult"] as? [String: Any])?["type"] as? String == "command_result",
+            "a command is answered with its own id and type")
+    }
+
+    @Test func theAppBeingGoneFailsEveryWaitingMessageExactlyOnce() throws {
+        let gone = try #require(try run()["appGone"] as? [String: Any])
+        let answers = try #require(gone["answers"] as? [[Any]])
+        #expect(answers.map { $0[0] as? Int } == [1, 2], "each waiting message was answered once")
+        for answer in answers {
+            let reply = try #require(answer[1] as? [String: Any])
+            #expect(reply["kept"] as? Bool == false && reply["error"] is String)
+        }
+        #expect((gone["next"] as? [String: Any])?["kept"] as? Bool == true, "the same port serves the next message")
+    }
+
+    @Test func theDriverOpensReadsAndClosesEveryTabItOpened() throws {
+        let driver = try #require(try run()["driver"] as? [String: Any])
+        let opened = try #require(driver["opened"] as? [String: Any])
+        let tab = try #require(opened["tab"] as? Int)
+        #expect(opened["ok"] as? Bool == true)
+        let created = try #require(driver["created"] as? [[String: Any]])
+        #expect(created.allSatisfy { $0["active"] as? Bool == false }, "every tab opens inactive")
+        let groupUpdates = try #require(driver["groupUpdates"] as? [[Any]])
+        #expect(groupUpdates.count == 2)
+        #expect(
+            ExtensionHarness.same(groupUpdates[0][1], ["title": "Workbench", "collapsed": true]),
+            "one collapsed group named Workbench")
+        let grouped = try #require(driver["grouped"] as? [[String: Any]])
+        #expect(grouped[1]["groupId"] as? Int == 7, "the second tab joins the same group")
+        let read = try #require(driver["read"] as? [String: Any])
+        #expect(read["text"] as? String == "text of \(tab) read" && read["title"] as? String == "T\(tab)")
+        let stranger = driver["strangerRead"] as? [String: Any]
+        #expect(stranger?["error"] as? String == "unknown_tab", "a tab the driver did not open")
+        let click = driver["unknown"] as? [String: Any]
+        #expect(click?["error"] as? String == "unknown_command", "no click command exists")
+        #expect(driver["storedBeforeClose"] as? [Int] == created.compactMap { $0["id"] as? Int })
+        let tabIds = driver["storedBeforeClose"] as? [Int]
+        #expect(driver["removed"] as? [Int] == tabIds, "close_all closes exactly the opened tabs")
+        #expect(driver["storedAfterClose"] as? [Int] == [])
+    }
+
+    @Test func aTabIsClosedWhenItsOpenFailsAndAfterAWorkerRestart() throws {
+        let out = try run()
+        let timeout = try #require(out["driverTimeout"] as? [String: Any])
+        #expect((timeout["timedOut"] as? [String: Any])?["error"] as? String == "timeout")
+        #expect((timeout["removed"] as? [Int])?.count == 1 && timeout["stored"] as? [Int] == [])
+        #expect(timeout["listeners"] as? Int == 0, "the load listener is removed")
+        let incognito = try #require(out["driverIncognito"] as? [String: Any])
+        #expect((incognito["inPrivate"] as? [String: Any])?["error"] as? String == "incognito")
+        #expect((incognito["removed"] as? [Int])?.count == 1 && incognito["stored"] as? [Int] == [])
+        let restart = try #require(out["driverRestart"] as? [String: Any])
+        #expect((restart["idsAtCrash"] as? [Int])?.count == 1)
+        #expect(restart["removed"] as? [Int] == restart["idsAtCrash"] as? [Int], "the new worker closes the old tab")
+        #expect(restart["stored"] as? [Int] == [])
+        #expect((out["driverUnreadable"] as? [String: Any])?["error"] as? String == "unreadable")
+        let stale = try #require((out["driverStaleGroup"] as? [String: Any])?["grouped"] as? [[String: Any]])
+        #expect(stale.count == 3, "a refused group id falls back to a new group")
     }
 
     @Test func eachFrameSendsItsTextTaggedWithItsOwnAddress() throws {

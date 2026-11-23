@@ -125,7 +125,8 @@ extension ExtensionFiles {
         }
         let background = try #require(scripts["background.js"])
         #expect(background.contains("rereadOnNavigation(chrome.webNavigation"))
-        #expect(try manifest()["permissions"] as? [String] == ["nativeMessaging", "webNavigation"])
+        let permissions = ["nativeMessaging", "storage", "tabGroups", "webNavigation"]
+        #expect(try manifest()["permissions"] as? [String] == permissions)
         let content = try #require(scripts["content.js"])
         #expect(content.contains("MutationObserver") && content.contains("reread"))
         #expect(try #require(manifest()["background"] as? [String: String])["type"] == "module")

@@ -102,7 +102,9 @@ import Testing
         let session = try WebSession.fake(store: store, search: search, pages: FakePages())
         now.withLock { $0 = t0.addingTimeInterval(CapturePolicy.grantLifetime + 1) }
         await #expect(throws: WebBlock.grantExpired) { try await session.search("a", count: 1) }
-        await #expect(throws: WebBlock.grantExpired) { try await session.fetch(URL(string: "https://a.example/")!) }
+        await #expect(throws: WebBlock.grantExpired) {
+            try await session.readPages([URL(string: "https://a.example/")!])
+        }
         #expect(search.queries.withLock { $0 }.isEmpty)
     }
 }

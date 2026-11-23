@@ -73,16 +73,7 @@ public struct OutboundRun: Sendable {
     }
 
     private func fetched(_ addresses: [URL]) async throws -> [FetchedPage] {
-        var pages: [FetchedPage] = []
-        for address in addresses.prefix(Outbound.maxPages) {
-            do {
-                pages.append(try await session.fetch(address))
-            } catch let block as WebBlock {
-                throw block
-            } catch {
-                continue
-            }
-        }
+        let pages = try await session.readPages(Array(addresses.prefix(Outbound.maxPages)))
         return pages.filter { $0.text.cleaned != nil }
     }
 

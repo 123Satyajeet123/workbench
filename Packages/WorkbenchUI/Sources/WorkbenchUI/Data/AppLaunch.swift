@@ -50,7 +50,8 @@ enum AppLaunch {
             let service = try CaptureService(store: store, owner: owner)
             let identity = IdentityModel(store: store)
             let notifications = Notifications()
-            let web = WebResearchSettings(store: store)
+            let pages = try PageHostListener(path: PagesSocket.path(in: storeFolder), store: store)
+            let web = WebResearchSettings(store: store, browser: pages)
             let crew = Crew(
                 store: store, capture: service, founder: { identity.identity.name }, makeModel: nil,
                 notifications: notifications, openWebSession: { try web.openSession() })
@@ -70,8 +71,7 @@ enum AppLaunch {
                 deals: deals, memory: MemoryModel(store: store, crew: crew, deals: deals),
                 web: web, claims: ClaimsModel(store: store, me: { catalog.me }, web: web),
                 runs: RunsModel(store: store),
-                pages: try PageHostListener(
-                    path: PagesSocket.path(in: storeFolder), store: store),
+                pages: pages,
                 writerLock: writerLock)
             service.start()
             session.reminders.start()

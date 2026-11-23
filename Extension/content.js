@@ -1,9 +1,9 @@
 // Sends the text the person can see in this frame to Workbench, through the extension's service worker. Only text on
 // screen, never what is typed in a field; at most once per interval, and only when it changed. Every frame of a page
 // runs this on its own; the service worker tags each frame's text with that frame's address. A single-page app that
-// changes its address is read again at once.
+// changes its address is read again at once. A tab the page driver opened is read whole when the service worker asks.
 (() => {
-  const { page, records } = globalThis.WorkbenchReader;
+  const { generic, page, records } = globalThis.WorkbenchReader;
   const interval = 10000;
   const settleMilliseconds = 1500;
   const reconnectMilliseconds = 5000;
@@ -44,6 +44,14 @@
     port.onDisconnect.addListener(() => setTimeout(listenForRereads, reconnectMilliseconds));
   }
 
+  function answerDriverReads() {
+    chrome.runtime.onMessage.addListener((message, _sender, respond) => {
+      if (message?.driver !== "read" || window !== window.top) return;
+      respond({ title: document.title, text: generic.readText(document.body, null) });
+    });
+  }
+
+  answerDriverReads();
   window.addEventListener("scroll", () => sendSoon(), { passive: true });
   document.addEventListener("visibilitychange", () => sendIfChanged());
   new MutationObserver(() => sendSoon()).observe(document.documentElement, {

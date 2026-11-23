@@ -115,4 +115,10 @@ run "90 finishing setup makes no machine" WorkbenchUI/Sources/WorkbenchUI/Onboar
 run "91 questions are asked for a store that holds machines" WorkbenchUI/Sources/WorkbenchUI/Onboarding/OnboardingModel.swift 's/startsTeam \? template\.setupQuestions : \[\]/template.setupQuestions/' WorkbenchUI
 run "92 the app seeds Pip and Timeline at launch, before the chosen template" WorkbenchUI/Sources/WorkbenchUI/Data/AppLaunch.swift 's/(let identity = IdentityModel\(store: store\)\n)/$1            try store.seedMachines(MachineTemplate.seeded.map { (\$0.spec, \$0.name) })\n/' WorkbenchUI
 run "93 machines with different template values share one setup question" $C/Templates/TeamSetup.swift 's/\$0\.kind == kind && \$0\.templateValue == value/\$0.kind == kind/' WorkbenchCore WorkbenchUI
+run "85 a reply goes to the oldest waiting message, not the one with its id" ../Extension/background/host.js 's/const answer = waiting\.get\(message\.id\);\n      waiting\.delete\(message\.id\);/const key = waiting.keys().next().value;\n      const answer = waiting.get(key);\n      waiting.delete(key);/' WorkbenchCore
+run "86 the browser driver opens a page on a site the policy denies" $C/Driver/DriverGate.swift 's/return CapturePolicy\.isSite\(url\.absoluteString, in: denied\) \? \.deniedSite\(host\) : nil/return nil/' WorkbenchCore
+run "87 a driver run opens more pages than its cap" $C/Driver/PageDriver.swift 's/opened >= limits\.maximumPages/opened > limits.maximumPages/' WorkbenchCore
+run "88 a page the plain fetch read is opened in the browser too" $C/Driver/RoutedPageReader.swift 's/if let page = try\? await fetcher\.fetch\(url\), Self\.isReadable\(page\) \{ return \.fetched\(page\) \}\n//' WorkbenchCore
+run "89 a driver tab stays open after its open failed" ../Extension/background/driver.js 's/      await closeTab\(tab\.id\);\n      throw error;/      throw error;/' WorkbenchCore
+run "90 the relay is silent when the app goes away" WorkbenchCore/Sources/PagesRelay/PagesRelay.swift 's/        if lost \{ browser\.write\(PagesRelay\.appUnavailable\) \}\n//' WorkbenchCore
 echo DONE

@@ -1,50 +1,108 @@
 import Foundation
 
-/// The native host's whole work: pass each frame the browser sends to the app, and pass the app's answer back. It
-/// opens no store and reads no message. When the app does not run, it refuses each message, so no page text is kept
-/// anywhere while the app is away.
+/// The native host's whole work: pass each frame the browser sends to the app, and each frame the app sends to the
+/// browser. It opens no store and reads no message. When the app does not run, or goes away, it tells the browser with
+/// one constant frame, so no page text is kept anywhere while the app is away.
 public enum PagesRelay {
-    public static let notRunning = "Workbench is not running, so nothing was kept."
+    public static let appUnavailable = NativeMessage.frame(Data(#"{"type":"app_unavailable"}"#.utf8))
 
-    private struct Refusal: Encodable {
-        var kept = false
-        var error: String
+    private static let reconnectInterval: TimeInterval = 2
+
+    /// Serves one browser session until its input ends. Two pumps run at once, each only framing: the browser's frames
+    /// go to the app here, and the app's frames go to the browser from the thread that reads the app's socket. A
+    /// frame that cannot be passed on is answered with `appUnavailable`; a broken or oversize frame ends the session.
+    public static func run(input: Int32, output: Int32, socketPath: String) {
+        let browser = Locked(output)
+        let app = AppLink(path: socketPath, browser: browser)
+        app.connectInBackground(every: reconnectInterval)
+        defer { app.stop() }
+        while case .message(let message) = NativeMessage.next(read: { PagesSocket.read(input, count: $0) }) {
+            if !app.forward(message) { browser.write(appUnavailable) }
+        }
+    }
+}
+
+/// A descriptor that only one thread writes to at a time, so frames never mix.
+private final class Locked: @unchecked Sendable {
+    private let lock = NSLock()
+    private let descriptor: Int32
+
+    init(_ descriptor: Int32) { self.descriptor = descriptor }
+
+    func write(_ data: Data) {
+        lock.lock()
+        defer { lock.unlock() }
+        PagesSocket.write(descriptor, data)
+    }
+}
+
+/// The connection to the app. The thread that reads it owns the descriptor and closes it.
+private final class AppLink: @unchecked Sendable {
+    private let lock = NSLock()
+    private let path: String
+    private let browser: Locked
+    private var descriptor: Int32?
+    private var stopped = false
+
+    init(path: String, browser: Locked) {
+        self.path = path
+        self.browser = browser
     }
 
-    /// Serves one browser session: reads a frame from `input`, answers it on `output`, and repeats until the input
-    /// ends. A broken or oversize frame is answered and ends the session. The app is connected to on the first
-    /// message, and again after a message found it gone.
-    public static func run(input: Int32, output: Int32, socketPath: String) {
-        var app: Int32?
-        defer { app.map { _ = close($0) } }
-        while true {
-            switch NativeMessage.next(read: { PagesSocket.read(input, count: $0) }) {
-            case .end:
-                return
-            case .broken(let failure):
-                PagesSocket.write(output, refusal("\(failure)"))
-                return
-            case .message(let message):
-                if app == nil { app = PagesSocket.connect(to: socketPath) }
-                guard let connection = app, let reply = ask(connection, message) else {
-                    app.map { _ = close($0) }
-                    app = nil
-                    PagesSocket.write(output, refusal(notRunning))
-                    continue
-                }
-                PagesSocket.write(output, NativeMessage.frame(reply))
+    /// Whether the app took the frame.
+    func forward(_ message: Data) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard connectLocked(), let descriptor else { return false }
+        guard PagesSocket.write(descriptor, NativeMessage.frame(message)) else {
+            drop(descriptor)
+            return false
+        }
+        return true
+    }
+
+    func connectInBackground(every interval: TimeInterval) {
+        Thread.detachNewThread { [self] in
+            while true {
+                lock.lock()
+                let done = stopped
+                if !done { _ = connectLocked() }
+                lock.unlock()
+                if done { return }
+                Thread.sleep(forTimeInterval: interval)
             }
         }
     }
 
-    private static func ask(_ app: Int32, _ message: Data) -> Data? {
-        guard PagesSocket.write(app, NativeMessage.frame(message)),
-            case .message(let reply) = NativeMessage.next(read: { PagesSocket.read(app, count: $0) })
-        else { return nil }
-        return reply
+    func stop() {
+        lock.lock()
+        defer { lock.unlock() }
+        stopped = true
+        descriptor.map(drop)
     }
 
-    private static func refusal(_ reason: String) -> Data {
-        NativeMessage.frame((try? JSONEncoder().encode(Refusal(error: reason))) ?? Data())
+    private func connectLocked() -> Bool {
+        if descriptor != nil { return true }
+        guard !stopped, let connection = PagesSocket.connect(to: path) else { return false }
+        descriptor = connection
+        Thread.detachNewThread { [self] in pump(connection) }
+        return true
+    }
+
+    private func drop(_ connection: Int32) {
+        descriptor = nil
+        shutdown(connection, SHUT_RDWR)
+    }
+
+    private func pump(_ connection: Int32) {
+        while case .message(let message) = NativeMessage.next(read: { PagesSocket.read(connection, count: $0) }) {
+            browser.write(NativeMessage.frame(message))
+        }
+        lock.lock()
+        let lost = descriptor == connection
+        if lost { descriptor = nil }
+        lock.unlock()
+        close(connection)
+        if lost { browser.write(PagesRelay.appUnavailable) }
     }
 }

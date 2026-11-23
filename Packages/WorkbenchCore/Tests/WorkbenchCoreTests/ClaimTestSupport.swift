@@ -55,8 +55,11 @@ final class FakePages: PageFetching, Sendable {
 
 extension WebSession {
     /// A session over fakes, opened through the real gate.
-    static func fake(store: Store, search: FakeSearch, pages: FakePages, key: String? = "key") throws -> WebSession {
-        try open(store: store, key: { _ in key }, make: { _, _, _ in (search, pages) })
+    static func fake(
+        store: Store, search: FakeSearch, pages: FakePages, key: String? = "key",
+        browser: any DriverTransport = NoBrowser()
+    ) throws -> WebSession {
+        try open(store: store, key: { _ in key }, browser: browser, make: { _, _, _ in (search, pages) })
     }
 }
 

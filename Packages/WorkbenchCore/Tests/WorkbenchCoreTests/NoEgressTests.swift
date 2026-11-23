@@ -98,7 +98,7 @@ struct NoEgressTests {
         let folder = Self.repo.appending(path: "Extension")
         let manifest = try JSONSerialization.jsonObject(with: Data(contentsOf: folder.appending(path: "manifest.json")))
         let keys = try #require(manifest as? [String: Any])
-        #expect(keys["permissions"] as? [String] == ["nativeMessaging", "webNavigation"])
+        #expect(keys["permissions"] as? [String] == ["nativeMessaging", "storage", "tabGroups", "webNavigation"])
         #expect(keys["host_permissions"] == nil && keys["optional_host_permissions"] == nil)
         #expect(keys["incognito"] as? String == "not_allowed")
         for (name, code) in try ExtensionFiles.scripts() {

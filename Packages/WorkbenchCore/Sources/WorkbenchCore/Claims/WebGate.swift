@@ -31,11 +31,15 @@ public struct WebSession: Sendable {
     let store: Store
     let provider: any SearchProvider
     let pages: any PageFetching
+    let browser: any DriverTransport
+    /// The run that every browser read of this session is logged under.
+    let runID: String
 
     /// Opens a session when the consent is on, a key exists when the provider needs one, and this month's cap is not
     /// reached. The provider and the fetcher are built only after these checks pass, from the grant.
     public static func open(
         store: Store, key: (SearchProviderKind) -> String?,
+        browser: any DriverTransport = NoBrowser(),
         make: (SearchProviderKind, String, CaptureGrant) -> (any SearchProvider, any PageFetching)
     ) throws -> WebSession {
         let now = store.clock()
@@ -49,7 +53,9 @@ public struct WebSession: Sendable {
             throw WebBlock.capReached(cap: settings.monthlyCap)
         }
         let (provider, pages) = make(settings.provider, secret, grant)
-        return WebSession(grant: grant, cap: settings.monthlyCap, store: store, provider: provider, pages: pages)
+        return WebSession(
+            grant: grant, cap: settings.monthlyCap, store: store, provider: provider, pages: pages, browser: browser,
+            runID: UUID().uuidString)
     }
 
     public func search(_ query: String, count: Int) async throws -> [SearchHit] {
@@ -58,9 +64,23 @@ public struct WebSession: Sendable {
         return try await provider.search(query, count: count)
     }
 
-    public func fetch(_ url: URL) async throws -> FetchedPage {
+    /// The text of each page, in order. A page is fetched first; the person's browser reads it only when the fetch
+    /// failed or gave too little text and a browser is connected. A page that cannot be read is left out. Every
+    /// browser command is logged under this session's run, and every tab it opened is closed at the end.
+    public func readPages(_ addresses: [URL]) async throws -> [FetchedPage] {
         try ensureLive()
-        return try await pages.fetch(url)
+        let policy = try store.currentPolicy()
+        return try await PageDriver.run(
+            runID: runID, transport: browser, policy: policy, log: StoreDriverLog(store: store), clock: store.clock
+        ) { driver in
+            let reader = RoutedPageReader(fetcher: pages, driver: driver)
+            var read: [FetchedPage] = []
+            for address in addresses {
+                try ensureLive()
+                if let page = await reader.read(address).page { read.append(page) }
+            }
+            return read
+        }
     }
 
     private func ensureLive() throws {

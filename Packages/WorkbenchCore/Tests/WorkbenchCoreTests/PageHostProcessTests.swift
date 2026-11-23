@@ -11,34 +11,68 @@ import Testing
     static let host = URL(filePath: #filePath).deletingLastPathComponent()
         .appending(path: "../../.build/debug/workbench-pages").standardized
 
-    private func hostProcess(socket: String) -> (process: Process, stdin: Pipe, stdout: Pipe) {
+    /// A host process as a browser runs it: stdin stays open until `finish`, and each frame the host writes is queued
+    /// as it arrives.
+    private final class HostSession: @unchecked Sendable {
         let process = Process()
-        process.executableURL = Self.host
-        process.environment = ["WORKBENCH_PAGES_SOCKET": socket]
-        let (stdin, stdout) = (Pipe(), Pipe())
-        process.standardInput = stdin
-        process.standardOutput = stdout
-        return (process, stdin, stdout)
-    }
+        private let stdin = Pipe()
+        private let stdout = Pipe()
+        private let frames = Mutex<[Data]>([])
 
-    private func run(_ input: Data, socket: String) throws -> Data {
-        let (process, stdin, stdout) = hostProcess(socket: socket)
-        try process.run()
-        stdin.fileHandleForWriting.write(input)
-        try stdin.fileHandleForWriting.close()
-        let output = stdout.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        return output
-    }
-
-    private func replies(in output: Data) throws -> [PageHost.Reply] {
-        var rest = output
-        var replies: [PageHost.Reply] = []
-        while let (reply, used) = try NativeMessage.first(in: rest) {
-            replies.append(try JSONDecoder().decode(PageHost.Reply.self, from: reply))
-            rest = rest.dropFirst(used)
+        init(socket: String) throws {
+            process.executableURL = PageHostProcessTests.host
+            process.environment = ["WORKBENCH_PAGES_SOCKET": socket]
+            process.standardInput = stdin
+            process.standardOutput = stdout
+            try process.run()
+            let output = stdout.fileHandleForReading
+            Thread.detachNewThread { [self] in
+                while case .message(let frame) = NativeMessage.next(read: { output.readData(ofLength: $0) }) {
+                    frames.withLock { $0.append(frame) }
+                }
+            }
         }
-        return replies
+
+        func send(_ message: Data) { sendRaw(NativeMessage.frame(message)) }
+
+        func sendRaw(_ bytes: Data) { stdin.fileHandleForWriting.write(bytes) }
+
+        /// The next frame the host wrote, or nil when none came within `seconds`.
+        func next(within seconds: Double = 20) async -> Data? {
+            let deadline = Date().addingTimeInterval(seconds)
+            while Date() < deadline {
+                if let frame = frames.withLock({ $0.isEmpty ? nil : $0.removeFirst() }) { return frame }
+                try? await Task.sleep(for: .milliseconds(5))
+            }
+            return nil
+        }
+
+        func finish() {
+            try? stdin.fileHandleForWriting.close()
+            process.waitUntilExit()
+        }
+    }
+
+    private static let appUnavailable = Data(#"{"type":"app_unavailable"}"#.utf8)
+
+    /// Writes each message, waits for `replies` frames, then closes the input as a browser closing its port does.
+    private func run(_ messages: [Data], socket: String, replies: Int? = nil) async throws -> [Data] {
+        let session = try HostSession(socket: socket)
+        messages.forEach(session.send)
+        var answered: [Data] = []
+        for _ in 0..<(replies ?? messages.count) { await session.next().map { answered.append($0) } }
+        session.finish()
+        return answered
+    }
+
+    private func replies(in frames: [Data]) throws -> [PageHost.Reply] {
+        try frames.map { try JSONDecoder().decode(PageHost.Reply.self, from: $0) }
+    }
+
+    private func encoded(_ page: WebPage) throws -> Data { try JSONEncoder().encode(page) }
+
+    private func page(saying text: String) -> WebPage {
+        WebPage(browser: "com.brave.Browser", url: "https://site.example/", title: "t", text: text)
     }
 
     private func app(
@@ -50,22 +84,23 @@ import Testing
         return (store, socket, try PageHostListener(path: socket, store: store, browserOf: browserOf))
     }
 
-    @Test func theHostProcessStoresAnAllowedPageAndNothingFromABrokenFrame() throws {
+    @Test func theHostProcessStoresAnAllowedPageAndNothingFromABrokenFrame() async throws {
         #expect(FileManager.default.isExecutableFile(atPath: Self.host.path), "build the host first")
         let (store, socket, listener) = try app(policy: CapturePolicy(switches: [.screen: true, .screenText: true]))
         defer { _ = listener }
         let page = WebPage(
             browser: "com.brave.Browser", url: "https://mail.example.com/", title: "Inbox", text: "Deck from Acme")
-        let output = try run(NativeMessage.frame(try JSONEncoder().encode(page)), socket: socket)
-        #expect(try replies(in: output) == [PageHost.Reply(kept: true)])
+        #expect(try replies(in: try await run([try encoded(page)], socket: socket)) == [PageHost.Reply(kept: true)])
         #expect(try store.queries.activities(since: .distantPast).compactMap(\.text) == ["Deck from Acme"])
 
-        let broken = try replies(in: try run(Data([0xFF, 0xFF, 0xFF, 0x7F]) + Data("junk".utf8), socket: socket))
-        #expect(broken.map(\.kept) == [false] && broken[0].error == "\(NativeMessage.Failure.tooLong(0x7FFF_FFFF))")
+        let session = try HostSession(socket: socket)
+        session.sendRaw(Data([0xFF, 0xFF, 0xFF, 0x7F]) + Data("junk".utf8))
+        session.process.waitUntilExit()
+        #expect(await session.next(within: 0.2) == nil, "a broken frame ends the host; the browser sees the port close")
         #expect(try store.queries.activities(since: .distantPast).count == 1)
     }
 
-    @Test func theHostProcessReassemblesADeckSentInChunksOverOneSession() throws {
+    @Test func theHostProcessReassemblesADeckSentInChunksOverOneSession() async throws {
         let (store, socket, listener) = try app(
             policy: CapturePolicy(switches: [.mail: true], allowList: [.mail: ["Deals"]]))
         defer { _ = listener }
@@ -75,9 +110,8 @@ import Testing
         let message = MailMessage(
             context: context, sender: "Ana", subject: "Acme", text: "Acme raises a seed.", attachments: ["Deck.pdf"])
         let pieces = chunks(of: makeDeck([.text("Acme Seed Deck")]), name: "Deck.pdf", context: context, size: 700)
-        var input = try NativeMessage.frame(JSONEncoder().encode(message))
-        for piece in pieces { input += try NativeMessage.frame(JSONEncoder().encode(piece)) }
-        let replies = try replies(in: try run(input, socket: socket))
+        let inputs = try [JSONEncoder().encode(message)] + pieces.map { try JSONEncoder().encode($0) }
+        let replies = try replies(in: try await run(inputs, socket: socket))
         #expect(replies.map(\.kept) == [true] + Array(repeating: false, count: pieces.count - 1) + [true])
         #expect(replies[0].wantDecks == ["Deck.pdf"])
         #expect(
@@ -87,99 +121,154 @@ import Testing
 
     /// The browser keeps stdin open until it has the reply (measured: Brave's host hung for minutes when the host
     /// waited for the end of input). The answer must come while the pipe is still open.
-    @Test func theHostAnswersWhileTheBrowserKeepsThePipeOpen() throws {
+    @Test func theHostAnswersWhileTheBrowserKeepsThePipeOpen() async throws {
         let (store, socket, listener) = try app(policy: CapturePolicy(switches: [.screen: true, .screenText: true]))
         defer { _ = listener }
-        let (process, stdin, stdout) = hostProcess(socket: socket)
-        try process.run()
-        defer { process.terminate() }
+        let session = try HostSession(socket: socket)
+        defer { session.finish() }
         let page = WebPage(browser: "com.brave.Browser", url: "https://site.example/", title: "t", text: "open pipe")
-        stdin.fileHandleForWriting.write(NativeMessage.frame(try JSONEncoder().encode(page)))
-        let reply = Mutex<Data?>(nil)
-        let answered = DispatchSemaphore(value: 0)
-        let output = stdout.fileHandleForReading
-        DispatchQueue.global().async {
-            let header = output.readData(ofLength: 4)
-            let length = header.enumerated().reduce(0) { $0 | Int($1.element) << (8 * $1.offset) }
-            reply.withLock { $0 = output.readData(ofLength: length) }
-            answered.signal()
-        }
-        #expect(answered.wait(timeout: .now() + 20) == .success, "no answer while the pipe was open")
-        let message = try #require(reply.withLock { $0 })
+        session.send(try encoded(page))
+        let message = try #require(await session.next(), "no answer while the pipe was open")
         #expect(try JSONDecoder().decode(PageHost.Reply.self, from: message) == PageHost.Reply(kept: true))
-        try stdin.fileHandleForWriting.close()
-        process.waitUntilExit()
         #expect(try store.queries.activities(since: .distantPast).compactMap(\.text) == ["open pipe"])
     }
 
-    /// With no app listening, the host refuses each message and tells the extension. Nothing is kept: the store folder
-    /// is never created by the host, and no file of page text is left anywhere.
-    @Test func theHostRefusesAndKeepsNothingWhenTheAppDoesNotRun() throws {
+    @Test func theReplyCarriesTheIdOfItsMessage() async throws {
+        let (_, socket, listener) = try app(policy: CapturePolicy(switches: [.screen: true, .screenText: true]))
+        defer { _ = listener }
+        let page = #"{"id":17,"url":"https://site.example/","title":"t","text":"with an id"}"#
+        let replies = try replies(in: try await run([Data(page.utf8)], socket: socket))
+        #expect(replies == [PageHost.Reply(id: 17, kept: true)])
+    }
+
+    /// With no app listening, the host tells the extension with one constant frame for each message. Nothing is kept:
+    /// the store folder is never created by the host, and no file of page text is left anywhere.
+    @Test func theHostRefusesAndKeepsNothingWhenTheAppDoesNotRun() async throws {
         let socket = shortSocketPath()
-        let page = WebPage(browser: "com.brave.Browser", url: "https://site.example/", title: "t", text: "no app")
-        let frame = NativeMessage.frame(try JSONEncoder().encode(page))
-        let replies = try replies(in: try run(frame + frame, socket: socket))
-        #expect(replies.count == 2)
-        #expect(replies.allSatisfy { $0.kept == false && $0.error == PagesRelay.notRunning })
+        let page = try encoded(page(saying: "no app"))
+        #expect(try await run([page, page], socket: socket) == [Self.appUnavailable, Self.appUnavailable])
         #expect(!FileManager.default.fileExists(atPath: socket))
     }
 
-    @Test func theHostReachesAnAppThatStartsLaterAndRefusesAfterItStops() throws {
+    @Test func theHostReachesAnAppThatStartsLaterAndRefusesAfterItStops() async throws {
         let store = try Store(directory: temporaryDirectory())
         try store.savePolicy(CapturePolicy(switches: [.screen: true, .screenText: true]))
         let socket = shortSocketPath()
-        let (process, stdin, stdout) = hostProcess(socket: socket)
-        try process.run()
-        defer { process.terminate() }
-        let page = WebPage(browser: "com.brave.Browser", url: "https://site.example/", title: "t", text: "later")
-        let frame = NativeMessage.frame(try JSONEncoder().encode(page))
+        let session = try HostSession(socket: socket)
+        defer { session.finish() }
+        let page = try encoded(page(saying: "later"))
 
-        func ask() throws -> PageHost.Reply {
-            stdin.fileHandleForWriting.write(frame)
-            let answer = Mutex<Data?>(nil)
-            let answered = DispatchSemaphore(value: 0)
-            DispatchQueue.global().async {
-                let header = stdout.fileHandleForReading.readData(ofLength: 4)
-                let length = header.enumerated().reduce(0) { $0 | Int($1.element) << (8 * $1.offset) }
-                answer.withLock { $0 = stdout.fileHandleForReading.readData(ofLength: length) }
-                answered.signal()
-            }
-            #expect(answered.wait(timeout: .now() + 20) == .success, "the host gave no answer")
-            return try JSONDecoder().decode(PageHost.Reply.self, from: try #require(answer.withLock { $0 }))
+        func ask() async throws -> Data {
+            session.send(page)
+            return try #require(await session.next(), "the host gave no answer")
         }
 
-        #expect(try ask().error == PagesRelay.notRunning)
+        #expect(try await ask() == Self.appUnavailable)
         var listener: PageHostListener? = try PageHostListener(
             path: socket, store: store, browserOf: { _ in "com.brave.Browser" })
-        #expect(try ask() == PageHost.Reply(kept: true))
+        #expect(try JSONDecoder().decode(PageHost.Reply.self, from: try await ask()) == PageHost.Reply(kept: true))
         listener = nil
-        #expect(try ask().error == PagesRelay.notRunning, "the app is gone: nothing is kept")
+        #expect(try await ask() == Self.appUnavailable, "the app is gone: nothing is kept")
         _ = listener
         #expect(try store.queries.activities(since: .distantPast).compactMap(\.text) == ["later"])
     }
 
-    @Test func aProcessOfAnotherUserIsRefusedAndKeepsNothing() throws {
+    @Test func theAppBeingGoneIsToldOnceWhetherOrNotAMessageWaits() async throws {
+        let store = try Store(directory: temporaryDirectory())
+        let socket = shortSocketPath()
+        var listener: PageHostListener? = try PageHostListener(
+            path: socket, store: store, browserOf: { _ in "com.brave.Browser" })
+        let session = try HostSession(socket: socket)
+        defer { session.finish() }
+        session.send(try encoded(WebPage(browser: "", url: "https://site.example/", title: "t", text: "first")))
+        _ = try #require(await session.next(), "the app answered")
+        listener = nil
+        _ = listener
+        #expect(await session.next(within: 20) == Self.appUnavailable)
+        #expect(await session.next(within: 0.5) == nil, "one frame for one loss")
+    }
+
+    @Test func aProcessOfAnotherUserIsRefusedAndKeepsNothing() async throws {
         let store = try Store(directory: temporaryDirectory())
         try store.savePolicy(CapturePolicy(switches: [.screen: true, .screenText: true]))
         let socket = shortSocketPath()
         let listener = try PageHostListener(path: socket, store: store, user: geteuid() &+ 1)
-        let page = WebPage(browser: "com.brave.Browser", url: "https://site.example/", title: "t", text: "stranger")
-        let replies = try replies(in: try run(NativeMessage.frame(try JSONEncoder().encode(page)), socket: socket))
-        #expect(replies.map(\.error) == [PagesRelay.notRunning])
+        let page = try encoded(page(saying: "stranger"))
+        #expect(try await run([page], socket: socket) == [Self.appUnavailable])
         #expect(try store.queries.activities(since: .distantPast).isEmpty)
         _ = listener
     }
 
-    @Test func theSocketLeftByAnAppThatDiedIsReplaced() throws {
+    @Test func theSocketLeftByAnAppThatDiedIsReplaced() async throws {
         let store = try Store(directory: temporaryDirectory())
         try store.savePolicy(CapturePolicy(switches: [.screen: true, .screenText: true]))
         let stale = shortSocketPath()
         FileManager.default.createFile(atPath: stale, contents: Data("left behind".utf8))
         let listener = try PageHostListener(path: stale, store: store, browserOf: { _ in "com.brave.Browser" })
-        let page = WebPage(browser: "com.brave.Browser", url: "https://site.example/", title: "t", text: "later")
-        let frame = NativeMessage.frame(try JSONEncoder().encode(page))
-        #expect(try replies(in: try run(frame, socket: stale)) == [PageHost.Reply(kept: true)])
+        let page = try encoded(page(saying: "later"))
+        #expect(try replies(in: try await run([page], socket: stale)) == [PageHost.Reply(kept: true)])
         _ = listener
+    }
+
+    /// A command from the app reaches the browser through the host, and its result goes back to the waiting caller. A
+    /// page message is answered at once while the command still waits.
+    @Test func aCommandReachesTheBrowserWhileAPageMessageIsAnsweredAtOnce() async throws {
+        let (_, socket, listener) = try app(policy: CapturePolicy(switches: [.screen: true, .screenText: true]))
+        let session = try HostSession(socket: socket)
+        defer { session.finish() }
+        session.send(try encoded(WebPage(browser: "", url: "https://site.example/", title: "t", text: "hello")))
+        _ = try #require(await session.next())
+
+        async let result = listener.send(.closeAll, timeout: 20)
+        let command = try #require(await session.next(), "no command reached the browser")
+        let sent = try #require(try JSONSerialization.jsonObject(with: command) as? [String: Any])
+        #expect(sent["type"] as? String == "command" && sent["command"] as? String == "close_all")
+        let id = try #require(sent["id"] as? Int)
+
+        session.send(try encoded(WebPage(browser: "", url: "https://site.example/", title: "t", text: "while waiting")))
+        let answered = try #require(await session.next(), "the page message waited behind the command")
+        #expect(try JSONDecoder().decode(PageHost.Reply.self, from: answered).kept)
+
+        session.send(Data(#"{"type":"command_result","id":\#(id),"ok":true,"closed":2}"#.utf8))
+        #expect(try await result == DriverReply(id: id, ok: true, closed: 2))
+    }
+
+    @Test func noCommandGoesToAConnectionWhoseBrowserIsUnknownOrNotAllowed() async throws {
+        for browser: String? in [nil, "com.evil.app"] {
+            let (_, socket, listener) = try app(policy: CapturePolicy(), browserOf: { _ in browser })
+            let session = try HostSession(socket: socket)
+            defer { session.finish() }
+            session.send(try encoded(WebPage(browser: "", url: "https://site.example/", title: "t", text: "x")))
+            _ = try #require(await session.next())
+            await #expect(throws: DriverFailure.noBrowserConnected) { try await listener.send(.closeAll, timeout: 1) }
+        }
+        let (_, socket, listener) = try app(policy: CapturePolicy())
+        let session = try HostSession(socket: socket)
+        defer { session.finish() }
+        session.send(try encoded(WebPage(browser: "", url: "https://site.example/", title: "t", text: "x")))
+        _ = try #require(await session.next())
+        #expect(listener.connectedBrowsers.map(\.browser) == ["com.brave.Browser"], "a known browser is the control")
+    }
+
+    @Test func aCommandWaitingWhenTheConnectionEndsFailsAndNoneHangs() async throws {
+        let (_, socket, listener) = try app(policy: CapturePolicy())
+        let session = try HostSession(socket: socket)
+        session.send(try encoded(WebPage(browser: "", url: "https://site.example/", title: "t", text: "x")))
+        _ = try #require(await session.next())
+        let pending = Task { try await listener.send(.closeAll, timeout: 20) }
+        _ = try #require(await session.next(), "the command reached the browser")
+        session.finish()
+        await #expect(throws: DriverFailure.connectionLost) { try await pending.value }
+        await #expect(throws: DriverFailure.noBrowserConnected) { try await listener.send(.closeAll, timeout: 1) }
+    }
+
+    @Test func aCommandTheBrowserNeverAnswersFailsWithATimeout() async throws {
+        let (_, socket, listener) = try app(policy: CapturePolicy())
+        let session = try HostSession(socket: socket)
+        defer { session.finish() }
+        session.send(try encoded(WebPage(browser: "", url: "https://site.example/", title: "t", text: "x")))
+        _ = try #require(await session.next())
+        await #expect(throws: DriverFailure.timedOut) { try await listener.send(.closeAll, timeout: 0.3) }
     }
 
     /// A stand-in browser: a copy of bash inside `Fake Browser.app`, with the bundle id Brave has. It starts the
@@ -203,36 +292,47 @@ import Testing
         try input.write(to: inputFile)
         let process = Process()
         process.executableURL = browser
-        process.arguments = ["-c", "'\(Self.host.path)' < '\(inputFile.path)' > '\(outputFile.path)'; true"]
+        process.arguments = [
+            "-c", "{ cat '\(inputFile.path)'; sleep 1; } | '\(Self.host.path)' > '\(outputFile.path)'; true",
+        ]
         process.environment = ["WORKBENCH_PAGES_SOCKET": socket]
         try process.run()
         process.waitUntilExit()
         return try Data(contentsOf: outputFile)
     }
 
+    private func frames(in output: Data) throws -> [Data] {
+        var rest = output
+        var frames: [Data] = []
+        while let (frame, used) = try NativeMessage.first(in: rest) {
+            frames.append(frame)
+            rest = rest.dropFirst(used)
+        }
+        return frames
+    }
+
     /// The live parent chain: the host's parent is the process of the browser app, found from the process tree.
-    @Test func theAppNamesTheBrowserFromTheProcessThatStartedTheHost() throws {
+    @Test func theAppNamesTheBrowserFromTheProcessThatStartedTheHost() async throws {
         let (store, socket, listener) = try app(
             policy: CapturePolicy(switches: [.screen: true, .screenText: true]),
             browserOf: PeerBrowser.bundleID(ofPeer:))
         defer { _ = listener }
         let page = WebPage(
             browser: "com.evil.app", url: "https://site.example/", title: "t", text: "from the fake browser")
-        let output = try runUnderFakeBrowser(NativeMessage.frame(try JSONEncoder().encode(page)), socket: socket)
-        let answers = try replies(in: output)
+        let output = try runUnderFakeBrowser(NativeMessage.frame(try encoded(page)), socket: socket)
+        let answers = try replies(in: try frames(in: output))
         #expect(answers == [PageHost.Reply(kept: true)], "\(answers)")
         let kept = try #require(try store.queries.activities(since: .distantPast).first)
         #expect(kept.bundleID == "com.brave.Browser" && kept.app == "Brave Browser", "the bundle id of the parent app")
     }
 
-    @Test func aHostNotStartedByABrowserAppKeepsNothingAndTheReplyNamesWhy() throws {
+    @Test func aHostNotStartedByABrowserAppKeepsNothingAndTheReplyNamesWhy() async throws {
         let (store, socket, listener) = try app(
             policy: CapturePolicy(switches: [.screen: true, .screenText: true]),
             browserOf: PeerBrowser.bundleID(ofPeer:))
         defer { _ = listener }
         let page = WebPage(browser: "com.brave.Browser", url: "https://site.example/", title: "t", text: "forged")
-        let output = try run(NativeMessage.frame(try JSONEncoder().encode(page)), socket: socket)
-        let reply = try #require(try replies(in: output).first)
+        let reply = try #require(try replies(in: try await run([try encoded(page)], socket: socket)).first)
         #expect(reply.kept == false && reply.error == PageHost.unknownBrowser, "the test process is no browser app")
         #expect(try store.queries.activities(since: .distantPast).isEmpty, "a message that says Brave changes nothing")
     }

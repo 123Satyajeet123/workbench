@@ -96,16 +96,7 @@ public struct ClaimChecker: Sendable {
             for hit in try await session.search(query, count: Self.hitsPerQuery)
             where hit.url.scheme == "https" && !addresses.contains(hit.url) { addresses.append(hit.url) }
         }
-        var pages: [FetchedPage] = []
-        for address in addresses.prefix(Self.maxPages) {
-            do {
-                pages.append(try await session.fetch(address))
-            } catch let block as WebBlock {
-                throw block
-            } catch {
-                continue
-            }
-        }
+        let pages = try await session.readPages(Array(addresses.prefix(Self.maxPages)))
         return pages.filter { !$0.text.isEmpty }
     }
 

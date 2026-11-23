@@ -24,10 +24,13 @@ final class WebResearchSettings {
 
     @ObservationIgnored private let store: Store
     @ObservationIgnored private let secrets: SecretStore
+    @ObservationIgnored private let browser: any DriverTransport
 
-    init(store: Store, secrets: SecretStore = KeychainSecrets()) {
+    /// `browser` reads the pages a plain fetch could not; the default reaches no browser.
+    init(store: Store, secrets: SecretStore = KeychainSecrets(), browser: any DriverTransport = NoBrowser()) {
         self.store = store
         self.secrets = secrets
+        self.browser = browser
         let saved = (try? store.queries.webSettings()) ?? WebSettings()
         provider = saved.provider
         monthlyCap = saved.monthlyCap
@@ -60,7 +63,7 @@ final class WebResearchSettings {
         defer { refreshUsage() }
         let search = ModelSearch(model: ModelChoice.searchModel(store: store, secrets: secrets))
         return try WebSession.open(
-            store: store, key: { [secrets] in secrets.read($0.keyName) },
+            store: store, key: { [secrets] in secrets.read($0.keyName) }, browser: browser,
             make: { makeWebSession(provider: $0, key: $1, grant: $2, modelSearch: search) })
     }
 
