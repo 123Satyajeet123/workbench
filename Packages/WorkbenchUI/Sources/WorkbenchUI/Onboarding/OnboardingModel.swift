@@ -14,14 +14,15 @@ final class OnboardingModel {
     private(set) var teamIsStarted = false
     /// The person took the first look, so the step asks to continue and no longer to skip.
     var hasLookedFirst = false
-    private(set) var index = 0 { didSet { save() } }
+    private(set) var screen = OnboardingScreen.welcome { didSet { save() } }
     private(set) var isFinished = false { didSet { save() } }
     private(set) var saveError: (any Error)?
     @ObservationIgnored private let store: Store?
     @ObservationIgnored private let teamStarted: () -> Void
 
+    /// A row saved before the screen was kept holds no screen, so it opens the first screen.
     private struct Saved: Codable {
-        var index: Int
+        var screen: OnboardingScreen?
         var isFinished: Bool
     }
 
@@ -37,24 +38,18 @@ final class OnboardingModel {
         teamModel = team ?? TeamModel(store: store, me: { identity.identity.name })
         startsTeam = (try? store?.queries.holdsMachine()) != true
         do {
-            guard let saved = try savedState() else { return }
-            index = saved.index
+            guard let store, let saved = try Self.stateKey.load(from: store) else { return }
             isFinished = saved.isFinished
+            if let savedScreen = saved.screen, screens.contains(savedScreen) { screen = savedScreen }
         } catch {
             saveError = OnboardingError.savedStateUnreadable
         }
     }
 
-    private func savedState() throws -> Saved? {
-        guard let store, let saved = try Self.stateKey.load(from: store) else { return nil }
-        guard screens.indices.contains(saved.index) else { throw OnboardingError.savedStateUnreadable }
-        return saved
-    }
-
     private func save() {
         guard let store else { return }
         do {
-            let saved = Saved(index: index, isFinished: isFinished)
+            let saved = Saved(screen: screen, isFinished: isFinished)
             try Self.stateKey.save(saved, to: store)
             saveError = nil
         } catch {
@@ -78,7 +73,7 @@ final class OnboardingModel {
         }
     }
 
-    var screen: OnboardingScreen { screens[index] }
+    var index: Int { screens.firstIndex(of: screen) ?? 0 }
     var isFirst: Bool { index == 0 }
     var isLast: Bool { index == screens.count - 1 }
     var canContinue: Bool {
@@ -114,7 +109,7 @@ final class OnboardingModel {
         if isLast {
             finish()
         } else if screens[index + 1] != .firstLook || startTeam() {
-            index += 1
+            screen = screens[index + 1]
         }
     }
 
@@ -138,7 +133,7 @@ final class OnboardingModel {
     }
 
     func back() {
-        index = max(index - 1, 0)
+        screen = screens[max(index - 1, 0)]
     }
 
     /// What the person must read: the setup or the name did not save, or the saved setup was unreadable.

@@ -1,4 +1,4 @@
-enum OnboardingScreen: String, CaseIterable, Identifiable {
+enum OnboardingScreen: String, CaseIterable, Codable, Identifiable {
     case welcome, you, team, connect, setup, watchlist, firstLook, done
 
     var id: String { rawValue }
