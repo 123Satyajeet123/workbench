@@ -22,6 +22,7 @@ public final class CaptureService {
     @ObservationIgnored private let ownerResult: Result<PersonID, any Error>
     @ObservationIgnored private let store: Store
     @ObservationIgnored private let loop: CaptureLoop
+    @ObservationIgnored private let presence = SystemPresence()
     @ObservationIgnored private var ticker: Task<Void, Never>?
     @ObservationIgnored private var whatsAppWatch: WhatsAppIngestWatch?
     @ObservationIgnored private var power: PowerEvents?
@@ -37,7 +38,7 @@ public final class CaptureService {
         let policy = try store.currentPolicy()
         self.policy = policy
         status = policy.status(accessibilityGranted: ScreenReader.isTrusted, at: store.clock())
-        loop = CaptureLoop(store: store)
+        loop = CaptureLoop(store: store, presence: presence)
         try store.closeInterruptedRecordings()
         try store.closeInterruptedRuns()
     }
@@ -161,8 +162,8 @@ public final class CaptureService {
             requestTrustOnce()
             return
         }
-        let (policy, idle) = (policy, Presence.idleSeconds())
-        Task { report(await loop.capture(app, idleSeconds: idle, policy: policy, at: now)) }
+        let policy = policy
+        Task { report(await loop.capture(app, policy: policy, at: now)) }
     }
 
     private func requestTrustOnce() {
@@ -180,6 +181,7 @@ public final class CaptureService {
     }
 
     private func system(_ event: CaptureEngine.SystemEvent) {
+        presence.note(event)
         let (policy, now) = (policy, store.clock())
         Task { report(await loop.system(event, policy: policy, at: now)) }
     }
@@ -225,17 +227,33 @@ extension CallStartError: LocalizedError {
 /// Each step returns its failure in plain words, or nil.
 actor CaptureLoop {
     private let store: Store
-    private let reader = ScreenReader()
+    private let reader: any ScreenReading
+    private let presence: any PresenceSource
     private var engine = CaptureEngine()
 
-    init(store: Store) { self.store = store }
+    init(store: Store, presence: any PresenceSource, reader: sending any ScreenReading = ScreenReader()) {
+        self.store = store
+        self.presence = presence
+        self.reader = reader
+    }
 
-    func capture(_ app: FrontApp, idleSeconds: TimeInterval, policy: CapturePolicy, at now: Date) -> String? {
-        var snapshot = reader.read(app, withText: false)
-        if idleSeconds < engine.idleAfter, engine.wantsText(for: snapshot, policy: policy, at: now) {
-            snapshot = reader.read(app, withText: true)
+    /// Presence and the bundle-id gate come before any Accessibility call. An app that is not read, or a person who
+    /// is not here, gives the engine only what NSWorkspace says, and the engine writes the bare markers.
+    func capture(_ app: FrontApp, policy: CapturePolicy, at now: Date) -> String? {
+        let state = presence.state(idleAfter: engine.idleAfter)
+        let snapshot = snapshot(of: app, presence: state, policy: policy, at: now)
+        return keep(engine.observe(snapshot, presence: state, policy: policy, at: now))
+    }
+
+    private func snapshot(of app: FrontApp, presence: PresenceState, policy: CapturePolicy, at now: Date)
+        -> ScreenSnapshot
+    {
+        guard presence == .active, case .read(let grant) = policy.admission(ofApp: app.bundleID, at: now) else {
+            return app.unread
         }
-        return keep(engine.observe(snapshot, idleSeconds: idleSeconds, policy: policy, at: now))
+        let cheap = reader.read(app, grant: grant, withText: false)
+        guard engine.wantsText(for: cheap, policy: policy, at: now) else { return cheap }
+        return reader.read(app, grant: grant, withText: true)
     }
 
     func system(_ event: CaptureEngine.SystemEvent, policy: CapturePolicy, at now: Date) -> String? {

@@ -74,4 +74,11 @@ run "39 a chat is taken while the chooser is closed" $C/Source/SightingBoard.swi
 run "40 a list with a gap counts as a membership" $C/WhatsApp/WhatsAppWebSnapshot.swift 's/ids\.count == rows, stated == rows, /ids.count == rows, /' WorkbenchCore
 run "41 one chat is listed once per source" $C/Source/ContainerCandidates.swift 's/let id = sighting\.container\.id\n/let id = sighting.container.id + sighting.source\n/' WorkbenchCore WorkbenchUI
 run "42 the probe returns a name that holds a number" ../Extension/whatsapp/probe.js 's/ && !\/\\d\{4\}\/\.test\(name\)//' WorkbenchCore
+run "43 the capture log's delete keeps the window's text" $C/Store/Delete.swift 's/let doomed = matched \+ \(try Self\.screenTextRows\(opened: matched, in: db\)\)/let doomed = matched/' WorkbenchCore
+run "44 an app that is not allowed is read by AX" BaseKit/Sources/CaptureService/CaptureService.swift 's/case \.read\(let grant\) = policy\.admission\(ofApp: app\.bundleID, at: now\)/let grant = policy.authorize(CaptureRequest(kind: .screen), at: now).grant/' BaseKit
+run "45 AX reads while the screen is locked" $C/Capture/Presence.swift 's/if screenLocked \|\| !sessionOnConsole \{ return \.locked \}\n//' WorkbenchCore BaseKit
+run "46 AX reads while the person is idle" $C/Capture/Presence.swift 's/return idleSeconds >= idleAfter \? \.idle : \.active/return .active/' WorkbenchCore BaseKit
+run "47 the loop reads before it checks presence" BaseKit/Sources/CaptureService/CaptureService.swift 's/guard presence == \.active, case/guard case/' BaseKit
+run "48 an app with no bundle id is read" $C/Capture/CapturePolicy+Verdict.swift 's/guard !bundleID\.isEmpty else \{ return bare\(\.screen, at: now\) \}\n//' WorkbenchCore BaseKit
+run "49 deleting a window deletes the next stretch of the same app" $C/Store/Delete.swift 's/AND text\.id < COALESCE\(\(SELECT MIN\(next\.id\) FROM activity next WHERE next\.id > window\.id\n\s+AND next\.kind IN \(.window.,.idle.,.sleep.,.skipped.,.wake.\)\), 9223372036854775807\)/AND 1/' WorkbenchCore
 echo DONE

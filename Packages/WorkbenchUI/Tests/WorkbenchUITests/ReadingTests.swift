@@ -103,10 +103,10 @@ import WorkbenchCore
         let on = CapturePolicy(switches: [.screen: true])
         try store.savePolicy(on)
         var engine = CaptureEngine()
-        func window(_ title: String, at minutes: Double, idle: Double = 0) throws {
+        func window(_ title: String, at minutes: Double, idle: Bool = false) throws {
             clock.set(start.addingTimeInterval(minutes * 60))
             let snapshot = ScreenSnapshot(app: "App", bundleID: "a", windowID: title.count, title: title, text: "")
-            let batch = engine.observe(snapshot, idleSeconds: idle, policy: on, at: clock.now)
+            let batch = engine.observe(snapshot, presence: idle ? .idle : .active, policy: on, at: clock.now)
             try store.record(#require(batch))
         }
         try window("Open PR", at: 0)

@@ -8,16 +8,33 @@ public struct FrontApp: Sendable, Equatable {
     public var name: String
     public var bundleID: String
 
+    public init(pid: pid_t, name: String, bundleID: String) {
+        self.pid = pid
+        self.name = name
+        self.bundleID = bundleID
+    }
+
     @MainActor
     public static func current(ownProcess: pid_t = getpid()) -> FrontApp? {
         guard let app = NSWorkspace.shared.frontmostApplication, app.processIdentifier != ownProcess else { return nil }
         return FrontApp(pid: app.processIdentifier, name: app.localizedName ?? "", bundleID: app.bundleIdentifier ?? "")
     }
+
+    /// What is known of the app without any Accessibility call: its name and bundle id.
+    public var unread: ScreenSnapshot {
+        ScreenSnapshot(app: name, bundleID: bundleID, windowID: 0, title: "", text: "")
+    }
+}
+
+/// Reads a window's Accessibility tree. A read needs the grant the policy gave for this app, so no app is read before
+/// the gate has said yes.
+public protocol ScreenReading {
+    func read(_ app: FrontApp, grant: CaptureGrant, withText: Bool) -> ScreenSnapshot
 }
 
 /// Reads the front window through the accessibility tree. Read only, with a short timeout on every call. Not thread
 /// safe: one owner calls it.
-public final class ScreenReader {
+public final class ScreenReader: ScreenReading {
     public struct Limits: Sendable {
         public var nodes = 3000
         public var characters = 6000
@@ -43,8 +60,10 @@ public final class ScreenReader {
         AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
     }
 
-    /// A few calls for title, document and focus; the text walk only when `withText` is true.
-    public func read(_ app: FrontApp, withText: Bool) -> ScreenSnapshot {
+    /// A few calls for title, document and focus; the text walk only when `withText` is true. A grant for another kind
+    /// or another app reads nothing.
+    public func read(_ app: FrontApp, grant: CaptureGrant, withText: Bool) -> ScreenSnapshot {
+        guard grant.kind == .screen, grant.label == app.bundleID else { return app.unread }
         let element = AXUIElementCreateApplication(app.pid)
         AXUIElementSetMessagingTimeout(element, limits.callTimeout)
         let window: AXUIElement? = attribute(element, kAXFocusedWindowAttribute)
@@ -162,14 +181,5 @@ public final class ScreenReader {
     private func attribute<T>(_ element: AXUIElement, _ name: String) -> T? {
         if case .value(let value) = read(element, name) as Read<T> { return value }
         return nil
-    }
-}
-
-public enum Presence {
-    /// Seconds since the last key, click or mouse move; infinite while the screen is locked.
-    public static func idleSeconds() -> TimeInterval {
-        let session = CGSessionCopyCurrentDictionary() as? [String: Any]
-        if session?["CGSSessionScreenIsLocked"] as? Bool == true { return .infinity }
-        return CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: CGEventType(rawValue: ~0)!)
     }
 }

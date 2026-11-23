@@ -34,12 +34,25 @@ struct CaptureServiceTests {
             let at = start.addingTimeInterval(days * 86_400)
             now.withLock { $0 = at }
             let snapshot = ScreenSnapshot(app: "Brave", bundleID: "b", windowID: window, title: "w\(window)", text: "")
-            let batch = engine.observe(snapshot, idleSeconds: 0, policy: policy, at: at)
+            let batch = engine.observe(snapshot, presence: .active, policy: policy, at: at)
             try store.record(#require(batch))
         }
         await service.pruneIfDue(at: start.addingTimeInterval(41 * 86_400))
         #expect(try store.queries.activities(since: .distantPast).map(\.title) == ["w2"])
         #expect(service.problem == nil)
+    }
+
+    @Test func theCaptureLogsDeleteRemovesTheWindowAndItsScreenText() throws {
+        let (service, store) = try service()
+        var engine = CaptureEngine()
+        let snapshot = ScreenSnapshot(app: "Notes", bundleID: "com.apple.Notes", windowID: 1, title: "w", text: "body")
+        let batch = engine.observe(
+            snapshot, presence: .active, policy: CapturePolicy(switches: [.screen: true, .screenText: true]),
+            at: store.clock())
+        try store.record(#require(batch))
+        let window = try #require(try service.keptToday(limit: 5).first)
+        try service.forget(window)
+        #expect(try store.queries.activities(since: .distantPast).isEmpty)
     }
 
     @Test func runTextOlderThanThirtyDaysIsDeletedWithTheRunKeptAsTheMeter() async throws {

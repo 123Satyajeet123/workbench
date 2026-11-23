@@ -21,12 +21,12 @@ import WorkbenchCore
             for (index, title) in ["Open PR", "Brave Staff"].enumerated() {
                 clock.set(day.start.addingTimeInterval(Double(4 + index) * 3600))
                 let snapshot = ScreenSnapshot(app: "App", bundleID: "a", windowID: index, title: title, text: "")
-                let batch = engine.observe(snapshot, idleSeconds: 0, policy: on, at: clock.now)
+                let batch = engine.observe(snapshot, presence: .active, policy: on, at: clock.now)
                 try store.record(#require(batch))
             }
             clock.set(day.start.addingTimeInterval(8 * 3600))
             let idle = ScreenSnapshot(app: "App", bundleID: "a", windowID: 9, title: "x", text: "")
-            let batch = engine.observe(idle, idleSeconds: 600, policy: on, at: clock.now)
+            let batch = engine.observe(idle, presence: .idle, policy: on, at: clock.now)
             try store.record(#require(batch))
         }
         clock.set(.now)

@@ -15,7 +15,7 @@ private func page(_ document: String, text: String = "body", app: String = "Safa
 struct GrantBindingTests {
     @Test func aBatchWithAnExpiredGrantIsRefusedAndOneWithALiveGrantIsKept() throws {
         var engine = CaptureEngine()
-        let observed = engine.observe(page("example.com"), idleSeconds: 0, policy: screenOn, at: t0)
+        let observed = engine.observe(page("example.com"), presence: .active, policy: screenOn, at: t0)
         let batch = try #require(observed)
         #expect(throws: StoreError.grantExpired) { try makeStore(clock: { t0 + 301 }).record(batch) }
         try makeStore(clock: { t0 + 299 }).record(batch)
@@ -29,7 +29,7 @@ struct ForgetTests {
         for (index, document) in documents.enumerated() {
             var snapshot = page(document)
             snapshot.windowID = index
-            let batch = engine.observe(snapshot, idleSeconds: 0, policy: screenOn, at: t0)
+            let batch = engine.observe(snapshot, presence: .active, policy: screenOn, at: t0)
             try store.record(#require(batch))
         }
         return store
@@ -43,7 +43,7 @@ struct ForgetTests {
         let store = try store(keeping: [])
         var engine = CaptureEngine()
         let secret = "SECRET-\(UUID().uuidString)"
-        let batch = engine.observe(page("a.com", text: secret), idleSeconds: 0, policy: screenOn, at: t0)
+        let batch = engine.observe(page("a.com", text: secret), presence: .active, policy: screenOn, at: t0)
         try store.record(#require(batch))
         func leaks() throws -> Bool {
             try ["workbench.sqlite", "workbench.sqlite-wal"].contains {
@@ -61,7 +61,7 @@ struct ForgetTests {
         let store = try Store(directory: folder, clock: { t0 }, busyTimeout: 0.05)
         var engine = CaptureEngine()
         let secret = "SECRET-\(UUID().uuidString)"
-        let batch = engine.observe(page("a.com", text: secret), idleSeconds: 0, policy: screenOn, at: t0)
+        let batch = engine.observe(page("a.com", text: secret), presence: .active, policy: screenOn, at: t0)
         try store.record(#require(batch))
 
         var otherReader: DatabaseSnapshot? = try DatabasePool(path: folder.appending(path: "workbench.sqlite").path)

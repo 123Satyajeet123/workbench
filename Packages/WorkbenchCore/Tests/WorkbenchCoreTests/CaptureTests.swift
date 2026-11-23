@@ -33,9 +33,9 @@ struct ScreenCaptureTests {
         var policy = screenOn
         policy.denyList = [.screen: ["linkedin.com"]]
         let denied = snapshot { $0.document = "www.linkedin.com/feed" }
-        #expect(kinds(recorder.observe(denied, idleSeconds: 0, policy: policy, at: t0)) == [.skipped])
+        #expect(kinds(recorder.observe(denied, presence: .active, policy: policy, at: t0)) == [.skipped])
         let other = snapshot { $0.document = "example.com" }
-        #expect(kinds(recorder.observe(other, idleSeconds: 0, policy: policy, at: t0)) == [.window, .text])
+        #expect(kinds(recorder.observe(other, presence: .active, policy: policy, at: t0)) == [.window, .text])
     }
 
 }
@@ -54,7 +54,7 @@ struct CaptureVerdictTests {
         var engine = CaptureEngine()
         let windowOnly = CapturePolicy(switches: [.screen: true])
         #expect(!engine.wantsText(for: terminal, policy: windowOnly, at: t0))
-        #expect(kinds(engine.observe(terminal, idleSeconds: 0, policy: windowOnly, at: t0)) == [.window])
+        #expect(kinds(engine.observe(terminal, presence: .active, policy: windowOnly, at: t0)) == [.window])
         #expect(engine.wantsText(for: terminal, policy: screenOn, at: t0))
     }
 
@@ -67,7 +67,7 @@ struct CaptureVerdictTests {
     @Test func anAddressIsStoredWithoutItsQueryOrFragment() {
         var engine = CaptureEngine()
         let link = snapshot { $0.document = "https://app.example.com/cb?token=abc#access=xyz" }
-        let kept = engine.observe(link, idleSeconds: 0, policy: screenOn, at: t0)
+        let kept = engine.observe(link, presence: .active, policy: screenOn, at: t0)
         #expect(kept?.activities.compactMap(\.document).allSatisfy { $0 == "https://app.example.com/cb" } == true)
         #expect(CaptureEngine.address("example.com/path") == "example.com/path")
         #expect(CaptureEngine.address("") == nil)
@@ -81,7 +81,7 @@ struct ActivityStoreTests {
         let store = try makeStore()
         var screen = CaptureEngine()
         let file = try oldFileRow()
-        let window = screen.observe(terminal, idleSeconds: 0, policy: screenOn, at: t0)
+        let window = screen.observe(terminal, presence: .active, policy: screenOn, at: t0)
         try store.record(file)
         try store.record(#require(window))
         try store.delete(.kind(.files, before: day(1)))

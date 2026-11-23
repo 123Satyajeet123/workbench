@@ -55,7 +55,8 @@ import WorkbenchCore
     private func keptWindow(at now: Date) throws -> ActivityBatch {
         var engine = CaptureEngine()
         let snapshot = ScreenSnapshot(app: "Brave", bundleID: "b", windowID: 1, title: "w", text: "")
-        let batch = engine.observe(snapshot, idleSeconds: 0, policy: CapturePolicy(switches: [.screen: true]), at: now)
+        let batch = engine.observe(
+            snapshot, presence: .active, policy: CapturePolicy(switches: [.screen: true]), at: now)
         return try #require(batch)
     }
 }

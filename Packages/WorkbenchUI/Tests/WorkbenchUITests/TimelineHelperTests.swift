@@ -81,11 +81,11 @@ private final class StallingModel: StructuredModel, Sendable {
         ]
         for (time, snapshot) in snapshots {
             clock.set(time)
-            let batch = engine.observe(snapshot, idleSeconds: 0, policy: screenOn, at: time)
+            let batch = engine.observe(snapshot, presence: .active, policy: screenOn, at: time)
             try store.record(#require(batch))
         }
         clock.set(at(hour: 10, minute: 30))
-        let idle = engine.observe(snapshots[1].1, idleSeconds: 600, policy: screenOn, at: at(hour: 10, minute: 30))
+        let idle = engine.observe(snapshots[1].1, presence: .idle, policy: screenOn, at: at(hour: 10, minute: 30))
         try store.record(#require(idle))
         clock.set(noon)
         return store

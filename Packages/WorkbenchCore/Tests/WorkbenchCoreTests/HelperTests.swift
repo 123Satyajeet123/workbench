@@ -166,7 +166,7 @@ private func read(
         var engine = CaptureEngine()
         let snapshot = ScreenSnapshot(app: "Brave", bundleID: "b", windowID: 1, title: "Docs", text: "")
         let batch = engine.observe(
-            snapshot, idleSeconds: 0, policy: CapturePolicy(switches: [.screen: true]), at: at(5))
+            snapshot, presence: .active, policy: CapturePolicy(switches: [.screen: true]), at: at(5))
         try store.record(#require(batch))
         try await save(
             [block(1, 1, quote: "app — claude"), block(3, 3, quote: "Technical Staff")], .timeline, into: store)

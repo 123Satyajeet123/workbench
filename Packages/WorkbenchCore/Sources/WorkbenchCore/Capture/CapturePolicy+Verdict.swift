@@ -8,23 +8,44 @@ public enum CaptureVerdict: Sendable, Equatable {
     case stop
 }
 
+/// What the policy says about an app before anything of it is read. Only bundle-id metadata went into it.
+public enum ReadAdmission: Sendable, Equatable {
+    /// The window may be read. The grant is the permission to do it.
+    case read(CaptureGrant)
+    /// The app may not be read. The grant lets the bare marker (skipped) be written.
+    case skip(CaptureGrant)
+    case stop
+}
+
 extension CapturePolicy {
-    public func verdict(for snapshot: ScreenSnapshot, at now: Date) -> CaptureVerdict {
-        switch authorize(CaptureRequest(kind: .screen, label: snapshot.bundleID), at: now) {
-        case .allow(let grant): hidesScreen(snapshot) ? .hide(grant) : .keep(grant)
-        case .deny(.labelDenied), .deny(.labelNotAllowed): bare(.screen, at: now)
-        case .deny, .confirm: .stop
+    /// The gate every screen read passes first: the front app's bundle id, before any Accessibility call. An app with
+    /// no bundle id has no label to check, so it is never read.
+    public func admission(ofApp bundleID: String, at now: Date) -> ReadAdmission {
+        guard !bundleID.isEmpty else { return bare(.screen, at: now) }
+        switch authorize(CaptureRequest(kind: .screen, label: bundleID), at: now) {
+        case .allow(let grant): return Self.privateBundleIDs.contains(bundleID) ? .skip(grant) : .read(grant)
+        case .deny(.labelDenied), .deny(.labelNotAllowed): return bare(.screen, at: now)
+        case .deny, .confirm: return .stop
         }
     }
 
-    private func bare(_ kind: SourceKind, at now: Date) -> CaptureVerdict {
-        authorize(CaptureRequest(kind: kind), at: now).grant.map(CaptureVerdict.hide) ?? .stop
+    /// The admission, then what the window's own title, address and focus say: a private window is hidden.
+    public func verdict(for snapshot: ScreenSnapshot, at now: Date) -> CaptureVerdict {
+        switch admission(ofApp: snapshot.bundleID, at: now) {
+        case .stop: .stop
+        case .skip(let grant): .hide(grant)
+        case .read(let grant): hidesContent(of: snapshot) ? .hide(grant) : .keep(grant)
+        }
     }
 
-    private func hidesScreen(_ snapshot: ScreenSnapshot) -> Bool {
+    private func bare(_ kind: SourceKind, at now: Date) -> ReadAdmission {
+        authorize(CaptureRequest(kind: kind), at: now).grant.map(ReadAdmission.skip) ?? .stop
+    }
+
+    private func hidesContent(of snapshot: ScreenSnapshot) -> Bool {
         let title = snapshot.title.lowercased()
         let browserWithoutAddress = Self.browserBundleIDs.contains(snapshot.bundleID) && snapshot.document.isEmpty
-        return snapshot.secureFocus || browserWithoutAddress || Self.privateBundleIDs.contains(snapshot.bundleID)
+        return snapshot.secureFocus || browserWithoutAddress
             || (Self.privateWords + Self.privateWindowMarkers).contains { title.contains($0) }
             || Self.isSite(snapshot.document, in: Self.privateDomains.union(denyList[.screen] ?? []))
     }

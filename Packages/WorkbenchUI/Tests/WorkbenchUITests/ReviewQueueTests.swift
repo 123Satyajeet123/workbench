@@ -22,12 +22,12 @@ import WorkbenchCore
         for (index, title) in ["Open PR", "Brave Staff"].enumerated() {
             clock.set(start.addingTimeInterval(Double(index) * 1800))
             let snapshot = ScreenSnapshot(app: "App", bundleID: "a", windowID: index, title: title, text: "")
-            let batch = engine.observe(snapshot, idleSeconds: 0, policy: on, at: clock.now)
+            let batch = engine.observe(snapshot, presence: .active, policy: on, at: clock.now)
             try store.record(#require(batch))
         }
         clock.set(start.addingTimeInterval(3600))
         let idle = ScreenSnapshot(app: "App", bundleID: "a", windowID: 9, title: "x", text: "")
-        let closing = engine.observe(idle, idleSeconds: 600, policy: on, at: clock.now)
+        let closing = engine.observe(idle, presence: .idle, policy: on, at: clock.now)
         try store.record(#require(closing))
         clock.set(.now)
         try store.seedMachines(MachineTemplate.seeded.map { ($0.spec, $0.name) })

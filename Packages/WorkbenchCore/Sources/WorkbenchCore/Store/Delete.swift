@@ -84,7 +84,12 @@ extension Store {
                         DELETE FROM item WHERE source = 'screen' AND EXISTS (SELECT 1 FROM activity WHERE \(clause.sql)
                             AND activity.ts >= item.start_at AND activity.ts < item.end_at)
                         """, arguments: clause.arguments)
-                try db.execute(sql: "DELETE FROM activity WHERE \(clause.sql)", arguments: clause.arguments)
+                let matched = try Int64.fetchAll(
+                    db, sql: "SELECT id FROM activity WHERE \(clause.sql)", arguments: clause.arguments)
+                let doomed = matched + (try Self.screenTextRows(opened: matched, in: db))
+                try db.execute(
+                    sql: "DELETE FROM activity WHERE id IN (SELECT value FROM json_each(?))",
+                    arguments: [try Coding.json(doomed)])
                 try removeRunText(
                     db, holding: [.screen, .screenText, .files], from: filter.from, before: filter.to)
                 try removeSummaries(db, holding: [.screen, .screenText, .files], before: .distantFuture)
@@ -113,6 +118,21 @@ extension Store {
         }
         for folder in folders { try removeFile(folder) }
         try truncateLog()
+    }
+
+    /// The screen text read from the windows these rows opened. A window row opens a stretch that ends at the next row
+    /// that is a window, idle, sleep, skipped or wake (the same ending as `Sessions.make`); the text rows of that app
+    /// inside the stretch were read from that window, so they are derived from it.
+    private static func screenTextRows(opened windowRows: [Int64], in db: Database) throws -> [Int64] {
+        try Int64.fetchAll(
+            db,
+            sql: """
+                SELECT text.id FROM activity window
+                JOIN activity text ON text.kind = 'text' AND text.bundle_id = window.bundle_id AND text.id > window.id
+                    AND text.id < COALESCE((SELECT MIN(next.id) FROM activity next WHERE next.id > window.id
+                        AND next.kind IN ('window','idle','sleep','skipped','wake')), 9223372036854775807)
+                WHERE window.kind = 'window' AND window.id IN (SELECT value FROM json_each(?))
+                """, arguments: [try Coding.json(windowRows)])
     }
 
     /// Empties the write-ahead log. A reader that still holds it makes SQLite report busy. The delete waits, tries

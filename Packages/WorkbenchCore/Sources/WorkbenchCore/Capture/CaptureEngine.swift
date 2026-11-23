@@ -4,6 +4,7 @@ import Foundation
 public struct CaptureEngine: Sendable {
     public enum SystemEvent: Sendable { case sleep, wake }
 
+    /// How long without input makes the person idle: the threshold a `PresenceSource` is asked with.
     public var idleAfter: TimeInterval
     /// While the place stays the same, its text is kept again only when it changed and this much time passed.
     public var textInterval: TimeInterval
@@ -35,7 +36,7 @@ public struct CaptureEngine: Sendable {
 
     /// Nil when capture is off, paused, private or the screen source is switched off: then nothing is kept at all.
     public mutating func observe(
-        _ snapshot: ScreenSnapshot, idleSeconds: TimeInterval, policy: CapturePolicy, at now: Date
+        _ snapshot: ScreenSnapshot, presence: PresenceState, policy: CapturePolicy, at now: Date
     ) -> ActivityBatch? {
         let verdict = policy.verdict(for: snapshot, at: now)
         let grant: CaptureGrant
@@ -46,7 +47,7 @@ public struct CaptureEngine: Sendable {
         case .keep(let granted), .hide(let granted): grant = granted
         }
         var out: [Activity] = []
-        let isIdle = idleSeconds >= idleAfter
+        let isIdle = presence != .active
         if isIdle != idle {
             idle = isIdle
             out.append(Activity(at: now, kind: isIdle ? .idle : .active))
@@ -72,12 +73,14 @@ public struct CaptureEngine: Sendable {
                     document: address))
         }
         let textDue = placeChanged || now.timeIntervalSince(lastTextAt) >= textInterval
-        if policy.isEnabled(.screenText), !snapshot.text.isEmpty, snapshot.text != lastText, textDue {
-            out.append(
-                Activity(
-                    at: now, kind: .text, app: snapshot.app, bundleID: snapshot.bundleID, title: snapshot.title,
-                    document: address, text: snapshot.text))
-            lastText = snapshot.text
+        if policy.isEnabled(.screenText), !snapshot.text.isEmpty, textDue {
+            if snapshot.text != lastText {
+                out.append(
+                    Activity(
+                        at: now, kind: .text, app: snapshot.app, bundleID: snapshot.bundleID, title: snapshot.title,
+                        document: address, text: snapshot.text))
+                lastText = snapshot.text
+            }
             lastTextAt = now
         }
         return ActivityBatch(out, grant: grant)
