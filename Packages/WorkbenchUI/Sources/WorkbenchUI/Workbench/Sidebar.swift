@@ -2,62 +2,21 @@ import AppKit
 import SwiftUI
 import WorkbenchCore
 
-enum SidebarLayout {
-    enum Entry: Equatable {
-        case page(SidebarSelection, symbol: String)
-        case helper(SidebarSelection)
-    }
-
-    struct Section: Equatable {
-        var title: String?
-        var entries: [Entry]
-    }
-
-    static let sections = [
-        Section(entries: [
-            .page(.day, symbol: "sun.max"), .page(.people, symbol: "person.2"),
-            .page(.projects, symbol: "square.stack.3d.up"), .helper(.calls),
-            .page(.deals, symbol: "rectangle.3.group"),
-        ]),
-        Section(
-            title: "Crew",
-            entries: [
-                .helper(.mochi), .page(.crew, symbol: "rectangle.grid.2x2"),
-                .page(.review, symbol: "checkmark.circle"), .page(.catalog, symbol: "person.crop.rectangle.stack"),
-            ]),
-    ]
-
-    static var pages: [SidebarSelection] {
-        sections.flatMap(\.entries).map { entry in
-            switch entry {
-            case .page(let page, _), .helper(let page): page
-            }
-        }
-    }
-
-    static func symbol(of page: SidebarSelection) -> String? {
-        if page == .usage { return "chart.xyaxis.line" }
-        if page == .settings { return "gearshape" }
-        for case .page(let listed, let symbol) in sections.flatMap(\.entries) where listed == page { return symbol }
-        return nil
-    }
-}
-
-/// The fixed pages, the person's favourite and recent pages, and the tree of the workspace, in one native sidebar
-/// list. Usage and Settings stay at the foot.
+/// The fixed top (Mochi, Search, Recents, Favorites), the workspace and its tree, the Private section, and Sources and
+/// Settings at the foot, in one native sidebar list. Everything in the tree is the person's to make, rename, nest,
+/// move and archive.
 struct Sidebar: View {
     @Binding var selection: SidebarSelection
     var openInNewTab: (SidebarSelection) -> Void = { _ in }
-    @Environment(IdentityModel.self) private var identity
+    var search: () -> Void = {}
     @Environment(TeamModel.self) private var team
+    @Environment(CaptureSettings.self) private var capture
+    @Environment(Navigation.self) private var navigation
     @Environment(Crew.self) private var crew
-    @Environment(ReviewModel.self) private var review
     @Environment(TodayModel.self) private var today
     @Environment(TeamCatalogModel.self) private var catalog
     @Environment(DealsModel.self) private var deals
     @Environment(WorkspaceModel.self) private var workspace
-    @Environment(PlanUsage.self) private var planUsage
-    @Environment(ModelSettings.self) private var models
     @State private var editing: MachineEdit?
     @State private var deleting: HelperModel?
     @State private var renaming: WorkObjectID?
@@ -65,36 +24,48 @@ struct Sidebar: View {
 
     var body: some View {
         List(selection: listSelection) {
-            ForEach(SidebarLayout.sections.indices, id: \.self) { index in section(SidebarLayout.sections[index]) }
-            if !workspace.favorites.isEmpty {
-                Section("Favorites") { ForEach(workspace.favorites) { PageLabel(page: $0).tag($0) } }
+            Section {
+                mochiRow
+                Button(action: search) { Label("Search", systemImage: "magnifyingglass") }
+                    .buttonStyle(.plain).help("Search (⌘K)")
             }
             if !workspace.recents.isEmpty {
                 Section("Recents", isExpanded: $recentsShown) {
                     ForEach(workspace.recents) { PageLabel(page: $0).tag($0) }
                 }
             }
+            if !workspace.favorites.isEmpty {
+                Section("Favorites") { ForEach(workspace.favorites) { PageLabel(page: $0).tag($0) } }
+            }
             Section {
-                ForEach(workspace.roots) { TreeNode(object: $0, renaming: $renaming, rename: rename) }
-                    .dropDestination(for: String.self) { ids, index in workspace.drop(ids, into: nil, at: index) }
+                tree(workspace.roots, under: nil)
             } header: {
-                workspaceHeader
+                workspaceMenu
+            }
+            Section {
+                tree(workspace.privateItems, under: workspace.privateSection)
+            } header: {
+                HStack {
+                    Text("Private").help("Yours. Who can read a page follows its sources, not its folder.")
+                    Spacer()
+                    Menu("New", systemImage: "plus") { newItems(under: workspace.privateSection) }
+                        .labelStyle(.iconOnly).menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+                        .help("New folder or page in Private")
+                }
             }
         }
         .listStyle(.sidebar)
         .contextMenu(forSelectionType: SidebarSelection.self) { pages in menu(for: pages) }
         .onKeyPress(.return) { startRenaming(selection) ? .handled : .ignored }
         .onDeleteCommand { archive(selection) }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            VStack(spacing: 0) {
-                usageRow
-                settingsRow
-            }
-        }
+        .safeAreaInset(edge: .bottom, spacing: 0) { foot }
         .onChange(of: crew.crew.map(\.machine.id)) { workspace.refresh() }
         .onChange(of: deals.deals.map(\.id)) { workspace.refresh() }
         .sheet(item: $editing) { edit in
-            MachineSheet(edit: edit) { id in if let id { selection = .machine(id) } }
+            MachineSheet(edit: edit) { id in
+                workspace.refresh()
+                if let id { selection = .machine(id) }
+            }
         }
         .confirmationDialog(
             "Delete \(deleting?.name ?? "")?",
@@ -127,57 +98,70 @@ struct Sidebar: View {
             })
     }
 
-    private func section(_ section: SidebarLayout.Section) -> some View {
-        Section {
-            ForEach(section.entries.indices, id: \.self) { index in entry(section.entries[index]) }
-        } header: {
-            if let title = section.title {
-                HStack {
-                    Text(title)
-                    Spacer()
-                    Button("Add a machine", systemImage: "plus") { editing = .new }
-                        .labelStyle(.iconOnly).buttonStyle(.borderless).help("Add a machine")
+    /// Mochi is the home: its row opens Today, with the count of what needs you.
+    private var mochiRow: some View {
+        Label {
+            Text(SidebarSelection.mochi.title)
+        } icon: {
+            Mascot(look: .mochi, size: 18, mood: mochiMood)
+        }
+        .badge(today.needsCount)
+        .help(SidebarSelection.day.role)
+        .tag(SidebarSelection.day)
+    }
+
+    /// The rows of one level of the tree. A row dragged between them takes that place under `parent`.
+    private func tree(_ objects: [WorkObject], under parent: WorkObjectID?) -> some View {
+        ForEach(objects) { TreeNode(object: $0, renaming: $renaming, rename: rename) }
+            .dropDestination(for: String.self) { ids, index in workspace.drop(ids, into: parent, at: index) }
+    }
+
+    /// The workspace: its name, and the menu that switches to the other profile's data and makes new items.
+    private var workspaceMenu: some View {
+        Menu {
+            if let other = ProfileSwitch.available(from: capture.profile) {
+                Button(ProfileSwitch.title(to: other)) { ProfileSwitch.go(to: other) }
+                Divider()
+            }
+            newItems(under: nil)
+        } label: {
+            HStack(spacing: Space.xs) {
+                Text(team.team.name.cleaned ?? "Workspace")
+                Image(systemName: "chevron.down").imageScale(.small)
+            }
+        }
+        .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+        .help("Your workspace")
+    }
+
+    private var foot: some View {
+        VStack(alignment: .leading, spacing: Space.xs) {
+            if let problem = workspace.problems.text {
+                Text(problem).textStyle(.callout).foregroundStyle(Tone.bad.color)
+            }
+            if let notice = workspace.notice {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(notice).textStyle(.callout).foregroundStyle(.secondary)
+                    Spacer(minLength: 0)
+                    Button("Dismiss", systemImage: "xmark") { workspace.notice = nil }
+                        .labelStyle(.iconOnly).buttonStyle(.borderless)
                 }
             }
-        }
-    }
-
-    @ViewBuilder private func entry(_ entry: SidebarLayout.Entry) -> some View {
-        switch entry {
-        case .page(let page, let symbol):
-            Label(page.title, systemImage: symbol).badge(count(of: page)).help(page.role).tag(page)
-        case .helper(let page):
-            Label {
-                Text(page.title)
-            } icon: {
-                page.look.map { Mascot(look: $0, size: 18, mood: page == .mochi ? mochiMood : .calm) }
+            HStack {
+                Button("Sources", systemImage: "arrow.left.arrow.right") { navigation.openSettings(.capture) }
+                    .help("What Workbench reads")
+                Spacer()
+                Button("Settings", systemImage: "gearshape") { selection = .settings }.help("Settings (⌘,)")
             }
-            .help(page.role).tag(page)
+            .buttonStyle(.borderless)
         }
-    }
-
-    private var workspaceHeader: some View {
-        HStack {
-            Text(team.team.name.cleaned ?? "Workspace")
-            Spacer()
-            Menu("New", systemImage: "plus") { newItems(under: nil) }
-                .labelStyle(.iconOnly).menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
-                .help("New folder or page")
-        }
-    }
-
-    private func count(of page: SidebarSelection) -> Int {
-        switch page {
-        case .day: today.needsCount
-        case .review: review.items.count
-        case .catalog: catalog.teammates.count + catalog.teammatesDays.count
-        default: 0
-        }
+        .padding(.horizontal, Space.m).padding(.vertical, Space.s)
     }
 
     @ViewBuilder private func menu(for pages: Set<SidebarSelection>) -> some View {
         if let page = pages.first, pages.count == 1 {
             Button("Open in new tab") { openInNewTab(page) }
+            if page == .day { Button("Open Mochi's page") { selection = .mochi } }
             Button(workspace.isFavorite(page) ? "Remove from Favorites" : "Add to Favorites") {
                 workspace.toggleFavorite(page)
             }
@@ -200,6 +184,7 @@ struct Sidebar: View {
     @ViewBuilder private func newItems(under parent: WorkObjectID?) -> some View {
         Button("New folder") { make(ObjectTypes.folder, "New folder", under: parent) }
         Button("New page") { make(ObjectTypes.page, "Untitled", under: parent) }
+        Button("New machine…") { editing = .new(in: parent) }
     }
 
     @ViewBuilder private func machineItems(for helper: HelperModel) -> some View {
@@ -249,52 +234,6 @@ struct Sidebar: View {
         guard let object = crew.object(of: page, in: workspace), crew.helper(page: object.id) == nil else { return }
         if selection == page { selection = .day }
         workspace.archive(object.id)
-    }
-
-    private var planWindow: PlanLimits.Window? {
-        guard models.billing == .plan, let limits = planUsage.limits else { return nil }
-        return limits.fiveHour ?? limits.week
-    }
-
-    private var usageRow: some View {
-        footRow(.usage, help: usageSummary) {
-            PlanRing(window: planWindow, size: 18)
-            Text(SidebarSelection.usage.title).lineLimit(1)
-            Spacer()
-            if let planWindow {
-                Text(PlanRing.percent(planWindow.used)).monospacedDigit().foregroundStyle(.secondary)
-            }
-        }
-    }
-
-    private var usageSummary: String {
-        guard models.billing == .plan, let limits = planUsage.limits else { return SidebarSelection.usage.title }
-        return "Claude plan\n" + limits.summary
-    }
-
-    private var settingsRow: some View {
-        footRow(.settings, help: "Settings (⌘,)") {
-            Monogram(name: identity.identity.hasName ? identity.identity.name : "You", size: 20)
-            Text(identity.identity.hasName ? identity.identity.name : "You").lineLimit(1)
-            Spacer()
-            Image(systemName: "gearshape").foregroundStyle(.secondary)
-        }
-    }
-
-    private func footRow(_ page: SidebarSelection, help: String, @ViewBuilder label: () -> some View) -> some View {
-        Button {
-            listSelection.wrappedValue = page
-        } label: {
-            HStack(spacing: Space.s) { label() }
-                .padding(.horizontal, Space.s).padding(.vertical, Space.xs + 2)
-                .background(selection == page ? Color.selectedFill : .clear, in: .rect(cornerRadius: Radius.control))
-                .contentShape(.rect)
-        }
-        .buttonStyle(.plain)
-        .padding(.horizontal, Space.s).padding(.vertical, 1)
-        .help(help)
-        .contextMenu { Button("Open in new tab") { openInNewTab(page) } }
-        .accessibilityAddTraits(selection == page ? .isSelected : [])
     }
 
     private var mochiMood: Mascot.Mood {

@@ -21,11 +21,8 @@ struct PageIntroTests {
         #expect(fresh.pages.isEmpty)
     }
 
-    @Test func everySidebarPageHasANoteAndOtherPagesHaveNone() {
-        for case .page(let page, _) in SidebarLayout.sections.flatMap(\.entries) {
-            #expect(page.intro?.isEmpty == false, "\(page) has no note")
-        }
-        for case .helper(let page) in SidebarLayout.sections.flatMap(\.entries) {
+    @Test func everyFixedPageButUsageAndSettingsHasANoteAndOtherPagesHaveNone() {
+        for page in SidebarSelection.fixed where ![.usage, .settings].contains(page) {
             #expect(page.intro?.isEmpty == false, "\(page) has no note")
         }
         #expect(SidebarSelection.usage.intro == nil && SidebarSelection.machine(1).intro == nil)

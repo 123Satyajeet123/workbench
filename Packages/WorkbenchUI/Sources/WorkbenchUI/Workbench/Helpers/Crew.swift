@@ -147,12 +147,12 @@ final class Crew {
     }
 
     @discardableResult
-    func create(from template: MachineTemplate, name: String) -> Int64? {
-        create(spec: template.spec, template: template.spec.task, name: name.cleaned ?? template.name)
+    func create(from template: MachineTemplate, name: String, in folder: WorkObjectID? = nil) -> Int64? {
+        create(spec: template.spec, template: template.spec.task, name: name.cleaned ?? template.name, in: folder)
     }
 
     @discardableResult
-    func create(spec: HelperSpec, template: String, name: String) -> Int64? {
+    func create(spec: HelperSpec, template: String, name: String, in folder: WorkObjectID? = nil) -> Int64? {
         var spec = spec
         if spec.needsFollowed {
             guard let followed = followable else {
@@ -164,7 +164,7 @@ final class Crew {
         if template == HelperSpec.outbound.task, let intake = intakeCriteria { spec.criteria = intake }
         var id: Int64?
         problems.attempt("add the machine") {
-            id = try store.createMachine(from: spec, template: template, name: name).id
+            id = try store.createMachine(from: spec, template: template, name: name, in: folder).id
         }
         reload()
         return id

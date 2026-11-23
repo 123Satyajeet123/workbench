@@ -2,7 +2,9 @@ import SwiftUI
 import WorkbenchCore
 
 struct TodayPage: View {
+    let open: (SidebarSelection) -> Void
     @Environment(TodayModel.self) private var today
+    @Environment(ReviewModel.self) private var review
     @Environment(MochiModel.self) private var mochi
     @Environment(IdentityModel.self) private var identity
 
@@ -12,6 +14,9 @@ struct TodayPage: View {
             title: identity.identity.greeting(), subtitle: Date.now.formatted(date: .complete, time: .omitted),
             look: SidebarSelection.day.look
         ) {
+            Button("\(SidebarSelection.review.title) · \(review.items.count)") { open(.review) }
+                .help(SidebarSelection.review.role)
+        } content: {
             TodayBody(model: today, brief: mochi.brief)
         }
         .onAppear(perform: today.refresh)

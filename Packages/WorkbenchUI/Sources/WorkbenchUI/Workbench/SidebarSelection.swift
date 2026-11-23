@@ -131,12 +131,31 @@ enum SidebarSelection: Hashable, Identifiable, RawRepresentable {
         case .mochi:
             "A brief of your day and a timeline of what you worked on. After \(Mochi.minimumDays) work days, Mochi suggests machines for work you repeat."
         case .crew:
-            "Each machine reads one source for one job, like Pip with your team's chats. Add one with + in the sidebar."
+            "Each machine reads one source for one job, like Pip with your team's chats. Add one with New machine… in a folder's menu in the sidebar."
         case .review:
             "Everything found that you haven't checked yet. Your marks teach each machine and decide when it can run on its own."
         case .catalog:
             "What your teammates shared with you: their days and their machines."
         case .usage, .settings, .machine, .page: nil
+        }
+    }
+
+    /// The SF Symbol of a page that has no face. A machine's and a work object's come from their records.
+    var symbol: String {
+        switch self {
+        case .day: "sun.max"
+        case .people: "person.2"
+        case .projects: "square.stack.3d.up"
+        case .mochi: "sparkle"
+        case .crew: "rectangle.grid.2x2"
+        case .review: "checkmark.circle"
+        case .calls: "headphones"
+        case .deals: "rectangle.3.group"
+        case .catalog: "person.crop.rectangle.stack"
+        case .usage: "chart.xyaxis.line"
+        case .settings: "gearshape"
+        case .machine: "gearshape.2"
+        case .page: "doc.text"
         }
     }
 

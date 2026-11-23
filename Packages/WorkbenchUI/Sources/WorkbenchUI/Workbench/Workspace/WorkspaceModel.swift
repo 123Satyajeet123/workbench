@@ -2,12 +2,13 @@ import Foundation
 import Observation
 import WorkbenchCore
 
-/// The tree of the workspace as the sidebar shows it: the levels loaded so far, the objects that have children and
-/// the rows that are open. A level loads when its row opens. Also the person's favourite and recent pages, kept in the
-/// store of the profile, so each person and the demo keep their own.
+/// The tree of the workspace as the sidebar shows it: the top level, the Private section, the levels loaded so far,
+/// the objects that have children and the rows that are open. A level loads when its row opens. Also the person's
+/// favourite and recent pages, kept in the store of the profile, so each person and the demo keep their own.
 @Observable
 final class WorkspaceModel {
     static let recentCount = 8
+    static let privateNote = "Who can read a page follows its sources, not its folder."
     private static let favoritesKey = StateKey<[String]>.json("sidebar.favorites")
     private static let recentsKey = StateKey<[String]>.json("sidebar.recents")
 
@@ -16,6 +17,10 @@ final class WorkspaceModel {
     private(set) var expanded: Set<WorkObjectID> = []
     private(set) var favorites: [SidebarSelection] = []
     private(set) var recents: [SidebarSelection] = []
+    /// The object whose children make the Private section. Nil only when the store could not make it.
+    private(set) var privateSection: WorkObjectID?
+    /// Said once when a move takes a page into or out of Private: the move changes no access.
+    var notice: String?
     /// Changes on every refresh, so a page that shows part of the tree reads it again.
     private(set) var revision = 0
     let problems = ProblemSlot()
@@ -24,16 +29,21 @@ final class WorkspaceModel {
 
     init(store: Store) {
         self.store = store
-        problems.attempt("read your favourites and recent pages") {
+        problems.attempt("set up the workspace") {
+            try store.seedWorkspace()
+            privateSection = try store.privateSection().id
             favorites = try pages(Self.favoritesKey)
             recents = try pages(Self.recentsKey)
         }
         refresh()
-        expanded = parents.intersection(roots.map(\.id))
+        expanded = parents.intersection(roots.map(\.id) + privateItems.map(\.id))
         refresh()
     }
 
-    var roots: [WorkObject] { levels[nil] ?? [] }
+    /// The top level of the workspace, without the Private section.
+    var roots: [WorkObject] { (levels[nil] ?? []).filter { $0.id != privateSection } }
+
+    var privateItems: [WorkObject] { privateSection.map(children(of:)) ?? [] }
 
     func children(of id: WorkObjectID) -> [WorkObject] { levels[id] ?? [] }
 
@@ -53,7 +63,9 @@ final class WorkspaceModel {
             var loaded: [WorkObjectID?: [WorkObject]] = [
                 nil: try store.queries.workObjects(parent: nil, includeArchived: false)
             ]
-            for id in expanded { loaded[id] = try store.queries.workObjects(parent: id, includeArchived: false) }
+            for id in expanded.union(privateSection.map { [$0] } ?? []) {
+                loaded[id] = try store.queries.workObjects(parent: id, includeArchived: false)
+            }
             levels = loaded
         }
         revision += 1
@@ -111,15 +123,28 @@ final class WorkspaceModel {
 
     /// Moves the dragged objects under `parent`: before the row at `index` among its children, or last.
     func drop(_ ids: [WorkObjectID], into parent: WorkObjectID?, at index: Int? = nil) {
-        let siblings = levels[parent] ?? []
+        let siblings = parent.map(children(of:)) ?? roots
         let before = index.flatMap { index in
             siblings.dropFirst(min(index, siblings.count)).first { !ids.contains($0.id) }?.id
         }
+        let crossesPrivate = ids.contains { isPrivate($0) != isPrivate(parent) }
         problems.attempt("move it") {
             for id in ids { try store.move(id, under: parent, before: before) }
         }
+        notice = crossesPrivate ? Self.privateNote : nil
         if let parent { expanded.insert(parent) }
         refresh()
+    }
+
+    /// Whether `id` is the Private section or stands below it.
+    func isPrivate(_ id: WorkObjectID?) -> Bool {
+        var next = id
+        var seen: Set<WorkObjectID> = []
+        while let current = next, seen.insert(current).inserted {
+            if current == privateSection { return true }
+            next = object(current)?.parentID
+        }
+        return false
     }
 
     func isFavorite(_ page: SidebarSelection) -> Bool { favorites.contains(page) }

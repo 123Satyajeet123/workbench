@@ -2,12 +2,13 @@ import SwiftUI
 import WorkbenchCore
 
 enum MachineEdit: Identifiable {
-    case new
+    /// A new machine whose page goes in `folder`, or in its template's folder when nil.
+    case new(in: WorkObjectID?)
     case brief(HelperModel)
 
     var id: String {
         switch self {
-        case .new: "new"
+        case .new(let folder): "new-\(folder ?? "")"
         case .brief(let helper): "brief-\(helper.machine.id)"
         }
     }
@@ -89,7 +90,7 @@ struct MachineSheet: View {
 
     private func save() {
         switch edit {
-        case .new: done(crew.create(from: template, name: text))
+        case .new(let folder): done(crew.create(from: template, name: text, in: folder))
         case .brief(let helper):
             crew.edit(helper, brief: text)
             done(nil)

@@ -18,7 +18,9 @@ struct WorkbenchView: View {
     var body: some View {
         NavigationSplitView(columnVisibility: columnVisibility) {
             Sidebar(
-                selection: Binding(get: { tabs.page }, set: { tabs.open($0) }), openInNewTab: { tabs.openNewTab($0) }
+                selection: Binding(get: { tabs.page }, set: { tabs.open($0) }),
+                openInNewTab: { tabs.openNewTab($0) },
+                search: { isSearching = true }
             )
             .navigationSplitViewColumnWidth(min: 200 * scale, ideal: 240 * scale, max: 320 * scale)
         } detail: {
@@ -49,7 +51,7 @@ struct WorkbenchView: View {
 
     @ViewBuilder private var page: some View {
         switch tabs.page {
-        case .day: TodayPage()
+        case .day: TodayPage(open: show)
         case .people: FactGroupsPage(lens: .people)
         case .projects: FactGroupsPage(lens: .projects)
         case .mochi: MochiPage(open: show)
@@ -98,7 +100,7 @@ struct WorkbenchView: View {
     private var search: some View {
         QuickOpenPanel(
             entries: QuickOpen.entries(
-                pages: SidebarLayout.pages + [.usage, .settings],
+                pages: SidebarSelection.fixed,
                 objects: workspace.everyObject().map { ($0.name, $0.noun, crew.page(of: $0)) },
                 people: today.people.map(\.name), projects: today.projectGroups.map(\.name),
                 settings: SettingsItem.all, switchTo: ProfileSwitch.available(from: capture.profile)),

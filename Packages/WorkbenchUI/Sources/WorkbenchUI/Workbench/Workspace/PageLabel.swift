@@ -30,7 +30,7 @@ struct PageLabel: View {
         switch page {
         case .machine(let id): crew.helper(id: id)?.machine.symbol ?? "gearshape.2"
         case .page(let id): workspace.object(id)?.symbol ?? "doc.text"
-        default: SidebarLayout.symbol(of: page) ?? "doc"
+        default: page.symbol
         }
     }
 }
