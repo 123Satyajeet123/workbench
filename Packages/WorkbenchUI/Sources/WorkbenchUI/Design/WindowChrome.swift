@@ -6,6 +6,14 @@ struct WindowButtons: Equatable {
     var trailing: CGFloat
 
     static let compact = WindowButtons(center: 20, trailing: 72)
+    static let hidden = WindowButtons(center: compact.center, trailing: 0)
+
+    static func measure(contentHeight: CGFloat, close: CGRect, zoom: CGRect, inWindow: Bool, isFullScreen: Bool)
+        -> WindowButtons
+    {
+        guard inWindow, !isFullScreen else { return hidden }
+        return WindowButtons(center: contentHeight - close.midY, trailing: zoom.maxX)
+    }
 }
 
 struct WindowChrome: NSViewRepresentable {
@@ -35,7 +43,13 @@ struct WindowChrome: NSViewRepresentable {
             window.toolbar?.allowsUserCustomization = false
             window.toolbarStyle = .unifiedCompact
             DispatchQueue.main.async { [weak self] in self?.measure() }
+            for name in [NSWindow.didEnterFullScreenNotification, NSWindow.didExitFullScreenNotification] {
+                NotificationCenter.default.addObserver(
+                    self, selector: #selector(screenModeChanged), name: name, object: window)
+            }
         }
+
+        @objc private func screenModeChanged() { measure() }
 
         override func layout() {
             super.layout()
@@ -49,9 +63,10 @@ struct WindowChrome: NSViewRepresentable {
                 let close = window.standardWindowButton(.closeButton),
                 let zoom = window.standardWindowButton(.zoomButton)
             else { return }
-            let closeFrame = close.convert(close.bounds, to: nil)
-            let zoomFrame = zoom.convert(zoom.bounds, to: nil)
-            let buttons = WindowButtons(center: content.bounds.height - closeFrame.midY, trailing: zoomFrame.maxX)
+            let buttons = WindowButtons.measure(
+                contentHeight: content.bounds.height, close: close.convert(close.bounds, to: nil),
+                zoom: zoom.convert(zoom.bounds, to: nil), inWindow: close.window === window,
+                isFullScreen: window.styleMask.contains(.fullScreen))
             guard buttons != last else { return }
             last = buttons
             measured(buttons)
