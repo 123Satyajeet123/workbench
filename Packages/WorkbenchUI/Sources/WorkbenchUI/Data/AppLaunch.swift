@@ -1,6 +1,7 @@
 import CaptureService
 import Foundation
 import LocalSources
+import TelegramReader
 import WorkbenchCore
 
 struct StartupFailure: Error, Equatable {
@@ -58,7 +59,9 @@ enum AppLaunch {
             let web = WebResearchSettings(store: store, browser: pages)
             let crew = Crew(
                 store: store, capture: service, founder: { identity.identity.name }, makeModel: nil,
-                notifications: notifications, openWebSession: { try web.openSession() })
+                notifications: notifications, openWebSession: { try web.openSession() },
+                telegram: TelegramAccount(
+                    service: TDLibTelegram(folder: storeFolder.appending(path: "Telegram")), capture: service))
             let onboarding = OnboardingModel(store: store, identity: identity, teamStarted: crew.reload)
             let review = ReviewModel(store: store, crew: crew)
             let mochi = MochiModel(store: store, crew: crew)

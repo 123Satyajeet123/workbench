@@ -105,7 +105,7 @@ public struct CapturePolicy: Codable, Sendable, Equatable {
     public static let retention: TimeInterval = 30 * 86_400
 
     /// Sources that read other people's words read only the labels listed: one chat or one mail label, never all of them.
-    public static let needsAllowList: Set<SourceKind> = [.whatsapp, .mail]
+    public static let needsAllowList: Set<SourceKind> = [.whatsapp, .telegram, .mail]
 
     public func isEnabled(_ kind: SourceKind) -> Bool { switches[kind] ?? false }
 

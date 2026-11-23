@@ -2,6 +2,7 @@ import CaptureService
 import Foundation
 import LocalSources
 import Observation
+import TelegramReader
 import WorkbenchCore
 
 @Observable
@@ -19,24 +20,25 @@ final class Crew {
     @ObservationIgnored private let alarm: VersionAlarm
     @ObservationIgnored private let openWebSession: () throws -> WebSession
     let notifications: Notifications
+    let telegram: TelegramAccount
 
     convenience init(
         store: Store, capture: CaptureService, founder: @escaping () -> String,
         makeModel: ((ModelChoice) -> RecordedModel)? = nil, notifier: Notifier = SystemNotifier(),
         openWebSession: (() throws -> WebSession)? = nil,
-        whatsAppContainer: URL = WhatsAppChatReader.defaultContainer
+        whatsAppContainer: URL = WhatsAppChatReader.defaultContainer, telegram: TelegramAccount? = nil
     ) {
         self.init(
             store: store, capture: capture, founder: founder, makeModel: makeModel,
             notifications: Notifications(notifier: notifier), openWebSession: openWebSession,
-            whatsAppContainer: whatsAppContainer)
+            whatsAppContainer: whatsAppContainer, telegram: telegram)
     }
 
     init(
         store: Store, capture: CaptureService, founder: @escaping () -> String,
         makeModel: ((ModelChoice) -> RecordedModel)?, notifications: Notifications,
         openWebSession: (() throws -> WebSession)? = nil,
-        whatsAppContainer: URL = WhatsAppChatReader.defaultContainer
+        whatsAppContainer: URL = WhatsAppChatReader.defaultContainer, telegram: TelegramAccount? = nil
     ) {
         self.whatsAppContainer = whatsAppContainer
         self.store = store
@@ -45,6 +47,11 @@ final class Crew {
         self.founder = founder
         self.makeModel = makeModel
         self.notifications = notifications
+        self.telegram =
+            telegram
+            ?? TelegramAccount(
+                service: TDLibTelegram(folder: AppLaunch.defaultStoreFolder.appending(path: "Telegram")),
+                capture: capture)
         alarm = VersionAlarm(store: store, notifications: notifications, problems: problems)
         reload()
     }
@@ -212,6 +219,11 @@ final class Crew {
         reload()
     }
 
+    private func telegramChats(except task: String) -> Set<String> {
+        let others = machines.filter { $0.spec.task != task }.compactMap { $0.source as? TelegramSource }
+        return Set(others.compactMap(\.chat?.label))
+    }
+
     private func source(for machine: Machine) throws -> any MachineSource {
         switch machine.spec.source {
         case .screenSessions: ScreenSource(store: store)
@@ -223,6 +235,10 @@ final class Crew {
         case .whatsappChat:
             try WhatsAppSource(
                 store: store, capture: capture, task: machine.task, founder: founder, container: whatsAppContainer)
+        case .telegramChat:
+            try TelegramSource(
+                store: store, capture: capture, account: telegram, task: machine.task, founder: founder,
+                othersReading: { [weak self] in self?.telegramChats(except: machine.task) ?? [] })
         }
     }
 }

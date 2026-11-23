@@ -82,6 +82,13 @@ extension HelperSpec {
             outcomes: ["kept", "answered", "resolved", "reversed", "dropped"], owner: "person",
             doneOutcomes: ["blocker": "resolved"]))
 
+    public static let teamTelegram: HelperSpec = {
+        var spec = team
+        spec.task = "team.telegram"
+        spec.source = .telegramChat
+        return spec
+    }()
+
     /// The day timeline: the founder's screen sessions joined into blocks of work.
     public static let timeline = HelperSpec(
         task: "day.timeline", source: .screenSessions,

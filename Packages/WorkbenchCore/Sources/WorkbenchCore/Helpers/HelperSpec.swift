@@ -7,6 +7,7 @@ public struct HelperSpec: Codable, Sendable, Equatable {
     /// Where the evidence comes from. Each case is a reader in code, with its own consent kind.
     public enum Source: String, Codable, Sendable, CaseIterable {
         case whatsappChat = "whatsapp_chat"
+        case telegramChat = "telegram_chat"
         case screenSessions = "screen_sessions"
         /// The text of web pages the person saw, only on the sites the machine's owner named.
         case pageText = "page_text"
@@ -20,6 +21,7 @@ public struct HelperSpec: Codable, Sendable, Equatable {
         public var kind: SourceKind {
             switch self {
             case .whatsappChat: .whatsapp
+            case .telegramChat: .telegram
             case .screenSessions: .screen
             case .pageText: .screenText
             case .mail: .mail
@@ -29,7 +31,7 @@ public struct HelperSpec: Codable, Sendable, Equatable {
 
         public var lineNoun: String {
             switch self {
-            case .whatsappChat: "messages"
+            case .whatsappChat, .telegramChat: "messages"
             case .screenSessions: "windows"
             case .pageText: "pages"
             case .mail: "messages"
@@ -41,6 +43,11 @@ public struct HelperSpec: Codable, Sendable, Equatable {
         var lines: String {
             switch self {
             case .whatsappChat: SourceDescriptor.whatsAppChat.grammar
+            case .telegramChat:
+                """
+                one work day of a Telegram group. Each line is `[number] HH:mm sender: text`. People write in Hindi, \
+                English and Hinglish.
+                """
             case .screenSessions: SourceDescriptor.screenWindow.grammar
             case .mail: SourceDescriptor.gmailMail.grammar
             case .news:

@@ -1,5 +1,6 @@
 import Foundation
 import LocalSources
+import TelegramReader
 import WorkbenchCore
 
 /// The store keys of one machine's settings, named by its task. These names are in founders' stores already.
@@ -17,6 +18,8 @@ enum MachineKey {
     static func sites(_ task: String) -> StateKey<[String]> { .json("\(task).sites") }
     static func chats(_ task: String) -> StateKey<[WhatsAppChat]> { .json("\(task).chats") }
     static func members(_ task: String) -> StateKey<[WhatsAppMember]> { .json("\(task).members") }
+    static func telegramChat(_ task: String) -> StateKey<TelegramChat> { .json("\(task).telegram.chat") }
+    static func telegramConsent(_ task: String) -> StateKey<TelegramConsent> { .json("\(task).telegram.consent") }
     /// The past deals with the investor's own calls: the held-out set, kept apart from every item.
     static func agreement(_ task: String) -> StateKey<[PastDeal]> { .json("\(task).agreement") }
     static func drift(_ task: String) -> StateKey<String> { .text("\(task).drift") }

@@ -16,6 +16,8 @@ struct SourceChooser: View {
             NewsChooser(model: model)
         } else if model.source is OutboundSource {
             OutboundChooser(model: model)
+        } else if let source = model.source as? TelegramSource {
+            TelegramChooser(model: model, source: source)
         }
     }
 }

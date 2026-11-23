@@ -143,6 +143,7 @@ extension SourceKind {
     public var capturedFrom: String {
         switch self {
         case .whatsapp: "WhatsApp"
+        case .telegram: "Telegram"
         case .screenText: "a page"
         case .screen: "the screen"
         case .typed: "you"

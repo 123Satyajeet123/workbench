@@ -6,6 +6,11 @@ extension MachineTemplate {
         detail:
             "Reads the WhatsApp chats you choose and keeps each person's plans, done work, blockers, commitments, decisions and questions, by project."
     )
+    public static let teamTelegram = MachineTemplate(
+        spec: .teamTelegram, name: "Relay", role: "Team facts from Telegram",
+        detail:
+            "Reads one Telegram group whose members all agreed, and keeps each person's plans, done work, blockers, commitments, decisions and questions, by project."
+    )
     public static let timeline = MachineTemplate(
         spec: .timeline, name: "Timeline", role: "Day timeline",
         detail: "Turns your screen sessions into blocks of work with the words they came from.")
@@ -57,8 +62,8 @@ extension MachineTemplate {
         detail: "Reads the WhatsApp groups you choose and gives you their decisions, asks, news and problems.")
 
     public static let all = [
-        team, timeline, pages, derailment, dealIntake, dealsFromChats, outbound, founderCheck, newsSignals,
-        companySignals, followUps, morningDigest,
+        team, teamTelegram, timeline, pages, derailment, dealIntake, dealsFromChats, outbound, founderCheck,
+        newsSignals, companySignals, followUps, morningDigest,
     ]
     /// The machines a store made before team templates starts with; the others are made on request or from Mochi's
     /// proposals.

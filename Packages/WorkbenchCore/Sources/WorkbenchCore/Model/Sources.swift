@@ -12,6 +12,7 @@ public enum SourceKind: String, Codable, CaseIterable, Sendable {
     /// and age does not erase it. Only the person's delete does. See `Store.saveNote`.
     case note
     case whatsapp
+    case telegram
     case call
     case mail
     /// Today's events in the calendars the person chose, read through EventKit. Nothing is stored.

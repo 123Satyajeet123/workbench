@@ -22,6 +22,7 @@ extension HelperModel {
         if let source = source as? WhatsAppSource {
             return source.isSeveral ? "\(source.chats.count) chats" : source.chat?.name
         }
+        if let source = source as? TelegramSource, let chat = source.chat { return "Telegram · \(chat.title)" }
         if let source = source as? PageSource, !source.sites.isEmpty { return source.sites.joined(separator: ", ") }
         if let source = source as? MailSource, source.isReady {
             return "Gmail · " + source.labels.joined(separator: ", ")
