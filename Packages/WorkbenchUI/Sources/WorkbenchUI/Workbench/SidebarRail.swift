@@ -15,7 +15,7 @@ struct SidebarRail: View {
     var body: some View {
         ScrollView {
             VStack(spacing: Space.xs) {
-                face(.day, look: .mochi, name: SidebarSelection.mochi.title, mood: crew.mochiMood)
+                face(.mochi, look: .mochi, name: SidebarSelection.mochi.title, mood: crew.mochiMood)
                 Divider().padding(.horizontal, Space.xs)
                 ForEach(machines, id: \.machine.id) { helper in
                     face(

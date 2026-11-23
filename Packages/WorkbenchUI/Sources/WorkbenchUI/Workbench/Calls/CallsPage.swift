@@ -268,6 +268,7 @@ private struct TranscriptView: View {
 private struct CallPlayer: View {
     let recording: Recording
     @Environment(CallPlayback.self) private var playback
+    @Environment(\.uiScale) private var scale
     @State private var dragged: Double?
 
     var body: some View {
@@ -279,7 +280,7 @@ private struct CallPlayer: View {
                 Task { await playback.toggle(recording) }
             } label: {
                 Image(systemName: isCurrent && playback.isPlaying ? "pause.fill" : "play.fill")
-                    .font(.system(size: 10)).frame(width: 12, height: 12)
+                    .font(.system(size: 10 * scale)).frame(width: 12 * scale, height: 12 * scale)
             }
             .buttonStyle(.ghost)
             .help(isCurrent && playback.isPlaying ? "Pause" : "Play")
@@ -322,6 +323,7 @@ private struct PlaybackProblem: View {
 
 private struct RevealButton: View {
     let folder: URL
+    @Environment(\.uiScale) private var scale
     @State private var isHovered = false
 
     var body: some View {
@@ -329,9 +331,9 @@ private struct RevealButton: View {
             NSWorkspace.shared.activateFileViewerSelecting([folder])
         } label: {
             Image(systemName: "folder")
-                .font(.system(size: 13, weight: isHovered ? .bold : .regular))
+                .font(.system(size: 13 * scale, weight: isHovered ? .bold : .regular))
                 .foregroundStyle(isHovered ? Color.sidebarHotIcon : .sidebarIcon)
-                .frame(width: 16, height: 16)
+                .frame(width: 16 * scale, height: 16 * scale)
         }
         .buttonStyle(.ghost)
         .onHover { isHovered = $0 }
