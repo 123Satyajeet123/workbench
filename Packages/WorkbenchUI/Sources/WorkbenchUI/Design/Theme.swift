@@ -13,6 +13,7 @@ enum Space {
 enum Radius {
     static let card: CGFloat = 8
     static let control: CGFloat = 6
+    static let keyCap: CGFloat = 4
 }
 
 /// What a status means, as one colour each.
