@@ -22,7 +22,7 @@ public struct AgentRunner: StructuredModel {
 
     public var name: String { "\(kind.rawValue) \(model)" }
 
-    public var billedToClaudePlan: Bool { kind == .claude && !requiresAPIKey && apiKey == nil }
+    public var billedToPlanSignIn: Bool { !requiresAPIKey && apiKey == nil }
 
     public init(
         kind: AgentCLIKind, model: String, effort: String, timeout: Duration,

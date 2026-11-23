@@ -110,9 +110,11 @@ await gate("G1 ReaderStatus from the CLI, with no model call") {
     check(partial.signedIn == nil && partial.loginExpiresAt == nil && partial.planTier == nil, "wrong types: not known")
 }
 
-func runner(_ launcher: RecordedLauncher, apiKey: String?, folder: URL) -> AgentRunner {
+func runner(
+    _ launcher: RecordedLauncher, apiKey: String?, folder: URL, kind: AgentCLIKind = .claude
+) -> AgentRunner {
     AgentRunner(
-        kind: .claude, model: "sonnet", effort: "low", timeout: .seconds(5), launcher: launcher,
+        kind: kind, model: "sonnet", effort: "low", timeout: .seconds(5), launcher: launcher,
         executable: URL(filePath: "/opt/fake/claude"), environment: [:], apiKey: apiKey, requiresAPIKey: apiKey != nil,
         workDirectory: folder.appending(path: "work"))
 }
@@ -153,13 +155,16 @@ await gate("G2 The gate, both ways") {
     let keyLauncher = RecordedLauncher(authStatus: maxPlan)
     let byKey = RecordedModel(runner(keyLauncher, apiKey: "sk-made-up", folder: scratch), store: store)
     check(await ask(byKey) == "ran" && keyLauncher.plans.count == 1, "API key, no confirmation: runs")
+    let codex = RecordedModel(
+        runner(RecordedLauncher(authStatus: maxPlan), apiKey: nil, folder: scratch, kind: .codex), store: store)
+    check((await ask(codex)).hasPrefix("refused"), "Codex sign-in, no confirmation: refused")
     print("  conditions: \(ModelTerms.conditions.joined(separator: " | "))")
 }
 
 await gate("Settings › Model render") {
     let store = try Store(directory: scratch.appending(path: "render"))
     let (status, _) = try await probe(maxPlan, installed: true, name: "render-probe")
-    let rows = Form { ModelReaderRows(store: store, readStatus: { status }) }.formStyle(.grouped)
+    let rows = Form { ModelReaderRows(store: store, kind: .claude, readStatus: { _ in status }) }.formStyle(.grouped)
     let host = NSHostingView(rootView: rows.frame(width: 560, height: 330).environment(\.colorScheme, .light))
     host.frame = CGRect(x: 0, y: 0, width: 560, height: 330)
     let window = NSWindow(contentRect: host.frame, styleMask: [], backing: .buffered, defer: false)

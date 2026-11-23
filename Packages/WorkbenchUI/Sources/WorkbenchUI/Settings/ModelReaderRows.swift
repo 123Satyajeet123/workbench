@@ -5,16 +5,16 @@ import WorkbenchCore
 /// What the reader is, before the first call: the Claude tool's state, and the two conditions of reading with a plan.
 struct ModelReaderRows: View {
     let store: Store
-    var readStatus: @Sendable () async -> ReaderStatus = {
-        await ReaderProbe(workDirectory: URL.applicationSupportDirectory.appending(path: "Workbench/agent-work"))
-            .status()
+    let kind: AgentCLIKind
+    var readStatus: @Sendable (Store) async -> ReaderStatus = { store in
+        await ReaderProbe(workDirectory: store.directory.appending(path: "agent-work")).status()
     }
     @State private var status: ReaderStatus?
     @State private var confirmation: ModelTermsConfirmation?
 
     var body: some View {
         Group {
-            LabeledContent("Reader", value: status.map(Self.describe) ?? "Checking…")
+            if kind == .claude { LabeledContent("Reader", value: status.map(Self.describe) ?? "Checking…") }
             ForEach(ModelTerms.conditions, id: \.self) { Text($0).font(.callout) }
             Toggle("I confirm both conditions", isOn: confirmed)
             if let confirmation {
@@ -25,7 +25,7 @@ struct ModelReaderRows: View {
         }
         .task {
             confirmation = store.currentModelTermsConfirmation()
-            status = await readStatus()
+            if kind == .claude { status = await readStatus(store) }
         }
     }
 

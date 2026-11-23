@@ -1,6 +1,7 @@
 import Foundation
 
-/// The person's yes to the conditions of reading with their own Claude plan, and the version of the words they said yes to.
+/// The person's yes to the conditions of reading with their own plan sign-in, and the version of the words they said
+/// yes to.
 public struct ModelTermsConfirmation: Codable, Sendable, Equatable {
     public var conditionsVersion: Int
     /// How the calls were billed when the person confirmed.
@@ -18,8 +19,10 @@ public enum ModelTerms {
     /// Changes whenever the words of `conditions` change, so an old yes no longer counts.
     public static let currentVersion = 1
     public static let planBilling = "plan"
-    public static let trainingOff =
-        "Model training is off for your account: claude.ai › Settings › Privacy › \"Help improve Claude\" is off."
+    public static let trainingOff = """
+        Model training is off for the account you signed in with: on claude.ai, Settings › Privacy › "Help improve \
+        Claude" is off; on ChatGPT, Settings › Data controls › "Improve the model for everyone" is off.
+        """
     public static let ordinaryUse =
         "Your plan's limits cover one person's ordinary use, and Workbench reads for you alone."
     public static let conditions = [trainingOff, ordinaryUse]
@@ -31,7 +34,10 @@ public enum ModelTermsError: Error, Equatable, LocalizedError {
     case notConfirmed
 
     public var errorDescription: String? {
-        "Reading with your Claude plan needs your yes first. Open Settings › General › Model and confirm the two conditions for your Claude plan, or bill your own API key."
+        """
+        Reading with your plan sign-in needs your yes first. Open Settings › General › Model and confirm the two \
+        conditions, or bill your own Anthropic API key.
+        """
     }
 }
 
@@ -59,7 +65,7 @@ extension Store {
     public func withdrawModelTerms() throws { try saveState("", forKey: ModelTerms.stateKey) }
 
     func requireModelTerms(for model: any StructuredModel) throws {
-        if model.billedToClaudePlan, currentModelTermsConfirmation() == nil { throw ModelTermsError.notConfirmed }
+        if model.billedToPlanSignIn, currentModelTermsConfirmation() == nil { throw ModelTermsError.notConfirmed }
     }
 
     private static let termsEncoder: JSONEncoder = {
