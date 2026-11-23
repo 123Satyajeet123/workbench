@@ -2,34 +2,76 @@ import AppKit
 import Foundation
 import SwiftUI
 import Testing
+import WorkbenchCore
 
 @testable import WorkbenchUI
 
-/// The island shows one thing at a time: a recording first, then a reading machine.
+/// The island shows one thing at a time: a recording first, then a reading machine, then what needs the person, then
+/// the plan.
 @Suite struct IslandStateTests {
     private let since = Date(timeIntervalSince1970: 1_790_000_000)
+    private let atlas = (name: "Atlas", page: SidebarSelection.machine(4))
+    private let pip = (name: "Pip", page: SidebarSelection.machine(7))
+    private let plan = PlanLimits.Window(used: 0.42, resetsAt: nil, isAtLimit: false)
+    private let everything = IslandShows(plan: true)
 
-    @Test func aRecordingComesFirstThenAReadingAndOtherwiseNothing() {
-        #expect(IslandState(recordingSince: since, reading: ["Atlas"]) == .recording(since: since))
-        #expect(IslandState(recordingSince: nil, reading: ["Atlas"]) == .reading(machine: "Atlas"))
-        #expect(IslandState(recordingSince: nil, reading: ["Atlas", "Pip"]) == .reading(machine: "2 machines"))
-        #expect(IslandState(recordingSince: nil, reading: []) == .idle)
+    @Test func aRecordingComesFirstThenAReadingThenWhatNeedsYouThenThePlan() {
+        #expect(
+            IslandState(recordingSince: since, reading: [atlas], needsYou: ["Pip"], plan: plan, shows: everything)
+                == .recording(since: since))
+        #expect(
+            IslandState(recordingSince: nil, reading: [atlas], needsYou: ["Pip"], plan: plan, shows: everything)
+                == .reading(names: ["Atlas"], page: .machine(4)))
+        #expect(
+            IslandState(recordingSince: nil, reading: [atlas, pip], needsYou: [])
+                == .reading(names: ["Atlas", "Pip"], page: .crew))
+        #expect(
+            IslandState(recordingSince: nil, reading: [], needsYou: ["Pip", "Pip"], plan: plan, shows: everything)
+                == .needsYou(machines: ["Pip", "Pip"]))
+        #expect(
+            IslandState(recordingSince: nil, reading: [], needsYou: [], plan: plan, shows: everything) == .plan(plan))
+        #expect(IslandState(recordingSince: nil, reading: [], needsYou: []) == .idle)
+    }
+
+    @Test func whatTheFounderSwitchedOffIsSkipped() {
+        let quiet = IslandShows(recording: false, reading: false, needsYou: true)
+        #expect(
+            IslandState(recordingSince: since, reading: [atlas], needsYou: ["Pip"], shows: quiet)
+                == .needsYou(machines: ["Pip"]))
+        let none = IslandShows(recording: false, reading: false, needsYou: false)
+        #expect(
+            IslandState(recordingSince: since, reading: [atlas], needsYou: ["Pip"], plan: plan, shows: none) == .idle)
     }
 
     @Test func aReadingThatEndsWhileACallRecordsChangesNothing() {
-        let recording = IslandState(recordingSince: since, reading: ["Atlas"])
-        #expect(recording == IslandState(recordingSince: since, reading: []))
+        let recording = IslandState(recordingSince: since, reading: [atlas], needsYou: [])
+        #expect(recording == IslandState(recordingSince: since, reading: [], needsYou: []))
     }
 
-    @Test func onlyARecordingTakesAClick() {
-        #expect(IslandState.recording(since: since).takesClicks)
-        #expect(!IslandState.idle.takesClicks)
-        #expect(!IslandState.reading(machine: "Atlas").takesClicks)
+    @Test func aClickOpensThePageBehindWhatIsShownAndIdleTakesNoClick() {
+        #expect(IslandState.recording(since: since).page == .calls)
+        #expect(IslandState.reading(names: ["Atlas"], page: .machine(4)).page == .machine(4))
+        #expect(IslandState.needsYou(machines: ["Pip"]).page == .day)
+        #expect(IslandState.plan(plan).page == .usage)
+        #expect(IslandState.idle.page == nil && !IslandState.idle.takesClicks)
+    }
+
+    @Test func hoveringSaysOneMoreLine() {
+        #expect(IslandState.recording(since: since).detail == "Recording a call")
+        #expect(IslandState.reading(names: ["Atlas"], page: .machine(4)).detail == "Atlas is reading")
+        #expect(IslandState.reading(names: ["Atlas", "Pip"], page: .crew).detail == "Atlas and Pip are reading")
+        #expect(IslandState.needsYou(machines: ["Pip"]).detail == "1 need you, from Pip")
+        #expect(
+            IslandState.needsYou(machines: ["Relay", "Pip", "Pip", "Relay", "Pip"]).detail
+                == "5 need you · Pip 3, Relay 2")
+        #expect(IslandState.plan(plan).detail == "Claude plan · 42%")
     }
 
     @Test func theOtherSideOfAScreenShareSeesTheIslandOnlyWhileACallRecords() {
         #expect(IslandState.recording(since: since).sharingType == .readOnly)
-        #expect(IslandState.reading(machine: "Atlas").sharingType == .none)
+        #expect(IslandState.reading(names: ["Atlas"], page: .crew).sharingType == .none)
+        #expect(IslandState.needsYou(machines: ["Pip"]).sharingType == .none)
+        #expect(IslandState.plan(plan).sharingType == .none)
         #expect(IslandState.idle.sharingType == .none)
     }
 }
@@ -79,7 +121,7 @@ import Testing
         #expect(
             metrics.panelSize.width == metrics.notchWidth + 2 * IslandMetrics.earWidth + 2 * IslandMetrics.overshoot)
         #expect(metrics.panelSize.height == metrics.notchHeight)
-        let frame = metrics.panelFrame(on: screen)
+        let frame = metrics.panelFrame(on: screen, isTall: false)
         #expect(frame.midX == screen.midX && frame.maxY == screen.maxY && frame.size == metrics.panelSize)
     }
 }
@@ -88,7 +130,7 @@ import Testing
 /// closes.
 @Suite struct IslandSequenceTests {
     private let recording = IslandState.recording(since: Date(timeIntervalSince1970: 1_790_000_000))
-    private let reading = IslandState.reading(machine: "Atlas")
+    private let reading = IslandState.reading(names: ["Atlas"], page: .crew)
     private let closed = IslandShown()
 
     private func open(_ content: IslandState, visible: Bool = true) -> IslandShown {
@@ -157,18 +199,20 @@ import Testing
     }
 
     @Test func aScreenChangeUpdatesTheMetricsAndKeepsWhatIsShown() {
-        let presenter = IslandPresenter(metrics: .sample, showing: .reading(machine: "Atlas"))
+        let presenter = IslandPresenter(metrics: .sample, showing: .reading(names: ["Atlas"], page: .crew))
         let wider = IslandMetrics(notch: CGSize(width: 240, height: 40))
         presenter.place(wider)
         #expect(presenter.metrics == wider)
-        #expect(presenter.content == .reading(machine: "Atlas") && presenter.isOpen && presenter.isContentVisible)
+        #expect(
+            presenter.content == .reading(names: ["Atlas"], page: .crew) && presenter.isOpen
+                && presenter.isContentVisible)
     }
 
     @Test func theMovesRunInOrderUntilTheIslandShowsTheState() async throws {
         let presenter = IslandPresenter(metrics: .sample)
-        presenter.show(.reading(machine: "Atlas"), reduceMotion: true)
+        presenter.show(.reading(names: ["Atlas"], page: .crew), reduceMotion: true)
         await until { presenter.isContentVisible }
-        #expect(presenter.content == .reading(machine: "Atlas") && presenter.isOpen)
+        #expect(presenter.content == .reading(names: ["Atlas"], page: .crew) && presenter.isOpen)
         presenter.show(.idle, reduceMotion: true)
         await until { !presenter.isDrawn }
         #expect(presenter.content == .idle && !presenter.isOpen && !presenter.isContentVisible)
@@ -176,7 +220,7 @@ import Testing
 
     @Test func aReadingThatEndsBeforeTheDelayNeverOpensTheIsland() async throws {
         let presenter = IslandPresenter(metrics: .sample)
-        presenter.show(.reading(machine: "Atlas"), reduceMotion: true)
+        presenter.show(.reading(names: ["Atlas"], page: .crew), reduceMotion: true)
         try await Task.sleep(for: .milliseconds(100))
         presenter.show(.idle, reduceMotion: true)
         try await Task.sleep(for: IslandSequence.readingDelay + .milliseconds(100))

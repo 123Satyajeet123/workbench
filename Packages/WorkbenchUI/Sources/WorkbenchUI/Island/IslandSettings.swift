@@ -1,6 +1,7 @@
 import Foundation
 
-enum NotchIdle: String, CaseIterable, Identifiable {
+/// What the island shows when nothing happens.
+enum IslandIdle: String, CaseIterable, Identifiable {
     case nothing, planRing
 
     var id: Self { self }
@@ -13,12 +14,10 @@ enum NotchIdle: String, CaseIterable, Identifiable {
     }
 }
 
-enum NotchKey {
-    static let shown = "island.shown"
-    /// The hover notch is off until a person turns it on, and while it is off the Island shows instead.
-    static let shownByDefault = false
+/// Where Settings keeps what the island shows.
+enum IslandKey {
     static let recording = "island.recording"
     static let reading = "island.reading"
-    static let review = "island.review"
+    static let needsYou = "island.review"
     static let idle = "island.idle"
 }

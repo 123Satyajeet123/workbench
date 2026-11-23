@@ -136,9 +136,11 @@ import WorkbenchCore
             Bar(scheme: scheme) { island(state) }.frame(width: IslandMetrics.sample.panelSize.width + 48)
         }
         try write(bar(.recording(since: since)), named: "island-recording", scheme: scheme)
-        try write(bar(.reading(machine: "Atlas")), named: "island-reading", scheme: scheme)
-        try write(bar(.reading(machine: "Quarterly investor update")), named: "island-reading-long", scheme: scheme)
-        try write(bar(.reading(machine: "2 machines")), named: "island-reading-two", scheme: scheme)
+        try write(bar(.reading(names: ["Atlas"], page: .crew)), named: "island-reading", scheme: scheme)
+        try write(
+            bar(.reading(names: ["Quarterly investor update"], page: .crew)), named: "island-reading-long",
+            scheme: scheme)
+        try write(bar(.reading(names: ["Atlas", "Pip"], page: .crew)), named: "island-reading-two", scheme: scheme)
     }
 
     @Test(arguments: [ColorScheme.light, .dark]) func theThreeMenuBarIconsAreDrawnWithTheCount(scheme: ColorScheme)

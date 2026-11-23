@@ -9,9 +9,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let storeFolder: URL
     private let profile: Profile
     private var island: IslandPanel?
-    private var notch: NotchPanel?
-    private var session: AppSession?
-    private var defaultsChanges: Task<Void, Never>?
     private var demoBanner: DemoBannerWindows?
     /// What the founder did on a notification, held until the session can act on it.
     let replies = NotificationReplies()
@@ -37,34 +34,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         if profile.isDemo { demoBanner = DemoBannerWindows { ProfileSwitch.go(to: .yours) } }
         if case .ready(let session) = launch {
-            self.session = session
-            showNotchOrIsland()
-            defaultsChanges = Task { [weak self] in
-                for await _ in NotificationCenter.default.notifications(named: UserDefaults.didChangeNotification) {
-                    self?.showNotchOrIsland()
-                }
-            }
+            island = IslandPanel(session: session)
             let answering = NotificationAnswering(
                 today: session.today, review: session.review, crew: session.crew, navigation: session.navigation)
             replies.handler = answering.handle
             session.browsers.refreshEnabledBrowsers()
         }
         DispatchQueue.main.async(execute: Self.comeToFront)
-    }
-
-    /// The Island is shown, or the hover notch when the person turned it on. Never both.
-    private func showNotchOrIsland() {
-        guard let session else { return }
-        let wantsNotch = UserDefaults.standard.object(forKey: NotchKey.shown) as? Bool ?? NotchKey.shownByDefault
-        switch (wantsNotch, notch == nil, island == nil) {
-        case (true, true, _):
-            island = nil
-            notch = NotchPanel(session: session)
-        case (false, _, true):
-            notch = nil
-            island = IslandPanel(session: session)
-        default: break
-        }
     }
 
     private static func comeToFront() {

@@ -1,41 +1,9 @@
 import AppKit
 import SwiftUI
 
-struct NotchControl: View {
-    let state: NotchState
-    let metrics: NotchMetrics
-    let open: (SidebarSelection) -> Void
-    let stop: () -> Void
-    var expand: (Bool) -> Void = { _ in }
-    @State private var isHovered = false
-    @State private var isPressed = false
-
-    var body: some View {
-        NotchView(state: state, metrics: metrics, isExpanded: isExpanded, isPressed: isPressed)
-            .overlay {
-                if state.takesClicks { NotchMouse(hover: { isHovered = $0 }, press: press, click: click) }
-            }
-            .onChange(of: isExpanded) { _, expanded in expand(expanded) }
-            .onChange(of: state.takesClicks) { _, takes in if !takes { isHovered = false } }
-    }
-
-    private var isExpanded: Bool { isHovered && state.takesClicks }
-
-    private func press(_ down: Bool) {
-        isPressed = down
-        if down { NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now) }
-    }
-
-    private func click(at point: CGPoint) {
-        if isExpanded, case .recording = state, NotchView.stopRect(metrics).contains(point) {
-            stop()
-        } else if let page = state.page {
-            open(page)
-        }
-    }
-}
-
-struct NotchMouse: NSViewRepresentable {
+/// The pointer over the island: hover, press and click, with a pointing hand. It works though the panel never
+/// becomes key.
+struct IslandMouse: NSViewRepresentable {
     let hover: (Bool) -> Void
     let press: (Bool) -> Void
     let click: (CGPoint) -> Void

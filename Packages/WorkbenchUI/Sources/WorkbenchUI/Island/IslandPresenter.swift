@@ -10,19 +10,29 @@ final class IslandPresenter {
     private(set) var isOpen = false
     private(set) var isDrawn = false
     private(set) var isContentVisible = false
+    private(set) var isExpanded = false
+    private(set) var isDetailVisible = false
+    /// The panel has room for the expanded shape. It grows before the shape expands, and shrinks after it collapsed.
+    private(set) var isTall = false
+    @ObservationIgnored private var target = IslandState.idle
+    @ObservationIgnored private var isHovered = false
     @ObservationIgnored private var moves: Task<Void, Never>?
 
     init(metrics: IslandMetrics) {
         self.metrics = metrics
     }
 
-    /// A presenter that already shows `state`, with nothing moving.
-    convenience init(metrics: IslandMetrics, showing state: IslandState) {
+    /// A presenter that already shows `state`, expanded when `expanded`, with nothing moving.
+    convenience init(metrics: IslandMetrics, showing state: IslandState, expanded: Bool = false) {
         self.init(metrics: metrics)
+        target = state
         content = state
         isOpen = state != .idle
         isDrawn = isOpen
         isContentVisible = isOpen
+        isExpanded = isOpen && expanded
+        isDetailVisible = isExpanded
+        isTall = isExpanded
     }
 
     func place(_ metrics: IslandMetrics) {
@@ -30,9 +40,22 @@ final class IslandPresenter {
     }
 
     func show(_ target: IslandState, reduceMotion: Bool) {
+        self.target = target
+        move(reduceMotion: reduceMotion)
+    }
+
+    func hover(_ isHovered: Bool, reduceMotion: Bool) {
+        guard self.isHovered != isHovered else { return }
+        self.isHovered = isHovered
+        move(reduceMotion: reduceMotion)
+    }
+
+    private func move(reduceMotion: Bool) {
         moves?.cancel()
-        let shown = IslandShown(content: content, isOpen: isOpen, isContentVisible: isContentVisible)
-        let steps = IslandSequence.steps(from: shown, to: target, reduceMotion: reduceMotion)
+        let shown = IslandShown(
+            content: content, isOpen: isOpen, isContentVisible: isContentVisible, isExpanded: isExpanded,
+            isDetailVisible: isDetailVisible)
+        let steps = IslandSequence.steps(from: shown, to: target, isHovered: isHovered, reduceMotion: reduceMotion)
         moves = Task {
             for step in steps {
                 guard !Task.isCancelled else { return }
@@ -42,29 +65,43 @@ final class IslandPresenter {
     }
 
     private func perform(_ step: IslandStep, reduceMotion: Bool) async {
+        let reveal = Motion.reveal(reduceMotion: reduceMotion)
         switch step {
         case .setContent(let state): content = state
         case .openShape:
             isDrawn = true
             withAnimation(Motion.island(reduceMotion: reduceMotion)) { isOpen = true }
-        case .closeShape: closeShape(reduceMotion: reduceMotion)
-        case .showContent: withAnimation(Motion.reveal(reduceMotion: reduceMotion)) { isContentVisible = true }
-        case .hideContent: withAnimation(Motion.reveal(reduceMotion: reduceMotion)) { isContentVisible = false }
+        case .closeShape:
+            reshape(reduceMotion: reduceMotion) {
+                self.isOpen = false
+            } arrived: {
+                if !self.isOpen { self.isDrawn = false }
+            }
+        case .expandShape:
+            isTall = true
+            withAnimation(Motion.island(reduceMotion: reduceMotion)) { isExpanded = true }
+        case .collapseShape:
+            reshape(reduceMotion: reduceMotion) {
+                self.isExpanded = false
+            } arrived: {
+                if !self.isExpanded { self.isTall = false }
+            }
+        case .showContent: withAnimation(reveal) { isContentVisible = true }
+        case .hideContent: withAnimation(reveal) { isContentVisible = false }
+        case .showDetail: withAnimation(reveal) { isDetailVisible = true }
+        case .hideDetail: withAnimation(reveal) { isDetailVisible = false }
         case .wait(let duration): try? await Task.sleep(for: duration)
         }
     }
 
-    /// The shape is drawn until it is back at the notch's width, so it never fades out wider than the notch.
-    private func closeShape(reduceMotion: Bool) {
+    /// Runs `change` with the island's motion, and `arrived` once the shape is where `change` sent it. The shape is
+    /// drawn, and the panel keeps its room, until then.
+    private func reshape(reduceMotion: Bool, _ change: () -> Void, arrived: @escaping () -> Void) {
         guard let animation = Motion.island(reduceMotion: reduceMotion) else {
-            isOpen = false
-            isDrawn = false
+            change()
+            arrived()
             return
         }
-        withAnimation(animation, completionCriteria: .logicallyComplete) {
-            isOpen = false
-        } completion: {
-            if !self.isOpen { self.isDrawn = false }
-        }
+        withAnimation(animation, completionCriteria: .logicallyComplete, change, completion: arrived)
     }
 }

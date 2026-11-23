@@ -5,8 +5,13 @@ struct IslandMetrics: Equatable {
     static let earWidth: CGFloat = 84
     /// Between an ear's edge and its content. A name that is wider than the rest truncates in the middle.
     static let earInset: CGFloat = 6
-    /// The shape springs a little past its open width; the panel keeps room for it.
+    /// The shape springs a little past its open size; the panel keeps room for it.
     static let overshoot: CGFloat = 4
+    /// The row under the notch that a hover shows.
+    static let detailHeight: CGFloat = 34
+    /// Between the expanded shape's side and the detail line.
+    static let detailInset: CGFloat = 14
+    static let stopSize = CGSize(width: 56, height: 22)
 
     static let sample = IslandMetrics(notch: CGSize(width: 221, height: 38))
 
@@ -31,13 +36,29 @@ struct IslandMetrics: Equatable {
     var notchWidth: CGFloat { notch.width }
     var notchHeight: CGFloat { notch.height }
     var openWidth: CGFloat { notchWidth + 2 * Self.earWidth }
-    /// Fixed for the largest state. It holds the shape and nothing else, so a click on it is a click on the island.
-    var panelSize: CGSize { CGSize(width: openWidth + 2 * Self.overshoot, height: notchHeight) }
+    var expandedHeight: CGFloat { notchHeight + Self.detailHeight }
+    var panelSize: CGSize { panelSize(isTall: false) }
 
-    func panelFrame(on screenFrame: CGRect) -> CGRect {
+    /// It holds the shape and nothing else, so a click on the panel is a click on the island. Tall, it holds the
+    /// expanded shape.
+    func panelSize(isTall: Bool) -> CGSize {
+        CGSize(
+            width: openWidth + 2 * Self.overshoot, height: isTall ? expandedHeight + Self.overshoot : notchHeight)
+    }
+
+    func panelFrame(on screenFrame: CGRect, isTall: Bool) -> CGRect {
+        let size = panelSize(isTall: isTall)
+        return CGRect(
+            x: screenFrame.midX - size.width / 2, y: screenFrame.maxY - size.height, width: size.width,
+            height: size.height)
+    }
+
+    /// The Stop button in the detail line, in the panel's flipped coordinates.
+    var stopRect: CGRect {
         CGRect(
-            x: screenFrame.midX - panelSize.width / 2, y: screenFrame.maxY - panelSize.height,
-            width: panelSize.width, height: panelSize.height)
+            x: Self.overshoot + openWidth - Self.detailInset - Self.stopSize.width,
+            y: notchHeight + (Self.detailHeight - Self.stopSize.height) / 2, width: Self.stopSize.width,
+            height: Self.stopSize.height)
     }
 
     /// The first screen with a notch.
