@@ -32,13 +32,19 @@ struct Sidebar: View {
             }
             let recents = workspace.recents.filter(exists)
             if !recents.isEmpty {
-                Section("Recents", isExpanded: $recentsShown) {
+                Section(isExpanded: $recentsShown) {
                     ForEach(recents) { PageLabel(page: $0).tag($0) }
+                } header: {
+                    SectionTitle("Recents")
                 }
             }
             let favorites = workspace.favorites.filter(exists)
             if !favorites.isEmpty {
-                Section("Favorites") { ForEach(favorites) { PageLabel(page: $0).tag($0) } }
+                Section {
+                    ForEach(favorites) { PageLabel(page: $0).tag($0) }
+                } header: {
+                    SectionTitle("Favorites")
+                }
             }
             Section {
                 tree(workspace.roots, under: nil)
@@ -49,7 +55,7 @@ struct Sidebar: View {
                 tree(workspace.privateItems, under: workspace.privateSection)
             } header: {
                 HStack {
-                    Text("Private").help("Yours. Who can read a page follows its sources, not its folder.")
+                    SectionTitle("Private").help("Yours. Who can read a page follows its sources, not its folder.")
                     Spacer()
                     Menu("New", systemImage: "plus") { newItems(under: workspace.privateSection) }
                         .labelStyle(.iconOnly).menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
@@ -58,6 +64,7 @@ struct Sidebar: View {
             }
         }
         .listStyle(.sidebar)
+        .labelStyle(ZoomedRowStyle())
         .contextMenu(forSelectionType: SidebarSelection.self) { pages in menu(for: pages) }
         .onKeyPress(.return) { startRenaming(selection) ? .handled : .ignored }
         .onDeleteCommand { archive(selection) }
@@ -106,7 +113,7 @@ struct Sidebar: View {
         Label {
             Text(SidebarSelection.mochi.title)
         } icon: {
-            Mascot(look: .mochi, size: Mascot.sidebarSize, mood: mochiMood)
+            Mascot(look: .mochi, size: Mascot.sidebarSize, mood: crew.mochiMood)
         }
         .badge(today.needsCount)
         .help(SidebarSelection.day.role)
@@ -129,11 +136,11 @@ struct Sidebar: View {
             newItems(under: nil)
         } label: {
             HStack(spacing: Space.xs) {
-                Text(team.team.name.cleaned ?? "Workspace")
+                SectionTitle(team.team.name.cleaned ?? "Workspace")
                 Image(systemName: "chevron.down").imageScale(.small)
             }
         }
-        .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
         .help("Your workspace")
     }
 
@@ -153,6 +160,7 @@ struct Sidebar: View {
         }
         .padding(.horizontal, Space.m)
         .safeAreaInset(edge: .bottom, spacing: 0) { fixedFoot }
+        .background(.bar)
     }
 
     /// Sources and Settings: one row of a sidebar list of their own, fixed at the foot.
@@ -171,6 +179,7 @@ struct Sidebar: View {
             }
         }
         .listStyle(.sidebar)
+        .labelStyle(ZoomedRowStyle())
         .scrollDisabled(true)
         .frame(height: footRowHeight + 2 * Space.m)
     }
@@ -261,9 +270,12 @@ struct Sidebar: View {
         if selection == page { selection = .day }
         workspace.archive(object.id)
     }
+}
 
-    private var mochiMood: Mascot.Mood {
-        let moods = crew.machines.map(\.mood)
+extension Crew {
+    /// Mochi's mood: the first of working, trouble and asking that any machine has.
+    var mochiMood: Mascot.Mood {
+        let moods = machines.map(\.mood)
         return [.working, .trouble, .asking].first(where: moods.contains) ?? .calm
     }
 }
@@ -345,6 +357,32 @@ private struct TreeRow: View {
 extension Mascot {
     /// A face in a sidebar row, the size of the row's symbols.
     static let sidebarSize: CGFloat = 18
+}
+
+/// A sidebar row at the app's zoom: the icon in a square the size of a face, then the title.
+private struct ZoomedRowStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View { ZoomedRow(configuration: configuration) }
+}
+
+private struct ZoomedRow: View {
+    let configuration: LabelStyleConfiguration
+    @Environment(\.uiScale) private var scale
+
+    var body: some View {
+        HStack(spacing: Space.s * scale) {
+            configuration.icon.textStyle(.title3).frame(width: Mascot.sidebarSize * scale)
+            configuration.title.textStyle(.body)
+        }
+    }
+}
+
+/// A sidebar section's title at the app's zoom.
+private struct SectionTitle: View {
+    let title: String
+
+    init(_ title: String) { self.title = title }
+
+    var body: some View { Text(title).textStyle(.subheadline, weight: .semibold) }
 }
 
 extension View {

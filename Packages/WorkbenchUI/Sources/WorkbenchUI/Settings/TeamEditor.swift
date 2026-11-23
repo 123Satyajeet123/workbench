@@ -15,10 +15,10 @@ struct TeamEditor: View {
                     TextField("Role", text: $model.team.people[index].role, prompt: Text("Role"))
                         .frame(maxWidth: 160)
                     if model.team.people[index].isMe {
-                        Text("You").foregroundStyle(.supporting).frame(width: 60, alignment: .leading)
+                        Text("You").foregroundStyle(.supporting).zoomedWidth(60, alignment: .leading)
                     } else {
                         Button("Remove", systemImage: "minus.circle") { model.remove(at: index) }
-                            .labelStyle(.iconOnly).buttonStyle(.ghost).frame(width: 60, alignment: .leading)
+                            .labelStyle(.iconOnly).buttonStyle(.ghost).zoomedWidth(60, alignment: .leading)
                     }
                 }
                 .textFieldStyle(.roundedBorder)

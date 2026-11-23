@@ -58,7 +58,7 @@ struct MachineSheet: View {
             }
         }
         .padding(Space.l)
-        .frame(width: 480)
+        .zoomedWidth(480)
         .onAppear(perform: fill)
     }
 

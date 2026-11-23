@@ -64,7 +64,7 @@ struct InspectorMore: View {
             }
             .padding(Space.s)
         }
-        .frame(width: 260).frame(maxHeight: 280).fixedSize(horizontal: false, vertical: true)
+        .zoomedWidth(260).frame(maxHeight: 280).fixedSize(horizontal: false, vertical: true)
     }
 
     private func remind() {

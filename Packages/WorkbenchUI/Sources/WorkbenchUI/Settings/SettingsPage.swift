@@ -53,7 +53,7 @@ struct SettingsPage: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            sectionList.frame(width: 240)
+            sectionList.zoomedWidth(240)
             Rectangle().fill(.dividerLine).frame(width: 1)
             VStack(alignment: .leading, spacing: 0) {
                 Text(navigation.settingsSection.title).textStyle(.largeTitle, weight: .bold)
@@ -104,7 +104,7 @@ struct SettingsPage: View {
             navigation.settingsSection = section
         } label: {
             HStack(spacing: Space.s) {
-                Image(systemName: section.symbol).frame(width: 20)
+                Image(systemName: section.symbol).zoomedWidth(20)
                 Text(section.title)
             }
             .foregroundStyle(isSelected ? Color.sidebarSelectedText : .sidebarText)

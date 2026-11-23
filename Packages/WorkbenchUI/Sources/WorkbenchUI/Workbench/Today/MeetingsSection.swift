@@ -27,7 +27,7 @@ struct MeetingRow: View {
     private var summary: some View {
         HStack(alignment: .firstTextBaseline, spacing: Space.m) {
             Text(card.meeting.start.formatted(date: .omitted, time: .shortened))
-                .textStyle(.callout).foregroundStyle(.supporting).frame(width: 64, alignment: .leading)
+                .textStyle(.callout).foregroundStyle(.supporting).zoomedWidth(64, alignment: .leading)
             VStack(alignment: .leading, spacing: Space.xs) {
                 Text(card.meeting.title.isEmpty ? "Untitled" : card.meeting.title).fontWeight(.semibold)
                 if !who.isEmpty { Text(who).textStyle(.callout).foregroundStyle(.supporting) }

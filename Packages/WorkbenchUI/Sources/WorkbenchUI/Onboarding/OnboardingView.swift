@@ -42,7 +42,7 @@ struct OnboardingView: View {
             .padding([.horizontal, .bottom], Space.page)
             .padding(.top, Space.m)
         }
-        .frame(width: Self.size.width, height: Self.size.height)
+        .zoomedWidth(Self.size.width).frame(height: Self.size.height)
         .animation(Motion.settle(reduceMotion: reduceMotion), value: model.index)
         .environment(access)
         .onAppear(perform: recheck)

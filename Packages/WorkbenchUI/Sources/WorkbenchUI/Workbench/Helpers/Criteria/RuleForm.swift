@@ -35,13 +35,13 @@ struct RuleForm: View {
             Picker("Comparison", selection: $draft.comparison) {
                 ForEach(Comparison.allCases, id: \.self) { Text($0.words).tag($0) }
             }
-            .labelsHidden().frame(width: 110)
-            TextField("Number", text: $draft.low).frame(width: 80)
+            .labelsHidden().zoomedWidth(110)
+            TextField("Number", text: $draft.low).zoomedWidth(80)
             if draft.comparison == .between {
                 Text("and")
-                TextField("Number", text: $draft.high).frame(width: 80)
+                TextField("Number", text: $draft.high).zoomedWidth(80)
             }
-            TextField("Unit", text: $draft.unit).frame(width: 110)
+            TextField("Unit", text: $draft.unit).zoomedWidth(110)
         }
     }
 

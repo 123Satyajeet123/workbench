@@ -36,6 +36,7 @@ public struct WorkbenchApp: App {
             ZoomCommands()
             if case .ready(let session) = appDelegate.launch { SettingsCommand(navigation: session.navigation) }
         }
+        .windowToolbarStyle(.unifiedCompact)
         .windowResizability(.contentSize)
         .defaultWindowPlacement { _, context in
             let visible = context.defaultDisplay.visibleRect

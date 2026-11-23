@@ -59,7 +59,7 @@ private struct SourceSheet: View {
             .padding(.horizontal, Space.l)
             .padding(.vertical, Space.m)
         }
-        .frame(width: 520, height: 560)
+        .zoomedWidth(520).frame(height: 560)
         .background(.pageFill)
         .onChange(of: model.isReady) { if model.isReady { dismiss() } }
         .task { model.problems.dismiss() }

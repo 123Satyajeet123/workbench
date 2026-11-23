@@ -20,7 +20,7 @@ struct Fold<Label: View, Content: View>: View {
                         .font(.system(size: 10, weight: .bold))
                         .foregroundStyle(.iconTint)
                         .rotationEffect(.degrees(isOpen ? 90 : 0))
-                        .frame(width: 12)
+                        .zoomedWidth(12)
                     label
                     Spacer(minLength: 0)
                 }

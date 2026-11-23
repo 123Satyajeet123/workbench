@@ -16,10 +16,12 @@ struct Mascot: View {
     }
 
     let look: Look
+    /// The side at actual size; the app's zoom scales it.
     var size: CGFloat = 28
     var mood = Mood.calm
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.uiScale) private var scale
 
     var body: some View {
         face
@@ -122,7 +124,7 @@ struct Mascot: View {
                     at: point(0.85, 0.15))
             }
         }
-        .frame(width: size, height: size)
+        .frame(width: size * scale, height: size * scale)
         .accessibilityHidden(true)
     }
 }

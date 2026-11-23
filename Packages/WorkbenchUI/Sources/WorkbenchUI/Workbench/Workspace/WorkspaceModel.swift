@@ -15,6 +15,8 @@ final class WorkspaceModel {
     private(set) var levels: [WorkObjectID?: [WorkObject]] = [:]
     private(set) var parents: Set<WorkObjectID> = []
     private(set) var expanded: Set<WorkObjectID> = []
+    /// Every object that is not archived, in the order of the tree with every row open.
+    private(set) var treeOrder: [WorkObjectID] = []
     private(set) var favorites: [SidebarSelection] = []
     private(set) var recents: [SidebarSelection] = []
     /// The object whose children make the Private section. Nil only when the store could not make it.
@@ -67,8 +69,18 @@ final class WorkspaceModel {
                 loaded[id] = try store.queries.workObjects(parent: id, includeArchived: false)
             }
             levels = loaded
+            treeOrder = Self.treeOrder(
+                of: try store.queries.everyWorkObject().filter { !$0.archived }, privateSection: privateSection)
         }
         revision += 1
+    }
+
+    /// Depth first, each level in its order: the workspace, then the Private section.
+    static func treeOrder(of objects: [WorkObject], privateSection: WorkObjectID?) -> [WorkObjectID] {
+        let levels = Dictionary(grouping: objects, by: \.parentID).mapValues { $0.sorted { $0.position < $1.position } }
+        func subtree(_ object: WorkObject) -> [WorkObjectID] { [object.id] + (levels[object.id] ?? []).flatMap(subtree) }
+        let top = levels[nil] ?? []
+        return (top.filter { $0.id != privateSection } + top.filter { $0.id == privateSection }).flatMap(subtree)
     }
 
     /// The object of this id, archived or not, from the loaded levels or else from the store.

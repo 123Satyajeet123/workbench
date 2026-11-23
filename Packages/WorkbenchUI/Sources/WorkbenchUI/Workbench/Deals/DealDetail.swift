@@ -147,7 +147,7 @@ struct ActionRequiredForm: View {
                 Button("Require action", action: save).buttonStyle(.primary).disabled(what.cleaned == nil)
             }
         }
-        .padding(Space.l).frame(width: 420)
+        .padding(Space.l).zoomedWidth(420)
     }
 
     private func save() {

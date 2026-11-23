@@ -5,6 +5,7 @@ struct DealsPage: View {
     @Environment(DealsModel.self) private var deals
     @State private var open: String?
     @State private var newTitle = ""
+    @Environment(\.uiScale) private var scale
 
     var body: some View {
         DealMoving { move in board(move: move) }
@@ -28,8 +29,10 @@ struct DealsPage: View {
                         ForEach(deals.columns) { StageColumn(column: $0, open: $open, move: move) }
                     }
                 }
+                .frame(minWidth: StageColumn.width * scale)
                 if let id = open, let deal = deals.deal(id) {
-                    DealDetail(deal: deal, move: move, close: { open = nil }).frame(width: 560)
+                    DealDetail(deal: deal, move: move, close: { open = nil })
+                        .frame(maxWidth: 560 * scale).layoutPriority(1)
                 }
             }
         }

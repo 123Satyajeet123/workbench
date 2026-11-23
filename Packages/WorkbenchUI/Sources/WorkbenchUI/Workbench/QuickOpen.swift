@@ -110,7 +110,7 @@ struct QuickOpenPanel: View {
                 .textStyle(.callout).foregroundStyle(.supporting).padding(Space.m)
         }
         .padding(Space.xs)
-        .frame(width: 520)
+        .zoomedWidth(520)
         .background(.pageFill)
         .defaultFocus($isFocused, true)
     }

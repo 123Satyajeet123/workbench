@@ -63,7 +63,7 @@ private struct RuleRow: View {
                 }
             } label: {
                 Text(rule.role.words).textStyle(.caption).padding(.horizontal, Space.s).padding(.vertical, 2)
-                    .frame(width: 96).background(.quaternary, in: .capsule)
+                    .zoomedWidth(96).background(.quaternary, in: .capsule)
             }
             .menuStyle(.borderlessButton).menuIndicator(.hidden)
             Text(rule.summary).frame(maxWidth: .infinity, alignment: .leading)

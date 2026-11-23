@@ -30,7 +30,7 @@ struct DealTimeline: View {
         VStack(alignment: .leading, spacing: Space.s) {
             ForEach(entries) { entry in
                 HStack(alignment: .firstTextBaseline, spacing: Space.s) {
-                    actor(entry).frame(width: 18)
+                    actor(entry).zoomedWidth(18)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(entry.text).textStyle(.callout).textSelection(.enabled)
                         Text(entry.at.formatted(date: .abbreviated, time: .shortened))

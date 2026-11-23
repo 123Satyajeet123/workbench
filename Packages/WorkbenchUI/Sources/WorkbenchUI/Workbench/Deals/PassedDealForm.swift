@@ -29,7 +29,7 @@ struct PassedDealForm: View {
                 Button("Pass", action: save).buttonStyle(.borderedProminent)
             }
         }
-        .padding(Space.l).frame(width: 440)
+        .padding(Space.l).zoomedWidth(440)
     }
 
     private func save() {

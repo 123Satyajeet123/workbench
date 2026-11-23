@@ -116,7 +116,6 @@ struct CutoffOffer: View {
                 "\(model.backlog.count) open \(model.backlog.count == 1 ? "fact is" : "facts are") older than \(model.cutoffDays) days.",
                 systemImage: "tray.full"
             )
-            .lineLimit(1)
             Button("Mark them as handled", action: model.markBacklogHandled).buttonStyle(.ghost)
             Button("Keep them", action: model.keepBacklog).buttonStyle(.ghost)
             Spacer()
@@ -133,7 +132,6 @@ struct HandledBar: View {
     var body: some View {
         HStack(spacing: Space.m) {
             Label("Marked as handled: older than \(batch.olderThanDays) days.", systemImage: "checkmark.circle")
-                .lineLimit(1)
             Button("Reopen them", action: model.reopenHandled).buttonStyle(.ghost)
             Spacer()
         }

@@ -52,7 +52,20 @@ private struct ScaledText: ViewModifier {
     }
 }
 
+private struct ZoomedWidth: ViewModifier {
+    let width: CGFloat
+    let alignment: Alignment
+    @Environment(\.uiScale) private var scale
+
+    func body(content: Content) -> some View { content.frame(width: width * scale, alignment: alignment) }
+}
+
 extension View {
+    /// A fixed width at actual size; the app's zoom scales it, as it scales the text inside.
+    func zoomedWidth(_ width: CGFloat, alignment: Alignment = .center) -> some View {
+        modifier(ZoomedWidth(width: width, alignment: alignment))
+    }
+
     func textStyle(_ style: Font.TextStyle, weight: Font.Weight? = nil, digits: Bool = false) -> some View {
         modifier(ScaledText(style: style, weight: weight, digits: digits))
     }

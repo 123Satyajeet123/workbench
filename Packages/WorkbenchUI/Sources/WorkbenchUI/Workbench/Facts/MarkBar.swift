@@ -38,7 +38,7 @@ struct MarkBar: View {
                 }
             }
         } label: {
-            Image(systemName: "ellipsis").frame(width: 20)
+            Image(systemName: "ellipsis").zoomedWidth(20)
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)

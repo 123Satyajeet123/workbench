@@ -2,6 +2,8 @@ import SwiftUI
 import WorkbenchCore
 
 struct StageColumn: View {
+    static let width: CGFloat = 220
+
     let column: ObjectBoard.Column
     @Binding var open: String?
     let move: (WorkObject, StageID) -> Void
@@ -22,7 +24,7 @@ struct StageColumn: View {
             }
             Spacer(minLength: 0)
         }
-        .frame(width: 220, alignment: .topLeading)
+        .zoomedWidth(Self.width, alignment: .topLeading)
         .frame(minHeight: 120, alignment: .topLeading)
         .dropDestination(for: String.self) { ids, _ in
             guard let deal = ids.compactMap(deals.deal).first else { return false }

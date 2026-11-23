@@ -61,7 +61,7 @@ struct ClosedRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: Space.m) {
-            Image(systemName: "checkmark.circle.fill").foregroundStyle(Tone.good.color).frame(width: 18)
+            Image(systemName: "checkmark.circle.fill").foregroundStyle(Tone.good.color).zoomedWidth(18)
             VStack(alignment: .leading, spacing: Space.xs) {
                 HStack(spacing: Space.s) {
                     Text(item[model.spec.title]).strikethrough()

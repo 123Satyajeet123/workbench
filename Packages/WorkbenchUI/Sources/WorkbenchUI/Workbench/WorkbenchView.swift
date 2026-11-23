@@ -17,23 +17,28 @@ struct WorkbenchView: View {
 
     var body: some View {
         NavigationSplitView(columnVisibility: columnVisibility) {
-            Sidebar(
-                selection: Binding(get: { tabs.page }, set: { tabs.open($0) }),
-                openInNewTab: { tabs.openNewTab($0) },
-                search: { isSearching = true }
-            )
-            .navigationSplitViewColumnWidth(min: 200 * scale, ideal: 240 * scale, max: 320 * scale)
+            Sidebar(selection: selection, openInNewTab: { tabs.openNewTab($0) }, search: { isSearching = true })
+                .navigationSplitViewColumnWidth(min: 200 * scale, ideal: 240 * scale, max: 320 * scale)
         } detail: {
-            page
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(.pageFill)
-                .background { keyboardShortcuts }
-                .toolbar { toolbar }
+            HStack(spacing: 0) {
+                if !isSidebarShown {
+                    SidebarRail(selection: selection, openInNewTab: { tabs.openNewTab($0) }).zIndex(1)
+                    Rectangle().fill(.dividerLine).frame(width: 1)
+                }
+                VStack(spacing: 0) {
+                    topBar
+                    page
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(.pageFill)
+                }
+            }
+            .background { keyboardShortcuts }
         }
+        .toolbar(removing: .title)
         .sheet(isPresented: $isSearching) { search }
         .frame(
-            minWidth: Self.minimumSize.width, idealWidth: Self.idealSize.width, minHeight: Self.minimumSize.height,
-            idealHeight: Self.idealSize.height
+            minWidth: Self.minimumSize.width * scale, idealWidth: Self.idealSize.width,
+            minHeight: Self.minimumSize.height, idealHeight: Self.idealSize.height
         )
         .onAppear { tabs = PageTabs(saved: savedTabs, isOpen: isOpen) }
         .onChange(of: tabs) { savedTabs = tabs.saved }
@@ -43,6 +48,10 @@ struct WorkbenchView: View {
             show(page)
             navigation.requested = nil
         }
+    }
+
+    private var selection: Binding<SidebarSelection> {
+        Binding(get: { tabs.page }, set: { tabs.open($0) })
     }
 
     private var columnVisibility: Binding<NavigationSplitViewVisibility> {
@@ -72,17 +81,30 @@ struct WorkbenchView: View {
         }
     }
 
-    @ToolbarContentBuilder private var toolbar: some ToolbarContent {
-        ToolbarItemGroup(placement: .navigation) {
-            Button("Back", systemImage: "chevron.left") { tabs.goBack(isOpen: isOpen) }
-                .keyboardShortcut("[", modifiers: .command).disabled(!tabs.canGoBack).help("Back (⌘[)")
-            Button("Forward", systemImage: "chevron.right") { tabs.goForward(isOpen: isOpen) }
-                .keyboardShortcut("]", modifiers: .command).disabled(!tabs.canGoForward).help("Forward (⌘])")
-        }
-        ToolbarItem(placement: .navigation) { TabStrip(tabs: $tabs) }
-        ToolbarItem(placement: .primaryAction) {
+    /// Back and Forward, the tabs, a strip that drags the window, and Search, across the page under the title bar.
+    private var topBar: some View {
+        HStack(spacing: 0) {
+            HStack(spacing: Space.xs) {
+                Button("Back", systemImage: "chevron.left") { tabs.goBack(isOpen: isOpen) }
+                    .keyboardShortcut("[", modifiers: .command).disabled(!tabs.canGoBack).help("Back (⌘[)")
+                Button("Forward", systemImage: "chevron.right") { tabs.goForward(isOpen: isOpen) }
+                    .keyboardShortcut("]", modifiers: .command).disabled(!tabs.canGoForward).help("Forward (⌘])")
+            }
+            .padding(.horizontal, Space.m)
+            TabStrip(tabs: $tabs)
+            Color.clear.frame(minWidth: Space.l, maxWidth: .infinity).contentShape(.rect)
+                .gesture(WindowDragGesture())
+            if capture.profile.isDemo {
+                Text(ProfileSwitch.demoLabel).textStyle(.callout).foregroundStyle(.supporting).lineLimit(1)
+                    .fixedSize().padding(.trailing, Space.s)
+            }
             Button("Search", systemImage: "magnifyingglass") { isSearching = true }.help("Search (⌘K)")
+                .padding(.trailing, Space.m)
         }
+        .labelStyle(.iconOnly).buttonStyle(.ghost).foregroundStyle(.sidebarIcon)
+        .frame(height: TabStrip.height * scale)
+        .background(alignment: .bottom) { Rectangle().fill(.dividerLine).frame(height: 1) }
+        .background(.sidebarFill)
     }
 
     private var keyboardShortcuts: some View {
@@ -130,12 +152,13 @@ struct WorkbenchView: View {
 }
 
 struct TabStrip: View {
-    static let height: CGFloat = 28
+    static let height: CGFloat = 36
 
     @Binding var tabs: PageTabs
     @State private var dragged: PageTabs.Tab.ID?
     @State private var offset: CGFloat = 0
     @State private var tabWidth = TabChip.width.upperBound
+    @Environment(\.uiScale) private var scale
 
     var body: some View {
         ViewThatFits(in: .horizontal) {
@@ -172,11 +195,11 @@ struct TabStrip: View {
                 line
             }
             Button("New tab", systemImage: "plus") { tabs.openNewTab() }
-                .labelStyle(.iconOnly).buttonStyle(.ghost).foregroundStyle(.sidebarIcon).font(.system(size: 15))
-                .frame(width: Self.height, height: Self.height).help("New tab (⌘T)")
+                .labelStyle(.iconOnly).buttonStyle(.ghost).foregroundStyle(.sidebarIcon).font(.system(size: 15 * scale))
+                .frame(width: Self.height * scale, height: Self.height * scale).help("New tab (⌘T)")
             line
         }
-        .frame(height: Self.height)
+        .frame(height: Self.height * scale)
     }
 
     private var line: some View { Rectangle().fill(.dividerLine).frame(width: 1) }
@@ -193,20 +216,22 @@ struct TabChip: View {
     let drag: (CGFloat) -> Void
     let drop: (CGFloat) -> Void
     @State private var isHovered = false
+    @Environment(\.uiScale) private var scale
 
     var body: some View {
         PageLabel(page: page).labelStyle(.titleAndIcon).textStyle(.body).lineLimit(1)
             .foregroundStyle(isSelected ? Color.bodyText : .sidebarText)
             .padding(.leading, Space.m).padding(.trailing, canClose ? Space.xl : Space.m)
             .frame(
-                minWidth: Self.width.lowerBound, maxWidth: Self.width.upperBound, maxHeight: .infinity,
+                minWidth: Self.width.lowerBound * scale, maxWidth: Self.width.upperBound * scale, maxHeight: .infinity,
                 alignment: .leading
             )
             .background(isSelected ? Color.pageFill : isHovered ? .hoverFill : .clear)
             .overlay { TabMouse(click: select, drag: drag, drop: drop) }
             .overlay(alignment: .trailing) {
                 if canClose {
-                    Button("Close tab", systemImage: "xmark", action: close).font(.system(size: 11, weight: .semibold))
+                    Button("Close tab", systemImage: "xmark", action: close)
+                        .font(.system(size: 11 * scale, weight: .semibold))
                         .labelStyle(.iconOnly).buttonStyle(.ghost).foregroundStyle(.sidebarIcon)
                         .opacity(isHovered || isSelected ? 1 : 0).help("Close tab (⌘W)").padding(.trailing, Space.m)
                 }

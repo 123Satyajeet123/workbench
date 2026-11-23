@@ -56,7 +56,7 @@ private struct UpcomingMeetings: View {
                 ForEach(meetings) { meeting in
                     HStack(alignment: .firstTextBaseline, spacing: Space.m) {
                         Text(meeting.start.formatted(date: .omitted, time: .shortened))
-                            .foregroundStyle(.supporting).monospacedDigit().frame(width: 64, alignment: .leading)
+                            .foregroundStyle(.supporting).monospacedDigit().zoomedWidth(64, alignment: .leading)
                         VStack(alignment: .leading, spacing: Space.xs) {
                             Text(meeting.title.isEmpty ? "Untitled" : meeting.title).fontWeight(.semibold)
                             Text(detail(meeting)).textStyle(.callout).foregroundStyle(.supporting)
@@ -254,7 +254,7 @@ private struct TranscriptView: View {
                     }
                     .buttonStyle(.plain).foregroundStyle(.linkText).monospacedDigit()
                     .pointerStyle(.link).help("Play from here")
-                    .frame(width: 52, alignment: .leading)
+                    .zoomedWidth(52, alignment: .leading)
                     (Text(line.speaker == .me ? me : "Them").bold() + Text("  " + line.text))
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -296,7 +296,7 @@ private struct CallPlayer: View {
                 }
             )
             .controlSize(.mini)
-            .frame(width: 160)
+            .zoomedWidth(160)
             .accessibilityLabel("Position in the call")
             Text(CallTranscript.clock(total)).fixedSize()
         }

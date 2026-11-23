@@ -59,7 +59,7 @@ private struct RuleResultRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: Space.s) {
             Image(systemName: result.verdict.symbol).foregroundStyle(result.verdict.tone.color)
-                .frame(width: 18).accessibilityLabel(result.verdict.rawValue)
+                .zoomedWidth(18).accessibilityLabel(result.verdict.rawValue)
             VStack(alignment: .leading, spacing: 2) {
                 Text("\(result.rule.summary) · \(result.rule.role.words)")
                     .fontWeight(isDeciding ? .semibold : .regular)

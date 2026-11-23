@@ -48,7 +48,7 @@ struct AddFactSheet: View {
             }
         }
         .padding(Space.l)
-        .frame(width: 520)
+        .zoomedWidth(520)
         .background(.pageFill)
         .onAppear { focused = true }
     }

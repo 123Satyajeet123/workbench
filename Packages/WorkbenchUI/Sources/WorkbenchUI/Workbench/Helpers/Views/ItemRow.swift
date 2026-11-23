@@ -12,9 +12,9 @@ struct ItemRow: View {
         HStack(alignment: .top, spacing: Space.m) {
             if showsSpan {
                 Text(span).textStyle(.callout, digits: true).foregroundStyle(.supporting)
-                    .frame(width: 110, alignment: .leading)
+                    .zoomedWidth(110, alignment: .leading)
             } else if let (value, tone) = toned {
-                Image(systemName: tone.symbol).foregroundStyle(tone.color).frame(width: 18).accessibilityLabel(value)
+                Image(systemName: tone.symbol).foregroundStyle(tone.color).zoomedWidth(18).accessibilityLabel(value)
             }
             VStack(alignment: .leading, spacing: Space.xs) {
                 HStack(spacing: Space.s) {

@@ -29,7 +29,7 @@ struct UsagePage: View {
             }
             if models.billing == .plan { PlanLimitsRow(limits: planUsage.limits) }
             HStack(alignment: .top, spacing: Space.xl) {
-                total(report).frame(width: 220, alignment: .leading)
+                total(report).zoomedWidth(220, alignment: .leading)
                 chart(report)
             }
             breakdownTable(report)

@@ -59,7 +59,7 @@ struct CandidateCard: View {
     private var reasonForm: some View {
         VStack(alignment: .leading, spacing: Space.s) {
             Text("Why is it not a fit? (optional)").textStyle(.headline)
-            TextField("For example: too late stage", text: $reason).frame(width: 260)
+            TextField("For example: too late stage", text: $reason).zoomedWidth(260)
             Text("Kept for when you edit the criteria. Nothing applies it by itself.").textStyle(.caption)
                 .foregroundStyle(.supporting)
             HStack {
