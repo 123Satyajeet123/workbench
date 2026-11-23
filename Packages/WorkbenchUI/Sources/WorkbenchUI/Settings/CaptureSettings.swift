@@ -12,6 +12,7 @@ final class CaptureSettings {
     private let service: CaptureService
     private(set) var log: [CaptureLogEntry] = []
     private(set) var failure: (any Error)?
+    @ObservationIgnored var onCallSaved: () -> Void = {}
 
     init(service: CaptureService) {
         self.service = service
@@ -84,7 +85,11 @@ final class CaptureSettings {
 
     func dismissFailure() { failure = nil }
 
-    func stopCall() { attempt { try service.stopCall() } }
+    func stopCall() {
+        guard service.call != nil else { return }
+        attempt { try service.stopCall() }
+        onCallSaved()
+    }
 
     func refreshLog() {
         attempt { log = try service.keptToday(limit: 20).compactMap(CaptureLogEntry.init) }
@@ -192,7 +197,7 @@ struct CaptureSource: Identifiable {
             reason: "Today's meetings: title, time and who is in them. Never written to the calendar."),
         CaptureSource(
             source: .call, name: "Calls", symbol: "phone",
-            reason: "Your microphone and the other side's audio, only when you start a recording."),
+            reason: "Your microphone and the other side's audio, only for calls you choose to record."),
     ]
 }
 

@@ -6,9 +6,12 @@ struct IslandControl: View {
     let metrics: IslandMetrics
     let open: (SidebarSelection) -> Void
     let stop: () -> Void
+    var record: () -> Void = {}
+    var dismiss: () -> Void = {}
     var expand: (Bool) -> Void = { _ in }
     @State private var isHovered = false
     @State private var isPressed = false
+    @State private var isAnnouncing = false
 
     var body: some View {
         IslandView(state: state, metrics: metrics, isExpanded: isExpanded, isPressed: isPressed)
@@ -17,9 +20,17 @@ struct IslandControl: View {
             }
             .onChange(of: isExpanded) { _, expanded in expand(expanded) }
             .onChange(of: state.takesClicks) { _, takes in if !takes { isHovered = false } }
+            .task(id: state.isOffer) {
+                isAnnouncing = state.isOffer
+                guard isAnnouncing else { return }
+                try? await Task.sleep(for: .seconds(Self.announceFor))
+                isAnnouncing = false
+            }
     }
 
-    private var isExpanded: Bool { isHovered && state.takesClicks }
+    static let announceFor: Double = 10
+
+    private var isExpanded: Bool { (isHovered || isAnnouncing) && state.takesClicks }
 
     private func press(_ down: Bool) {
         isPressed = down
@@ -29,6 +40,10 @@ struct IslandControl: View {
     private func click(at point: CGPoint) {
         if isExpanded, case .recording = state, IslandView.stopRect(metrics).contains(point) {
             stop()
+        } else if isExpanded, state.isOffer, IslandView.stopRect(metrics).contains(point) {
+            record()
+        } else if isExpanded, state.isOffer, IslandView.notNowRect(metrics).contains(point) {
+            dismiss()
         } else if let page = state.page {
             open(page)
         }

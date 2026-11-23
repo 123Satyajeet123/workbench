@@ -19,6 +19,7 @@ struct SettingsSectionView: View {
             case .notifications: RemindersSection()
             case .capture:
                 sources
+                AutoRecordSection()
                 DenyListSection()
                 keptToday
             case .webResearch: WebResearchSection()
@@ -112,6 +113,57 @@ struct SettingsSectionView: View {
     }
 }
 
+private struct AutoRecordSection: View {
+    @Environment(CallWatcher.self) private var watcher
+    @Environment(CallNotes.self) private var notes
+
+    var body: some View {
+        Section("Calls") {
+            SettingRow(
+                "Save recordings in",
+                notes.savedIn.path(percentEncoded: false).replacingOccurrences(of: NSHomeDirectory(), with: "~")
+                    + ". New calls go here; earlier ones stay where they are."
+            ) {
+                HStack {
+                    if !notes.isDefaultPlace { Button("Use default", action: notes.useDefaultPlace) }
+                    Button("Reveal", action: notes.revealPlace)
+                    Button("Choose…", action: choose)
+                }
+            }
+            SettingRow(
+                "Spot calls",
+                "When an app uses your microphone for a call, Workbench asks in the notch whether to record it."
+            ) {
+                EmptyView()
+            }
+            if watcher.always.isEmpty {
+                SettingRow(
+                    "Record automatically", "None yet. Choose “Always record” when Workbench asks about a call."
+                ) {
+                    EmptyView()
+                }
+            }
+            if let problem = notes.problem { FormNote(problem) }
+            ForEach(watcher.always.sorted { $0.value < $1.value }, id: \.key) { bundleID, name in
+                SettingRow(
+                    "Always record \(name)", "Calls in \(name) are recorded without asking, except in private mode."
+                ) {
+                    Button("Stop") { watcher.forget(bundleID) }
+                }
+            }
+        }
+    }
+
+    private func choose() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.prompt = "Save calls here"
+        panel.directoryURL = notes.savedIn
+        if panel.runModal() == .OK, let folder = panel.url { notes.saveRecordings(in: folder) }
+    }
+}
 private struct NotchSection: View {
     @AppStorage(IslandKey.shown) private var shown = true
     @AppStorage(IslandKey.recording) private var showsRecording = true

@@ -7,6 +7,8 @@ import Testing
 @MainActor private final class Taps {
     var opened: [SidebarSelection] = []
     var stops = 0
+    var records = 0
+    var dismissals = 0
     var expanded: [Bool] = []
 }
 
@@ -19,6 +21,7 @@ import Testing
         window.contentView = NSHostingView(
             rootView: IslandControl(
                 state: state, metrics: metrics, open: { taps.opened.append($0) }, stop: { taps.stops += 1 },
+                record: { taps.records += 1 }, dismiss: { taps.dismissals += 1 },
                 expand: { taps.expanded.append($0) }
             )
             .frame(width: size.width, height: size.height, alignment: .top))
@@ -78,6 +81,21 @@ import Testing
         let stop = IslandView.stopRect(metrics)
         try click(tracker, at: CGPoint(x: min(stop.midX, tracker.bounds.maxX - 2), y: 4), in: window)
         #expect(taps.opened == [.review] && taps.stops == 0)
+    }
+
+    @Test func anOfferedCallOpensOnItsOwnWithRecordAndNotNow() async throws {
+        let taps = Taps()
+        let (window, found) = try await show(.offer("Zoom"), taps: taps)
+        defer { window.orderOut(nil) }
+        let tracker = try #require(found)
+        #expect(taps.expanded == [true] && tracker.bounds.size == metrics.expandedSize)
+
+        let notNow = IslandView.notNowRect(metrics)
+        try click(tracker, at: CGPoint(x: notNow.midX, y: notNow.midY), in: window)
+        let record = IslandView.stopRect(metrics)
+        try click(tracker, at: CGPoint(x: record.midX, y: record.midY), in: window)
+        try click(tracker, at: CGPoint(x: 20, y: 10), in: window)
+        #expect(taps.dismissals == 1 && taps.records == 1 && taps.stops == 0 && taps.opened == [.calls])
     }
 
     @Test func nothingShownTakesNoMouse() async throws {

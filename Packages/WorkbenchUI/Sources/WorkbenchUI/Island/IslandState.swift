@@ -11,15 +11,19 @@ enum IslandState: Equatable {
     case idle
     case plan(PlanLimits.Window)
     case recording(since: Date)
+    case offer(String)
     case reading(names: [String], page: SidebarSelection)
     case waiting(machines: [String])
 
     init(
-        recordingSince: Date?, reading: [(name: String, page: SidebarSelection)], waiting: [String],
+        recordingSince: Date?, offering: String? = nil, reading: [(name: String, page: SidebarSelection)],
+        waiting: [String],
         plan: PlanLimits.Window? = nil, shows: IslandShows = IslandShows()
     ) {
         if shows.recording, let recordingSince {
             self = .recording(since: recordingSince)
+        } else if shows.recording, let offering {
+            self = .offer(offering)
         } else if shows.reading, let first = reading.first {
             self = .reading(names: reading.map(\.name), page: reading.count == 1 ? first.page : .crew)
         } else if shows.review, !waiting.isEmpty {
@@ -33,11 +37,15 @@ enum IslandState: Equatable {
 
     var takesClicks: Bool { self != .idle }
 
+    var isOffer: Bool {
+        if case .offer = self { true } else { false }
+    }
+
     var page: SidebarSelection? {
         switch self {
         case .idle: nil
         case .plan: .usage
-        case .recording: .calls
+        case .recording, .offer: .calls
         case .reading(_, let page): page
         case .waiting: .review
         }
@@ -48,6 +56,7 @@ enum IslandState: Equatable {
         case .idle: ""
         case .plan(let window): "Claude plan · \(window.line)"
         case .recording: "Recording a call"
+        case .offer(let service): "\(service) call"
         case .reading(let names, _):
             names.count == 1 ? "\(names[0]) is reading" : "\(names.formatted(.list(type: .and))) are reading"
         case .waiting(let machines):

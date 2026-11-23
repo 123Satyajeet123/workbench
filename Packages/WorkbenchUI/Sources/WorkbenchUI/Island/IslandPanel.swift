@@ -84,7 +84,8 @@ private struct IslandContent: View {
     var body: some View {
         IslandControl(
             state: state, metrics: metrics, open: { NSWorkspace.shared.open($0.url) },
-            stop: session.capture.stopCall, expand: expand
+            stop: session.capture.stopCall, record: session.callWatcher.record,
+            dismiss: session.callWatcher.dismiss, expand: expand
         )
         .padding(.top, metrics.top)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -96,6 +97,7 @@ private struct IslandContent: View {
         let limits = idle == .planRing && session.models.billing == .plan ? session.planUsage.limits : nil
         return IslandState(
             recordingSince: session.capture.call?.startedAt,
+            offering: session.callWatcher.offer?.source.service,
             reading: session.crew.machines.filter { $0.phase == .reading }.map {
                 (name: $0.name, page: SidebarSelection.machine($0.machine.id))
             },

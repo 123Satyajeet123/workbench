@@ -80,6 +80,9 @@ extension View {
             .environment(session.claims)
             .environment(session.runs)
             .environment(session.planUsage)
+            .environment(session.calls)
+            .environment(session.callWatcher)
+            .environment(session.playback)
             .environment(session.navigation)
     }
 }

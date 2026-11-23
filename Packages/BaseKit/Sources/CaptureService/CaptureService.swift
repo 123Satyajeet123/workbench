@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import LocalSources
 import Observation
@@ -12,6 +13,8 @@ public final class CaptureService {
     public private(set) var status: CaptureStatus
     public private(set) var call: Recording?
     public private(set) var playingApps: [AudioApp] = []
+    public private(set) var listeningApps: [AudioApp] = []
+    @ObservationIgnored public var onListening: (([AudioApp]) -> Void)?
     public private(set) var problem: String?
 
     @ObservationIgnored private let store: Store
@@ -89,7 +92,8 @@ public final class CaptureService {
         case .deny(let reason): throw CallStartError.denied(reason)
         }
         guard await CallAudioRecorder.requestMicrophone() else { throw CallAudioError.microphoneDenied }
-        let recording = try store.startRecording(app: app?.name ?? "In person", bundleID: label, grant: grant)
+        let recording = try store.startRecording(
+            app: app?.name ?? "In person", bundleID: label, source: Self.source(of: app), grant: grant)
         let recorder = CallAudioRecorder(app: app, folder: recording.folder)
         do {
             try recorder.start()
@@ -116,6 +120,18 @@ public final class CaptureService {
 
     static let inPerson = "in-person"
 
+    public static func source(of app: AudioApp?) -> CallSource {
+        guard let app else { return CallSource.identify(app: "", bundleID: inPerson, windowTitle: "", address: "") }
+        let running = NSRunningApplication.runningApplications(withBundleIdentifier: app.bundleID).first
+        guard ScreenReader.isTrusted, let running else {
+            return CallSource.identify(app: app.name, bundleID: app.bundleID, windowTitle: "", address: "")
+        }
+        let window = ScreenReader().read(
+            FrontApp(pid: running.processIdentifier, name: app.name, bundleID: app.bundleID), withText: false)
+        return CallSource.identify(
+            app: app.name, bundleID: app.bundleID, windowTitle: window.title, address: window.document)
+    }
+
     func pruneIfDue(at now: Date) async {
         guard now.timeIntervalSince(lastPrune) >= 3600 else { return }
         lastPrune = now
@@ -126,6 +142,9 @@ public final class CaptureService {
         refreshStatus()
         let apps = AudioApps.playing()
         if apps != playingApps { playingApps = apps }
+        let listening = AudioApps.listening()
+        if listening != listeningApps { listeningApps = listening }
+        onListening?(listening)
         let now = store.clock()
         Task { await pruneIfDue(at: now) }
         setFileWatcher(on: (status == .capturing || status == .needsPermission) && policy.isEnabled(.files))

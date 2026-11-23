@@ -192,7 +192,7 @@ extension Store {
 
     private func removeFile(_ path: String) throws {
         do {
-            try FileManager.default.removeItem(at: directory.appending(path: path))
+            try FileManager.default.removeItem(at: resolve(path))
         } catch let error as CocoaError where error.code == .fileNoSuchFile {
             return
         } catch {

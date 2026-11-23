@@ -22,7 +22,7 @@ enum Schema {
 
     static var stepDigests: [String] { steps.map { Digest.sha256($0.joined(separator: ";\n")) } }
 
-    static let steps = [baseline, itemEvents, runText, summaries, itemActions, mail, typedItems, quoteMarks]
+    static let steps = [baseline, itemEvents, runText, summaries, itemActions, mail, typedItems, quoteMarks, callNotes]
 
     private static let itemEvents = [
         """
@@ -151,6 +151,18 @@ enum Schema {
             state TEXT NOT NULL CHECK(state IN ('proposed','confirmed','rejected')))
         """,
         "CREATE INDEX quote_mark_item ON quote_mark(item_id, id)",
+    ]
+
+    private static let callNotes = [
+        "ALTER TABLE recording ADD COLUMN service TEXT",
+        "ALTER TABLE recording ADD COLUMN title TEXT",
+        """
+        CREATE TABLE call_note(
+            recording_id INTEGER PRIMARY KEY REFERENCES recording(id) ON DELETE CASCADE,
+            transcript TEXT CHECK(transcript IS NULL OR json_valid(transcript)), transcript_error TEXT,
+            summary TEXT CHECK(summary IS NULL OR json_valid(summary)), summary_error TEXT, run_id INTEGER,
+            updated_at TEXT NOT NULL)
+        """,
     ]
 
     private static let baseline = [

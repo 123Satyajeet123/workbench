@@ -31,27 +31,41 @@ public struct AudioProcess: Sendable, Equatable {
     public var id: AudioObjectID
     public var bundleID: String
     public var isPlaying: Bool
+    public var isListening = false
 }
 
 public enum AudioApps {
     @MainActor
-    public static func playing() -> [AudioApp] {
-        let names = Dictionary(
+    public static func playing() -> [AudioApp] { group(ownedProcesses(), apps: regularApps()) }
+
+    @MainActor
+    public static func listening() -> [AudioApp] {
+        group(ownedProcesses(), apps: regularApps(), where: \.isListening)
+    }
+
+    @MainActor
+    private static func regularApps() -> [String: String] {
+        Dictionary(
             NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular }.compactMap { app in
                 app.bundleIdentifier.map { ($0, app.localizedName ?? $0) }
             }, uniquingKeysWith: { first, _ in first })
-        let own = Bundle.main.bundleIdentifier ?? ""
-        return group(processes().filter { !$0.bundleID.hasPrefix(own) || own.isEmpty }, apps: names)
     }
 
-    public static func group(_ processes: [AudioProcess], apps: [String: String]) -> [AudioApp] {
+    private static func ownedProcesses() -> [AudioProcess] {
+        let own = Bundle.main.bundleIdentifier ?? ""
+        return processes().filter { !$0.bundleID.hasPrefix(own) || own.isEmpty }
+    }
+
+    public static func group(
+        _ processes: [AudioProcess], apps: [String: String], where active: (AudioProcess) -> Bool = \.isPlaying
+    ) -> [AudioApp] {
         var owned: [String: [AudioProcess]] = [:]
         for process in processes {
             let owners = apps.keys.filter { process.bundleID == $0 || process.bundleID.hasPrefix($0 + ".") }
             guard let owner = owners.max(by: { $0.count < $1.count }) else { continue }
             owned[owner, default: []].append(process)
         }
-        return owned.filter { $0.value.contains(where: \.isPlaying) }
+        return owned.filter { $0.value.contains(where: active) }
             .map { AudioApp(bundleID: $0.key, name: apps[$0.key] ?? $0.key, processes: $0.value.map(\.id).sorted()) }
             .sorted { $0.name < $1.name }
     }
@@ -64,8 +78,26 @@ public enum AudioApps {
                 return nil
             }
             let playing: UInt32 = CoreAudioProperty.value(id, kAudioProcessPropertyIsRunningOutput) ?? 0
-            return AudioProcess(id: id, bundleID: bundleID as String, isPlaying: playing != 0)
+            let listening: UInt32 = CoreAudioProperty.value(id, kAudioProcessPropertyIsRunningInput) ?? 0
+            return AudioProcess(
+                id: id, bundleID: bundleID as String, isPlaying: playing != 0, isListening: listening != 0)
         }
+    }
+}
+
+public enum CallTracks {
+    public static func files(in folder: URL) -> (me: [URL], them: [URL]) {
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? []
+        let track = { (prefix: String) in
+            names.filter { $0.hasPrefix(prefix + "-") && $0.hasSuffix(".m4a") }.sorted()
+                .map { folder.appending(path: $0) }
+        }
+        return (track("me"), track("them"))
+    }
+
+    public static func duration(of file: URL) -> TimeInterval {
+        guard let audio = try? AVAudioFile(forReading: file), audio.processingFormat.sampleRate > 0 else { return 0 }
+        return Double(audio.length) / audio.processingFormat.sampleRate
     }
 }
 

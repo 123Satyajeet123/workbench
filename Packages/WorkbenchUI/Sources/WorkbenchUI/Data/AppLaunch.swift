@@ -29,6 +29,9 @@ struct AppSession {
     let claims: ClaimsModel
     let runs: RunsModel
     let planUsage: PlanUsage
+    let calls: CallNotes
+    let callWatcher: CallWatcher
+    let playback = CallPlayback()
     let navigation = Navigation()
 }
 
@@ -59,8 +62,17 @@ enum AppLaunch {
             let deals = DealsModel(store: store, catalog: catalog)
             crew.onItemsChanged { deals.refresh() }
             let web = WebResearchSettings(store: store)
+            let capture = CaptureSettings(service: service)
+            let calls = CallNotes(
+                store: store, listener: CallNotes.appleListener(), founder: { identity.identity.name },
+                defaultPlace: storeFolder == defaultStoreFolder ? CallNotes.documentsPlace : nil)
+            capture.onCallSaved = { Task { await calls.processPending() } }
+            let callWatcher = CallWatcher(
+                store: store, controls: capture,
+                announce: { notifications.announce(title: $0, body: $1, page: .calls) })
+            service.onListening = { callWatcher.update(listening: $0, at: .now) }
             let session = AppSession(
-                store: store, capture: CaptureSettings(service: service), onboarding: onboarding, identity: identity,
+                store: store, capture: capture, onboarding: onboarding, identity: identity,
                 team: onboarding.teamModel, models: ModelSettings(store: store),
                 crew: crew, review: review, mochi: mochi,
                 today: TodayModel(store: store, crew: crew, calendar: EventKitCalendar(), deals: { deals.deals }),
@@ -68,8 +80,10 @@ enum AppLaunch {
                 catalog: catalog, actions: ActionsModel(store: store, founder: { identity.identity.name }),
                 deals: deals, memory: MemoryModel(store: store, crew: crew, deals: deals),
                 web: web, claims: ClaimsModel(store: store, me: { catalog.me }, web: web),
-                runs: RunsModel(store: store), planUsage: PlanUsage(store: store))
+                runs: RunsModel(store: store), planUsage: PlanUsage(store: store), calls: calls,
+                callWatcher: callWatcher)
             service.start()
+            Task { await calls.start() }
             session.reminders.start()
             return .ready(session)
         } catch {

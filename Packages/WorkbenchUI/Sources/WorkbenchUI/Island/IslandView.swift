@@ -4,6 +4,7 @@ import WorkbenchCore
 struct IslandView: View {
     static let inset: CGFloat = 14
     static let stopSize = CGSize(width: 56, height: 22)
+    static let notNowSize = CGSize(width: 72, height: 22)
     static let outerPadding: CGFloat = 10
     static let innerPadding: CGFloat = 4
 
@@ -20,6 +21,13 @@ struct IslandView: View {
             x: metrics.expandedSize.width - inset - stopSize.width,
             y: metrics.notchHeight + (IslandMetrics.detailHeight - stopSize.height) / 2, width: stopSize.width,
             height: stopSize.height)
+    }
+
+    static func notNowRect(_ metrics: IslandMetrics) -> CGRect {
+        let record = stopRect(metrics)
+        return CGRect(
+            x: record.minX - Space.s - notNowSize.width, y: record.minY, width: notNowSize.width,
+            height: notNowSize.height)
     }
 
     var body: some View {
@@ -73,7 +81,7 @@ struct IslandView: View {
         switch state {
         case .idle: nil
         case .plan(let window): PlanRing.tone(of: window)
-        case .recording: Tone.bad.color
+        case .recording, .offer: Tone.bad.color
         case .reading: .accentFill
         case .waiting: Tone.attention.color
         }
@@ -91,6 +99,7 @@ struct IslandView: View {
                     _ in
                     .easeInOut(duration: 0.9)
                 }
+        case .offer: Image(systemName: "record.circle").foregroundStyle(Tone.bad.color)
         case .reading: Image(systemName: "text.magnifyingglass").foregroundStyle(.white)
         case .waiting: Image(systemName: "tray.full.fill").foregroundStyle(Tone.attention.color)
         }
@@ -101,6 +110,7 @@ struct IslandView: View {
         case .idle: EmptyView()
         case .plan(let window): Text(PlanRing.percent(window.used)).monospacedDigit()
         case .recording(let since): Text(since, style: .timer).monospacedDigit()
+        case .offer: Text("Record?")
         case .reading(let names, _):
             Text(names.count == 1 ? Self.short(names[0]) : "\(names.count)")
         case .waiting(let machines): Text("\(machines.count)").monospacedDigit()
@@ -111,16 +121,22 @@ struct IslandView: View {
         HStack(spacing: Space.s) {
             Text(state.detail).lineLimit(1).minimumScaleFactor(0.8).foregroundStyle(.white.opacity(0.85))
             Spacer(minLength: 0)
-            if case .recording = state {
-                Text("Stop").textStyle(.callout, weight: .semibold).foregroundStyle(.white)
-                    .frame(width: Self.stopSize.width, height: Self.stopSize.height)
-                    .background(Tone.bad.color, in: .capsule)
-                    .accessibilityAddTraits(.isButton)
+            if case .recording = state { capsule("Stop", size: Self.stopSize, fill: Tone.bad.color) }
+            if case .offer = state {
+                capsule("Not now", size: Self.notNowSize, fill: .white.opacity(0.18))
+                capsule("Record", size: Self.stopSize, fill: Tone.bad.color)
             }
         }
         .textStyle(.callout, weight: .medium)
         .padding(.horizontal, Self.inset)
         .frame(width: metrics.expandedSize.width, height: IslandMetrics.detailHeight)
+    }
+
+    private func capsule(_ title: String, size: CGSize, fill: Color) -> some View {
+        Text(title).textStyle(.callout, weight: .semibold).foregroundStyle(.white)
+            .frame(width: size.width, height: size.height)
+            .background(fill, in: .capsule)
+            .accessibilityAddTraits(.isButton)
     }
 
     private func ear(
@@ -141,6 +157,7 @@ struct IslandView: View {
         case .idle: ""
         case .plan(let window): "Claude plan \(PlanRing.percent(window.used)) used. Click for Usage."
         case .recording: "Recording a call. Click to open Echo."
+        case .offer: "\(state.detail). Record it? Hover for Record or Not now."
         case .reading: "\(state.detail). Click to open."
         case .waiting: "\(state.detail). Click to review."
         }

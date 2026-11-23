@@ -7,6 +7,12 @@ public struct FrontApp: Sendable, Equatable {
     public var name: String
     public var bundleID: String
 
+    public init(pid: pid_t, name: String, bundleID: String) {
+        self.pid = pid
+        self.name = name
+        self.bundleID = bundleID
+    }
+
     @MainActor
     public static func current(ownProcess: pid_t = getpid()) -> FrontApp? {
         guard let app = NSWorkspace.shared.frontmostApplication, app.processIdentifier != ownProcess else { return nil }

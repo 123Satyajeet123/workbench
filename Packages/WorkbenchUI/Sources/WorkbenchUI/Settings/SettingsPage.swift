@@ -138,6 +138,11 @@ struct SettingsItem {
             title: "Capture sources", section: .capture,
             words: "screen files calls microphone whatsapp telegram mail switches capture"),
         SettingsItem(title: "Web research", section: .webResearch, words: "search provider claims queries internet"),
+        SettingsItem(
+            title: "Record calls automatically", section: .capture,
+            words: "spot detect calls always record zoom meet teams microphone"),
+        SettingsItem(
+            title: "Save recordings in", section: .capture, words: "folder location where calls recordings saved echo"),
         SettingsItem(title: "Never capture", section: .capture, words: "deny block exclude private apps websites"),
         SettingsItem(title: "Kept today", section: .capture, words: "log activity windows delete history"),
     ]
