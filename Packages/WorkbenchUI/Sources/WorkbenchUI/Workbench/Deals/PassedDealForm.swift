@@ -1,7 +1,7 @@
 import SwiftUI
 import WorkbenchCore
 
-/// Asks why the investor passed and when to look again, before the deal moves to Rejected. The revisit day is a
+/// Asks why the investor passed and when to look again, before the deal moves to its watch stage. The revisit day is a
 /// dated fact on Today; the investor may pass with no revisit.
 struct PassedDealForm: View {
     let deal: WorkObject

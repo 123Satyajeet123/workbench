@@ -275,3 +275,6 @@ func formTeam(founder: TeamCatalogModel, others: [TeamCatalogModel]) {
     for hello in founder.trust.waiting { founder.trust.confirm(hello, with: founder.sync) }
     for model in [founder] + others { model.refresh() }
 }
+
+/// The id of a deal stage, from the label that deal events held before stages had ids.
+func dealStage(_ label: String) -> StageID { ObjectTypes.deal.resolveStage(label).id }

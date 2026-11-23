@@ -62,20 +62,20 @@ import WorkbenchCore
 
         asha.refresh()
         let seen = try #require(asha.deal(id))
-        #expect(seen.title == "Acme" && seen.stages == ["Inbox"])
+        #expect(seen.title == "Acme" && seen.stageLabels == ["Inbox"])
         #expect(seen.items.map(\.item.quote) == ["login API done"], "the group item came; the screen item stayed")
         #expect(!(try ashaStore.queries.workEvents()).contains { $0.item?.quote == "Term sheet - Acme.pdf" })
 
-        asha.move(seen, to: "Screen")
-        kabir.move(try #require(kabir.deal(id)), to: "Passed")
+        asha.move(seen, to: dealStage("Screen"))
+        kabir.move(try #require(kabir.deal(id)), to: dealStage("Diligence"))
         asha.refresh()
         kabir.refresh()
-        #expect(try #require(asha.deal(id)).stages == ["Passed", "Screen"])
-        #expect(try #require(kabir.deal(id)).stages == ["Passed", "Screen"])
+        #expect(try #require(asha.deal(id)).stageLabels == ["Screen", "Diligence"])
+        #expect(try #require(kabir.deal(id)).stageLabels == ["Screen", "Diligence"])
 
-        kabir.move(try #require(kabir.deal(id)), to: "Decision")
+        kabir.move(try #require(kabir.deal(id)), to: dealStage("Decision"))
         asha.refresh()
-        #expect(try #require(asha.deal(id)).stages == ["Decision"])
+        #expect(try #require(asha.deal(id)).stageLabels == ["Decision"])
         let count = try ashaStore.queries.workEvents().count
         asha.refresh()
         #expect(try ashaStore.queries.workEvents().count == count, "reading the logs again adds nothing")

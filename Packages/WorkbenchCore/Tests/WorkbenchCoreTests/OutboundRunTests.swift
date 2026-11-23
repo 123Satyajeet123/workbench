@@ -102,7 +102,7 @@ import Testing
     @Test func aCandidateAlreadyInDealsOrRejectedIsLeftOutAndAFreshOneStays() async throws {
         let store = try makeStore()
         try store.addDeal("Acme Technologies Pvt Ltd", stage: "Inbox")
-        try store.addDeal("Orbit Labs", stage: WorkObject.rejected)
+        try store.addDeal("Orbit Labs", stage: "Rejected")
         let page = "Acme raised a seed. Orbit raised a seed. Nova (nova.example) raised a seed. Pixel raised a seed."
         func entry(_ name: String, domain: String = "") -> String {
             candidateJSON(name, domain: domain, stageQuote: "raised a seed", quote: "raised a seed")

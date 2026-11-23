@@ -23,15 +23,17 @@ import WorkbenchCore
 
         let id = try #require(await deals.newDeal(from: item, of: intake))
         var deal = try #require(deals.deal(id))
-        #expect(deal.title == "Acme" && deals.deals(in: "Inbox").map(\.id) == [id])
+        #expect(deal.title == "Acme" && deals.deals(in: dealStage("Inbox")).map(\.id) == [id])
         #expect(deal.items.map(\.item.quote) == ["Acme is raising a 2M seed"], "the founder sees their own item")
         #expect(deal.items.first?.item.audience == ["Aditya"], "a page item's audience is its owner alone")
 
-        deals.move(deal, to: "Founder meeting")
+        deals.move(deal, to: dealStage("Founder meeting"))
         deals.note(try #require(deals.deal(id)), "Strong founder; ask about churn.")
         deals.claim(try #require(deals.deal(id)))
         deal = try #require(deals.deal(id))
-        #expect(deals.deals(in: "Inbox").isEmpty && deals.deals(in: "Founder meeting").map(\.id) == [id])
+        #expect(
+            deals.deals(in: dealStage("Inbox")).isEmpty
+                && deals.deals(in: dealStage("Founder meeting")).map(\.id) == [id])
         #expect(deal.notes.map(\.text) == ["Strong founder; ask about churn."] && deal.holder == "Aditya")
         #expect(deal.history.map(\.kind) == [.create, .title, .stage, .link, .stage, .note, .claim])
 

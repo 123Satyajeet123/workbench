@@ -15,7 +15,7 @@ public struct WorkEvent: Codable, Sendable, Equatable, Identifiable {
     public var clock: Int
     public var at: Date
     public var kind: Kind
-    /// The title, the stage, the note, or the object's kind (for create).
+    /// The title, the stage id, the note, or the object's type id (for create). An older stage event holds the stage label.
     public var text: String
     /// For a stage: the stage events this one replaces, as the author saw them. Two stage events that do not
     /// replace each other are concurrent, and both stay until someone replaces both.
@@ -76,9 +76,11 @@ public struct LinkedItem: Codable, Sendable, Equatable {
 public struct WorkObject: Sendable, Equatable, Identifiable {
     public var id: String
     public var kind: String
+    public var type: ObjectType
     public var title: String
-    /// The current stage; more than one when people moved it at the same time without seeing each other's move.
-    public var stages: [String]
+    /// The ids of the current stage; more than one when people moved it at the same time without seeing each
+    /// other's move. Ordered as the type orders its stages.
+    public var stages: [StageID]
     /// The stage events still standing: a new move replaces all of them.
     public var stageHeads: [String]
     /// Who holds it (the earliest open claim), and others who claimed it too.
@@ -96,16 +98,18 @@ public struct WorkObject: Sendable, Equatable, Identifiable {
     }
 
     /// Every object in `events`, as `viewer` may see it. Events are taken in Lamport order, ties by author and id.
-    public static func fold(_ events: [WorkEvent], viewer: String) -> [WorkObject] {
+    public static func fold(
+        _ events: [WorkEvent], viewer: String, type typeFor: (String) -> ObjectType = ObjectTypes.type(for:)
+    ) -> [WorkObject] {
         let ordered = events.sorted { ($0.clock, $0.author, $0.id) < ($1.clock, $1.author, $1.id) }
         return Dictionary(grouping: ordered, by: \.object).compactMap { id, events in
             guard let created = events.first(where: { $0.kind == .create }) else { return nil }
-            return object(id, kind: created.text, events: events, viewer: viewer)
+            return object(id, type: typeFor(created.text), events: events, viewer: viewer)
         }
         .sorted { ($0.history.last?.clock ?? 0) > ($1.history.last?.clock ?? 0) }
     }
 
-    private static func object(_ id: String, kind: String, events: [WorkEvent], viewer: String) -> WorkObject {
+    private static func object(_ id: String, type: ObjectType, events: [WorkEvent], viewer: String) -> WorkObject {
         let stageEvents = events.filter { $0.kind == .stage }
         let replaced = Set(stageEvents.flatMap(\.replaces))
         let heads = stageEvents.filter { !replaced.contains($0.id) }
@@ -118,8 +122,8 @@ public struct WorkObject: Sendable, Equatable, Identifiable {
             }
         }
         return WorkObject(
-            id: id, kind: kind, title: events.last { $0.kind == .title }?.text ?? "",
-            stages: Array(Set(heads.map(\.text))).sorted(), stageHeads: heads.map(\.id), holder: open.first,
+            id: id, kind: type.id, type: type, title: events.last { $0.kind == .title }?.text ?? "",
+            stages: standing(heads, in: type).map(\.id), stageHeads: heads.map(\.id), holder: open.first,
             alsoClaimed: Array(open.dropFirst()), notes: events.filter { $0.kind == .note },
             items: events.compactMap { event in
                 guard event.kind == .link, let item = event.item, item.isVisible(to: viewer) else { return nil }
@@ -130,14 +134,14 @@ public struct WorkObject: Sendable, Equatable, Identifiable {
 }
 
 extension WorkObject {
-    /// A deal's stages (Hustle Fund's, research 27 §1.1, with the three a VC analyst asked for). Stages are data:
-    /// a team may use its own, and the board still shows a deal in a stage that is not listed.
-    public static let dealStages = [
-        "Inbox", "Screen", "In conversation", "Action required", "Founder meeting", "Diligence", "Decision",
-        "Invested", "Rejected",
-    ]
-    public static let actionRequired = "Action required"
-    public static let afterAction = "In conversation"
+    private static func standing(_ heads: [WorkEvent], in type: ObjectType) -> [StageDef] {
+        Dictionary(heads.map { (type.resolveStage($0.text).id, type.resolveStage($0.text)) }) { first, _ in first }
+            .values.sorted { ($0.order, $0.id) < ($1.order, $1.id) }
+    }
+
+    public var standingStages: [StageDef] { stages.map(type.resolveStage) }
+    public var stageLabels: [String] { standingStages.map(\.label) }
+    public var meanings: Set<Meaning> { Set(standingStages.map(\.meaning)) }
 }
 
 extension Store {

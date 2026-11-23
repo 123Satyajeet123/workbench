@@ -57,7 +57,7 @@ final class ArticleModel: StructuredModel, Sendable {
         let bolt = try world.passed("Bolt Pay Pvt Ltd", revisit: WorkDay(containing: .now))
         let orbitID = try #require(world.fixture.deals.create(title: "Orbit Labs"))
         let orbit = try #require(world.fixture.deals.deal(orbitID))
-        world.fixture.deals.move(orbit, to: WorkObject.invested)
+        world.fixture.deals.move(orbit, to: dealStage("Invested"))
         let model = ArticleModel([
             "Bolt Pay laid off": reply("Bolt Pay Pvt Ltd", "layoff", "negative", cite: 1, quote: layoff),
             "Orbit Labs raised": reply("Orbit Labs", "funding", "positive", cite: 2, quote: round),

@@ -37,13 +37,12 @@ import Testing
     }
 
     @Test func aStageMoveReplaysInAnyOrderToTheSameBoard() throws {
-        let board = DealBoard.columns(
-            of: WorkObject.fold(moves, viewer: "Asha"), stages: WorkObject.dealStages)
-        #expect(board.first { $0.stage == "Founder meeting" }?.deals.map(\.id) == ["deal-1"])
-        #expect(board.filter { !$0.deals.isEmpty }.count == 1)
+        let board = ObjectBoard.columns(of: WorkObject.fold(moves, viewer: "Asha"), type: ObjectTypes.deal)
+        #expect(board.first { $0.stage.label == "Founder meeting" }?.objects.map(\.id) == ["deal-1"])
+        #expect(board.filter { !$0.objects.isEmpty }.count == 1)
         for order in permutations(moves) {
             #expect(
-                DealBoard.columns(of: WorkObject.fold(order, viewer: "Asha"), stages: WorkObject.dealStages) == board)
+                ObjectBoard.columns(of: WorkObject.fold(order, viewer: "Asha"), type: ObjectTypes.deal) == board)
         }
     }
 
@@ -51,15 +50,15 @@ import Testing
         let events =
             moves.prefix(4) + [event("s5", .stage, by: "Kabir", clock: 5, "Rejected", replaces: ["s2"])]
             + [event("s6", .stage, clock: 5, "Action required", replaces: ["s2"])]
-        let board = DealBoard.columns(of: WorkObject.fold(Array(events), viewer: "Asha"), stages: WorkObject.dealStages)
-        #expect(board.filter { !$0.deals.isEmpty }.map(\.stage) == ["Action required", "Rejected"])
+        let board = ObjectBoard.columns(of: WorkObject.fold(Array(events), viewer: "Asha"), type: ObjectTypes.deal)
+        #expect(board.filter { !$0.objects.isEmpty }.map(\.stage.label) == ["Action required", "Rejected"])
     }
 
     @Test func aStageThatIsNotListedStillGetsAColumn() throws {
         let events = Array(moves.prefix(3)) + [event("s9", .stage, clock: 9, "Passed", replaces: ["s1"])]
-        let board = DealBoard.columns(of: WorkObject.fold(events, viewer: "Asha"), stages: WorkObject.dealStages)
-        #expect(board.map(\.stage) == WorkObject.dealStages + ["Passed"])
-        #expect(board.last?.deals.map(\.id) == ["deal-1"])
+        let board = ObjectBoard.columns(of: WorkObject.fold(events, viewer: "Asha"), type: ObjectTypes.deal)
+        #expect(board.map(\.stage.label) == ObjectTypes.deal.orderedStages.map(\.label) + ["Passed"])
+        #expect(board.last?.objects.map(\.id) == ["deal-1"])
     }
 
     @Test func eventsWrittenBeforeTheNewFieldsStillReadAndNewOnesReadInAnOlderShape() throws {

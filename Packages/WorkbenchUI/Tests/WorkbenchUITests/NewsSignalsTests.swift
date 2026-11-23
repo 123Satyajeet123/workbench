@@ -80,7 +80,7 @@ struct NewsFixture {
         let world = try NewsFixture()
         let due = WorkDay(containing: .now.addingTimeInterval(180 * 86_400))
         let bolt = try world.passed("Bolt Pay", revisit: due)
-        #expect(bolt.stages == [WorkObject.rejected])
+        #expect(bolt.stageLabels == ["Rejected"])
         #expect(bolt.notes.map(\.text) == ["Passed: no revenue"])
         let revisit = try #require(world.fixture.deals.digests[bolt.id]?.revisit)
         #expect(revisit.dueDay == due && revisit.quote == "Revisit Bolt Pay: passed for no revenue; anything new?")
@@ -89,14 +89,14 @@ struct NewsFixture {
     @Test func passingWithNoRevisitSetsNoDatedFact() throws {
         let world = try NewsFixture()
         let bolt = try world.passed("Bolt Pay", revisit: nil)
-        #expect(bolt.stages == [WorkObject.rejected] && world.fixture.deals.digests[bolt.id]?.revisit == nil)
+        #expect(bolt.stageLabels == ["Rejected"] && world.fixture.deals.digests[bolt.id]?.revisit == nil)
         #expect(try world.store.queries.openRevisits().isEmpty)
     }
 
     @Test func aDealThatLeavesRejectedLosesItsRevisit() throws {
         let world = try NewsFixture()
         let bolt = try world.passed("Bolt Pay", revisit: WorkDay(containing: .now.addingTimeInterval(86_400 * 30)))
-        world.fixture.deals.move(bolt, to: "Screen")
+        world.fixture.deals.move(bolt, to: dealStage("Screen"))
         #expect(try world.store.queries.openRevisits().isEmpty)
     }
 

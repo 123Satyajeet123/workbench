@@ -3,15 +3,15 @@ import WorkbenchCore
 
 /// One column of the board. A card moves by drag or from its menu.
 struct StageColumn: View {
-    let column: DealBoard.Column
+    let column: ObjectBoard.Column
     @Binding var open: String?
-    let move: (WorkObject, String) -> Void
+    let move: (WorkObject, StageID) -> Void
     @Environment(DealsModel.self) private var deals
 
     var body: some View {
         VStack(alignment: .leading, spacing: Space.s) {
-            Text("\(column.stage) · \(column.deals.count)").textStyle(.headline)
-            ForEach(column.deals) { deal in
+            Text("\(column.stage.label) · \(column.objects.count)").textStyle(.headline)
+            ForEach(column.objects) { deal in
                 Button {
                     open = deal.id
                 } label: {
@@ -27,14 +27,14 @@ struct StageColumn: View {
         .frame(minHeight: 120, alignment: .topLeading)
         .dropDestination(for: String.self) { ids, _ in
             guard let deal = ids.compactMap(deals.deal).first else { return false }
-            move(deal, column.stage)
+            move(deal, column.id)
             return true
         }
     }
 
     @ViewBuilder private func moveMenu(_ deal: WorkObject) -> some View {
         Menu("Move to") {
-            ForEach(deals.stages, id: \.self) { stage in Button(stage) { move(deal, stage) } }
+            ForEach(deals.stages) { stage in Button(stage.label) { move(deal, stage.id) } }
         }
         Button(deal.holder == deals.me ? "Let go" : "Take it") {
             deal.holder == deals.me ? deals.release(deal) : deals.claim(deal)
@@ -58,8 +58,11 @@ struct DealCard: View {
                 }
             }
             if deal.stages.count > 1 {
-                Label("Two stages: \(deal.stages.joined(separator: " and "))", systemImage: "exclamationmark.triangle")
-                    .textStyle(.caption).foregroundStyle(Tone.attention.color)
+                Label(
+                    "Two stages: \(deal.stageLabels.joined(separator: " and "))",
+                    systemImage: "exclamationmark.triangle"
+                )
+                .textStyle(.caption).foregroundStyle(Tone.attention.color)
             }
             Text(deal.holder.map { "Owner: \($0)" } ?? "No owner").textStyle(.caption).foregroundStyle(.supporting)
             if let action = digest?.action { ActionLine(action: action) }

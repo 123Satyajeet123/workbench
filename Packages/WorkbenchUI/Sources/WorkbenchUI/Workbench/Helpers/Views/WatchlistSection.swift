@@ -15,7 +15,7 @@ struct WatchlistSection: View {
         VStack(alignment: .leading, spacing: Space.s) {
             Text("Companies you follow").textStyle(.headline)
             Text(
-                "Deals you moved to Invested or Rejected are followed by themselves. A company is found in an article by its name, an alias you add, or its domain."
+                "Deals you invested in or passed on are followed by themselves. A company is found in an article by its name, an alias you add, or its domain."
             )
             .textStyle(.callout).foregroundStyle(.supporting)
             if let problem { Text(problem).textStyle(.callout).foregroundStyle(Tone.bad.color) }

@@ -68,8 +68,9 @@ public struct DealStory: Equatable, Sendable {
                 entries += captured(event, item, rating: ratings[event.id], marks: marks[event.id] ?? [])
             case .stage:
                 let moved = !event.replaces.isEmpty
+                let label = deal.type.resolveStage(event.text).label
                 entries.append(
-                    person(event, .stage, moved ? "Moved to \(event.text)" : "Started in \(event.text)"))
+                    person(event, .stage, moved ? "Moved to \(label)" : "Started in \(label)"))
             case .note: entries.append(person(event, .note, "Wrote a note"))
             case .claim: entries.append(person(event, .owner, "Took it"))
             case .release: entries.append(person(event, .owner, "Let it go"))
@@ -119,7 +120,7 @@ public struct DealStory: Equatable, Sendable {
         var entries = [
             Entry(
                 id: id, at: action.start, kind: .actionOpened, actor: action["person"], isMachine: false,
-                text: "Action required: \(action["text"])\(due)")
+                text: "Waiting on: \(action["text"])\(due)")
         ]
         if let closed = action.closed {
             entries.append(

@@ -5,7 +5,7 @@ import WorkbenchCore
 /// timeline.
 struct DealDetail: View {
     let deal: WorkObject
-    let move: (WorkObject, String) -> Void
+    let move: (WorkObject, StageID) -> Void
     let close: () -> Void
     @Environment(DealsModel.self) private var deals
     @Environment(RunsModel.self) private var runs
@@ -22,11 +22,13 @@ struct DealDetail: View {
                     Button("Close", systemImage: "xmark", action: close).labelStyle(.iconOnly).buttonStyle(.ghost)
                 }
                 Picker("Stage", selection: Binding(get: { deal.stages.first ?? "" }, set: { move(deal, $0) })) {
-                    ForEach(deals.stages, id: \.self) { Text($0).tag($0) }
+                    ForEach(deals.stages) { Text($0.label).tag($0.id) }
                 }
                 if deal.stages.count > 1 {
-                    Text("Two people moved it at the same time: \(deal.stages.joined(separator: " and ")). Choose one.")
-                        .textStyle(.callout).foregroundStyle(Tone.attention.color)
+                    Text(
+                        "Two people moved it at the same time: \(deal.stageLabels.joined(separator: " and ")). Choose one."
+                    )
+                    .textStyle(.callout).foregroundStyle(Tone.attention.color)
                 }
                 owner
                 if let open = digest?.action { actionRow(open) }
@@ -122,7 +124,7 @@ struct DealDetail: View {
     }
 }
 
-/// Asks what a deal waits for and by when, before it moves to "Action required".
+/// Asks what a deal waits for and by when, before it moves to its waiting stage.
 struct ActionRequiredForm: View {
     let deal: WorkObject
     let cancel: () -> Void

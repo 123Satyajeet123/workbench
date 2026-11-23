@@ -16,9 +16,9 @@ import WorkbenchCore
         fixture.deals.requireAction(
             try #require(fixture.deals.deal(acme.id)), what: "Get the cap table from the founder", due: friday)
         let bolt = try await fixture.deal("Bolt Pay", reading: VCFixture.missingNumber)
-        fixture.deals.move(bolt, to: "In conversation")
+        fixture.deals.move(bolt, to: dealStage("In conversation"))
         let bet = try await fixture.deal("Bet Fantasy", reading: VCFixture.breaker, mark: .rejected)
-        fixture.deals.move(bet, to: "Rejected")
+        fixture.deals.move(bet, to: dealStage("Rejected"))
         fixture.deals.create(title: "Zeta Labs")
         return (fixture, RunsModel(store: fixture.store), try #require(fixture.deals.deal(acme.id)))
     }

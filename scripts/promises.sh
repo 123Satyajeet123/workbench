@@ -87,4 +87,8 @@ run "61 a line already read can be cited" $C/Verify/Verifier.swift 's/guard !win
 run "62 a fact with an unlabelled line keeps a label" $C/Verify/Standing.swift 's/known\.count == parts\.count \?/true ?/' WorkbenchCore
 run "63 a fact's label ignores an uncited window line" $C/Verify/Standing.swift 's/\(lines \+ window\)\.map\(\\\.standing\)/lines.map(\\.standing)/' WorkbenchCore
 run "64 a fact the person typed is not their own words" $C/Team/DealAction.swift 's/Authority\.ownWords\.rawValue/Authority.unknown.rawValue/' WorkbenchCore
+run "65 a stage may change its meaning" $C/Objects/ObjectType.swift 's/guard changed\.meaning == stage\.meaning else \{ throw ObjectTypeError\.meaningChanged\(stage\.id\) \}/_ = changed/' WorkbenchCore
+run "66 a machine moves a deal without citing the required fact" $C/Objects/ObjectMove.swift 's/if mover == \.machine \{/if mover == .machine, false {/' WorkbenchCore
+run "67 an old stage label no longer folds to its stage id" $C/Objects/ObjectType.swift 's/stages\.first \{ \$0\.label == text \}/stages.first { \$0.label == text + "!" }/' WorkbenchCore WorkbenchUI
+run "68 a deal in a won stage is not followed in the news" $C/News/WatchedCompany.swift 's/deal\.meanings\.contains\(\.won\) \? \.portfolio/deal.meanings.contains(.lost) ? .portfolio/' WorkbenchCore WorkbenchUI
 echo DONE

@@ -23,7 +23,7 @@ import Testing
     @Test func aMoveThatSawTheLastOneReplacesIt() throws {
         let events = start + [event("s2", .stage, by: "Kabir", clock: 4, "Diligence", replaces: ["s1"])]
         let deal = try #require(WorkObject.fold(events, viewer: "Kabir").first)
-        #expect(deal.title == "Acme" && deal.stages == ["Diligence"] && deal.stageHeads == ["s2"])
+        #expect(deal.title == "Acme" && deal.stageLabels == ["Diligence"] && deal.stageHeads == ["s2"])
     }
 
     @Test func twoMovesThatDidNotSeeEachOtherBothStandUntilOneMoveReplacesBoth() throws {
@@ -33,10 +33,10 @@ import Testing
                 event("s3", .stage, by: "Asha", clock: 4, "Passed", replaces: ["s1"]),
             ]
         var deal = try #require(WorkObject.fold(events, viewer: "Asha").first)
-        #expect(deal.stages == ["Diligence", "Passed"], "a conflict is shown, never hidden")
+        #expect(deal.stageLabels == ["Diligence", "Passed"], "a conflict is shown, never hidden")
         events.append(event("s4", .stage, by: "Asha", clock: 5, "Decision", replaces: deal.stageHeads))
         deal = try #require(WorkObject.fold(events, viewer: "Asha").first)
-        #expect(deal.stages == ["Decision"])
+        #expect(deal.stageLabels == ["Decision"])
     }
 
     @Test func theEarliestOpenClaimHoldsTheDealAndAReleaseHandsItOn() throws {

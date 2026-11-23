@@ -40,14 +40,15 @@ struct DealsPage: View {
         "\(deals.deals.count) deals. Your moves and notes go to your team's folder; items only to people who can already read them."
     }
 
-    /// "Action required" asks what is needed first and "Rejected" asks why and when to look again; every other stage
-    /// is a plain move. A deal already Rejected is not asked again.
-    private func move(_ deal: WorkObject, to stage: String) {
-        if stage == WorkObject.actionRequired {
+    /// A waiting stage asks what is needed first and a watch stage asks why and when to look again; every other
+    /// stage is a plain move. A deal already in the watch stage is not asked again.
+    private func move(_ deal: WorkObject, to stage: StageID) {
+        switch deals.meaning(of: stage) {
+        case .waiting:
             asking = deal
-        } else if stage == WorkObject.rejected, !deal.stages.contains(stage) {
+        case .watch where !deal.stages.contains(stage):
             passing = deal
-        } else {
+        default:
             deals.move(deal, to: stage)
         }
     }

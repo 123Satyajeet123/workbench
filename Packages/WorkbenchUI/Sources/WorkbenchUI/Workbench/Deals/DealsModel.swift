@@ -21,10 +21,11 @@ final class DealsModel {
     }
 
     var me: String { catalog.me }
-    var stages: [String] { WorkObject.dealStages }
+    let type = ObjectTypes.deal
+    var stages: [StageDef] { type.orderedStages.filter { !$0.retired } }
 
-    var columns: [DealBoard.Column] { DealBoard.columns(of: deals, stages: stages) }
-    func deals(in stage: String) -> [WorkObject] { deals.filter { $0.stages.contains(stage) } }
+    var columns: [ObjectBoard.Column] { ObjectBoard.columns(of: deals, type: type) }
+    func deals(in stage: StageID) -> [WorkObject] { deals.filter { $0.stages.contains(stage) } }
     func deal(_ id: String) -> WorkObject? { deals.first { $0.id == id } }
 
     /// Reads teammates' logs into the store, then folds every event as the founder sees it.
@@ -33,7 +34,7 @@ final class DealsModel {
             catalog.refresh()
             try store.append(catalog.workEvents)
             deals = WorkObject.fold(try store.queries.workEvents(), viewer: me).filter {
-                $0.kind == "deal" && !$0.archived
+                $0.kind == type.id && !$0.archived
             }
             let machines = try store.queries.machines()
             let actions = try store.queries.dealActions()
@@ -56,7 +57,10 @@ final class DealsModel {
     private func settleActions() {
         guard let actions = try? store.queries.dealActions() else { return }
         let settled = DealAction.settled(deals, actions: actions)
-        add(settled.map { .init(object: $0.id, kind: .stage, text: WorkObject.afterAction, replaces: $0.stageHeads) })
+        add(
+            settled.compactMap { deal in
+                deal.standingStages.first?.resumes.flatMap { try? stageDraft(deal, to: $0) }
+            })
     }
 
     @discardableResult
@@ -64,24 +68,33 @@ final class DealsModel {
         guard let title = title.cleaned else { return nil }
         let id = UUID().uuidString
         add([
-            .init(object: id, kind: .create, text: "deal"), .init(object: id, kind: .title, text: title),
-            .init(object: id, kind: .stage, text: stages[0]),
+            .init(object: id, kind: .create, text: type.id), .init(object: id, kind: .title, text: title),
+            .init(object: id, kind: .stage, text: type.entryStage?.id ?? ""),
         ])
         return id
     }
 
-    /// A new stage replaces every standing one, so a move also settles a conflict. "Action required" has its own
+    /// A new stage replaces every standing one, so a move also settles a conflict. A waiting stage has its own
     /// move, which asks what is needed. Leaving it by hand drops the open action.
-    func move(_ deal: WorkObject, to stage: String) {
-        guard stage != WorkObject.actionRequired else { return }
+    func move(_ deal: WorkObject, to stage: StageID) {
+        let meaning = type.resolveStage(stage).meaning
+        guard meaning != .waiting else { return }
         attempt("drop the action") { try store.dropActions(of: deal.id) }
-        if stage != WorkObject.rejected { attempt("drop the revisit") { try store.dropRevisits(of: deal.id) } }
-        add([.init(object: deal.id, kind: .stage, text: stage, replaces: deal.stageHeads)])
+        if meaning != .watch { attempt("drop the revisit") { try store.dropRevisits(of: deal.id) } }
+        attempt("move the deal") { add([try stageDraft(deal, to: stage)]) }
     }
 
-    /// Passes on the deal: it moves to Rejected, the reason becomes a note, and the revisit day, when the investor sets
+    func meaning(of stage: StageID) -> Meaning { type.resolveStage(stage).meaning }
+
+    private func stageDraft(_ deal: WorkObject, to stage: StageID) throws -> Draft {
+        let move = try type.move(deal, to: stage, by: .person)
+        return Draft(object: deal.id, kind: .stage, text: move.stage, replaces: move.replaces)
+    }
+
+    /// Passes on the deal: it moves to the watch stage, the reason becomes a note, and the revisit day, when the investor sets
     /// one, becomes a dated fact on Today. The deal is followed in the news from then on.
     func pass(_ deal: WorkObject, reason: String, revisit: WorkDay?) {
+        guard let watch = type.firstStage(meaning: .watch) else { return }
         attempt("drop the action") { try store.dropActions(of: deal.id) }
         attempt("save the revisit") {
             if let revisit {
@@ -90,16 +103,17 @@ final class DealsModel {
                 try store.dropRevisits(of: deal.id)
             }
         }
-        var drafts = [Draft(object: deal.id, kind: .stage, text: WorkObject.rejected, replaces: deal.stageHeads)]
+        var drafts: [Draft] = []
+        attempt("move the deal") { drafts.append(try stageDraft(deal, to: watch.id)) }
         if let reason = reason.cleaned { drafts.append(Draft(object: deal.id, kind: .note, text: "Passed: \(reason)")) }
         add(drafts)
     }
 
-    /// Moves the deal to "Action required" and opens the one dated fact it waits for, owned by the founder.
+    /// Moves the deal to the waiting stage and opens the one dated fact it waits for, owned by the founder.
     func requireAction(_ deal: WorkObject, what: String, due: WorkDay) {
-        guard what.cleaned != nil else { return }
+        guard what.cleaned != nil, let waiting = type.firstStage(meaning: .waiting) else { return }
         attempt("save the action") { try store.requireAction(of: deal, what: what, due: due, owner: me) }
-        add([.init(object: deal.id, kind: .stage, text: WorkObject.actionRequired, replaces: deal.stageHeads)])
+        attempt("move the deal") { add([try stageDraft(deal, to: waiting.id)]) }
     }
 
     /// Done on the deal's open action, the close Today gives it; the deal then moves on.

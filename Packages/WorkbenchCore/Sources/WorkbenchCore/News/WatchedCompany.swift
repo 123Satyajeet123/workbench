@@ -1,10 +1,5 @@
 import Foundation
 
-extension WorkObject {
-    public static let invested = "Invested"
-    public static let rejected = "Rejected"
-}
-
 /// What the investor typed about a company they follow: its aliases and domain. With `deal` set it adds to that
 /// deal's company (the deal's title is its name); without, it is a company added by hand.
 public struct WatchEntry: Codable, Sendable, Equatable, Identifiable {
@@ -43,15 +38,14 @@ public struct WatchedCompany: Sendable, Equatable, Identifiable {
     /// The words that name the company in news, normalised (see `CompanyName.terms`).
     public var terms: [String] { CompanyName.terms(name: name, aliases: aliases) }
 
-    /// The companies to follow: deals in Invested (portfolio) and in Rejected (passed), then those added by hand. A
+    /// The companies to follow: deals in a won stage (portfolio) and in a watch stage (passed), then those added by hand. A
     /// company whose domain is already followed is not listed twice. Two companies with the same name and no shared
     /// domain stay two: the model chooses between them for an article that names both.
     public static func list(deals: [WorkObject], entries: [WatchEntry]) -> [WatchedCompany] {
         let extras = Dictionary(entries.compactMap { entry in entry.deal.map { ($0, entry) } }) { first, _ in first }
         let fromDeals = deals.compactMap { deal -> WatchedCompany? in
             let status: Status? =
-                deal.stages.contains(WorkObject.invested)
-                ? .portfolio : deal.stages.contains(WorkObject.rejected) ? .passed : nil
+                deal.meanings.contains(.won) ? .portfolio : deal.meanings.contains(.watch) ? .passed : nil
             return status.map {
                 WatchedCompany(
                     id: deal.id, name: deal.title, aliases: extras[deal.id]?.aliases ?? [],

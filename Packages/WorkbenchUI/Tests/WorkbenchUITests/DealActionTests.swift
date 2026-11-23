@@ -13,7 +13,7 @@ import WorkbenchCore
         let deal = try await fixture.deal("Acme", reading: VCFixture.hot)
         fixture.deals.requireAction(deal, what: "Get the cap table from the founder", due: friday)
 
-        #expect(fixture.deals.deals(in: "Action required").map(\.id) == [deal.id])
+        #expect(fixture.deals.deals(in: dealStage("Action required")).map(\.id) == [deal.id])
         let open = try fixture.store.queries.openDealActions()
         #expect(open.count == 1 && open[0].dueDay == friday && open[0]["deal"] == deal.id)
         #expect(fixture.deals.digests[deal.id]?.action?.id == open[0].id)
@@ -26,10 +26,12 @@ import WorkbenchCore
         fixture.deals.refresh()
         #expect(try fixture.store.queries.openDealActions().isEmpty)
         #expect(try fixture.store.queries.dealActions(of: deal.id).first?.closed?.outcome == "done")
-        #expect(fixture.deals.deals(in: "In conversation").map(\.id) == [deal.id])
-        #expect(fixture.deals.deals(in: "Action required").isEmpty)
+        #expect(fixture.deals.deals(in: dealStage("In conversation")).map(\.id) == [deal.id])
+        #expect(fixture.deals.deals(in: dealStage("Action required")).isEmpty)
         #expect(
-            fixture.deals.deal(deal.id)?.history.filter { $0.kind == .stage }.map(\.text)
+            fixture.deals.deal(deal.id)?.history.filter { $0.kind == .stage }.map {
+                ObjectTypes.deal.resolveStage($0.text).label
+            }
                 == ["Inbox", "Action required", "In conversation"], "the move on is a stage event")
     }
 
@@ -38,25 +40,26 @@ import WorkbenchCore
         let deal = try await fixture.deal("Acme", reading: VCFixture.hot)
         fixture.deals.requireAction(deal, what: "Get the cap table", due: friday)
         fixture.deals.finishAction(of: try #require(fixture.deals.deal(deal.id)))
-        #expect(fixture.deals.deals(in: "In conversation").map(\.id) == [deal.id])
+        #expect(fixture.deals.deals(in: dealStage("In conversation")).map(\.id) == [deal.id])
         #expect(fixture.deals.digests[deal.id]?.action == nil)
     }
 
     @Test func aPlainMoveCannotEnterActionRequiredAndLeavingItByHandDropsTheAction() async throws {
         let fixture = try DealFixture()
         let deal = try await fixture.deal("Acme", reading: VCFixture.hot)
-        fixture.deals.move(deal, to: "Action required")
-        #expect(fixture.deals.deals(in: "Inbox").map(\.id) == [deal.id], "no fact, so no stage")
+        fixture.deals.move(deal, to: dealStage("Action required"))
+        #expect(fixture.deals.deals(in: dealStage("Inbox")).map(\.id) == [deal.id], "no fact, so no stage")
 
         fixture.deals.requireAction(deal, what: "  ", due: friday)
-        #expect(fixture.deals.deals(in: "Action required").isEmpty, "an empty ask changes nothing")
+        #expect(fixture.deals.deals(in: dealStage("Action required")).isEmpty, "an empty ask changes nothing")
 
         fixture.deals.requireAction(deal, what: "Get the cap table", due: friday)
-        fixture.deals.move(try #require(fixture.deals.deal(deal.id)), to: "Rejected")
-        #expect(fixture.deals.deals(in: "Rejected").map(\.id) == [deal.id])
+        fixture.deals.move(try #require(fixture.deals.deal(deal.id)), to: dealStage("Rejected"))
+        #expect(fixture.deals.deals(in: dealStage("Rejected")).map(\.id) == [deal.id])
         #expect(try fixture.store.queries.openDealActions().isEmpty)
         #expect(try fixture.store.queries.dealActions(of: deal.id).first?.closed?.outcome == "dropped")
-        #expect(fixture.deals.deals(in: "In conversation").isEmpty, "a dropped action does not move the deal on")
+        #expect(
+            fixture.deals.deals(in: dealStage("In conversation")).isEmpty, "a dropped action does not move the deal on")
     }
 
     @Test func theCardShowsTheClassItsWhyTheOwnerAndTheOpenAction() async throws {
@@ -91,7 +94,7 @@ import WorkbenchCore
     @Test func theRibbonAndTheTimelineCountWhatHappenedAndAMachineRowIsMarked() async throws {
         let fixture = try DealFixture()
         let deal = try await fixture.deal("Acme", reading: VCFixture.hot, source: .whatsapp, mark: .confirmed)
-        fixture.deals.move(deal, to: "Screen")
+        fixture.deals.move(deal, to: dealStage("Screen"))
         fixture.deals.requireAction(try #require(fixture.deals.deal(deal.id)), what: "Get the cap table", due: friday)
         fixture.deals.finishAction(of: try #require(fixture.deals.deal(deal.id)))
 
