@@ -1,0 +1,34 @@
+{
+  "factcg": {
+    "repository": "yaxili96/FactCG-DeBERTa-v3-Large",
+    "revision": "0430e3509dbd28d2dff7a117c0eae25359ff3e80",
+    "license": "MIT (Hugging Face card, GitHub repository derenlei/FactCG LICENSE; base model microsoft/deberta-v3-large is MIT)",
+    "files": {
+      "added_tokens.json": {"size": 23, "sha256": "dc046d04c9b0ada7ae6f1dc89c465801799acdf0c9a6aab8c15a1b2d5ca4e91f"},
+      "config.json": {"size": 883, "sha256": "6cd7a7f11c44516a4a8e4378514ee0c18e4bf5fa252857fd56254db2e4279184"},
+      "model.safetensors": {"size": 1740304440, "sha256": "379a343d1ca25c9dfe24ae149f76cc958ea4f09c00dae88bd49bbbf58c749d5e"},
+      "README.md": {"size": 1509, "sha256": "133ac0d64db295f235264ec8faba70dc1de1509d04f433c2038388db4df7eb4e"},
+      "special_tokens_map.json": {"size": 286, "sha256": "9463f61e1b109a8eb4688b829260d7c6b1e6dff04c98ff7269bb89e2b92369b9"},
+      "spm.model": {"size": 2464616, "sha256": "c679fbf93643d19aab7ee10c0b99e460bdbc02fedf34b92b05af343b4af586fd"},
+      "tokenizer_config.json": {"size": 1284, "sha256": "557b3d33d3f41b81ad769244e506549e98a1857d41dd58160aacd4d98d710b5a"},
+      "tokenizer.json": {"size": 8656646, "sha256": "05402ffae6dd382a8491b1d29bfc139bec5d332662e86a026f433ce54c25c202"}
+    }
+  },
+  "minicheck": {
+    "repository": "lytang/MiniCheck-Flan-T5-Large",
+    "revision": "c3f6482d13e7cc81748e853723befc286f29d949",
+    "revisionNote": "refs/pr/2: the safetensors conversion that Hugging Face's own bot (SFconvertbot) opened. The main branch holds only pytorch_model.bin, a pickle, which is never loaded.",
+    "license": "MIT (Hugging Face card; code repository Liyan06/MiniCheck is Apache-2.0; base model google/flan-t5-large is Apache-2.0)",
+    "files": {
+      "added_tokens.json": {"size": 2634, "sha256": "4b1c1345a66fdd00264819c5adfc3142debfbd3b03767a04f95a39ac2277ca21"},
+      "config.json": {"size": 826, "sha256": "d8e91aa8739d845d2572fa8db9cb6523d06208c14fedb8f7623f49283a305653"},
+      "generation_config.json": {"size": 112, "sha256": "3c4ec6a75c47200afbecd413ee6719007f701821d07b6c11a6c30237d3f9c854"},
+      "model.safetensors": {"size": 3132668896, "sha256": "c49405f4b15c581e457f0992c7a304e1e910bb48ad832b830bca4c14fa962b88"},
+      "README.md": {"size": 4834, "sha256": "2e5128482878408f4f2e3f21388ca313f9fc61ba3242539d0aabf6a85eede683"},
+      "special_tokens_map.json": {"size": 2239, "sha256": "47389dd56434a0d7d32f736ba34e895b331461980af760e955b62d5c39912626"},
+      "spiece.model": {"size": 791656, "sha256": "d60acb128cf7b7f2536e8f38a5b18a05535c9e14c7a355904270e15b0945ea86"},
+      "tokenizer_config.json": {"size": 20917, "sha256": "284a01dc7b81f159449b96cd0d8814f6da64bbdb59833fe3b8398ea36a860550"},
+      "tokenizer.json": {"size": 2422290, "sha256": "ece24e1e7d9b5a26f4e68a9519b6ea1451474811b52a9da419c9145f1f458fc0"}
+    }
+  }
+}

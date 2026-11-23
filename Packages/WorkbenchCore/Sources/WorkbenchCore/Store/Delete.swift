@@ -184,6 +184,9 @@ extension Store {
         _ = try Self.eraseEvidence(.kind(kind, before: cutoff == .distantFuture ? nil : cutoff), in: db)
         try db.execute(
             sql: "DELETE FROM item WHERE source = ? AND start_at < ?", arguments: [kind.rawValue, cutoff.stored])
+        try db.execute(
+            sql: "DELETE FROM work_product WHERE source = ? AND created_at < ?",
+            arguments: [kind.rawValue, cutoff.stored])
         try removeRunText(db, holding: [kind], before: cutoff)
         try removeSummaries(db, holding: [kind], before: cutoff)
         switch kind {
@@ -198,6 +201,7 @@ extension Store {
         case .calendar: break
         case .web:
             try db.execute(sql: "DELETE FROM news_article WHERE fetched_at < ?", arguments: [cutoff.stored])
+            try db.execute(sql: "DELETE FROM page_snapshot WHERE fetched_at < ?", arguments: [cutoff.stored])
         case .call:
             let condition = "state != 'recording' AND started_at < ?"
             let folders = try String.fetchAll(

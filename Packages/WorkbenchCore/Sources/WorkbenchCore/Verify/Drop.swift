@@ -20,6 +20,18 @@ public enum DropRule: String, CaseIterable, Sendable {
     case lineBeforeFact = "line_before_fact"
     /// An earlier proposal of the same reading says the same, or names the same open fact.
     case repeatInReading = "repeat_in_reading"
+    /// A claim of a work product has no cite.
+    case noCite = "no_cite"
+    /// The line or snapshot a cite names is not stored.
+    case sourceMissing = "source_missing"
+    /// The stored text of a snapshot no longer has the hash the cite recorded.
+    case snapshotChanged = "snapshot_changed"
+    /// The page may not be read: the driver gate refuses its address.
+    case sourceRefused = "source_refused"
+    /// A page snapshot has no date the page states.
+    case pageDateMissing = "page_date_missing"
+    /// A number, date, amount or name in a claim is in none of the spans it cites.
+    case factNotCited = "fact_not_cited"
     /// A check failed with an error. A proposal that was not fully checked is never kept.
     case verifierError = "verifier_error"
 }

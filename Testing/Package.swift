@@ -16,6 +16,8 @@ let package = Package(
         .executable(name: "gallery", targets: ["GalleryDemo"]),
         .executable(name: "demo-builder", targets: ["DemoBuilder"]),
         .executable(name: "search-tools", targets: ["SearchToolsDemo"]),
+        .executable(name: "grounding-probe", targets: ["GroundingProbe"]),
+        .executable(name: "judge-probe", targets: ["JudgeProbe"]),
     ],
     dependencies: [
         .package(path: "../Packages/WorkbenchCore"), .package(path: "../Packages/WorkbenchUI"),
@@ -61,6 +63,12 @@ let package = Package(
                 "WorkbenchCore", .product(name: "Kernel", package: "Kernel"),
                 .product(name: "Lines", package: "Kernel"),
             ]),
+        .executableTarget(
+            name: "GroundingProbe",
+            dependencies: ["Evals", "WorkbenchCore", .product(name: "AgentCLI", package: "BaseKit")]),
+        .executableTarget(
+            name: "JudgeProbe",
+            dependencies: ["Evals", "WorkbenchCore", .product(name: "AgentCLI", package: "BaseKit")]),
         .testTarget(name: "EvalsTests", dependencies: ["Evals", "WorkbenchCore"]),
     ]
 )

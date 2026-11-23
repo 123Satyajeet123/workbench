@@ -4,7 +4,7 @@ public enum Rating: String, Codable, Sendable, CaseIterable {
     case hot, warm, cold
 }
 
-public enum Verdict: String, Sendable {
+public enum Verdict: String, Sendable, Codable, CaseIterable {
     case pass, fail
     /// The words gave no answer, or the model's quote was not in them. Never counted as a fail.
     case unknown

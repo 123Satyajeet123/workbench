@@ -56,7 +56,7 @@ struct FoldedText {
 extension String {
     /// Where `quote` is in this text, as offsets in Unicode scalars of this text in normal form C. It is found when
     /// the two are the same after the fold of `FoldedText`, and in no other case.
-    func span(of quote: String) -> Range<Int>? {
+    public func span(of quote: String) -> Range<Int>? {
         let text = FoldedText(self)
         return text.range(of: FoldedText(quote)).map(text.source(of:))
     }

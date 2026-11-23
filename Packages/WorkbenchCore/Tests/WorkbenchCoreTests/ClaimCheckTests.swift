@@ -83,8 +83,10 @@ import Testing
         try store.switchWeb(true)
         let session = try WebSession.fake(store: store, search: hits(), pages: FakePages([article: pageText]))
         let model = SequencedModel([#"{"queries":["q"]}"#, #"{"verdict":"not_found","page":0,"quote":""}"#])
-        let (result, _) = try await ClaimChecker(model: RecordedModel(model, store: store), session: session, types: [])
-            .check(claim, company: "Acme")
+        let (result, _, _) = try await ClaimChecker(
+            model: RecordedModel(model, store: store), session: session, types: []
+        )
+        .check(claim, company: "Acme")
         #expect(result.verdict == .notFound && model.inputs.withLock { $0 }[1].contains("funding"))
     }
 
@@ -93,7 +95,7 @@ import Testing
         try store.switchWeb(true)
         let session = try WebSession.fake(store: store, search: hits(), pages: FakePages([article: pageText]))
         let model = SequencedModel([#"{"queries":["q"]}"#, #"{"verdict":"not_found","page":0,"quote":""}"#])
-        let (_, run) = try await ClaimChecker(
+        let (_, run, _) = try await ClaimChecker(
             model: RecordedModel(model, store: store), session: session, types: fundClaimTypes
         )
         .check(claim, company: "Acme")
@@ -117,7 +119,7 @@ import Testing
         let pages = FakePages()
         let session = try WebSession.fake(store: store, search: plain, pages: pages)
         let model = SequencedModel([#"{"queries":["q"]}"#])
-        let (result, _) = try await ClaimChecker(
+        let (result, _, _) = try await ClaimChecker(
             model: RecordedModel(model, store: store), session: session, types: fundClaimTypes
         )
         .check(claim, company: "Acme")

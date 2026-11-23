@@ -110,39 +110,54 @@ extension Store {
         task: String, model: String, prompt: String, input: String, kinds: Set<SourceKind>, holdsUnknown: Bool = false,
         window: [WindowLine] = []
     ) throws -> RunID {
-        let names = kinds.map(\.rawValue).sorted() + (holdsUnknown ? [RunText.unknownKind] : [])
-        return try writer.write { db in
-            try db.execute(
-                sql: """
-                    INSERT INTO run(task, model, prompt, input_bytes, input_sha, started_at, outcome) VALUES (?,?,?,?,?,?,'running')
-                    """,
-                arguments: [task, model, prompt, input.utf8.count, Digest.sha256(input), clock().stored])
-            let run = db.lastInsertedRowID
-            try db.execute(
-                sql: "INSERT INTO run_text(run_id, input, kinds) VALUES (?,?,?)",
-                arguments: [run, input, try Coding.json(names)])
-            for line in window {
-                try db.execute(
-                    sql: "INSERT INTO run_window(run_id, ordinal, line_id) VALUES (?,?,?)",
-                    arguments: [run, line.number, line.lineID])
-            }
-            return run
+        try writer.write { db in
+            try Self.beginRun(
+                db, task: task, model: model, prompt: prompt, input: input, kinds: kinds, holdsUnknown: holdsUnknown,
+                window: window, at: clock())
         }
+    }
+
+    static func beginRun(
+        _ db: Database, task: String, model: String, prompt: String, input: String, kinds: Set<SourceKind>,
+        holdsUnknown: Bool = false, window: [WindowLine] = [], at now: Date
+    ) throws -> RunID {
+        let names = kinds.map(\.rawValue).sorted() + (holdsUnknown ? [RunText.unknownKind] : [])
+        try db.execute(
+            sql: """
+                INSERT INTO run(task, model, prompt, input_bytes, input_sha, started_at, outcome) VALUES (?,?,?,?,?,?,'running')
+                """,
+            arguments: [task, model, prompt, input.utf8.count, Digest.sha256(input), now.stored])
+        let run = db.lastInsertedRowID
+        try db.execute(
+            sql: "INSERT INTO run_text(run_id, input, kinds) VALUES (?,?,?)",
+            arguments: [run, input, try Coding.json(names)])
+        for line in window {
+            try db.execute(
+                sql: "INSERT INTO run_window(run_id, ordinal, line_id) VALUES (?,?,?)",
+                arguments: [run, line.number, line.lineID])
+        }
+        return run
     }
 
     func finishRun(_ id: RunID, model: String, usage: Usage, reply: String) throws {
         try writer.write { db in
-            try db.execute(
-                sql: """
-                    UPDATE run SET model = ?, ended_at = ?, outcome = 'done', input_tokens = ?, cache_read_tokens = ?,
-                        cache_write_tokens = ?, output_tokens = ?, cost_usd = ? WHERE id = ? AND outcome = 'running'
-                    """,
-                arguments: [
-                    model, clock().stored, usage.inputTokens, usage.cacheReadTokens, usage.cacheWriteTokens,
-                    usage.outputTokens, usage.costUSD, id,
-                ])
-            try db.execute(sql: "UPDATE run_text SET reply = ? WHERE run_id = ?", arguments: [reply, id])
+            try Self.finishRun(db, id, model: model, usage: usage, reply: reply, at: clock())
         }
+    }
+
+    static func finishRun(
+        _ db: Database, _ id: RunID, model: String, usage: Usage, reply: String, at now: Date
+    ) throws {
+        try db.execute(
+            sql: """
+                UPDATE run SET model = ?, ended_at = ?, outcome = 'done', input_tokens = ?, cache_read_tokens = ?,
+                    cache_write_tokens = ?, output_tokens = ?, cost_usd = ? WHERE id = ? AND outcome = 'running'
+                """,
+            arguments: [
+                model, now.stored, usage.inputTokens, usage.cacheReadTokens, usage.cacheWriteTokens,
+                usage.outputTokens, usage.costUSD, id,
+            ])
+        try db.execute(sql: "UPDATE run_text SET reply = ? WHERE run_id = ?", arguments: [reply, id])
     }
 
     /// A cancelled call is `cancelled`. Any other error is a failure of the kind its type names, or `other`.
