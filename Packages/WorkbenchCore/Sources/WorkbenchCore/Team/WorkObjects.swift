@@ -71,11 +71,13 @@ public struct LinkedItem: Codable, Sendable, Equatable {
     public func isVisible(to person: String) -> Bool { audience.contains(person) }
 }
 
-/// What the events of one object say about it: its type, its latest name, and when it was first archived.
+/// What the events of one object say about it: its type, its latest name, when it was first archived, and the task of
+/// the machine whose item was linked to it first.
 struct EventSummary: Equatable {
     var type: TypeID
     var name: String
     var archivedAt: Date?
+    var madeBy: String?
 
     /// Nil when the events hold no `create`, so the object is not known.
     init?(_ events: [WorkEvent]) {
@@ -84,6 +86,7 @@ struct EventSummary: Equatable {
         type = created.text
         name = ordered.last { $0.kind == .title }?.text ?? ""
         archivedAt = ordered.first { $0.kind == .archive }?.at
+        madeBy = ordered.first { $0.kind == .link }?.item?.task
     }
 }
 

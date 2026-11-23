@@ -19,7 +19,7 @@ print("Featured, in the founder's order: \(GalleryTemplate.featured.map(\.name))
 for team in TeamTemplate.builtIn {
     print("\n\(team.name): items \(team.items.map(\.name)); machines \(team.seeds.map(\.name))")
     for seed in team.seeds {
-        print("  \(seed.name) goes in folder \(GalleryTemplate.folderName(forMachine: seed.spec.task))")
+        print("  \(seed.name) goes in folder \(GalleryTemplate.folder(forMachine: seed.spec.task).name)")
     }
 }
 let plain = GalleryTemplate.of(id: MachineTemplate.timeline.id)

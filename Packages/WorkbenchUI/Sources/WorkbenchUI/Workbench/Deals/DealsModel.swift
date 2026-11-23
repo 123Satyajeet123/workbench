@@ -64,13 +64,17 @@ final class DealsModel {
     }
 
     @discardableResult
-    func create(title: String) -> String? {
+    func create(title: String) -> String? { create(title: title, linking: []) }
+
+    /// A new deal, with `linked` items in the same change, so the store places it by the machine of its first item.
+    private func create(title: String, linking linked: [LinkedItem]) -> String? {
         guard let title = title.cleaned else { return nil }
         let id = UUID().uuidString
-        add([
-            .init(object: id, kind: .create, text: type.id), .init(object: id, kind: .title, text: title),
-            .init(object: id, kind: .stage, text: type.entryStage?.id ?? ""),
-        ])
+        add(
+            [
+                .init(object: id, kind: .create, text: type.id), .init(object: id, kind: .title, text: title),
+                .init(object: id, kind: .stage, text: type.entryStage?.id ?? ""),
+            ] + linked.map { .init(object: id, kind: .link, item: $0) })
         return id
     }
 
@@ -140,23 +144,28 @@ final class DealsModel {
 
     /// Links a machine's item, with the audience of its source as it is now.
     func link(_ item: Item, from helper: HelperModel, to deal: String) async {
+        guard let linked = await linked(item, from: helper) else { return }
+        add([.init(object: deal, kind: .link, item: linked)])
+    }
+
+    /// A deal made from a machine's item, with the item linked, so it goes in the machine's folder.
+    @discardableResult
+    func newDeal(from item: Item, of helper: HelperModel) async -> String? {
+        let linked = await linked(item, from: helper)
+        return create(title: item[helper.spec.title].cleaned ?? item.quote, linking: linked.map { [$0] } ?? [])
+    }
+
+    /// The item as a link carries it, with the audience of its source as it is now. Nil when the audience cannot be
+    /// read.
+    private func linked(_ item: Item, from helper: HelperModel) async -> LinkedItem? {
+        var linked: LinkedItem?
         await problems.attempt("link the item") {
             let found = try await catalog.readers(of: helper)
             let missing = Set(found.missing.map(\.name))
             let audience = [me] + found.recipients.map(\.name).filter { !missing.contains($0) }
-            add([
-                .init(
-                    object: deal, kind: .link, item: LinkedItem(machine: helper.machine, item: item, audience: audience)
-                )
-            ])
+            linked = LinkedItem(machine: helper.machine, item: item, audience: audience)
         }
-    }
-
-    @discardableResult
-    func newDeal(from item: Item, of helper: HelperModel) async -> String? {
-        guard let id = create(title: item[helper.spec.title].cleaned ?? item.quote) else { return nil }
-        await link(item, from: helper, to: id)
-        return id
+        return linked
     }
 
     /// "Add to Deals" for a startup found by search: one deal in Inbox named after it, the candidate linked as its

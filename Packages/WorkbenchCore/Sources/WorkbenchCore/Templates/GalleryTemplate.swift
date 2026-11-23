@@ -51,8 +51,8 @@ public struct GalleryTemplate: Sendable, Identifiable, Equatable {
     }
 
     /// The folder that holds a machine made from the machine template `template` when no folder is named.
-    public static func folderName(forMachine template: String) -> String {
-        of(id: template)?.folder.name ?? generalFolder
+    public static func folder(forMachine template: String) -> FolderStart {
+        of(id: template)?.folder ?? FolderStart(name: generalFolder)
     }
 
     public static let generalFolder = "General"

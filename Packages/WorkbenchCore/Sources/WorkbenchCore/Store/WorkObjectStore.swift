@@ -11,14 +11,15 @@ public enum WorkObjectError: Error, Equatable {
 }
 
 extension Store {
-    /// The work object of this type under `parent` with this name, or a new one as the last child of `parent` (the last
-    /// root with no parent). Names match without case and without the spaces around them, and an archived object does
-    /// not match, so making the same folder twice gives one folder. A folder has the type `ObjectTypes.folder`, a page
-    /// `ObjectTypes.page`.
+    /// The work object of this type under `parent` with this name, or a new one as the last child of `parent`. With no
+    /// parent, the parent is the one folder that holds the type, or none: the object is a root. Names match without case
+    /// and without the spaces around them, and an archived object does not match, so making the same folder twice
+    /// gives one folder. A folder has the type `ObjectTypes.folder`, a page `ObjectTypes.page`.
     @discardableResult
     public func createWorkObject(type: ObjectType, parent: WorkObjectID?, name: String) throws -> WorkObject {
         guard let name = name.cleaned else { throw WorkObjectError.noName }
         return try writer.write { db in
+            let parent = try parent ?? WorkObjectRows.place(db, type: type.id, madeBy: nil)
             if let parent { try Queries.require(db, parent) }
             let id =
                 try WorkObjectRows.liveChild(db, type: type.id, parent: parent, name: name)
