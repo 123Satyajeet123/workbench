@@ -1,4 +1,5 @@
 import Foundation
+import WorkbenchCore
 
 public enum AgentCLIKind: String, Sendable, CaseIterable, Codable {
     case claude, codex
@@ -69,4 +70,22 @@ public enum AgentCLIError: Error, Equatable {
     case noAPIKey
     case unsafePlan(String)
     case timedOut
+    /// The plan is at its limit. `resetsAt` is the reset the CLI reported; nil when it gave none.
+    case planLimit(resetsAt: Date?)
+}
+
+extension AgentCLIError: ClassifiedFailure {
+    public var failure: Run.Failure {
+        switch self {
+        case .notInstalled: .notInstalled
+        case .noAPIKey: .signedOut
+        case .unsafePlan: .unsafePlan
+        case .timedOut: .timedOut
+        case .planLimit: .limit
+        }
+    }
+
+    public var resetsAt: Date? {
+        if case .planLimit(let resetsAt) = self { resetsAt } else { nil }
+    }
 }

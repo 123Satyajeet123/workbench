@@ -130,12 +130,15 @@ public protocol StructuredModel: Sendable {
     var name: String { get }
     /// The calls go through the person's own plan sign-in (Claude or ChatGPT), so they need the person's yes first.
     var billedToPlanSignIn: Bool { get }
+    /// The plan whose limit the calls share, when they go through a plan sign-in.
+    var planName: String? { get }
     func generate<T: Decodable & Sendable>(_ type: T.Type, schema: JSONSchema, instructions: String, input: String)
         async throws -> ModelAnswer<T>
 }
 
 extension StructuredModel {
     public var billedToPlanSignIn: Bool { false }
+    public var planName: String? { nil }
 }
 
 public enum StructuredModelError: Error, Equatable {

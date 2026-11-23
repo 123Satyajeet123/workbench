@@ -25,7 +25,7 @@ struct UsageReport {
     init(runs: [Run], days: Int, now: Date, calendar: Calendar = .current, name: (String) -> String) {
         let today = calendar.startOfDay(for: now)
         let first = calendar.date(byAdding: .day, value: 1 - days, to: today) ?? today
-        let chosen = runs.filter { $0.outcome != .running && $0.startedAt >= first }
+        let chosen = runs.filter { [.done, .failed].contains($0.outcome) && $0.startedAt >= first }
         total = chosen.map(\.usage).reduce(Usage(), +)
         self.runs = chosen
         byModel = Self.rows(chosen) { Self.modelName($0.model) }

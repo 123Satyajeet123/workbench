@@ -6,6 +6,8 @@ public typealias RunID = Int64
 public struct Run: Sendable, Equatable, Identifiable {
     public enum Outcome: String, Sendable, CaseIterable {
         case running, done, failed
+        /// The app stopped the call. It is not a failure, and no figure of quality, cost or certificate counts it.
+        case cancelled
     }
 
     public var id: RunID
@@ -18,6 +20,8 @@ public struct Run: Sendable, Equatable, Identifiable {
     public var endedAt: Date?
     public var outcome: Outcome
     public var error: String?
+    /// Set when the run failed.
+    public var failure: Failure?
     public var usage: Usage
     /// Entries the task kept and dropped from the answer. Nil until the task says.
     public var kept: Int?
@@ -55,35 +59,49 @@ public struct WindowLine: Sendable, Equatable {
 public struct RecordedModel: Sendable {
     public let model: any StructuredModel
     let store: Store
+    let policy: FailurePolicy
 
-    public init(_ model: any StructuredModel, store: Store) {
+    public init(_ model: any StructuredModel, store: Store, policy: FailurePolicy = FailurePolicy()) {
         self.model = model
         self.store = store
+        self.policy = policy
     }
 
     public func generate<T: Decodable & Sendable>(
         _ type: T.Type, schema: JSONSchema, task: String, instructions: String, input: String,
         holding kinds: Set<SourceKind>, holdingUnknown: Bool = false, window: [WindowLine] = []
     ) async throws -> (value: T, run: RunID) {
-        try store.requireModelTerms(for: model)
+        try store.requireModelAccess(for: model)
         let schemaText = try schema.jsonText
         let prompt = Digest.sha256(instructions + "\n" + schemaText)
         try store.keepPrompt(hash: prompt, task: task, instructions: instructions, schema: schemaText)
-        let run = try store.beginRun(
-            task: task, model: model.name, prompt: prompt, input: input, kinds: kinds, holdsUnknown: holdingUnknown,
-            window: window)
-        do {
-            let answer = try await model.generate(type, schema: schema, instructions: instructions, input: input)
-            guard schema.accepts(json: answer.reply) else {
-                throw StructuredModelError.invalidReply("the reply does not fit the schema")
+        var retries = policy.timeOutRetries
+        while true {
+            let run = try store.beginRun(
+                task: task, model: model.name, prompt: prompt, input: input, kinds: kinds,
+                holdsUnknown: holdingUnknown, window: window)
+            do {
+                return (try await answer(type, schema: schema, instructions: instructions, input: input, run: run), run)
+            } catch {
+                try store.failRun(run, model: model.name, error: error)
+                try store.pauseIfLimited(model, by: error, policy: policy)
+                guard (error as? any ClassifiedFailure)?.failure == .timedOut, retries > 0 else { throw error }
+                retries -= 1
+                try await policy.waitBeforeRetry()
+                try store.requireModelAccess(for: model)
             }
-            try store.finishRun(run, model: answer.model, usage: answer.usage, reply: answer.reply, error: nil)
-            return (answer.value, run)
-        } catch {
-            try store.finishRun(
-                run, model: model.name, usage: Usage(), reply: nil, error: error.localizedDescription)
-            throw error
         }
+    }
+
+    private func answer<T: Decodable & Sendable>(
+        _ type: T.Type, schema: JSONSchema, instructions: String, input: String, run: RunID
+    ) async throws -> T {
+        let answer = try await model.generate(type, schema: schema, instructions: instructions, input: input)
+        guard schema.accepts(json: answer.reply) else {
+            throw StructuredModelError.invalidReply("the reply does not fit the schema")
+        }
+        try store.finishRun(run, model: answer.model, usage: answer.usage, reply: answer.reply)
+        return answer.value
     }
 }
 
@@ -112,18 +130,35 @@ extension Store {
         }
     }
 
-    func finishRun(_ id: RunID, model: String, usage: Usage, reply: String?, error: String?) throws {
+    func finishRun(_ id: RunID, model: String, usage: Usage, reply: String) throws {
         try writer.write { db in
             try db.execute(
                 sql: """
-                    UPDATE run SET model = ?, ended_at = ?, outcome = ?, error = ?, input_tokens = ?, cache_read_tokens = ?,
+                    UPDATE run SET model = ?, ended_at = ?, outcome = 'done', input_tokens = ?, cache_read_tokens = ?,
                         cache_write_tokens = ?, output_tokens = ?, cost_usd = ? WHERE id = ? AND outcome = 'running'
                     """,
                 arguments: [
-                    model, clock().stored, error == nil ? "done" : "failed", error, usage.inputTokens,
-                    usage.cacheReadTokens, usage.cacheWriteTokens, usage.outputTokens, usage.costUSD, id,
+                    model, clock().stored, usage.inputTokens, usage.cacheReadTokens, usage.cacheWriteTokens,
+                    usage.outputTokens, usage.costUSD, id,
                 ])
             try db.execute(sql: "UPDATE run_text SET reply = ? WHERE run_id = ?", arguments: [reply, id])
+        }
+    }
+
+    /// A cancelled call is `cancelled`. Any other error is a failure of the kind its type names, or `other`.
+    func failRun(_ id: RunID, model: String, error: any Error) throws {
+        let cancelled = error is CancellationError
+        let failure = cancelled ? nil : (error as? any ClassifiedFailure)?.failure ?? .other
+        try writer.write { db in
+            try db.execute(
+                sql: """
+                    UPDATE run SET model = ?, ended_at = ?, outcome = ?, error = ?, failure = ?
+                    WHERE id = ? AND outcome = 'running'
+                    """,
+                arguments: [
+                    model, clock().stored, cancelled ? "cancelled" : "failed",
+                    cancelled ? nil : error.localizedDescription, failure?.rawValue, id,
+                ])
         }
     }
 
@@ -141,7 +176,7 @@ extension Store {
         try writer.write { db in
             try db.execute(
                 sql:
-                    "UPDATE run SET outcome = 'failed', ended_at = ?, error = 'Workbench stopped during the run' WHERE outcome = 'running'",
+                    "UPDATE run SET outcome = 'failed', failure = 'other', ended_at = ?, error = 'Workbench stopped during the run' WHERE outcome = 'running'",
                 arguments: [clock().stored])
         }
     }
@@ -153,7 +188,7 @@ extension Queries {
             try db.fetch(
                 "run",
                 """
-                SELECT id, task, model, prompt, input_bytes, started_at, ended_at, outcome, error, input_tokens,
+                SELECT id, task, model, prompt, input_bytes, started_at, ended_at, outcome, error, failure, input_tokens,
                     cache_read_tokens, cache_write_tokens, output_tokens, cost_usd, kept, dropped
                 FROM run WHERE started_at >= ? ORDER BY id DESC
                 """, [start.stored], as: Run.init(row:))
@@ -181,6 +216,10 @@ extension Run {
             prompt: try row.value("prompt"), inputBytes: try row.value("input_bytes"),
             startedAt: try row.date("started_at"), endedAt: try row.optionalDate("ended_at"),
             outcome: try row.enumeration("outcome"), error: try row.optionalValue("error"),
+            failure: try row.optionalValue("failure").map { (text: String) in
+                guard let failure = Run.Failure(rawValue: text) else { throw StoredValueError("failure") }
+                return failure
+            },
             usage: Usage(
                 inputTokens: try row.value("input_tokens"), cacheReadTokens: try row.value("cache_read_tokens"),
                 cacheWriteTokens: try row.value("cache_write_tokens"), outputTokens: try row.value("output_tokens"),

@@ -108,6 +108,7 @@ extension Run.Outcome {
         case .running: "clock"
         case .done: "checkmark.circle.fill"
         case .failed: "xmark.octagon.fill"
+        case .cancelled: "minus.circle"
         }
     }
 
@@ -116,6 +117,7 @@ extension Run.Outcome {
         case .running: .neutral
         case .done: .good
         case .failed: .bad
+        case .cancelled: .neutral
         }
     }
 }

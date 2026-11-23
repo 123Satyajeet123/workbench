@@ -22,4 +22,6 @@ public struct PlanLimits: Codable, Sendable, Equatable {
         self.week = week
         self.at = at
     }
+
+    public var windowsAtLimit: [Window] { [fiveHour, week].compactMap { $0 }.filter(\.isAtLimit) }
 }

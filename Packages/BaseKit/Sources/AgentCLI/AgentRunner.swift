@@ -25,6 +25,8 @@ public struct AgentRunner: StructuredModel {
 
     public var billedToPlanSignIn: Bool { !requiresAPIKey && apiKey == nil }
 
+    public var planName: String? { billedToPlanSignIn ? kind.rawValue : nil }
+
     public init(
         kind: AgentCLIKind, model: String, effort: String, timeout: Duration,
         launcher: any ProcessLauncher = SystemProcessLauncher(), executable: URL? = nil,
@@ -54,8 +56,10 @@ public struct AgentRunner: StructuredModel {
             prompt: input, instructions: instructions, schemaText: try schema.jsonText, model: model,
             effort: effort, timeout: timeout, tools: tools)
         let output = try await launch(call)
-        if kind == .claude, let limits = PlanLimits.last(inClaude: output.stdout, at: .now) { onLimits?(limits) }
-        let (answer, answeredBy, usage) = try kind == .claude ? claudeAnswer(output) : codexAnswer(output)
+        let limits = kind == .claude ? PlanLimits.last(inClaude: output.stdout, at: .now) : nil
+        if let limits { onLimits?(limits) }
+        let (answer, answeredBy, usage) =
+            try kind == .claude ? claudeAnswer(output, limits: limits) : codexAnswer(output)
         do {
             let value = try JSONDecoder().decode(T.self, from: Data(answer.utf8))
             return ModelAnswer(value: value, model: answeredBy, usage: usage, reply: answer)
@@ -64,11 +68,14 @@ public struct AgentRunner: StructuredModel {
         }
     }
 
-    private func claudeAnswer(_ output: ProcessOutput) throws -> (String, String, Usage) {
+    private func claudeAnswer(_ output: ProcessOutput, limits: PlanLimits?) throws -> (String, String, Usage) {
         guard let result = ClaudeResult.last(in: output.stdout) else {
             throw StructuredModelError.unavailable("claude exit \(output.status): \(output.stderr)")
         }
         if result.isError || output.status != 0 {
+            if let full = limits?.windowsAtLimit, !full.isEmpty {
+                throw AgentCLIError.planLimit(resetsAt: full.compactMap(\.resetsAt).max())
+            }
             throw StructuredModelError.unavailable("claude failed: \(result.text ?? output.stderr)")
         }
         // With --json-schema the answer is `structured_output`; without it the model declined (code.claude.com/docs/en/headless).
