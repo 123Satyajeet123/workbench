@@ -4,7 +4,8 @@ import WorkbenchCore
 
 /// The tree of the workspace as the sidebar shows it: the top level, the Private section, the levels loaded so far,
 /// the objects that have children and the rows that are open. A level loads when its row opens. Also the person's
-/// favourite and recent pages, kept in the store of the profile, so each person and the demo keep their own.
+/// favourite and recent pages, and whether Recents is open, kept in the store of the profile, so each person and the
+/// demo keep their own.
 @Observable
 final class WorkspaceModel {
     /// Recents lists this many pages, newest first.
@@ -12,6 +13,7 @@ final class WorkspaceModel {
     static let privateNote = "Who can read a page follows its sources, not its folder."
     private static let favoritesKey = StateKey<[String]>.json("sidebar.favorites")
     private static let recentsKey = StateKey<[String]>.json("sidebar.recents")
+    private static let recentsShownKey = StateKey<Bool>.onOff("sidebar.recentsShown")
 
     private(set) var levels: [WorkObjectID?: [WorkObject]] = [:]
     private(set) var parents: Set<WorkObjectID> = []
@@ -20,6 +22,8 @@ final class WorkspaceModel {
     private(set) var treeOrder: [WorkObjectID] = []
     private(set) var favorites: [SidebarSelection] = []
     private(set) var recents: [SidebarSelection] = []
+    /// Whether Recents shows its pages. Closed until the person opens it.
+    private(set) var recentsShown = false
     /// The object whose children make the Private section. Nil only when the store could not make it.
     private(set) var privateSection: WorkObjectID?
     /// Said once when a move takes a page into or out of Private: the move changes no access.
@@ -34,9 +38,11 @@ final class WorkspaceModel {
         self.store = store
         problems.attempt("set up the workspace") {
             try store.seedWorkspace()
+            try store.fileRootsInTheirFolders()
             privateSection = try store.privateSection().id
             favorites = try pages(Self.favoritesKey)
             recents = Array(try pages(Self.recentsKey).prefix(Self.recentCount))
+            recentsShown = try Self.recentsShownKey.load(from: store) ?? false
         }
         refresh()
         expanded = parents.intersection(roots.map(\.id) + privateItems.map(\.id))
@@ -177,6 +183,11 @@ final class WorkspaceModel {
         }
         recents = Array(([page] + recents.filter { $0 != page }).prefix(Self.recentCount))
         save(recents, Self.recentsKey, "save your recent pages")
+    }
+
+    func setRecentsShown(_ isShown: Bool) {
+        recentsShown = isShown
+        problems.attempt("save whether Recents is open") { try Self.recentsShownKey.save(isShown, to: store) }
     }
 
     private func save(_ pages: [SidebarSelection], _ key: StateKey<[String]>, _ step: String) {

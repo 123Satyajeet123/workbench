@@ -21,7 +21,6 @@ struct Sidebar: View {
     @State private var editing: MachineEdit?
     @State private var deleting: HelperModel?
     @State private var renaming: WorkObjectID?
-    @SceneStorage("recentsShown") private var recentsShown = true
     @State private var footRowHeight: CGFloat = 20
 
     var body: some View {
@@ -33,7 +32,7 @@ struct Sidebar: View {
             }
             let recents = workspace.recents.filter(exists)
             if !recents.isEmpty {
-                Section(isExpanded: $recentsShown) {
+                Section(isExpanded: recentsShown) {
                     ForEach(recents) { PageLabel(page: $0).tag($0) }
                 } header: {
                     SectionTitle("Recents")
@@ -65,7 +64,6 @@ struct Sidebar: View {
             }
         }
         .listStyle(.sidebar)
-        .labelStyle(ZoomedRowStyle())
         .contextMenu(forSelectionType: SidebarSelection.self) { pages in menu(for: pages) }
         .onKeyPress(.return) { startRenaming(selection) ? .handled : .ignored }
         .onDeleteCommand { archive(selection) }
@@ -93,6 +91,11 @@ struct Sidebar: View {
                 "Its \(helper.spec.itemsNoun), your marks on them and its settings are deleted. Its calls stay on the Usage page."
             )
         }
+        .modifier(ZoomedRowSize())
+    }
+
+    private var recentsShown: Binding<Bool> {
+        Binding(get: { workspace.recentsShown }, set: { workspace.setRecentsShown($0) })
     }
 
     /// A click opens the page; a ⌘-click opens it in a new tab.
@@ -137,11 +140,11 @@ struct Sidebar: View {
             newItems(under: nil)
         } label: {
             HStack(spacing: Space.xs) {
-                SectionTitle(team.team.name.cleaned ?? "Workspace")
+                Text(team.team.name.cleaned ?? "Workspace")
                 Image(systemName: "chevron.down").imageScale(.small)
             }
         }
-        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+        .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
         .help("Your workspace")
     }
 
@@ -180,7 +183,6 @@ struct Sidebar: View {
             }
         }
         .listStyle(.sidebar)
-        .labelStyle(ZoomedRowStyle())
         .scrollDisabled(true)
         .frame(height: footRowHeight + 2 * Space.m)
     }
@@ -359,30 +361,36 @@ extension Mascot {
     static let sidebarSize: CGFloat = 18
 }
 
-/// A sidebar row at the app's zoom: the icon in a square the size of a face, then the title.
-private struct ZoomedRowStyle: LabelStyle {
-    func makeBody(configuration: Configuration) -> some View { ZoomedRow(configuration: configuration) }
-}
-
-private struct ZoomedRow: View {
-    let configuration: LabelStyleConfiguration
+/// The native sidebar rows at the app's zoom: the row size the person chose in System Settings, stepped to the size
+/// whose text is nearest that size's text times the zoom. At actual size the rows are the person's own size.
+private struct ZoomedRowSize: ViewModifier {
+    @Environment(\.sidebarRowSize) private var chosen
     @Environment(\.uiScale) private var scale
 
-    var body: some View {
-        HStack(spacing: Space.s * scale) {
-            configuration.icon.textStyle(.title3).frame(width: Mascot.sidebarSize * scale)
-            configuration.title.textStyle(.body)
-        }
+    func body(content: Content) -> some View {
+        content.environment(\.sidebarRowSize, chosen.zoomed(by: scale))
     }
 }
 
-/// A sidebar section's title at the app's zoom.
+/// A section's title in the native header font, 11 points semibold, scaled by the app's zoom.
 private struct SectionTitle: View {
     let title: String
 
     init(_ title: String) { self.title = title }
 
     var body: some View { Text(title).textStyle(.subheadline, weight: .semibold) }
+}
+
+extension SidebarRowSize {
+    /// The nominal point size of a row's text at each size.
+    private static let textSizes: [(size: SidebarRowSize, points: Double)] = [
+        (.small, 11), (.medium, 13), (.large, 15),
+    ]
+
+    func zoomed(by scale: Double) -> SidebarRowSize {
+        let points = (Self.textSizes.first { $0.size == self }?.points ?? 13) * scale
+        return Self.textSizes.min { abs($0.points - points) < abs($1.points - points) }?.size ?? self
+    }
 }
 
 extension View {
