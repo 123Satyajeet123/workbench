@@ -6,6 +6,7 @@ import Testing
 
 @MainActor private final class FoldState: ObservableObject {
     @Published var shown = 0
+    @Published var hidden = 0
     @Published var innerTaps = 0
 }
 
@@ -14,7 +15,7 @@ private struct FoldWithButton: View {
 
     var body: some View {
         Fold {
-            Text("Inside").onAppear { state.shown += 1 }
+            Text("Inside").onAppear { state.shown += 1 }.onDisappear { state.hidden += 1 }
         } label: {
             HStack {
                 Text("Settings")
@@ -23,6 +24,7 @@ private struct FoldWithButton: View {
             }
         }
         .frame(width: 300, height: 60, alignment: .topLeading)
+        .transaction { $0.animation = nil }
     }
 }
 
@@ -35,7 +37,12 @@ private struct FoldWithButton: View {
         window.contentView = NSHostingView(rootView: FoldWithButton(state: state))
         window.makeKeyAndOrderFront(nil)
         defer { window.orderOut(nil) }
-        try await Task.sleep(for: .milliseconds(300))
+
+        func waitUntil(_ done: () -> Bool) async throws {
+            let clock = ContinuousClock()
+            let end = clock.now + .seconds(5)
+            while !done(), clock.now < end { try await Task.sleep(for: .milliseconds(20)) }
+        }
 
         func click(x: CGFloat) async throws {
             for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
@@ -46,15 +53,21 @@ private struct FoldWithButton: View {
                         context: nil, eventNumber: 0, clickCount: 1, pressure: 1))
                 window.sendEvent(event)
             }
-            try await Task.sleep(for: .milliseconds(1000))
         }
 
+        try await waitUntil { window.contentView?.fittingSize.height ?? 0 > 0 }
         try await click(x: 40)
+        try await waitUntil { state.shown == 1 }
         #expect(state.shown == 1)
         try await click(x: 5)
+        try await waitUntil { state.hidden == 1 }
+        #expect(state.hidden == 1)
         try await click(x: 5)
+        try await waitUntil { state.shown == 2 }
         #expect(state.shown == 2)
         try await click(x: 285)
-        #expect(state.innerTaps == 1 && state.shown == 2)
+        try await waitUntil { state.innerTaps == 1 }
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(state.innerTaps == 1 && state.hidden == 1)
     }
 }

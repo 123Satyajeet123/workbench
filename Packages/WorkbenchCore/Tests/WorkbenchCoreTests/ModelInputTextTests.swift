@@ -9,12 +9,12 @@ struct ModelInputTextTests {
             id: id, task: "team.ledger", day: WorkDay(containing: Date(timeIntervalSince1970: 0)), scope: "",
             source: .whatsapp, citeFirst: id, citeLast: id, start: Date(timeIntervalSince1970: 0),
             end: Date(timeIntervalSince1970: 0),
-            fields: ["person": "Asha", "project": "Deck", "kind": "blocker", "text": "Waiting on legal", "eta": ""],
+            fields: ["person": "Asha", "project": "Deck", "kind": "blocker", "text": "Waiting on legal", "when": ""],
             quote: "legal has it", state: state, run: RunID(1))
     }
 
     private let line =
-        "person=Asha project=Deck kind=blocker text=Waiting on legal eta= stance= asks= — \"legal has it\""
+        "person=Asha project=Deck kind=blocker text=Waiting on legal when= stance= asks= — \"legal has it\""
 
     @Test func examplesAndTrainingItemsReadTheSameAsTheModelHasAlwaysSeenThem() {
         let marked = [item(1, .confirmed), item(2, .rejected)]
@@ -24,7 +24,7 @@ struct ModelInputTextTests {
         #expect(
             Improver.input(spec: .team, marked: marked).hasSuffix("Marked items:\n[1] right \(line)\n[2] wrong \(line)")
         )
-        let source = CitedSource(machine: "Pip", fields: ["person", "kind", "eta"], item: item(3, .proposed))
+        let source = CitedSource(machine: "Pip", fields: ["person", "kind", "when"], item: item(3, .proposed))
         #expect(source.line == "[3] Pip · person=Asha kind=blocker — \"legal has it\" — unmarked")
     }
 }
