@@ -53,8 +53,8 @@ struct Page<Content: View, Accessory: View>: View {
         ScrollView {
             VStack(alignment: .leading, spacing: Space.l) {
                 VStack(alignment: .leading, spacing: Space.m) {
-                    if let look { Mascot(look: look, size: 52) }
-                    HStack(alignment: .center, spacing: Space.m) {
+                    HStack(alignment: .center, spacing: Space.l) {
+                        if let look { Mascot(look: look, size: 64) }
                         VStack(alignment: .leading, spacing: Space.xs) {
                             HStack(alignment: .center, spacing: Space.xs) {
                                 Text(title).textStyle(.largeTitle, weight: .bold)
