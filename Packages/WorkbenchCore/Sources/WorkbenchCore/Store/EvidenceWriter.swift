@@ -7,6 +7,8 @@ import Synchronization
 public enum EvidenceError: Error, Equatable {
     /// The policy no longer allows this read: the person revoked the chat, paused capture, or switched it off.
     case consentWithdrawn
+    /// The group's audience is not the one the person confirmed as all agreed: someone joined or left.
+    case audienceNotAgreed
     /// An erasure that names no source, no grant and no age would erase everything.
     case erasureNamesNothing
 }
@@ -140,6 +142,11 @@ extension Store {
         var report = try writer.write { db in
             guard try descriptor.consent.isByHand || Queries.policy(in: db).authorize(request, at: clock()).grant != nil
             else { throw EvidenceError.consentWithdrawn }
+            if descriptor.requiresAgreedAudience {
+                guard try Self.agreedAudience(grantID: grantID, in: db) == Self.agreement(reading.audience) else {
+                    throw EvidenceError.audienceNotAgreed
+                }
+            }
             var report = IngestReport()
             for item in reading.lines { report.add(try EvidenceStamp.write(item, stamp, in: db)) }
             if let structure = reading.structure {

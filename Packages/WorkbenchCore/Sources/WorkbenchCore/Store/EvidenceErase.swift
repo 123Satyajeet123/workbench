@@ -84,6 +84,9 @@ extension Store {
         for key in try cursorKeys(of: erasure, condition, in: db) {
             try db.execute(sql: "DELETE FROM state WHERE key = ?", arguments: [key])
         }
+        for key in try agreementKeys(of: erasure, condition, in: db) {
+            try db.execute(sql: "DELETE FROM state WHERE key = ?", arguments: [key])
+        }
         if counts.lines > 0 {
             try eraseCopies(
                 of: LineSelection(
@@ -147,6 +150,16 @@ extension Store {
                     db, sql: "SELECT key FROM state WHERE substr(key, 1, length(?)) = ?", arguments: [start, start]))
         }
         return keys
+    }
+
+    /// The confirmed audiences of the grants that go with the cursors: a chat taken off the list needs a new confirmation.
+    private static func agreementKeys(of erasure: EvidenceErasure, _ condition: Condition, in db: Database) throws
+        -> Set<String>
+    {
+        Set(
+            try cursorKeys(of: erasure, condition, in: db).map {
+                agreementKey(grantID: String($0.dropFirst(cursorKey(grantID: "").count)))
+            })
     }
 
     private static func counts(of erasure: EvidenceErasure, in db: Database) throws -> EraseCounts {

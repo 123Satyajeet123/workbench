@@ -27,6 +27,8 @@ public struct Membership: Sendable, Equatable {
     public enum Proof: String, Sendable {
         /// The source's own store holds the list.
         case sourceTable
+        /// The source's service gives the list when asked.
+        case sourceService
         /// The page shows the addresses in attributes: from, to and cc of a mail message.
         case pageAttributes
     }

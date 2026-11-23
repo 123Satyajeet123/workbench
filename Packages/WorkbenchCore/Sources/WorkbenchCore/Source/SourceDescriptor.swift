@@ -13,6 +13,8 @@ public struct SourceDescriptor: Sendable, Equatable {
     /// How the source gives its text. The raw value is the `obtained_by` of the line.
     public enum Obtained: String, Sendable {
         case db
+        /// A service the source asks for each message, such as Telegram.
+        case api
         case domText = "dom_text"
         case axValue = "ax_value"
     }
@@ -31,6 +33,9 @@ public struct SourceDescriptor: Sendable, Equatable {
     /// How many lines on each side of a line a fact cites belong to its evidence. Nil: the whole container, because
     /// the container is one subject, such as a mail thread.
     public var evidenceReach: Int?
+    /// A group is read only while its audience is the one the person confirmed as all agreed. `Store.agree` records
+    /// that audience, and a write whose audience differs is refused inside the write transaction.
+    public var requiresAgreedAudience = false
 
     /// The id of this source for one owner. Two owners never share one.
     public func sourceID(owner: PersonID) throws(IdentifierError) -> SourceID {
@@ -47,6 +52,19 @@ extension SourceDescriptor {
     public static let whatsAppChat = SourceDescriptor(
         key: "whatsapp.chat", aliases: ["whatsapp_chat"], consent: .whatsapp, grammar: whatsAppGrammar,
         retention: .chat, obtainedBy: .db, editWindow: Scan.chatEditWindow, evidenceReach: 20)
+}
+
+extension SourceDescriptor {
+    private static let telegramGrammar = """
+        one work day of a Telegram group. Each line is `[number] HH:mm sender: text`. People write in Hindi, \
+        English and Hinglish.
+        """
+
+    /// One Telegram group, read through the founder's own account. Telegram lets an app pass chat data to a model only
+    /// when every person in the chat agrees, so a group is read only for the audience the founder confirmed.
+    public static let telegramChat = SourceDescriptor(
+        key: "telegram.chat", aliases: ["telegram_chat"], consent: .telegram, grammar: telegramGrammar,
+        retention: .chat, obtainedBy: .api, editWindow: 0, evidenceReach: 20, requiresAgreedAudience: true)
 }
 
 extension SourceDescriptor {
@@ -111,7 +129,7 @@ extension SourceDescriptor {
 /// The sources this build knows. A source starts only when a machine names it.
 public enum SourceRegistry {
     public static let all: [SourceDescriptor] = [
-        .whatsAppChat, .gmailMail, .webPage, .typedNote, .droppedFile, .note, .screenWindow, .screenText,
+        .whatsAppChat, .telegramChat, .gmailMail, .webPage, .typedNote, .droppedFile, .note, .screenWindow, .screenText,
     ]
 
     /// The source with this key or alias, or nil when no ported source has it.

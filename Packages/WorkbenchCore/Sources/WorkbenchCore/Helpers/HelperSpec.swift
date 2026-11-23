@@ -43,11 +43,7 @@ public struct HelperSpec: Codable, Sendable, Equatable {
         var lines: String {
             switch self {
             case .whatsappChat: SourceDescriptor.whatsAppChat.grammar
-            case .telegramChat:
-                """
-                one work day of a Telegram group. Each line is `[number] HH:mm sender: text`. People write in Hindi, \
-                English and Hinglish.
-                """
+            case .telegramChat: SourceDescriptor.telegramChat.grammar
             case .screenSessions: SourceDescriptor.screenWindow.grammar
             case .mail: SourceDescriptor.gmailMail.grammar
             case .news:

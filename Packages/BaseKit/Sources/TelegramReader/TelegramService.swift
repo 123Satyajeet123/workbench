@@ -34,19 +34,21 @@ public struct TelegramMessage: Sendable, Equatable {
     public var date: Date
     public var kind: Kind
     public var sender: String
+    public var senderID: Int64
     public var isOutgoing: Bool
     public var text: String
     public var title: String?
 
     public init(
-        id: Int64, chat: Int64, date: Date, kind: Kind, sender: String, isOutgoing: Bool, text: String,
-        title: String? = nil
+        id: Int64, chat: Int64, date: Date, kind: Kind, sender: String, senderID: Int64 = 0, isOutgoing: Bool,
+        text: String, title: String? = nil
     ) {
         self.id = id
         self.chat = chat
         self.date = date
         self.kind = kind
         self.sender = sender
+        self.senderID = senderID
         self.isOutgoing = isOutgoing
         self.text = text
         self.title = title

@@ -59,8 +59,14 @@ final class TelegramSource: MachineSource {
         asking = group
     }
 
+    /// Records that everyone in the group agreed, as the store's confirmed audience: lines are written only for that
+    /// audience, so a member who joins later stops the reading until everyone is asked again.
     func confirmEveryoneAgreed() throws {
         guard let group = asking else { return }
+        guard let audience = TelegramChatReader.audience(of: askingPeople, chat: group.id) else {
+            throw TelegramFailure("This group has no other member, so there is no one to ask.")
+        }
+        try store.agree(audience: audience, kind: .telegram, label: group.label)
         let agreed = TelegramConsent(chat: group.id, people: askingPeople, at: store.clock())
         let dropped = Set([chat?.label].compactMap { $0 }).subtracting([group.label]).subtracting(othersReading())
         try capture.update {
@@ -108,24 +114,32 @@ final class TelegramSource: MachineSource {
         askingPeople = []
     }
 
+    /// The day's messages of the group, each a numbered line. The group is first read into the evidence store, which
+    /// writes it only for the audience the founder confirmed; the lines come from there, as the proof cards read them.
     func evidence(on day: WorkDay) async throws -> EvidenceSet {
         guard let chat, let consent, consent.chat == chat.id else { return EvidenceSet(lines: []) }
         try await account.waitUntilReady()
         let reader = TelegramChatReader(
             service: account.service, chat: chat.id, agreed: Set(consent.people.map(\.id)), policy: store,
-            me: founderLabel(founder()))
-        let (messages, people) = try await reader.read(from: day.start, to: day.end)
-        members = people
-        let lines = messages.compactMap(line)
+            me: founderLabel(founder()), window: day.start..<day.end)
+        let report = try await store.ingest(reader, owner: try capture.owner(), now: store.clock())
+        if let failure = report.failures.first { throw failure.error }
+        let lines = try store.queries.currentLines(in: [chat.label], from: day.start, to: day.end)
+            .filter { !$0.isTombstone }.map { evidence($0, start: day.start) }
         return EvidenceSet(
             lines: lines,
-            context: ["members": people.map(\.name) + [founderLabel(founder())], "founder": [founderLabel(founder())]])
+            context: ["members": members.map(\.name) + [founderLabel(founder())], "founder": [founderLabel(founder())]])
     }
 
-    private func line(_ message: TelegramMessage) -> Evidence? {
-        let text = [message.title, message.text].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " — ")
-        guard !text.isEmpty else { return nil }
-        let sender = message.isOutgoing ? founderLabel(founder()) : message.sender
-        return Evidence(id: message.id, start: message.date, line: "\(sender): \(text)", quotable: [text])
+    private func evidence(_ stored: StoredLine, start: Date) -> Evidence {
+        Evidence(
+            id: stored.number, start: stored.time ?? start, line: "\(sender(of: stored)): \(stored.text)",
+            quotable: [stored.text], lineID: stored.lineID, provenance: stored.provenance)
+    }
+
+    private func sender(of stored: StoredLine) -> String {
+        guard let actor = stored.actor else { return "Unknown" }
+        if actor == WhatsAppAudience.owner { return founderLabel(founder()) }
+        return members.first { TelegramChatReader.actor(of: $0.id) == actor }?.name ?? "Telegram user"
     }
 }

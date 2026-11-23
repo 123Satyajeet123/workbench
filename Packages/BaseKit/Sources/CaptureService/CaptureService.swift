@@ -10,7 +10,7 @@ import WorkbenchCore
 public final class CaptureService {
     public static let interval: Duration = .seconds(2)
     /// The consent kinds whose lines live in the evidence store under a label the person names.
-    static let evidenceKinds: [SourceKind] = [.whatsapp, .mail]
+    static let evidenceKinds: [SourceKind] = [.whatsapp, .telegram, .mail]
 
     public private(set) var policy: CapturePolicy
     public private(set) var status: CaptureStatus
@@ -81,7 +81,7 @@ public final class CaptureService {
         setWhatsAppWatch(on: false)
     }
 
-    /// The new policy is saved as one consent event, then used by the next reading. A WhatsApp chat or a mail label
+    /// The new policy is saved as one consent event, then used by the next reading. A WhatsApp chat, a Telegram group or a mail label
     /// taken off the allow-list has its lines, and the copies of their words, erased: the consent is withdrawn.
     public func update(_ change: (inout CapturePolicy) -> Void) throws {
         var changed = policy

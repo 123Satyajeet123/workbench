@@ -145,7 +145,8 @@ public final class TDLibTelegram: TelegramService, @unchecked Sendable {
                 found.append(
                     TelegramMessage(
                         id: message.id, chat: chat, date: date, kind: content.kind,
-                        sender: try await name(of: message.senderId), isOutgoing: message.isOutgoing,
+                        sender: try await name(of: message.senderId), senderID: Self.id(of: message.senderId),
+                        isOutgoing: message.isOutgoing,
                         text: Self.tagged(content.text, me: me, usernames: usernames, as: label),
                         title: content.title))
             }
@@ -287,6 +288,13 @@ public final class TDLibTelegram: TelegramService, @unchecked Sendable {
             useFileDatabase: false, useMessageDatabase: true, useSecretChats: false, useTestDc: false
         ) { [weak self] result in
             if case .failure(let error) = result { self?.report(.failed(Self.text(of: error))) }
+        }
+    }
+
+    private static func id(of sender: MessageSender) -> Int64 {
+        switch sender {
+        case .messageSenderUser(let user): user.userId
+        case .messageSenderChat(let chat): chat.chatId
         }
     }
 

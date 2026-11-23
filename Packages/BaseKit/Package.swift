@@ -28,7 +28,7 @@ let package = Package(
             name: "TelegramReader",
             dependencies: [
                 "WorkbenchCore", "LocalSources", .product(name: "Kernel", package: "Kernel"),
-                .product(name: "TDLibKit", package: "TDLibKit"),
+                .product(name: "Lines", package: "Kernel"), .product(name: "TDLibKit", package: "TDLibKit"),
             ]),
         .target(
             name: "CaptureService",

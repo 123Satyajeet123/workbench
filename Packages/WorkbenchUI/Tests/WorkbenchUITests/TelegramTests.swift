@@ -137,10 +137,11 @@ nonisolated private let apiHash = "0123456789abcdef0123456789abcdef"
                     id: 10, chat: team.id, date: noon.addingTimeInterval(-60), kind: .text, sender: "Kabir",
                     isOutgoing: true, text: "ki aaj kya kiya?"),
                 TelegramMessage(
-                    id: 11, chat: team.id, date: noon, kind: .text, sender: "Asha", isOutgoing: false,
+                    id: 11, chat: team.id, date: noon, kind: .text, sender: "Asha", senderID: 1, isOutgoing: false,
                     text: "login API done"),
                 TelegramMessage(
-                    id: 12, chat: team.id, date: noon, kind: .document, sender: "Bharat", isOutgoing: false, text: "",
+                    id: 12, chat: team.id, date: noon, kind: .document, sender: "Bharat", senderID: 2, isOutgoing: false,
+                    text: "",
                     title: "spec.pdf"),
             ]
         }
