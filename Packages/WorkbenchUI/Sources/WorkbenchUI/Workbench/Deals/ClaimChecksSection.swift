@@ -12,10 +12,18 @@ extension ClaimVerdict {
         case .unclear: .attention
         }
     }
+
+    /// The mark of a verdict, so the verdict never rests on colour alone.
+    var symbol: String {
+        switch self {
+        case .supported: "checkmark"
+        case .contradicted: "xmark"
+        case .notFound, .unclear: "questionmark"
+        }
+    }
 }
 
-/// What a deal holds that can be checked, over its evidence from any source: the rating against the team's thesis and
-/// the claims. Each fact is one row; the one question of a row is right or wrong. A file dropped on the section is added
+/// What a deal holds that can be checked, over its evidence from any source: the claims. Each fact is one row; the one question of a row is right or wrong. A file dropped on the section is added
 /// to the deal.
 struct ClaimChecksSection: View {
     let deal: WorkObject
@@ -34,9 +42,6 @@ struct ClaimChecksSection: View {
         VStack(alignment: .leading, spacing: Space.s) {
             Text("Claims").textStyle(.headline)
             if let problem = claims.problems.text { ProblemBanner(text: problem, dismiss: claims.problems.dismiss) }
-            if let rating = state.rating, let triage = state.triage {
-                row(rating, title: "Rated \(triage.rating.rawValue)", shown: rating.shownAsRating(triage))
-            }
             ForEach(state.claims) { claim in
                 if let item = claim.id.flatMap({ state.items[$0] }) {
                     HStack(spacing: Space.s) {
@@ -50,12 +55,12 @@ struct ClaimChecksSection: View {
                         row(item, title: claim.text, shown: item)
                     }
                     if let check = state.check(of: claim), let verdict = check.id.flatMap({ state.items[$0] }) {
-                        row(verdict, title: claim.text, shown: verdict.shownAsVerdict(check))
+                        row(verdict, title: claim.text, shown: verdict.shownAsVerdict(check), verdict: check.verdict)
                             .padding(.leading, Space.l)
                     }
                 }
             }
-            if state.claims.isEmpty && state.rating == nil {
+            if state.claims.isEmpty {
                 Text("Nothing yet. Add a file, type a claim, or read the claims in what is linked.")
                     .textStyle(.callout).foregroundStyle(.supporting)
             }
@@ -98,10 +103,11 @@ struct ClaimChecksSection: View {
         .buttonStyle(.ghost)
     }
 
-    @ViewBuilder private func row(_ item: Item, title: String, shown: Item) -> some View {
+    @ViewBuilder private func row(_ item: Item, title: String, shown: Item, verdict: ClaimVerdict? = nil) -> some View {
         if let row = FactRow(item: shown, title: title), let id = item.id {
             FactCard(
-                row: row, offered: FactAction.offered(for: item, isOpenFact: false), isSelected: selected == id,
+                row: row, verdict: verdict, offered: FactAction.offered(for: item, isOpenFact: false),
+                isSelected: selected == id,
                 isHovered: hovered == id,
                 hover: { inside in hovered = inside ? id : (hovered == id ? nil : hovered) },
                 open: { selected = selected == id ? nil : id },
@@ -111,13 +117,6 @@ struct ClaimChecksSection: View {
 }
 
 extension Item {
-    /// The rating fact as a row shows it: the call first, then the words it rests on.
-    fileprivate func shownAsRating(_ triage: Triage) -> Item {
-        var shown = self
-        shown.fields["person"] = triage.rating.rawValue.capitalized
-        return shown
-    }
-
     /// A verdict as a row shows it: the verdict first, then the page's words, and the page's site.
     fileprivate func shownAsVerdict(_ check: ClaimCheck) -> Item {
         var shown = self

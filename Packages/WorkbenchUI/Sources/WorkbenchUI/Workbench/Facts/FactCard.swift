@@ -5,6 +5,8 @@ import WorkbenchCore
 /// day. The actions take the place on the right under the pointer or on the selected row; the row does not change size.
 struct FactCard: View {
     let row: FactRow
+    /// The verdict of a claim check: its mark takes the place of the person's letter.
+    var verdict: ClaimVerdict?
     let offered: [FactAction]
     var isSelected = false
     var isHovered = false
@@ -59,7 +61,11 @@ struct FactCard: View {
 
     @ViewBuilder private var person: some View {
         let size = Self.personSize * scale
-        if row.headline.person.isEmpty {
+        if let verdict {
+            Image(systemName: verdict.symbol).fontWeight(.semibold).foregroundStyle(verdict.tone.color)
+                .frame(width: size, height: size)
+                .background(.selectedFill, in: .rect(cornerRadius: size * 0.3)).accessibilityHidden(true)
+        } else if row.headline.person.isEmpty {
             Image(systemName: "text.quote").foregroundStyle(.supporting).frame(width: size, height: size)
                 .background(.selectedFill, in: .rect(cornerRadius: size * 0.3)).accessibilityHidden(true)
         } else {

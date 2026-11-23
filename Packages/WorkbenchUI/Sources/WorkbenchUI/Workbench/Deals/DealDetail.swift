@@ -34,8 +34,6 @@ struct DealDetail: View {
                 ClaimChecksSection(deal: deal)
                 signals
                 if let digest {
-                    Text("Captured so far").textStyle(.headline)
-                    CaptureRibbon(ribbon: digest.story.ribbon)
                     if !digest.machines.isEmpty {
                         Text("Automation").textStyle(.headline)
                         AutomationStripView(
@@ -46,6 +44,10 @@ struct DealDetail: View {
                 }
                 items
                 notes
+                if let digest {
+                    Text("Activity").textStyle(.headline)
+                    CaptureRibbon(ribbon: digest.story.ribbon)
+                }
                 Button("Archive deal", role: .destructive) {
                     deals.archive(deal)
                     close()
