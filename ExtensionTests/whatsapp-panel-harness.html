@@ -1,0 +1,53 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>WhatsApp panel and probe harness</title></head>
+<body>
+<!--FIXTURE-->
+<script src="file://{{ROOT}}/Extension/whatsapp/reader.js"></script>
+<script src="file://{{ROOT}}/Extension/whatsapp/probe.js"></script>
+<script>
+  const { readOpenChat, readChatIdentity } = WorkbenchWhatsApp;
+  const result = { identity: readChatIdentity(document), read: readOpenChat(document) };
+  const drawer = document.querySelector('[data-testid="group-info-drawer"]');
+  const saved = drawer.innerHTML;
+  const rows = () => [...document.querySelectorAll('[role="listitem"]')];
+  const restore = () => { drawer.innerHTML = saved; };
+
+  result.probe = WorkbenchWhatsAppProbe.run(document);
+
+  rows()[2].querySelector("[data-x]").removeAttribute("data-x");
+  result.gap = readChatIdentity(document).members;
+  restore();
+
+  for (const row of rows()) {
+    row.removeAttribute("data-jid");
+    row.querySelector("[data-x]")?.removeAttribute("data-x");
+  }
+  result.namesOnly = readChatIdentity(document).members;
+  restore();
+
+  rows()[0].removeAttribute("data-jid");
+  rows()[0].firstElementChild.textContent = "111111111@lid";
+  result.textIsNotAnId = readChatIdentity(document).members;
+  restore();
+
+  drawer.querySelector('[role="heading"]').textContent = "Family";
+  result.otherChatsPanel = readChatIdentity(document).members;
+  restore();
+
+  drawer.querySelector('[data-testid="participants-count"]').remove();
+  result.noStatedCount = readChatIdentity(document).members;
+  restore();
+
+  drawer.remove();
+  result.noPanel = readChatIdentity(document).members;
+
+  const main = document.getElementById("main");
+  main.replaceChildren();
+  result.noMessages = readChatIdentity(document);
+  main.innerHTML = '<header><span dir="auto">Bharat</span></header><div data-id="false_919800000002@c.us_X1"><div class="copyable-text"><span class="selectable-text">Hello</span></div></div>';
+  result.direct = readChatIdentity(document);
+  document.documentElement.dataset.out = btoa(JSON.stringify(result));
+</script>
+</body>
+</html>

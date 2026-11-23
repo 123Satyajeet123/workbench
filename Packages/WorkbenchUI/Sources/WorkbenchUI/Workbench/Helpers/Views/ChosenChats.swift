@@ -12,10 +12,15 @@ struct ChosenChats: View {
         Card(title: "Chats read now", symbol: "bubble.left.and.bubble.right") {
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(source.chats) { chat in
-                    HStack {
-                        Text(chat.name).lineLimit(1)
-                        Spacer()
-                        Button("Stop reading") { stopping = chat }.buttonStyle(.ghost).foregroundStyle(.linkText)
+                    VStack(alignment: .leading, spacing: Space.xs) {
+                        HStack {
+                            Text(chat.name).lineLimit(1)
+                            Spacer()
+                            Button("Stop reading") { stopping = chat }.buttonStyle(.ghost).foregroundStyle(.linkText)
+                        }
+                        if let words = source.waitingWords(for: chat) {
+                            Text(words).textStyle(.callout).foregroundStyle(.supporting)
+                        }
                     }
                     .padding(.vertical, Space.xs)
                     if chat.id != source.chats.last?.id { Divider() }

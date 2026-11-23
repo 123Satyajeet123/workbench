@@ -158,19 +158,6 @@ import Testing
         #expect(try rows(store).isEmpty)
     }
 
-    // MARK: audience
-
-    @Test func aGroupIsNeverWrittenFromThePageBecauseThePageGivesNoMemberList() throws {
-        let group = "123456789-1600000000@g.us"
-        let store = try store(
-            policy: CapturePolicy(switches: [.whatsapp: true], allowList: [.whatsapp: [group, Self.chat]]))
-        let page = try Self.snapshot([Self.message("false_\(group)_GROUPMSG_456@lid", "Group words")])
-        let reply = answer(page, store)
-        #expect(reply.kept == false && reply.error == "groupAudienceUnknown")
-        #expect(try rows(store).isEmpty)
-        #expect(answer(Self.status(), store).chats == [Self.chat], "the extension is told only the one-to-one chat")
-    }
-
     // MARK: fallback
 
     @Test func theStoreReaderAndThePageNeverWriteOneChatAtTheSameTime() throws {

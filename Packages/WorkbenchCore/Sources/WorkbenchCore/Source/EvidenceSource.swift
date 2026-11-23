@@ -4,9 +4,7 @@ import Lines
 /// A reader of one source that gives lines, not rows. It asks the person's policy before it reads, reads what is new
 /// since the state the store kept, and returns what it saw. It writes nothing: `Store.ingest` writes the lines and
 /// each cursor in one transaction. A chat that cannot be read is reported as a failure and does not stop the others.
-public protocol EvidenceSource: Sendable {
-    var descriptor: SourceDescriptor { get }
-
+public protocol EvidenceSource: ContainerSource {
     /// One reading for each label (chat) read, and one failure for each label that could not be. `state` gives what
     /// the store kept for a label.
     func observe(state: @Sendable (String) throws -> ScanState, now: Date) async throws -> SourceRead

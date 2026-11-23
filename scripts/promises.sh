@@ -65,4 +65,13 @@ run "30 both sources write one chat" $C/Source/SourceDescriptor.swift 's/descrip
 run "31 stop reading keeps the chat's lines" WorkbenchUI/Sources/WorkbenchUI/Workbench/Helpers/WhatsAppSource.swift 's/\{ \$0\.allowList\[\.whatsapp\]\?\.remove\(chat\.jid\) \}/{ _ in }/' WorkbenchUI
 run "32 two app copies write the store" $C/Store/StoreLock.swift 's/flock\(file, LOCK_EX \| LOCK_NB\)/flock(file, LOCK_SH | LOCK_NB)/' WorkbenchCore
 run "33 stopping a chat leaves it with another machine" WorkbenchUI/Sources/WorkbenchUI/Workbench/Helpers/WhatsAppSource.swift 's/where source\.chats\.contains\(where: \{ \$0\.id == chat\.id \}\)/where false/' WorkbenchUI
+run "34 a web discovery is stored before the person chooses it" WorkbenchUI/Sources/WorkbenchUI/Workbench/Helpers/WhatsAppSource.swift 's/(direct = candidates\.filter \{ \$0\.container\.kind == \.direct \}\.map\(WhatsAppChat\.init\)\n)/$1        try? capture.update { \$0.allowList[.whatsapp, default: []].formUnion(candidates.map(\\.id)) }\n/' WorkbenchUI
+run "35 a group line is written without a valid membership observation" $C/Source/Discovery.swift 's/case \.group: membership\.map \{ AudienceDigest\(owner: owner, members: \$0\.members\) \}/case .group: AudienceDigest(owner: owner, members: membership?.members ?? [container.id])/' WorkbenchCore BaseKit
+run "36 a display name is mapped to a member id" $C/WhatsApp/WhatsAppWebSnapshot.swift 's/ids\.allSatisfy\(WebAccountID\.isValid\)/true/' WorkbenchCore
+run "37 the probe returns a name or a number" ../Extension/whatsapp/probe.js 's/\(value\) => patterns\.find\(\(\[, pattern\]\) => pattern\.test\(value\)\)\?\.\[0\] \?\? "no id"/(value) => (patterns.some(([, pattern]) => pattern.test(value)) ? value : "no id")/' WorkbenchCore
+run "38 stop reading keeps the chat's members" WorkbenchUI/Sources/WorkbenchUI/Workbench/Helpers/WhatsAppSource.swift 's/for source in sources \{ source\.web\.forget\(chat\.container\) \}/for source in sources { _ = source }/' WorkbenchUI
+run "39 a chat is taken while the chooser is closed" $C/Source/SightingBoard.swift 's/guard state\.isOpen else \{ return \(false, nil\) \}\n//' WorkbenchCore WorkbenchUI
+run "40 a list with a gap counts as a membership" $C/WhatsApp/WhatsAppWebSnapshot.swift 's/ids\.count == rows, stated == rows, /ids.count == rows, /' WorkbenchCore
+run "41 one chat is listed once per source" $C/Source/ContainerCandidates.swift 's/let id = sighting\.container\.id\n/let id = sighting.container.id + sighting.source\n/' WorkbenchCore WorkbenchUI
+run "42 the probe returns a name that holds a number" ../Extension/whatsapp/probe.js 's/ && !\/\\d\{4\}\/\.test\(name\)//' WorkbenchCore
 echo DONE

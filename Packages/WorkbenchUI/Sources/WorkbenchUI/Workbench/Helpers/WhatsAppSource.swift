@@ -10,9 +10,14 @@ import WorkbenchCore
 @Observable
 final class WhatsAppSource: MachineSource {
     private(set) var chats: [WhatsAppChat] = []
+    /// What every source sees now, one entry for each chat, with the sources that saw it.
+    private(set) var candidates: [ContainerCandidate] = []
     private(set) var groups: [WhatsAppChat] = []
+    private(set) var direct: [WhatsAppChat] = []
     /// The chats a rule would choose, shown before the founder confirms.
     private(set) var matching: [WhatsAppChat] = []
+    /// Why the Mac's own WhatsApp data could not be listed, in words; nil when it could.
+    private(set) var pullProblem: String?
     private(set) var members: [WhatsAppMember] = []
     /// The WhatsApp IDs of the teammates the founder set up and linked, as of the last read.
     private(set) var teamHandles: Set<String> = []
@@ -23,13 +28,18 @@ final class WhatsAppSource: MachineSource {
     @ObservationIgnored private let capture: CaptureService
     @ObservationIgnored private let founder: () -> String
     @ObservationIgnored private let container: URL
+    /// The chat open in WhatsApp Web, while the chooser is open. The extension's end of the app fills it.
+    @ObservationIgnored let web: SightingBoard
+    @ObservationIgnored private var pulled: [ContainerSighting] = []
     @ObservationIgnored private let chatsKey: StateKey<[WhatsAppChat]>
     @ObservationIgnored private let membersKey: StateKey<[WhatsAppMember]>
 
     init(
         store: Store, capture: CaptureService, task: String, founder: @escaping () -> String,
-        container: URL = WhatsAppChatReader.defaultContainer
+        container: URL = WhatsAppChatReader.defaultContainer,
+        web: SightingBoard = SightingBoard(descriptor: .whatsAppWeb)
     ) throws {
+        self.web = web
         self.store = store
         self.capture = capture
         self.founder = founder
@@ -62,17 +72,53 @@ final class WhatsAppSource: MachineSource {
     /// With several chats, each one of them must be allowed.
     var grantLabels: [String?] { isSeveral ? chats.map(\.jid) : [scope.isEmpty ? nil : scope] }
 
-    /// Group names to choose from. Listing names needs the WhatsApp switch on; no chat is readable until one is chosen.
+    /// Chats to choose from, from every source that sees any: the Mac's WhatsApp data, and the chat open in WhatsApp Web
+    /// while the chooser is open. Listing needs the WhatsApp switch on; no chat is readable until one is chosen, and
+    /// nothing is stored until then.
     func loadGroups() throws {
         try switchOn()
-        groups = try WhatsAppChatReader.groups(container: container, policy: capture.policy)
+        web.open()
+        web.onChange { [weak self] in Task { @MainActor in self?.showCandidates() } }
+        do {
+            pulled = try reader(chatJIDs: []).sightings(policy: capture.policy, now: store.clock())
+            pullProblem = nil
+        } catch {
+            pulled = []
+            pullProblem = error.localizedDescription
+        }
+        showCandidates()
     }
 
-    /// The chats a rule chooses, to show before the founder confirms.
+    /// The chats a rule chooses among everything the sources see, to show before the founder confirms.
     func preview(_ selection: ChatSelection) throws {
-        try switchOn()
-        matching = try WhatsAppChatReader.chats(matching: selection, container: container, policy: capture.policy)
+        try loadGroups()
+        matching = selection.choose(from: candidates).map(WhatsAppChat.init)
     }
+
+    /// Ends the question the chooser asked: the web page stops telling which chat is open, and what it told is dropped.
+    func closeDiscovery() {
+        web.close()
+        pulled = []
+        showCandidates()
+    }
+
+    private func showCandidates() {
+        candidates = ContainerCandidates.merge(pulled + web.sightings(policy: capture.policy, now: store.clock()))
+        groups = candidates.filter { $0.container.kind == .group }.map(WhatsAppChat.init)
+        direct = candidates.filter { $0.container.kind == .direct }.map(WhatsAppChat.init)
+    }
+
+    /// What the person can do so that Workbench can see who is in this group, or nil when it already can or the group
+    /// is a direct chat.
+    func memberListHint(for chat: WhatsAppChat) -> String? {
+        guard chat.isGroup, let candidate = candidates.first(where: { $0.id == chat.container }),
+            candidate.membership == nil
+        else { return nil }
+        return SourceDescriptor.whatsAppWeb.membershipHowTo
+    }
+
+    /// Why a chosen chat is not being read, in words for the person; nil when nothing waits.
+    func waitingWords(for chat: WhatsAppChat) -> String? { web.waiting(on: chat.container) }
 
     func choose(_ group: WhatsAppChat) throws { try choose([group]) }
 
@@ -84,8 +130,8 @@ final class WhatsAppSource: MachineSource {
         }
         try chatsKey.save(chosen, to: store)
         chats = chosen
-        groups = []
         matching = []
+        closeDiscovery()
     }
 
     /// Said to the founder before a chat is stopped.
@@ -103,6 +149,7 @@ final class WhatsAppSource: MachineSource {
     /// drops it. Other chats stay.
     static func stopReading(_ chat: WhatsAppChat, among sources: [WhatsAppSource], capture: CaptureService) throws {
         try capture.update { $0.allowList[.whatsapp]?.remove(chat.jid) }
+        for source in sources { source.web.forget(chat.container) }
         for source in sources where source.chats.contains(where: { $0.id == chat.id }) { try source.drop(chat) }
     }
 
@@ -171,8 +218,10 @@ final class WhatsAppSource: MachineSource {
         if let failure = report.failures.first { throw failure.error }
     }
 
-    private func reader() -> WhatsAppChatReader {
-        WhatsAppChatReader(container: container, chatJIDs: chats.map(\.jid), policy: store)
+    private func reader() -> WhatsAppChatReader { reader(chatJIDs: chats.map(\.jid)) }
+
+    private func reader(chatJIDs: [String]) -> WhatsAppChatReader {
+        WhatsAppChatReader(container: container, chatJIDs: chatJIDs, policy: store)
     }
 
     private func evidence(_ stored: StoredLine, start: Date) -> Evidence {

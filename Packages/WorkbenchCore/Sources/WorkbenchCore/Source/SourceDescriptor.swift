@@ -30,6 +30,9 @@ public struct SourceDescriptor: Sendable, Equatable {
     /// The key of the source this one stands in for: it writes a chat only while that source cannot read it. Two
     /// sources that write one chat would give two texts for one entity key, which looks like an edit.
     public let fallbackFor: String?
+    /// What the person can do so that this source can see who is in a group, or nil when the source reads the list
+    /// itself. The chooser and the machine's page show it when a group's list is missing.
+    public let membershipHowTo: String?
 
     /// The id of this source for one owner. Two owners never share one.
     public func sourceID(owner: PersonID) throws(IdentifierError) -> SourceID {
@@ -45,13 +48,16 @@ extension SourceDescriptor {
 
     public static let whatsAppChat = SourceDescriptor(
         key: "whatsapp.chat", aliases: ["whatsapp_chat"], consent: .whatsapp, grammar: whatsAppGrammar,
-        retention: .chat, obtainedBy: .db, editWindow: Scan.chatEditWindow, fallbackFor: nil)
+        retention: .chat, obtainedBy: .db, editWindow: Scan.chatEditWindow, fallbackFor: nil,
+        membershipHowTo: nil)
 
     /// The WhatsApp Web page, read by the browser extension. It reads one chat at a time and has no row numbers, so
     /// it keeps no cursor and looks back over no window.
     public static let whatsAppWeb = SourceDescriptor(
         key: "whatsapp.web", aliases: [], consent: .whatsapp, grammar: whatsAppGrammar, retention: .chat,
-        obtainedBy: .domText, editWindow: 0, fallbackFor: whatsAppChat.key)
+        obtainedBy: .domText, editWindow: 0, fallbackFor: whatsAppChat.key,
+        membershipHowTo:
+            "Open the group info in WhatsApp Web while this group is open, so Workbench can see who is in it.")
 }
 
 /// The sources this build knows. A source starts only when a machine names it.

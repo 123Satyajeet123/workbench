@@ -141,6 +141,71 @@ struct ExtensionReaderTests {
         #expect(try world.count("SELECT count(*) FROM evidence") == 3)
     }
 
+    // MARK: group-info panel and probe
+
+    private func panelRun() throws -> [String: Any] {
+        try run(fixture: "whatsapp-group-open.html", harnessName: "whatsapp-panel-harness.html")
+    }
+
+    private func panel(_ value: Any?) throws -> WebPanel {
+        try JSONDecoder().decode(
+            WebPanel.self, from: JSONSerialization.data(withJSONObject: try #require(value as? [String: Any])))
+    }
+
+    @Test func theGroupInfoPanelGivesMembersOnlyFromAttributesThatHoldAnIdAndOnlyWhenWhole() throws {
+        let out = try panelRun()
+        let identity = try #require(out["identity"] as? [String: Any])
+        #expect(identity["status"] as? String == "read" && identity["chatId"] as? String == "123456789-1600000000@g.us")
+        #expect(identity["title"] as? String == "Team Ops")
+        let whole = try panel(identity["members"])
+        #expect(
+            whole.ids == ["111111111@lid", "919800000002@c.us", "222222222@lid"], "ids from attributes, in row order")
+        #expect(whole.rows == 3 && whole.stated == 3)
+        #expect(whole.membership()?.members.count == 3)
+        #expect((out["read"] as? [String: Any])?["members"] as? [String: Any] != nil, "a reading carries the same list")
+
+        let gap = try panel(out["gap"])
+        #expect(gap.ids.count == 2 && gap.rows == 3 && gap.membership() == nil, "a row with no id leaves a gap")
+        let names = try panel(out["namesOnly"])
+        #expect(names.ids.isEmpty && names.rows == 3 && names.membership() == nil, "names give no ids")
+        let text = try panel(out["textIsNotAnId"])
+        #expect(text.ids.count == 2 && text.membership() == nil, "an id written as text is not read")
+        #expect(try panel(out["noStatedCount"]).membership() == nil, "no stated count, no proof")
+        #expect(out["otherChatsPanel"] is NSNull, "a panel with another title is not this chat's")
+        #expect(out["noPanel"] is NSNull)
+    }
+
+    @Test func theChatIdentityHoldsAnIdATitleAndMembersAndNoMessage() throws {
+        let out = try panelRun()
+        let identity = try #require(out["identity"] as? [String: Any])
+        #expect(Set(identity.keys) == ["status", "chatId", "title", "members"])
+        let encoded = String(decoding: try JSONSerialization.data(withJSONObject: identity), as: UTF8.self)
+        #expect(!encoded.contains("Send the deck") && !encoded.contains("Monday"))
+        let direct = try #require(out["direct"] as? [String: Any])
+        #expect(direct["chatId"] as? String == "919800000002@c.us" && direct["title"] as? String == "Bharat")
+        #expect(direct["members"] is NSNull, "a direct chat has no panel list")
+        #expect((out["noMessages"] as? [String: Any])?["status"] as? String == "unverified-chat")
+    }
+
+    @Test func theProbeReturnsStructureAndNoNameNumberIdOrText() throws {
+        let probe = try #require(try panelRun()["probe"] as? [String: Any])
+        let json = String(decoding: try JSONSerialization.data(withJSONObject: probe), as: UTF8.self)
+        let planted = [
+            "Ana", "Rao", "Bharat", "98000", "919800", "111111111", "222222222", "123456789", "Team Ops",
+            "Send the deck",
+            "Monday", "@", "participants", "9198765432",
+        ]
+        for token in planted { #expect(!json.contains(token), "the probe output holds \(token)") }
+        #expect(json.firstMatch(of: #/\d{4,}/#) == nil, "no long number")
+        for found in [
+            "phone-shaped jid", "lid", "message id with lid sender", "message id with no sender", "data-jid", "data-x",
+        ] {
+            #expect(json.contains(found), "the probe did not report \(found)")
+        }
+        #expect(json.contains("(odd name)"), "a name that holds a number is reported as odd, not as itself")
+        #expect(json.utf8.count < 20_000)
+    }
+
     @Test func aLargeDeckIsCutIntoChunksThatJoinBack() throws {
         let out = try run(fixture: "thread-with-deck.html")
         #expect(out["chunkCount"] as? Int == 3, "1.2 MB in chunks of 512 KiB")

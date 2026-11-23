@@ -79,35 +79,46 @@ struct GroupChooser: View {
             Text("Choose what \(model.name) reads. It reads only those chats, and only the day you ask it to.")
                 .foregroundStyle(.supporting)
             if !source.chats.isEmpty { ChosenChats(model: model, source: source) }
-            Card(title: "One group", symbol: "person.3") {
-                Text("Your team's WhatsApp group.").foregroundStyle(.supporting)
-                if source.groups.isEmpty {
-                    Button("Show my WhatsApp groups") { model.attempt("list your WhatsApp groups", source.loadGroups) }
+            Card(title: "One chat", symbol: "person.3") {
+                Text("Your team's WhatsApp group, or the chat that is open in WhatsApp Web.")
+                    .foregroundStyle(.supporting)
+                if source.groups.isEmpty && source.direct.isEmpty {
+                    Button("Show my WhatsApp chats") { model.attempt("list your WhatsApp chats", source.loadGroups) }
                         .buttonStyle(.primary)
+                    if let problem = source.pullProblem {
+                        Text("\(problem) You can also open the chat in WhatsApp Web, with the Workbench extension on.")
+                            .textStyle(.callout).foregroundStyle(.supporting)
+                    }
                 } else {
-                    TextField("Search your groups", text: $query, prompt: Text("Search your groups"))
+                    TextField("Search your chats", text: $query, prompt: Text("Search your chats"))
                         .textFieldStyle(.roundedBorder)
-                    let found = FuzzySearch.filter(source.groups, by: query, name: \.name)
+                    let found = FuzzySearch.filter(source.groups + source.direct, by: query, name: \.name)
                     if found.isEmpty {
-                        Text("No group matches “\(query)”.").foregroundStyle(.supporting)
+                        Text("No chat matches “\(query)”.").foregroundStyle(.supporting)
                     }
                     VStack(alignment: .leading, spacing: 0) {
-                        ForEach(found) { group in
-                            HStack {
-                                Text(group.name).lineLimit(1)
-                                Spacer()
-                                Button("Choose") {
-                                    model.attempt("save the group") { try source.choose(group) }
-                                    model.reload()
+                        ForEach(found) { chat in
+                            VStack(alignment: .leading, spacing: Space.xs) {
+                                HStack {
+                                    Text(chat.name).lineLimit(1)
+                                    Spacer()
+                                    Button("Choose") {
+                                        model.attempt("save the chat") { try source.choose(chat) }
+                                        model.reload()
+                                    }
+                                    .buttonStyle(.ghost).foregroundStyle(.linkText)
                                 }
-                                .buttonStyle(.ghost).foregroundStyle(.linkText)
+                                if let hint = source.memberListHint(for: chat) {
+                                    Text(hint).textStyle(.callout).foregroundStyle(.supporting)
+                                }
                             }
                             .padding(.vertical, Space.xs)
-                            if group.id != found.last?.id { Divider() }
+                            if chat.id != found.last?.id { Divider() }
                         }
                     }
                 }
             }
+            .onDisappear { source.closeDiscovery() }
             SeveralChatsChooser(model: model, source: source)
         }
     }

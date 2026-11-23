@@ -155,17 +155,20 @@ extension WhatsAppChatReader: EvidenceSource {
             legacy: plan.mapsLegacyRefs ? LegacyRef(space: .whatsAppRow, ref: message.identity.row) : nil)
     }
 
-    /// Everyone who could read the chat now: the active members of a group, or the other person of a direct chat,
-    /// and the owner. A group with no active member fails closed.
+    /// Everyone who could read the chat now, by the one audience rule: the active members of a group from the store's
+    /// table, or the other person of a direct chat, and the owner. A group with no active member fails closed.
     private func audience(of place: ChatPlace, in snapshot: SQLiteSnapshot) throws -> AudienceDigest {
-        let members =
+        let membership =
             place.isGroup
-            ? try snapshot.rows(
-                "SELECT ZMEMBERJID FROM ZWAGROUPMEMBER WHERE ZCHATSESSION = ? AND ZISACTIVE = 1 AND ZMEMBERJID <> ''",
-                binding: [.integer(place.session)]
-            ).compactMap { $0.text(0) } : [place.jid]
-        guard !members.isEmpty else { throw ReadError.audienceUnknown }
-        return AudienceDigest(owner: Self.audienceOwner, members: members.map(WhatsAppJID.canonical))
+            ? Membership(
+                members: try snapshot.rows(
+                    "SELECT ZMEMBERJID FROM ZWAGROUPMEMBER WHERE ZCHATSESSION = ? AND ZISACTIVE = 1 AND ZMEMBERJID <> ''",
+                    binding: [.integer(place.session)]
+                ).compactMap { $0.text(0).map(WhatsAppJID.canonical) }, proof: .sourceTable) : nil
+        let container = Container(id: place.jid, kind: place.isGroup ? .group : .direct, title: "")
+        guard let digest = AudienceRule.digest(of: container, owner: Self.audienceOwner, membership: membership)
+        else { throw ReadError.audienceUnknown }
+        return digest
     }
 
     /// The identity of the message each stanza id names in this chat; the lowest row number when a stanza id repeats.

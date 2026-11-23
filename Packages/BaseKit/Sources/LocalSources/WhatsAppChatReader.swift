@@ -10,17 +10,14 @@ public struct WhatsAppChat: Codable, Sendable, Equatable, Identifiable, Hashable
     public var isGroup: Bool { jid.hasSuffix("@g.us") }
     /// The container of the chat's stored lines.
     public var container: String { WhatsAppJID.canonical(jid) }
-}
 
-/// Which chats a several-chat machine reads, as the founder put it: groups whose name holds some words, and the direct
-/// chats with people in those groups.
-public struct ChatSelection: Codable, Sendable, Equatable {
-    public var nameContains: String
-    public var directWithMembers: Bool
+    public init(jid: String, name: String) {
+        self.jid = jid
+        self.name = name
+    }
 
-    public init(nameContains: String, directWithMembers: Bool) {
-        self.nameContains = nameContains
-        self.directWithMembers = directWithMembers
+    public init(_ candidate: ContainerCandidate) {
+        self.init(jid: candidate.container.id, name: candidate.container.title)
     }
 }
 
@@ -69,49 +66,6 @@ public struct WhatsAppChatReader: Sendable {
 
     public init(container: URL = defaultContainer, chatJID: String, policy: any CapturePolicyProvider) {
         self.init(container: container, chatJIDs: [chatJID], policy: policy)
-    }
-
-    /// The chats that match a selection: groups whose name holds its words, and, when asked, direct chats with people
-    /// in those groups. Only names and IDs, and only while the WhatsApp source is on.
-    public static func chats(
-        matching selection: ChatSelection, container: URL = defaultContainer, policy: CapturePolicy
-    ) throws -> [WhatsAppChat] {
-        guard policy.mode != .off else { throw ReadError.denied(.captureOff) }
-        guard policy.isEnabled(.whatsapp) else { throw ReadError.denied(.sourceSwitchedOff) }
-        let words = selection.nameContains.trimmingCharacters(in: .whitespaces)
-        guard !words.isEmpty else { return [] }
-        let snapshot = try Self.snapshot(container)
-        let groups = try snapshot.rows(
-            """
-            SELECT ZCONTACTJID, ZPARTNERNAME FROM ZWACHATSESSION
-            WHERE ZSESSIONTYPE = ? AND ZPARTNERNAME IS NOT NULL AND instr(lower(ZPARTNERNAME), lower(?)) > 0
-            ORDER BY ZLASTMESSAGEDATE DESC
-            """, binding: [.integer(Int64(SessionType.group)), .text(words)]
-        ).compactMap { row in row.text(0).map { WhatsAppChat(jid: $0, name: row.text(1) ?? $0) } }
-        guard selection.directWithMembers, !groups.isEmpty else { return groups }
-        let marks = Array(repeating: "?", count: groups.count).joined(separator: ",")
-        let direct = try snapshot.rows(
-            """
-            SELECT s.ZCONTACTJID, s.ZPARTNERNAME FROM ZWACHATSESSION s
-            WHERE s.ZSESSIONTYPE = ? AND s.ZCONTACTJID IN (
-                SELECT g.ZMEMBERJID FROM ZWAGROUPMEMBER g JOIN ZWACHATSESSION c ON c.Z_PK = g.ZCHATSESSION
-                WHERE c.ZCONTACTJID IN (\(marks)))
-            ORDER BY s.ZLASTMESSAGEDATE DESC
-            """, binding: [.integer(Int64(SessionType.person))] + groups.map { .text($0.jid) }
-        ).compactMap { row in row.text(0).map { WhatsAppChat(jid: $0, name: row.text(1) ?? $0) } }
-        return groups + direct
-    }
-
-    /// The groups on this Mac, by name, so the founder can choose one. Only names and IDs, and only while the WhatsApp
-    /// source is on.
-    public static func groups(container: URL = defaultContainer, policy: CapturePolicy) throws -> [WhatsAppChat] {
-        guard policy.mode != .off else { throw ReadError.denied(.captureOff) }
-        guard policy.isEnabled(.whatsapp) else { throw ReadError.denied(.sourceSwitchedOff) }
-        let snapshot = try Self.snapshot(container)
-        return try snapshot.rows(
-            "SELECT ZCONTACTJID, ZPARTNERNAME FROM ZWACHATSESSION WHERE ZSESSIONTYPE = ? AND ZPARTNERNAME IS NOT NULL ORDER BY ZLASTMESSAGEDATE DESC",
-            binding: [.integer(Int64(SessionType.group))]
-        ).compactMap { row in row.text(0).map { WhatsAppChat(jid: $0, name: row.text(1) ?? $0) } }
     }
 
     /// The people in the chats now, and the name of everyone the chats ever had. Only names: no message is read.

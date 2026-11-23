@@ -94,16 +94,19 @@ public enum PageHost {
         public var wantDecks: [String]?
         /// The WhatsApp chats the web page may be read for now; answers a "whatsapp_status" message.
         public var chats: [String]?
+        /// Whether the app asks which chat is open now: the person has the chooser open.
+        public var discover: Bool?
 
         public init(
             kept: Bool, error: String? = nil, labels: [String]? = nil, wantDecks: [String]? = nil,
-            chats: [String]? = nil
+            chats: [String]? = nil, discover: Bool? = nil
         ) {
             self.kept = kept
             self.error = error
             self.labels = labels
             self.wantDecks = wantDecks
             self.chats = chats
+            self.discover = discover
         }
 
         public var framed: Data { NativeMessage.frame((try? JSONEncoder().encode(self)) ?? Data()) }
@@ -129,6 +132,8 @@ public enum PageHost {
                 if let batch { try store.record(batch) }
                 return Reply(kept: batch != nil)
             case "whatsapp_status": return try whatsApp.status(store: store)
+            case "whatsapp_chat_seen":
+                return try whatsApp.see(decoder.decode(WhatsAppChatSeen.self, from: message), now: store.clock())
             case "whatsapp_web":
                 return try whatsApp.keep(decoder.decode(WhatsAppWebSnapshot.self, from: message), store: store)
             case "mail_status": return try MailIntake.status(store: store)

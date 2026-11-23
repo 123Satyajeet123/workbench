@@ -200,8 +200,8 @@ private struct ChatsSheet: View {
         .onChange(of: source.chats.map(\.id)) { dismiss() }
         .task {
             pip.dismissProblem()
-            guard source.groups.isEmpty else { return }
-            pip.attempt("list your WhatsApp groups", source.loadGroups)
+            guard source.groups.isEmpty, source.direct.isEmpty else { return }
+            pip.attempt("list your WhatsApp chats", source.loadGroups)
         }
     }
 }

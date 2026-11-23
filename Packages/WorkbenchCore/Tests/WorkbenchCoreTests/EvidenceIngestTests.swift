@@ -488,6 +488,8 @@ import Testing
         func observe(state: @Sendable (String) throws -> ScanState, now: Date) async throws -> SourceRead {
             await build(try state(EvidenceIngestTests.chat))
         }
+
+        func sightings(policy: CapturePolicy, now: Date) -> [ContainerSighting] { [] }
     }
 
     static func reading(_ lines: [ObservedLine], row: Int64, chat: String = chat) -> SourceReading {

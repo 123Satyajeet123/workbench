@@ -16,13 +16,6 @@ import WorkbenchCore
         let store = fixture.container.appending(path: "ChatStorage.sqlite").path
         try FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: store)
         defer { try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: store) }
-        #expect(throws: ReadError.notPermitted) {
-            try WhatsAppChatReader.groups(container: fixture.container, policy: whatsappOn.policy)
-        }
-        #expect(throws: ReadError.storeMissing) {
-            try WhatsAppChatReader.groups(
-                container: fixture.container.appending(path: "absent"), policy: whatsappOn.policy)
-        }
         #expect(ReadError.notPermitted.localizedDescription.contains("Full Disk Access"))
     }
 
@@ -71,21 +64,17 @@ import WorkbenchCore
             INSERT INTO ZWACHATSESSION VALUES (6, 'b@s.whatsapp.net', 0, 'Bharat K', 60),
                 (7, 'z@s.whatsapp.net', 0, 'Stranger', 70);
             """)
-        let policy = CapturePolicy(switches: [.whatsapp: true])
-        let chosen = try WhatsAppChatReader.chats(
-            matching: ChatSelection(nameContains: "tea", directWithMembers: true), container: fixture.container,
-            policy: policy)
-        #expect(chosen.map(\.name) == ["Team", "Bharat K"])
-        #expect(chosen.map(\.isGroup) == [true, false])
-        let groupsOnly = try WhatsAppChatReader.chats(
-            matching: ChatSelection(nameContains: "TEAM", directWithMembers: false), container: fixture.container,
-            policy: policy)
-        #expect(groupsOnly.map(\.name) == ["Team"])
+        let candidates = ContainerCandidates.merge(
+            try reader(fixture).sightings(policy: whatsappOn.policy, now: .now))
+        let chosen = ChatSelection(nameContains: "tea", directWithMembers: true).choose(from: candidates)
+        #expect(chosen.map(\.container.title) == ["Team", "Bharat K"])
+        #expect(chosen.map(\.container.kind) == [.group, .direct])
         #expect(
-            try WhatsAppChatReader.chats(
-                matching: ChatSelection(nameContains: " ", directWithMembers: true), container: fixture.container,
-                policy: policy
-            ).isEmpty, "no words, no chats")
+            ChatSelection(nameContains: "TEAM", directWithMembers: false).choose(from: candidates)
+                .map(\.container.title) == ["Team"])
+        #expect(
+            ChatSelection(nameContains: " ", directWithMembers: true).choose(from: candidates).isEmpty,
+            "no words, no chats")
     }
 
     @Test func onePeopleReadCoversAGroupAndADirectChatAndNamesEachPersonOnce() async throws {

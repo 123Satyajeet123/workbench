@@ -58,9 +58,11 @@ enum AppLaunch {
             let onboarding = OnboardingModel(store: store, identity: identity)
             let notifications = Notifications()
             let web = WebResearchSettings(store: store)
+            let chatsOpenInWhatsAppWeb = SightingBoard(descriptor: .whatsAppWeb)
             let crew = Crew(
                 store: store, capture: service, founder: { identity.identity.name }, makeModel: nil,
-                notifications: notifications, openWebSession: { try web.openSession() })
+                notifications: notifications, openWebSession: { try web.openSession() },
+                webSightings: chatsOpenInWhatsAppWeb)
             let review = ReviewModel(store: store, crew: crew)
             let mochi = MochiModel(store: store, crew: crew)
             let catalog = TeamCatalogModel(store: store, crew: crew, author: { identity.identity.name })
@@ -78,7 +80,8 @@ enum AppLaunch {
                 runs: RunsModel(store: store),
                 pages: try PageHostListener(
                     path: PagesSocket.path(in: storeFolder), store: store,
-                    whatsApp: WhatsAppWebIntake(owner: owner, readableSources: Self.readableSources)),
+                    whatsApp: WhatsAppWebIntake(
+                        owner: owner, readableSources: Self.readableSources, board: chatsOpenInWhatsAppWeb)),
                 writerLock: writerLock)
             service.start()
             session.reminders.start()
