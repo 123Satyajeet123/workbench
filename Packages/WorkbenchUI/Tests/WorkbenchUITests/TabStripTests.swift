@@ -12,7 +12,7 @@ private struct Strip: View {
     @ObservedObject var holder: Holder
 
     var body: some View {
-        TabStrip(tabs: $holder.tabs, height: 40).frame(width: 900, height: 40, alignment: .leading)
+        TabStrip(tabs: $holder.tabs).frame(width: 900, height: 40, alignment: .leading)
     }
 }
 

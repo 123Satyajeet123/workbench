@@ -22,6 +22,7 @@ public struct WorkbenchApp: App {
                 }
                 .zoomed(Zoom(zoom))
                 .background(.pageFill)
+                .navigationSubtitle(session.capture.profile.isDemo ? ProfileSwitch.demoLabel : "")
                 .environment(session)
                 .onOpenURL { url in session.navigation.requested = SidebarSelection(url: url) }
                 .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
@@ -35,7 +36,6 @@ public struct WorkbenchApp: App {
             ZoomCommands()
             if case .ready(let session) = appDelegate.launch { SettingsCommand(navigation: session.navigation) }
         }
-        .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentSize)
         .defaultWindowPlacement { _, context in
             let visible = context.defaultDisplay.visibleRect

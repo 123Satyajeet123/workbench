@@ -11,7 +11,7 @@ struct MenuBarMenu: View {
     var body: some View {
         let needs = MenuBarNeeds(today: today, review: review)
         if capture.profile.isDemo {
-            Button("\(ProfileSwitch.bannerText) — \(ProfileSwitch.title(to: .yours))") {
+            Button("\(ProfileSwitch.demoLabel) — \(ProfileSwitch.title(to: .yours))") {
                 ProfileSwitch.go(to: .yours)
             }
             Divider()

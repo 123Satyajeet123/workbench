@@ -14,7 +14,7 @@ enum ProfileSwitch {
             : "Workbench restarts with your data. The demo stays as it is."
     }
 
-    static let bannerText = "Demo · synthetic data"
+    static let demoLabel = "Demo · synthetic data"
 
     /// Said while a machine reads, because the restart stops the reading.
     static func readingWarning(machines: [String]) -> String? {

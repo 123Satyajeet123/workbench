@@ -9,7 +9,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let storeFolder: URL
     private let profile: Profile
     private var island: IslandPanel?
-    private var demoBanner: DemoBannerWindows?
     /// What the founder did on a notification, held until the session can act on it.
     let replies = NotificationReplies()
 
@@ -32,7 +31,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        if profile.isDemo { demoBanner = DemoBannerWindows { ProfileSwitch.go(to: .yours) } }
         if case .ready(let session) = launch {
             island = IslandPanel(session: session)
             let answering = NotificationAnswering(

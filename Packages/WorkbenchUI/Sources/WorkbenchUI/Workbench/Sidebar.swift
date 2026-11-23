@@ -58,10 +58,6 @@ enum SidebarLayout {
 
 struct Sidebar: View {
     @Binding var selection: SidebarSelection
-    let titleBar: CGFloat
-    let toggleLeading: CGFloat
-    let isRail: Bool
-    let toggle: () -> Void
     var openInNewTab: (SidebarSelection) -> Void = { _ in }
     @Environment(IdentityModel.self) private var identity
     @Environment(Crew.self) private var crew
@@ -76,7 +72,7 @@ struct Sidebar: View {
     var body: some View {
         VStack(spacing: 0) {
             ScrollView {
-                VStack(alignment: isRail ? .center : .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: 0) {
                     ForEach(SidebarLayout.sections.indices, id: \.self) { index in
                         section(SidebarLayout.sections[index])
                     }
@@ -85,13 +81,10 @@ struct Sidebar: View {
                 .padding(.top, Space.m)
                 .padding(.bottom, Space.s)
             }
-            .scrollClipDisabled(isRail)
             usageRow
             settingsRow
         }
-        .padding(.top, titleBar)
         .background(.sidebarFill)
-        .overlay(alignment: .top) { topRow }
         .sheet(item: $editing) { edit in
             MachineSheet(edit: edit) { id in if let id { selection = .machine(id) } }
         }
@@ -111,29 +104,12 @@ struct Sidebar: View {
         }
     }
 
-    private var topRow: some View {
-        HStack {
-            if !isRail { SidebarToggle(isShown: true, toggle: toggle).padding(.leading, toggleLeading) }
-            Spacer()
-        }
-        .frame(height: titleBar)
-        .background(.sidebarFill)
-        .contentShape(.rect)
-        .gesture(WindowDragGesture())
-    }
-
     private func section(_ section: SidebarLayout.Section) -> some View {
         VStack(alignment: .leading, spacing: 1) {
-            if let title = section.title {
-                if isRail {
-                    Divider().padding(.horizontal, Space.xs).padding(.bottom, Space.s)
-                } else {
-                    label(title, addsMachine: section.entries.contains(.machines))
-                }
-            }
+            if let title = section.title { label(title, addsMachine: section.entries.contains(.machines)) }
             ForEach(section.entries.indices, id: \.self) { index in entry(section.entries[index]) }
         }
-        .padding(.top, section.title == nil ? 1 : isRail ? Space.s : Space.l)
+        .padding(.top, section.title == nil ? 1 : Space.l)
     }
 
     private func label(_ title: String, addsMachine: Bool) -> some View {
@@ -154,45 +130,36 @@ struct Sidebar: View {
         switch entry {
         case .page(let page, let symbol):
             let count = count(of: page)
-            row(page, title: page.title) {
+            row(page) {
                 SidebarRow(
                     title: page.title, icon: .symbol(symbol), detail: count > 0 ? count.formatted() : nil,
-                    isSelected: selection == page, isRail: isRail, showsDot: count > 0)
+                    isSelected: selection == page)
             }
             .contextMenu { newTab(page) }
         case .helper(let page):
-            row(page, title: page.title, role: page.role) {
+            row(page, role: page.role) {
                 SidebarRow(
                     title: page.title,
                     icon: page.look.map { .face($0, page == .mochi ? mochiMood : .calm) } ?? .symbol("circle"),
-                    isSelected: selection == page, isRail: isRail)
+                    isSelected: selection == page)
             }
             .contextMenu { newTab(page) }
         case .machines:
             ForEach(crew.crew, id: \.machine.id) { helper in
                 let page = SidebarSelection.machine(helper.machine.id)
-                row(page, title: helper.name, role: MachineTemplate.of(helper.machine)?.role) {
+                row(page, role: MachineTemplate.of(helper.machine)?.role) {
                     SidebarRow(
                         title: helper.name, icon: .face(.of(helper.machine), helper.mood),
-                        detail: helper.isPaused ? "Paused" : nil, isSelected: selection == page, isRail: isRail,
+                        detail: helper.isPaused ? "Paused" : nil, isSelected: selection == page,
                         dimsIcon: helper.isPaused)
                 }
                 .contextMenu { menu(for: helper) }
-            }
-            if isRail {
-                Button {
-                    editing = .new
-                } label: {
-                    SidebarRow(title: "Add a machine", icon: .symbol("plus"), isSelected: false, isRail: true)
-                }
-                .buttonStyle(SidebarRowStyle(isSelected: false))
-                .railName("Add a machine", isRail: true)
             }
         }
     }
 
     private func row(
-        _ page: SidebarSelection, title: String, role: String? = nil, @ViewBuilder label: () -> some View
+        _ page: SidebarSelection, role: String? = nil, @ViewBuilder label: () -> some View
     ) -> some View {
         Button {
             go(page)
@@ -200,8 +167,7 @@ struct Sidebar: View {
             label()
         }
         .buttonStyle(SidebarRowStyle(isSelected: selection == page))
-        .help(isRail ? "" : role ?? "")
-        .railName(title, isRail: isRail)
+        .help(role ?? "")
         .accessibilityHint(role ?? "")
         .accessibilityAddTraits(selection == page ? .isSelected : [])
     }
@@ -253,25 +219,20 @@ struct Sidebar: View {
         Button {
             go(.usage)
         } label: {
-            if isRail {
-                PlanRing(window: planWindow, size: 28).frame(maxWidth: .infinity).frame(height: 40).contentShape(.rect)
-            } else {
-                HStack(spacing: Space.s) {
-                    PlanRing(window: planWindow, size: 20)
-                    Text(SidebarSelection.usage.title).lineLimit(1).sidebarTitle(isSelected: selection == .usage)
-                    Spacer()
-                    if let planWindow {
-                        Text(PlanRing.percent(planWindow.used)).textStyle(.callout, digits: true)
-                            .foregroundStyle(.sidebarLabel)
-                    }
+            HStack(spacing: Space.s) {
+                PlanRing(window: planWindow, size: 20)
+                Text(SidebarSelection.usage.title).lineLimit(1).sidebarTitle(isSelected: selection == .usage)
+                Spacer()
+                if let planWindow {
+                    Text(PlanRing.percent(planWindow.used)).textStyle(.callout, digits: true)
+                        .foregroundStyle(.sidebarLabel)
                 }
-                .padding(.horizontal, Space.s).frame(minHeight: 30).contentShape(.rect)
             }
+            .padding(.horizontal, Space.s).frame(minHeight: 30).contentShape(.rect)
         }
         .buttonStyle(SidebarRowStyle(isSelected: selection == .usage))
-        .padding(.horizontal, isRail ? Space.xs : Space.s)
-        .help(isRail ? "" : usageSummary)
-        .railName(usageSummary, isRail: isRail)
+        .padding(.horizontal, Space.s)
+        .help(usageSummary)
         .accessibilityLabel(SidebarSelection.usage.title)
         .contextMenu { newTab(.usage) }
     }
@@ -285,46 +246,25 @@ struct Sidebar: View {
         Button {
             go(.settings)
         } label: {
-            if isRail {
-                SidebarRow(
-                    title: "Settings", icon: .symbol("gearshape"), isSelected: selection == .settings, isRail: true)
-            } else {
-                HStack(spacing: Space.s) {
-                    Monogram(name: identity.identity.hasName ? identity.identity.name : "You")
-                    Text(identity.identity.hasName ? identity.identity.name : "You").lineLimit(1)
-                        .sidebarTitle(isSelected: false)
-                    Spacer()
-                    SidebarSymbol(name: "gearshape", isSelected: false)
-                }
-                .padding(Space.s)
-                .contentShape(.rect)
+            HStack(spacing: Space.s) {
+                Monogram(name: identity.identity.hasName ? identity.identity.name : "You")
+                Text(identity.identity.hasName ? identity.identity.name : "You").lineLimit(1)
+                    .sidebarTitle(isSelected: false)
+                Spacer()
+                SidebarSymbol(name: "gearshape", isSelected: false)
             }
+            .padding(Space.s)
+            .contentShape(.rect)
         }
         .buttonStyle(SidebarRowStyle(isSelected: selection == .settings))
         .contextMenu { newTab(.settings) }
-        .padding(isRail ? Space.xs : Space.s)
-        .help(isRail ? "" : "Settings (⌘,)")
-        .railName("Settings", isRail: isRail)
+        .padding(Space.s)
+        .help("Settings (⌘,)")
     }
 
     private var mochiMood: Mascot.Mood {
         let moods = crew.machines.map(\.mood)
         return [.working, .trouble, .asking].first(where: moods.contains) ?? .calm
-    }
-}
-
-struct SidebarToggle: View {
-    let isShown: Bool
-    let toggle: () -> Void
-
-    var body: some View {
-        Button(action: toggle) {
-            Image(systemName: "sidebar.left").textStyle(.title3).foregroundStyle(.sidebarIcon)
-        }
-        .buttonStyle(.ghost)
-        .keyboardShortcut("s", modifiers: [.control, .command])
-        .help(isShown ? "Hide the sidebar (⌃⌘S)" : "Show the sidebar (⌃⌘S)")
-        .accessibilityLabel(isShown ? "Hide the sidebar" : "Show the sidebar")
     }
 }
 
@@ -339,31 +279,26 @@ private struct SidebarRow: View {
     private static let iconSide: CGFloat = 20
     private static let symbolSize: CGFloat = 15
     private static let height: CGFloat = 30
-    private static let railSide: CGFloat = 36
 
     let title: String
     let icon: Icon
     var detail: String?
     let isSelected: Bool
-    var isRail = false
-    var showsDot = false
     var dimsIcon = false
     @Environment(\.uiScale) private var scale
 
     var body: some View {
-        if isRail {
+        HStack(spacing: Space.s) {
             iconView
-                .frame(maxWidth: .infinity)
-                .frame(height: Self.railSide * scale)
-                .overlay(alignment: .topTrailing) {
-                    if showsDot { Circle().fill(.accentFill).frame(width: 6, height: 6).padding(Space.xs) }
-                }
-                .contentShape(.rect)
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(title)
-        } else {
-            row
+            Text(title).lineLimit(1).sidebarTitle(isSelected: isSelected)
+            Spacer(minLength: Space.xs)
+            if let detail { Text(detail).textStyle(.callout, digits: true).foregroundStyle(.sidebarLabel) }
         }
+        .padding(.horizontal, Space.s)
+        .padding(.vertical, Space.xs)
+        .frame(minHeight: Self.height * scale)
+        .contentShape(.rect)
+        .accessibilityElement(children: .combine)
     }
 
     private var iconView: some View {
@@ -377,20 +312,6 @@ private struct SidebarRow: View {
         }
         .frame(width: side, height: side)
         .opacity(dimsIcon ? 0.5 : 1)
-    }
-
-    private var row: some View {
-        HStack(spacing: Space.s) {
-            iconView
-            Text(title).lineLimit(1).sidebarTitle(isSelected: isSelected)
-            Spacer(minLength: Space.xs)
-            if let detail { Text(detail).textStyle(.callout, digits: true).foregroundStyle(.sidebarLabel) }
-        }
-        .padding(.horizontal, Space.s)
-        .padding(.vertical, Space.xs)
-        .frame(minHeight: Self.height * scale)
-        .contentShape(.rect)
-        .accessibilityElement(children: .combine)
     }
 }
 
@@ -564,43 +485,5 @@ private struct SidebarTitle: ViewModifier {
     func body(content: Content) -> some View {
         content.font(.system(size: Self.size * scale, weight: .medium))
             .foregroundStyle(isSelected ? Color.sidebarSelectedText : .sidebarText)
-    }
-}
-
-private struct RailName: ViewModifier {
-    let title: String
-    let isRail: Bool
-    @State private var isHovered = false
-
-    func body(content: Content) -> some View {
-        content
-            .onHover { isHovered = $0 }
-            .overlay {
-                if isRail, isHovered {
-                    GeometryReader { box in
-                        label.frame(height: box.size.height).offset(x: box.size.width + Space.m)
-                    }
-                    .allowsHitTesting(false)
-                    .accessibilityHidden(true)
-                }
-            }
-    }
-
-    private var label: some View {
-        Text(title)
-            .textStyle(.callout, weight: .medium)
-            .foregroundStyle(.bodyText)
-            .fixedSize()
-            .padding(.horizontal, Space.s)
-            .padding(.vertical, Space.xs)
-            .background(.pageFill, in: .rect(cornerRadius: Radius.control))
-            .overlay(RoundedRectangle(cornerRadius: Radius.control).stroke(.dividerLine))
-            .shadow(color: .black.opacity(0.18), radius: 6, y: 2)
-    }
-}
-
-extension View {
-    fileprivate func railName(_ title: String, isRail: Bool) -> some View {
-        modifier(RailName(title: title, isRail: isRail))
     }
 }

@@ -1,14 +1,11 @@
 import SwiftUI
 
 struct WorkbenchView: View {
-    static let minimumSize = CGSize(width: 900, height: 600)
+    static let minimumSize = CGSize(width: 680, height: 600)
     static let idealSize = CGSize(width: 1160, height: 780)
-    static let sidebarWidth: CGFloat = 240
-    static let railWidth: CGFloat = 56
 
     @SceneStorage("tabs") private var savedTabs = ""
     @SceneStorage("sidebarShown") private var isSidebarShown = true
-    @State private var buttons = WindowButtons.compact
     @State private var tabs = PageTabs()
     @State private var isSearching = false
     @Environment(Crew.self) private var crew
@@ -16,31 +13,21 @@ struct WorkbenchView: View {
     @Environment(Navigation.self) private var navigation
     @Environment(CaptureSettings.self) private var capture
     @Environment(\.uiScale) private var scale
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        let titleBar = buttons.center * 2
-        HStack(spacing: 0) {
+        NavigationSplitView(columnVisibility: columnVisibility) {
             Sidebar(
-                selection: Binding(get: { tabs.page }, set: { tabs.open($0) }), titleBar: titleBar,
-                toggleLeading: toggleLeading, isRail: !isSidebarShown,
-                toggle: toggleSidebar, openInNewTab: { tabs.openNewTab($0) }
+                selection: Binding(get: { tabs.page }, set: { tabs.open($0) }), openInNewTab: { tabs.openNewTab($0) }
             )
-            .frame(width: (isSidebarShown ? Self.sidebarWidth : Self.railWidth) * scale)
-            .zIndex(1)
-            Rectangle().fill(.dividerLine).frame(width: 1).padding(.top, isSidebarShown ? 0 : titleBar)
-                .background(isSidebarShown ? Color.clear : .sidebarFill)
+            .navigationSplitViewColumnWidth(min: 200 * scale, ideal: 240 * scale, max: 320 * scale)
+        } detail: {
             page
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .padding(.top, titleBar)
                 .background(.pageFill)
-                .overlay(alignment: .top) { topRow(height: titleBar) }
+                .background { keyboardShortcuts }
+                .toolbar { toolbar }
         }
-        .ignoresSafeArea(edges: .top)
-        .blur(radius: isSearching ? 10 : 0)
-        .overlay(alignment: .top) { if isSearching { search.transition(.opacity.combined(with: .scale(0.97))) } }
-        .animation(Motion.settle(reduceMotion: reduceMotion), value: isSearching)
-        .background(WindowChrome { measured in buttons = measured })
+        .sheet(isPresented: $isSearching) { search }
         .frame(
             minWidth: Self.minimumSize.width, idealWidth: Self.idealSize.width, minHeight: Self.minimumSize.height,
             idealHeight: Self.idealSize.height
@@ -52,6 +39,10 @@ struct WorkbenchView: View {
             show(page)
             navigation.requested = nil
         }
+    }
+
+    private var columnVisibility: Binding<NavigationSplitViewVisibility> {
+        Binding(get: { isSidebarShown ? .all : .detailOnly }, set: { isSidebarShown = $0 != .detailOnly })
     }
 
     @ViewBuilder private var page: some View {
@@ -76,41 +67,22 @@ struct WorkbenchView: View {
         }
     }
 
-    private var toggleLeading: CGFloat { buttons.trailing + Space.xs }
-
-    private func topRow(height: CGFloat) -> some View {
-        HStack(spacing: 0) {
-            if !isSidebarShown {
-                SidebarToggle(isShown: false, toggle: toggleSidebar)
-                    .padding(.leading, max(Space.xs, toggleLeading - Self.railWidth * scale - 1))
-            }
-            HStack(spacing: Space.xs) {
-                Button("Back", systemImage: "chevron.left") { tabs.goBack(isOpen: isOpen) }
-                    .keyboardShortcut("[", modifiers: .command).disabled(!tabs.canGoBack).help("Back (⌘[)")
-                Button("Forward", systemImage: "chevron.right") { tabs.goForward(isOpen: isOpen) }
-                    .keyboardShortcut("]", modifiers: .command).disabled(!tabs.canGoForward).help("Forward (⌘])")
-            }
-            .padding(.horizontal, Space.m)
-            TabStrip(tabs: $tabs, height: height)
-            Color.clear.frame(minWidth: Space.l, maxWidth: .infinity).contentShape(.rect)
-                .gesture(WindowDragGesture())
-            Button("Search", systemImage: "magnifyingglass") { isSearching = true }.help("Search (⌘K)")
-                .padding(.trailing, Space.m)
+    @ToolbarContentBuilder private var toolbar: some ToolbarContent {
+        ToolbarItemGroup(placement: .navigation) {
+            Button("Back", systemImage: "chevron.left") { tabs.goBack(isOpen: isOpen) }
+                .keyboardShortcut("[", modifiers: .command).disabled(!tabs.canGoBack).help("Back (⌘[)")
+            Button("Forward", systemImage: "chevron.right") { tabs.goForward(isOpen: isOpen) }
+                .keyboardShortcut("]", modifiers: .command).disabled(!tabs.canGoForward).help("Forward (⌘])")
         }
-        .background { tabShortcuts }
-        .labelStyle(.iconOnly).buttonStyle(.ghost).foregroundStyle(.sidebarIcon)
-        .frame(height: height)
-        .background(alignment: .bottom) { Rectangle().fill(.dividerLine).frame(height: 1) }
-        .background(.sidebarFill)
+        ToolbarItem(placement: .navigation) { TabStrip(tabs: $tabs) }
+        ToolbarItem(placement: .primaryAction) {
+            Button("Search", systemImage: "magnifyingglass") { isSearching = true }.help("Search (⌘K)")
+        }
     }
 
-    private func toggleSidebar() {
-        withAnimation(Motion.settle(reduceMotion: reduceMotion)) { isSidebarShown.toggle() }
-    }
-
-    private var tabShortcuts: some View {
+    private var keyboardShortcuts: some View {
         Group {
-            Button("Search") { isSearching.toggle() }.keyboardShortcut("k", modifiers: .command)
+            Button("Search") { isSearching = true }.keyboardShortcut("k", modifiers: .command)
             Button("New tab") { tabs.openNewTab() }.keyboardShortcut("t", modifiers: .command)
             Button("Close tab") { tabs.close(tabs.selected) }.keyboardShortcut("w", modifiers: .command)
                 .disabled(!tabs.canClose)
@@ -121,28 +93,24 @@ struct WorkbenchView: View {
     }
 
     private var search: some View {
-        ZStack(alignment: .top) {
-            Color.black.opacity(0.3).ignoresSafeArea().onTapGesture { isSearching = false }
-            QuickOpenPanel(
-                entries: QuickOpen.entries(
-                    pages: SidebarLayout.pages + [.usage, .settings],
-                    machines: crew.crew.map { ($0.machine.id, $0.name) },
-                    people: today.people.map(\.name), projects: today.projectGroups.map(\.name),
-                    settings: SettingsItem.all, switchTo: ProfileSwitch.available(from: capture.profile)),
-                open: { entry, inNewTab in
-                    isSearching = false
-                    switch entry.target {
-                    case .page(let page, let section):
-                        if let section { navigation.settingsSection = section }
-                        if inNewTab { tabs.openNewTab(page) } else { tabs.open(page) }
-                    case .switchProfile(let profile):
-                        ProfileSwitch.go(to: profile)
-                    }
-                },
-                close: { isSearching = false }
-            )
-            .padding(.top, 96)
-        }
+        QuickOpenPanel(
+            entries: QuickOpen.entries(
+                pages: SidebarLayout.pages + [.usage, .settings],
+                machines: crew.crew.map { ($0.machine.id, $0.name) },
+                people: today.people.map(\.name), projects: today.projectGroups.map(\.name),
+                settings: SettingsItem.all, switchTo: ProfileSwitch.available(from: capture.profile)),
+            open: { entry, inNewTab in
+                isSearching = false
+                switch entry.target {
+                case .page(let page, let section):
+                    if let section { navigation.settingsSection = section }
+                    if inNewTab { tabs.openNewTab(page) } else { tabs.open(page) }
+                case .switchProfile(let profile):
+                    ProfileSwitch.go(to: profile)
+                }
+            },
+            close: { isSearching = false }
+        )
     }
 
     private func show(_ page: SidebarSelection) { tabs.open(page) }
@@ -156,8 +124,9 @@ struct WorkbenchView: View {
 }
 
 struct TabStrip: View {
+    static let height: CGFloat = 28
+
     @Binding var tabs: PageTabs
-    let height: CGFloat
     @State private var dragged: PageTabs.Tab.ID?
     @State private var offset: CGFloat = 0
     @State private var tabWidth = TabChip.width.upperBound
@@ -197,9 +166,11 @@ struct TabStrip: View {
                 line
             }
             Button("New tab", systemImage: "plus") { tabs.openNewTab() }
-                .font(.system(size: 15)).frame(width: height, height: height).help("New tab (⌘T)")
+                .labelStyle(.iconOnly).buttonStyle(.ghost).foregroundStyle(.sidebarIcon).font(.system(size: 15))
+                .frame(width: Self.height, height: Self.height).help("New tab (⌘T)")
             line
         }
+        .frame(height: Self.height)
     }
 
     private var line: some View { Rectangle().fill(.dividerLine).frame(width: 1) }

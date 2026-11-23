@@ -109,10 +109,8 @@ struct QuickOpenPanel: View {
         }
         .padding(Space.xs)
         .frame(width: 520)
-        .background(.pageFill, in: .rect(cornerRadius: Radius.card))
-        .overlay(RoundedRectangle(cornerRadius: Radius.card).stroke(.dividerLine))
-        .shadow(color: .black.opacity(0.35), radius: 40, y: 16)
-        .onAppear { isFocused = true }
+        .background(.pageFill)
+        .defaultFocus($isFocused, true)
     }
 
     private func move(_ step: Int, in shown: [QuickOpen.Entry]) -> KeyPress.Result {

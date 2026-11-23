@@ -14,7 +14,7 @@ struct ProfileSection: View {
 
     var body: some View {
         Section("Demo") {
-            SettingRow(profile.isDemo ? ProfileSwitch.bannerText : "Synthetic data", detail) {
+            SettingRow(profile.isDemo ? ProfileSwitch.demoLabel : "Synthetic data", detail) {
                 Button(ProfileSwitch.title(to: target)) { ProfileSwitch.go(to: target) }
                     .disabled(target.isDemo && !ProfileSwitch.demoIsBuilt)
             }
