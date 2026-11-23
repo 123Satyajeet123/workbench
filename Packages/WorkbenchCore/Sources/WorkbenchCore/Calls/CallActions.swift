@@ -39,7 +39,8 @@ extension HelperSpec.Lifecycle {
 
 /// Opens the follow-ups said in one call as facts of `HelperSpec.callFollowUps`: one `HelperReader` run over the
 /// call's transcript lines, kept by the verifier and written by `Store.saveReading` under the call app's consent. The
-/// follow-ups still open from earlier calls are shown, so a later call can restate one or say it is done.
+/// follow-ups still open from earlier calls are shown, so a later call can restate one or say it is done. Review never
+/// asks about a follow-up, so none is picked for a random check.
 public struct CallFollowUps: Sendable {
     public let model: RecordedModel
 
@@ -59,7 +60,8 @@ public struct CallFollowUps: Sendable {
         guard let grant = try store.queries.policy().authorize(request, at: store.clock()).grant else {
             throw EvidenceError.consentWithdrawn
         }
-        try store.saveReading(result, of: spec, day: day, scope: recording.bundleID, grant: grant)
+        try store.saveReading(
+            result, of: spec, day: day, scope: recording.bundleID, grant: grant, isAudited: { _ in false })
     }
 
     /// A transcript line as the model reads it: who spoke, then the words, which a quote is taken from.
