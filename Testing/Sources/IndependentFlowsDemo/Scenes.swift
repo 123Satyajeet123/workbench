@@ -49,9 +49,9 @@ func whatsAppFolder(_ messages: [ChatMessage]) throws -> URL {
     return folder
 }
 
-/// Noon of the day `days` before today: far from a day edge.
+/// Noon of the work day `days` before today's: far from a work day edge, even when the demo runs before the day starts.
 func noon(daysAgo days: Int) -> Date {
-    let day = Calendar.current.date(byAdding: .day, value: -days, to: .now) ?? .now
+    let day = Calendar.current.date(byAdding: .day, value: -days, to: WorkDay(containing: .now).start) ?? .now
     return Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: day) ?? day
 }
 

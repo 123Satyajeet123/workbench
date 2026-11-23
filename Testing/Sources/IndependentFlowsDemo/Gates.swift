@@ -19,7 +19,7 @@ enum Gates {
     ]
 
     static let chatDeal = """
-        {"items":[{"company":"Beta Pay","sector":"payments","stage":"seed","from":"Asha","r_stage":"yes","r_stage_quote":"raising a seed round","r_stage_reason":"It raises a seed round.","r_traction":"yes","r_traction_quote":"12 merchants pay us","r_traction_reason":"12 merchants pay.","cite":@Beta Pay@,"quote":"Beta Pay is raising a seed round"}]}
+        {"items":[{"company":"Beta Pay","sector":"payments","stage":"seed","from":"Asha","r_stage":"yes","r_stage_quote":"raising a seed round","r_stage_reason":"It raises a seed round.","r_traction":"yes","r_traction_quote":"12 merchants pay us","r_traction_reason":"12 merchants pay.","cite":@Beta Pay@,"object":"","quote":"Beta Pay is raising a seed round"}]}
         """
     static let chatRating = """
         {"r_stage":"yes","r_stage_quote":"raising a seed round","r_stage_reason":"It raises a seed round.","r_traction":"yes","r_traction_quote":"12 merchants pay us","r_traction_reason":"12 merchants pay."}
@@ -254,7 +254,7 @@ extension Gates {
         _ company: String, stage: String, stageAnswer: String, tractionAnswer: String, quote: String
     ) -> String {
         """
-        {"items":[{"company":"\(company)","sector":"software","stage":"\(stage)","from":"a founder","r_stage":"\(stageAnswer)","r_stage_quote":"\(quote)","r_stage_reason":"The round is named.","r_traction":"\(tractionAnswer)","r_traction_quote":"\(quote)","r_traction_reason":"The mail says so.","cite":@\(company)@,"quote":"\(quote)"}]}
+        {"items":[{"company":"\(company)","sector":"software","stage":"\(stage)","from":"a founder","r_stage":"\(stageAnswer)","r_stage_quote":"\(quote)","r_stage_reason":"The round is named.","r_traction":"\(tractionAnswer)","r_traction_quote":"\(quote)","r_traction_reason":"The mail says so.","cite":@\(company)@,"object":"","quote":"\(quote)"}]}
         """
     }
 
@@ -264,7 +264,7 @@ extension Gates {
 
     static func pipReply(person: String, text: String, quote: String) -> String {
         """
-        {"items":[{"person":"\(person)","project":"Launch","kind":"commitment","text":"\(text)","when":\(noTime),"stance":"said","asks":"team","relation":{"kind":"new","handle":"","outcome":""},"cite":@\(quote)@,"quote":"\(quote)"}]}
+        {"items":[{"person":"\(person)","project":"Launch","kind":"commitment","text":"\(text)","when":\(noTime),"stance":"said","asks":"team","relation":{"kind":"new","handle":"","outcome":""},"cite":@\(quote)@,"object":"","quote":"\(quote)"}]}
         """
     }
 
