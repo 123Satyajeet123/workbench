@@ -8,6 +8,9 @@ public enum SourceKind: String, Codable, CaseIterable, Sendable {
     case typed
     /// A file the person added to a deal by hand. Like `typed`, the act is the consent: no switch, no grant.
     case dropped
+    /// What the person wrote in a project note. It is their own writing: the capture switch and pause do not stop it,
+    /// and age does not erase it. Only the person's delete does. See `Store.saveNote`.
+    case note
     case whatsapp
     case call
     /// Gmail threads opened inside one named label, read by the browser extension.
@@ -43,6 +46,7 @@ extension SourceKind {
         case .files: "Files"
         case .typed: "Typed by you"
         case .dropped: "A file you added"
+        case .note: "Your note"
         }
     }
 }

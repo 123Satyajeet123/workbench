@@ -8,7 +8,7 @@ import Lines
 /// kind, audience proof, cost class, a second cursor kind) in the change that reads them.
 public struct SourceDescriptor: Sendable, Equatable {
     /// How long lines live. The raw value is the `retention_class` of the line.
-    public enum Retention: String, Sendable { case chat, mail, page, file }
+    public enum Retention: String, Sendable { case chat, mail, page, file, note }
 
     /// How the source gives its text. The raw value is the `obtained_by` of the line.
     public enum Obtained: String, Sendable {
@@ -90,7 +90,7 @@ extension SourceDescriptor {
 
 /// The sources this build knows. A source starts only when a machine names it.
 public enum SourceRegistry {
-    public static let all: [SourceDescriptor] = [.whatsAppChat, .gmailMail, .webPage, .typedNote, .droppedFile]
+    public static let all: [SourceDescriptor] = [.whatsAppChat, .gmailMail, .webPage, .typedNote, .droppedFile, .note]
 
     /// The source with this key or alias, or nil when no ported source has it.
     public static func descriptor(named name: String) -> SourceDescriptor? {

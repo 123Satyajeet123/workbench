@@ -104,11 +104,13 @@ public struct SourceReading: Sendable {
     public var census: [Int: TypeCensus]
     /// Rows that should have been lines but had no name to key them by (no stanza id, or no author in a group).
     public var unkeyed: Int
+    /// How the container is laid out, written in the same transaction as the lines.
+    public var structure: ContainerStructure?
 
     public init(
         grant: CaptureGrant, label: String, container: String, audience: AudienceDigest, lines: [ObservedLine],
         cursorAfter: ScanCursor?, mapsLegacyRefs: Bool = false, readerVersion: String,
-        census: [Int: TypeCensus] = [:], unkeyed: Int = 0
+        census: [Int: TypeCensus] = [:], unkeyed: Int = 0, structure: ContainerStructure? = nil
     ) {
         self.grant = grant
         self.label = label
@@ -120,6 +122,31 @@ public struct SourceReading: Sendable {
         self.readerVersion = readerVersion
         self.census = census
         self.unkeyed = unkeyed
+        self.structure = structure
+    }
+}
+
+/// What a container holds beyond its lines: the order of its entities, and which entities went on as another. A line
+/// never carries either, because a line never changes.
+public struct ContainerStructure: Sendable, Equatable {
+    /// An entity whose words moved into another entity. It is no longer a current line; its lines stay as they were.
+    public struct Supersession: Sendable, Equatable {
+        public var entity: EntityKey
+        public var into: EntityKey
+
+        public init(entity: EntityKey, into: EntityKey) {
+            self.entity = entity
+            self.into = into
+        }
+    }
+
+    /// The entities that are current, first to last. Only an entity that has a text line is kept.
+    public var order: [EntityKey]
+    public var supersessions: [Supersession]
+
+    public init(order: [EntityKey], supersessions: [Supersession] = []) {
+        self.order = order
+        self.supersessions = supersessions
     }
 }
 
