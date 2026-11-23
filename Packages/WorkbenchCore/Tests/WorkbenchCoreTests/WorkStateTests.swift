@@ -10,11 +10,13 @@ private func at(_ day: WorkDay, _ minutes: Double) -> Date { day.start.addingTim
 private let chatGrant = grant(.whatsapp, label: "work")
 
 private func fact(_ kind: String, _ text: String, cite: Int, quote: String) -> String {
-    #"{"kind":"\#(kind)","text":"\#(text)","person":"Asha","project":"Deck","eta":"","asks":"team","stance":"said","cite":\#(cite),"quote":"\#(quote)"}"#
+    #"{"kind":"\#(kind)","text":"\#(text)","person":"Asha","project":"Deck","eta":"","asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":\#(cite),"quote":"\#(quote)"}"#
 }
 
-private func close(_ handle: String, _ outcome: String, cite: Int, quote: String) -> String {
-    #"{"handle":"\#(handle)","outcome":"\#(outcome)","cite":\#(cite),"quote":"\#(quote)"}"#
+/// A line that shows an open fact is over: a fact of its own, related to the open one by `closes`.
+private func closing(_ handle: String, _ outcome: String, cite: Int, quote: String) -> String {
+    pipItem(
+        "done", "Deck sent", cite: cite, quote: quote, relation: "closes", handle: handle, outcome: outcome)
 }
 
 /// Day one opens a commitment and a question; day two may close them.
@@ -27,81 +29,95 @@ private let dayOne = EvidenceSet(
             id: 2, start: at(first, 610), line: "Raj: do we hire a designer?", quotable: ["do we hire a designer?"]),
     ], context: ["members": ["Asha", "Raj"]])
 
-private let dayTwo = EvidenceSet(lines: [
-    Evidence(id: 19, start: at(first, 500), line: "Asha: deck sent last month", quotable: ["deck sent last month"]),
-    Evidence(id: 20, start: at(second, 600), line: "Asha: deck sent", quotable: ["deck sent"]),
-    Evidence(id: 21, start: at(second, 620), line: "Raj: lunch?", quotable: ["lunch?"]),
-])
+private let dayTwo = EvidenceSet(
+    lines: [
+        Evidence(id: 19, start: at(first, 500), line: "Asha: deck sent last month", quotable: ["deck sent last month"]),
+        Evidence(id: 20, start: at(second, 600), line: "Asha: deck sent", quotable: ["deck sent"]),
+        Evidence(id: 21, start: at(second, 620), line: "Raj: lunch?", quotable: ["lunch?"]),
+    ], context: ["members": ["Asha", "Raj"]])
 
 @Suite struct WorkStateTests {
     private func openDayOne(_ store: Store) async throws {
         let reply =
             #"{"items":["# + fact("commitment", "Send the deck", cite: 1, quote: "send the deck")
-            + "," + fact("question", "Hire a designer?", cite: 2, quote: "hire a designer?") + #"],"closes":[]}"#
+            + "," + fact("question", "Hire a designer?", cite: 2, quote: "hire a designer?") + #"]}"#
         let reader = HelperReader(spec: .team, model: RecordedModel(ScriptedModel(reply), store: store))
         let result = try await reader.read(day: first, scope: "work", evidence: dayOne)
         try store.saveReading(result, of: .team, day: first, scope: "work", grant: chatGrant)
     }
 
     private func readDayTwo(
-        _ store: Store, closes: [String], evidence: EvidenceSet = dayTwo
+        _ store: Store, items: [String], evidence: EvidenceSet = dayTwo
     ) async throws -> (HelperReader.Result, ScriptedModel) {
-        let model = ScriptedModel(
-            #"{"items":[],"closes":["# + closes.joined(separator: ",") + "]}")
+        let model = ScriptedModel(pipReply(items))
         let reader = HelperReader(spec: .team, model: RecordedModel(model, store: store))
         let open = try store.queries.openItems(of: HelperSpec.team.task, lifecycle: HelperSpec.team.lifecycle!)
         return (try await reader.read(day: second, scope: "work", evidence: evidence, open: open), model)
     }
 
-    @Test func theModelSeesOpenItemsByHandleAndAKeptPromiseCloses() async throws {
+    @Test func theModelSeesOpenItemsByHandleAndAClosingLineIsOnlyAProposalUntilThePersonConfirms() async throws {
         let store = try makeStore()
         try await openDayOne(store)
-        let (result, model) = try await readDayTwo(store, closes: [close("F1", "kept", cite: 20, quote: "deck sent")])
+        let (result, model) = try await readDayTwo(
+            store, items: [closing("F1", "kept", cite: 20, quote: "deck sent")])
         let input = try #require(model.inputs.withLock { $0.first })
         #expect(
             input.contains(
                 "Still open from earlier days:\nF1 (\(first)) person=Asha project=Deck kind=commitment text=Send the deck"
             ))
         #expect(input.contains("F2 (\(first)) person=Asha project=Deck kind=question"))
-        #expect(result.closes.count == 1 && result.dropped == 0)
+        #expect(result.links.map(\.kind) == [.closeProposed] && result.dropped == 0)
 
-        try store.saveReading(result, of: .team, day: second, scope: "work", grant: chatGrant, replacing: false)
-        let open = try store.queries.openItems(of: HelperSpec.team.task, lifecycle: HelperSpec.team.lifecycle!)
-        #expect(open.map { $0["kind"] } == ["question"])
-        let closed = try store.queries.closedItems(of: HelperSpec.team.task, from: second.start, to: second.end)
-        #expect(closed.map(\.closed) == [Item.Closed(outcome: "kept", quote: "deck sent", at: at(second, 600))])
-        #expect(try store.queries.closedItems(of: HelperSpec.team.task, from: first.start, to: first.end).isEmpty)
+        try store.saveReading(result, of: .team, day: second, scope: "work", grant: chatGrant)
+        let lifecycle = HelperSpec.team.lifecycle!
+        let task = HelperSpec.team.task
+        #expect(
+            try store.queries.openItems(of: task, lifecycle: lifecycle).map { $0["kind"] } == [
+                "commitment", "question",
+            ])
+        let proposal = try #require(try store.queries.closeProposals(of: task).first)
+        #expect(proposal.proposedClose == Item.Closed(outcome: "kept", quote: "deck sent", at: at(second, 600)))
+        try store.confirmClose(item: try #require(proposal.id))
+        #expect(try store.queries.openItems(of: task, lifecycle: lifecycle).map { $0["kind"] } == ["question"])
+        let closed = try store.queries.closedItems(of: task, from: first.start, to: first.end)
+        #expect(closed.map { $0.closed?.outcome } == ["kept"] && closed.map { $0.closed?.quote } == [nil])
+        #expect(
+            try store.queries.closedItems(of: task, from: second.start, to: second.end).isEmpty, "valid when confirmed")
     }
 
     @Test(arguments: [
-        ("unknown handle", close("F9", "kept", cite: 20, quote: "deck sent")),
-        ("no handle form", close("1", "kept", cite: 20, quote: "deck sent")),
-        ("quote not in the line", close("F1", "kept", cite: 20, quote: "deck mailed")),
-        ("line does not exist", close("F1", "kept", cite: 99, quote: "deck sent")),
-        ("line older than the item", close("F1", "kept", cite: 19, quote: "deck sent last month")),
+        ("unknown handle", closing("F9", "kept", cite: 20, quote: "deck sent")),
+        ("no handle form", closing("1", "kept", cite: 20, quote: "deck sent")),
+        ("quote not in the line", closing("F1", "kept", cite: 20, quote: "deck mailed")),
+        ("line does not exist", closing("F1", "kept", cite: 99, quote: "deck sent")),
+        ("line older than the item", closing("F1", "kept", cite: 19, quote: "deck sent last month")),
+        ("no outcome", closing("F1", "", cite: 20, quote: "deck sent")),
     ])
     func aCloseThatFailsACheckIsDropped(_ check: String, _ given: String) async throws {
         let store = try makeStore()
         try await openDayOne(store)
-        let (result, _) = try await readDayTwo(store, closes: [given])
-        #expect(result.closes.isEmpty, "\(check)")
+        let (result, _) = try await readDayTwo(store, items: [given])
+        #expect(result.items.isEmpty && result.links.isEmpty, "\(check)")
         #expect(result.dropped == 1, "\(check)")
     }
 
-    @Test func aLineReadBeforeCannotCloseAndOneItemClosesOnce() async throws {
+    @Test func aLineReadBeforeCannotCloseAndOneItemIsNamedOncePerReading() async throws {
         let store = try makeStore()
         try await openDayOne(store)
-        let reread = EvidenceSet(lines: dayTwo.lines, readUpTo: 20)
+        let reread = EvidenceSet(lines: dayTwo.lines, context: dayTwo.context, readUpTo: 20)
         let (old, _) = try await readDayTwo(
-            store, closes: [close("F1", "kept", cite: 20, quote: "deck sent")], evidence: reread)
-        #expect(old.closes.isEmpty && old.dropped == 1)
-        let (twice, _) = try await readDayTwo(
+            store, items: [closing("F1", "kept", cite: 20, quote: "deck sent")], evidence: reread)
+        #expect(old.links.isEmpty && old.dropped == 1)
+        let (twice, run) = try await readDayTwo(
             store,
-            closes: [
-                close("F1", "kept", cite: 20, quote: "deck sent"), close("F1", "dropped", cite: 20, quote: "deck"),
+            items: [
+                closing("F1", "kept", cite: 20, quote: "deck sent"), closing("F1", "dropped", cite: 20, quote: "deck"),
             ]
         )
-        #expect(twice.closes.map(\.outcome) == ["kept"] && twice.dropped == 1)
+        #expect(twice.links.map(\.effect) == [.closeProposed(outcome: "kept")] && twice.dropped == 1)
+        let drops = try store.queries.dropReasons(of: try #require(twice.run))
+        #expect(drops.map(\.rule) == [.repeatInReading])
+        _ = run
     }
 
     @Test func theFounderClosesAndReopensByHandAndARejectedItemIsNotOpen() async throws {
@@ -155,10 +171,10 @@ private let dayTwo = EvidenceSet(lines: [
         let store = try makeStore()
         let facts = HelperReader(spec: .team, model: RecordedModel(ScriptedModel("{}"), store: store))
         #expect(facts.instructions.contains("Close only when the line says so"))
-        #expect(try facts.schema.jsonText.contains(#""closes""#))
+        #expect(try facts.schema.jsonText.contains(#""relation""#))
         let pages = HelperReader(spec: .pages, model: RecordedModel(ScriptedModel("{}"), store: store))
         #expect(!pages.instructions.contains("Close only"))
-        #expect(try !pages.schema.jsonText.contains(#""closes""#))
+        #expect(try !pages.schema.jsonText.contains(#""relation""#))
         #expect(HelperSpec.team.views["open by project"] == .checklist(by: "project"))
         #expect(HelperSpec.pages.views.values.allSatisfy { if case .checklist = $0 { false } else { true } })
     }
@@ -167,7 +183,7 @@ private let dayTwo = EvidenceSet(lines: [
         let store = try makeStore()
         let plan = fact("plan", "Finish the login API", cite: 1, quote: "finish the login API")
         let opened = HelperReader(
-            spec: .team, model: RecordedModel(ScriptedModel(#"{"items":["# + plan + #"],"closes":[]}"#), store: store))
+            spec: .team, model: RecordedModel(ScriptedModel(#"{"items":["# + plan + #"]}"#), store: store))
         let yesterday = EvidenceSet(
             lines: [
                 Evidence(
@@ -183,11 +199,13 @@ private let dayTwo = EvidenceSet(lines: [
                 Evidence(
                     id: 20, start: at(second, 600), line: "Asha: login API shipped", quotable: ["login API shipped"])
             ], context: ["members": ["Asha"]], readUpTo: 1)
-        let (closing, _) = try await readDayTwo(
-            store, closes: [close("F1", "kept", cite: 20, quote: "login API shipped")], evidence: today)
-        try store.saveReading(closing, of: .team, day: second, scope: "work", grant: chatGrant, replacing: false)
+        let (proposed, _) = try await readDayTwo(
+            store, items: [closing("F1", "kept", cite: 20, quote: "login API shipped")], evidence: today)
+        try store.saveReading(proposed, of: .team, day: second, scope: "work", grant: chatGrant)
+        #expect(try store.queries.openItems(readBy: .team).count == 1, "a model close is a proposal")
+        try store.confirmClose(item: try #require(store.queries.closeProposals(of: HelperSpec.team.task).first?.id))
         #expect(try store.queries.openItems(readBy: .team).isEmpty)
-        let closed = try store.queries.closedItems(of: HelperSpec.team.task, from: second.start, to: second.end)
+        let closed = try store.queries.closedItems(of: HelperSpec.team.task, from: first.start, to: first.end)
         #expect(closed.map { $0.closed?.outcome } == ["kept"] && closed.map { $0["kind"] } == ["plan"])
     }
 
@@ -195,7 +213,7 @@ private let dayTwo = EvidenceSet(lines: [
         let store = try makeStore()
         let reply =
             #"{"items":["# + fact("done", "Login API shipped", cite: 1, quote: "login API shipped") + ","
-            + fact("status", "Payments at 80 percent", cite: 2, quote: "payments at 80") + #"],"closes":[]}"#
+            + fact("status", "Payments at 80 percent", cite: 2, quote: "payments at 80") + #"]}"#
         let evidence = EvidenceSet(
             lines: [
                 Evidence(

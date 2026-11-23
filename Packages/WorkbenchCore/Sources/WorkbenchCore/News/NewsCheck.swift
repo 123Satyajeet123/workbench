@@ -48,7 +48,7 @@ public struct NewsCheck: Sendable {
                 let result = try await reader.read(article, candidates: candidates)
                 try store.saveReading(
                     result, of: spec, day: WorkDay(containing: article.published), scope: "",
-                    grant: session.grant, replacing: false)
+                    grant: session.grant)
                 report.matched += 1
                 report.kept += result.items.count
                 report.dropped += result.dropped

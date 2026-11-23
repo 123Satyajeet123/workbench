@@ -42,12 +42,11 @@ run "6 no held-out days" $C/Runs/Quality.swift 's/Int\(first\) % 10 < Self\.held
 run "7 audit pick not recorded" $C/Store/ItemStore.swift 's/"UPDATE item SET asked_with = \? WHERE id = \?"/"UPDATE item SET asked_with = ? WHERE 0 AND id = ?"/' WorkbenchCore WorkbenchUI
 run "8 expired grants accepted" $C/Store/Store.swift 's/guard grant\.expiresAt > clock\(\) else/guard true else/' WorkbenchCore
 run "9 nudge more than once a day" WorkbenchUI/Sources/WorkbenchUI/Workbench/Helpers/NudgeSchedule.swift 's/guard isOn, lastSent != day,/guard isOn,/' WorkbenchUI
-run "10 overlapping timeline blocks kept" $C/Helpers/HelperReader.swift 's/spec\.citation != \.one\n\s+&& kept\.contains/false \&\& kept.contains/' WorkbenchCore WorkbenchUI
+run "10 overlapping timeline blocks kept" $C/Helpers/HelperReader+Relations.swift 's/spec\.lifecycle == nil && spec\.citation != \.one\n\s+&& kept\.contains/false \&\& kept.contains/' WorkbenchCore WorkbenchUI
 run "11 trust threshold loosened to 20%" $C/Runs/Certificate.swift 's/if bound <= Self\.allowedWrong/if bound <= 0.2/' WorkbenchCore
 run "13 screen text kept without its switch" $C/Capture/CaptureEngine.swift 's/if policy\.isEnabled\(\.screenText\), !snapshot/if true, !snapshot/' WorkbenchCore WorkbenchUI
 run "14 private windows not hidden" $C/Capture/CapturePolicy+Verdict.swift 's/return snapshot\.secureFocus \|\|/return false \&\& snapshot.secureFocus ||/' WorkbenchCore
 run "15 30-day retention never runs" BaseKit/Sources/CaptureService/CaptureService.swift 's/loop\.forget\(before: now\.addingTimeInterval\(-CapturePolicy\.retention\)\)/loop.forget(before: .distantPast)/' BaseKit
-run "17 rereading drops marked items" $C/Store/ItemStore.swift "s/AND scope = \\? AND state = 'proposed'\\)/AND scope = ?)/" WorkbenchCore WorkbenchUI
 run "18 a live call can be deleted" $C/Store/Delete.swift "s/let condition = \"state != 'recording' AND started_at < \\?\"/let condition = \"started_at < ?\"/" WorkbenchCore
 run "19 prompt texts not kept" $C/Runs/Quality.swift 's/"INSERT OR IGNORE INTO prompt\(hash/"INSERT OR IGNORE INTO prompt(hash, task, instructions, schema, first_used) SELECT * FROM (SELECT ?,?,?,?,?) WHERE 0 --(hash/' WorkbenchCore
 run "21 idle does not end a session" $C/Helpers/Sessions.swift 's/case \.idle, \.sleep:/case .sleep:/; s/case \.text, \.page, \.file:/case .text, .page, .file, .idle:/' WorkbenchCore WorkbenchUI
@@ -91,4 +90,9 @@ run "65 a stage may change its meaning" $C/Objects/ObjectType.swift 's/guard cha
 run "66 a machine moves a deal without citing the required fact" $C/Objects/ObjectMove.swift 's/if mover == \.machine \{/if mover == .machine, false {/' WorkbenchCore
 run "67 an old stage label no longer folds to its stage id" $C/Objects/ObjectType.swift 's/stages\.first \{ \$0\.label == text \}/stages.first { \$0.label == text + "!" }/' WorkbenchCore WorkbenchUI
 run "68 a deal in a won stage is not followed in the news" $C/News/WatchedCompany.swift 's/deal\.meanings\.contains\(\.won\) \? \.portfolio/deal.meanings.contains(.lost) ? .portfolio/' WorkbenchCore WorkbenchUI
+run "74 a replace deletes a fact the founder closed" $C/Store/ItemStore.swift 's/(            let known = try knownItems)/            try db.execute(sql: "DELETE FROM item WHERE task = ? AND day = ?", arguments: [spec.task, day.description])\n$1/' WorkbenchCore
+run "75 a model close overrides the founder's later reopen" $C/Store/SchemaFactLifecycle.swift 's/(CREATE VIEW item_status.*?PARTITION BY item_id ORDER BY )valid_at DESC, recorded_at DESC, id DESC/$1id DESC/s' WorkbenchCore
+run "76 a changed date makes a new fact" $C/Helpers/HelperReader+Relations.swift 's/(case \.sameAs\(let id\):\n)/$1                items.append(item)\n/' WorkbenchCore
+run "77 a handle outside the shown open set is applied" $C/Verify/Verifier+Spec.swift 's/(open\[index - 1\]\.id != nil\n        else \{ )throw Refusal\(\.unknownHandle\)( \})/$1guard let first = open.first else { throw Refusal(.unknownHandle) }; return first$2/' WorkbenchCore WorkbenchUI
+run "78 an erased line's words survive in a fact field" $C/Store/EvidenceCopies.swift 's/        try emptyModelWords\(ofItems: itemIDs, in: db\)\n//' WorkbenchCore
 echo DONE

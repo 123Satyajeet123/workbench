@@ -156,7 +156,9 @@ struct ItemRebuildTests {
         try store.writer.read { db in
             #expect(try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM item") == 3)
             #expect(try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM mark") == 1)
-            #expect(try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM item_event") == 1)
+            #expect(
+                try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM item_event") == 1 + 3,
+                "one event and an open event for each item")
             #expect(try String.fetchOne(db, sql: "SELECT state FROM item_mark WHERE id = 3") == "confirmed")
             #expect(try String.fetchOne(db, sql: "SELECT status_kind FROM item_status WHERE item_id = 3") == "close")
             #expect(try String.fetchAll(db, sql: "SELECT quote FROM item ORDER BY id") == ["q1", "q2", "q3"])
@@ -185,7 +187,7 @@ struct ItemRebuildTests {
         try store.writer.write { db in
             try db.execute(sql: "DELETE FROM item WHERE id = 3")
             #expect(try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM mark") == 0)
-            #expect(try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM item_event") == 0)
+            #expect(try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM item_event WHERE item_id = 3") == 0)
         }
     }
 

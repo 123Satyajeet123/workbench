@@ -38,20 +38,62 @@ extension Verifier {
             quoteSpan: cited.span, label: standing.label, authority: standing.authority)
     }
 
-    /// The close a proposal states: its handle names an open item, its outcome is one the lifecycle allows, its line is
-    /// new and not older than the item, and its quote is in that line.
-    func close(_ raw: [String: JSONValue], spec: HelperSpec, open: [Item]) throws -> HelperReader.Close {
-        guard let handle = raw["handle"]?.string, let outcome = raw["outcome"]?.string,
-            let lineID = raw["cite"]?.integer, let words = raw["quote"]?.string
+    /// A proposal that passed its checks: the item it states, how it relates to the open facts, and the date it gives.
+    struct Checked: Sendable {
+        var item: Item
+        var relation: Relation
+        var due: String?
+    }
+
+    /// The proposal of `spec`'s machine, whole: its item passes `item(_:spec:open:day:scope:run:)`, and its relation
+    /// passes `relation(_:spec:open:item:)`.
+    func proposal(
+        _ raw: [String: JSONValue], spec: HelperSpec, open: [Item], day: WorkDay, scope: String, run: RunID
+    ) throws -> Checked {
+        let item = try item(raw, spec: spec, open: open, day: day, scope: scope, run: run)
+        return Checked(
+            item: item, relation: try relation(raw, spec: spec, open: open, item: item),
+            due: spec.lifecycle?.due.flatMap { raw[$0]?.string })
+    }
+
+    /// How a proposal relates to the open facts shown to the model. A machine with no lifecycle shows none, so every
+    /// proposal is new. Else the model names one of five relations. Each handle must name an open fact of that
+    /// reading. A `same_as` keeps the fact's owner. A `supersedes` or `closes` rests on a line not older than the fact
+    /// it ends, and a `closes` names an outcome of the lifecycle.
+    func relation(_ raw: [String: JSONValue], spec: HelperSpec, open: [Item], item: Item) throws -> Relation {
+        guard let lifecycle = spec.lifecycle else { return .new }
+        guard case .object(let given)? = raw["relation"], let kind = given["kind"]?.string,
+            let handle = given["handle"]?.string, let outcome = given["outcome"]?.string
         else { throw Refusal(.malformed) }
-        let item = try fact(handle, open: open)
-        guard let id = item.id, spec.lifecycleOrNone.outcomes.contains(outcome) else {
-            throw Refusal(.fieldKind)
+        switch kind {
+        case "new", "unsure":
+            guard handle.isEmpty, outcome.isEmpty else { throw Refusal(.malformed) }
+            return kind == "new" ? .new : .unsure
+        case "same_as":
+            guard outcome.isEmpty else { throw Refusal(.malformed) }
+            let target = try fact(handle, open: open)
+            if let owner = lifecycle.owner, item[owner] != target[owner] { throw Refusal(.identityMismatch) }
+            return .sameAs(try id(of: target))
+        case "supersedes":
+            guard outcome.isEmpty else { throw Refusal(.malformed) }
+            return .supersedes(try endedTarget(handle, by: item, open: open))
+        case "closes":
+            guard lifecycle.outcomes.contains(outcome) else { throw Refusal(.fieldKind) }
+            return .closes(try endedTarget(handle, by: item, open: open), outcome: outcome)
+        default: throw Refusal(.malformed)
         }
-        let line = try newLine(lineID)
-        guard line.start >= item.start else { throw Refusal(.lineBeforeFact) }
-        _ = try quote(words, in: [line])
-        return HelperReader.Close(item: id, outcome: outcome, line: lineID, quote: words, at: line.start)
+    }
+
+    /// The open fact a proposal ends: its line is not older than the fact.
+    private func endedTarget(_ handle: String, by item: Item, open: [Item]) throws -> Int64 {
+        let target = try fact(handle, open: open)
+        guard item.start >= target.start else { throw Refusal(.lineBeforeFact) }
+        return try id(of: target)
+    }
+
+    private func id(of fact: Item) throws -> Int64 {
+        guard let id = fact.id else { throw Refusal(.unknownHandle) }
+        return id
     }
 
     private func cited(_ raw: [String: JSONValue], spec: HelperSpec, day: WorkDay, open: [Item]) throws -> Cited {

@@ -117,7 +117,7 @@ enum TodaySample {
         }
         try store.saveReading(
             HelperReader.Result(items: items, dropped: 0, run: run), of: machine.spec, day: today, scope: scope,
-            grant: try await store.grant(for: .whatsapp, label: scope, at: store.clock()), replacing: false)
+            grant: try await store.grant(for: .whatsapp, label: scope, at: store.clock()))
     }
 
     private static func saveFinding(_ crew: Crew, today: WorkDay, scope: String, store: Store) async throws {
@@ -134,6 +134,6 @@ enum TodaySample {
             ], quote: "offer letter kal bhejti hoon", run: run)
         try store.saveReading(
             HelperReader.Result(items: [finding], dropped: 0, run: run), of: sentinel.spec, day: today, scope: scope,
-            grant: try await store.grant(for: .whatsapp, label: scope, at: store.clock()), replacing: false)
+            grant: try await store.grant(for: .whatsapp, label: scope, at: store.clock()))
     }
 }

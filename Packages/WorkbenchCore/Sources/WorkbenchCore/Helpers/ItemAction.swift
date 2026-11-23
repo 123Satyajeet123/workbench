@@ -14,10 +14,9 @@ public enum ItemAction: Sendable, Hashable {
 }
 
 extension HelperSpec.Lifecycle {
-    /// How the founder closes an item by hand: resolved for a blocker, else the first outcome (kept).
+    /// How the founder closes an item by hand: the outcome the spec gives its value of `field`, else the first outcome.
     public func doneOutcome(of item: Item) -> String {
-        let resolves = item[field] == "blocker" && outcomes.contains("resolved")
-        return resolves ? "resolved" : outcomes.first ?? "kept"
+        doneOutcomes?[item[field]].flatMap { outcomes.contains($0) ? $0 : nil } ?? outcomes.first ?? "kept"
     }
 
     /// The closes that finish `items`: each one still open gets its own outcome; one that is not open is left alone.

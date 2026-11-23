@@ -113,7 +113,9 @@ import Testing
         let open = try store.queries.openDealActions()
         #expect(open.map(\.id) == [first])
         #expect(open[0]["eta"] == "2026-09-25" && open[0].dueDay == friday && open[0]["deal"] == "deal-1")
-        #expect(open[0]["text"] == "Get the cap table from the founder" && open[0].asksFounder)
+        #expect(
+            open[0]["text"] == "Get the cap table from the founder"
+                && open[0].carries(HelperSpec.Attention.builtIn.asksMe))
 
         time.advance(60)
         let second = try #require(

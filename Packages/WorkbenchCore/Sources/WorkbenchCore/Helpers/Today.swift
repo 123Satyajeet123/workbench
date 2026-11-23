@@ -3,11 +3,11 @@ import Foundation
 /// What Today and the People and Projects pages read from facts: fields a model filled (`asks`, `eta`, `severity`)
 /// and the founder's own marks. Code reads no words.
 extension Item {
-    /// The fact asks the founder for something, or waits on them.
-    public var asksFounder: Bool { self["asks"] == "founder" }
+    /// Whether the field a mark names holds the mark's value.
+    func carries(_ mark: HelperSpec.Attention.Mark?) -> Bool { mark.map { self[$0.field] == $0.value } ?? false }
 
-    /// The day the fact is due, when its `eta` holds a date.
-    public var dueDay: WorkDay? { WorkDay(self["eta"]) }
+    /// The day the fact is due: the date its latest `due_changed` event gave, else its `eta` when that holds a date.
+    public var dueDay: WorkDay? { WorkDay(dueChanged ?? self["eta"]) }
 
     /// Whether lists show it at `now`: not marked wrong, not hidden, not snoozed.
     public func isListed(at now: Date) -> Bool { state != .rejected && !isHidden(at: now) }
@@ -42,14 +42,15 @@ public enum Needs {
     /// hidden, snoozed or wrong item is left out; so is a revisit before its day and news that is not bad or not from
     /// a trusted feed.
     public static func pick(
-        facts: [Item], findings: [Item], today: WorkDay, now: Date, revisits: [Item] = [], news: [Item] = []
+        facts: [Item], findings: [Item], today: WorkDay, now: Date, revisits: [Item] = [], news: [Item] = [],
+        attention: HelperSpec.Attention = .builtIn
     ) -> [Need] {
         let open = facts.filter { $0.closed == nil && $0.isListed(at: now) }
         let listed = findings.filter { $0.closed == nil && $0.isListed(at: now) }
-        let act = listed.filter { $0["severity"] == "act" }.map { Need(item: $0, reason: .act) }
-        let watch = listed.filter { $0["severity"] == "watch" }.map { Need(item: $0, reason: .watch) }
-        let asks = open.filter(\.asksFounder).map { Need(item: $0, reason: .asks) }
-        let due = open.filter { !$0.asksFounder }.compactMap { fact in
+        let act = listed.filter { $0.carries(attention.act) }.map { Need(item: $0, reason: .act) }
+        let watch = listed.filter { $0.carries(attention.watch) }.map { Need(item: $0, reason: .watch) }
+        let asks = open.filter { $0.carries(attention.asksMe) }.map { Need(item: $0, reason: .asks) }
+        let due = open.filter { !$0.carries(attention.asksMe) }.compactMap { fact in
             fact.dueDay.flatMap { $0 <= today ? (day: $0, need: Need(item: fact, reason: .due($0))) : nil }
         }
         let revisit = revisits.filter {

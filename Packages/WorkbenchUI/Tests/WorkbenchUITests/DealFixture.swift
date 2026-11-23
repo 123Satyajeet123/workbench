@@ -65,8 +65,7 @@ final class DealFixture {
         let policy = CapturePolicy(switches: [kind: true], allowList: label.map { [kind: [$0]] } ?? [:])
         try store.saveReading(
             HelperReader.Result(items: [item], dropped: 0, run: nil), of: intake.spec, day: intake.day, scope: "",
-            grant: try #require(policy.authorize(CaptureRequest(kind: kind, label: label), at: .now).grant),
-            replacing: false)
+            grant: try #require(policy.authorize(CaptureRequest(kind: kind, label: label), at: .now).grant))
         let saved = try #require(try store.queries.items(of: intake.spec.task, on: intake.day).last)
         if let mark { try store.mark(item: try #require(saved.id), as: mark) }
         let id = try #require(await deals.newDeal(from: saved, of: intake))

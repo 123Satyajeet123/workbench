@@ -49,8 +49,7 @@ import WorkbenchCore
             try store.saveReading(
                 HelperReader.Result(items: [item], dropped: 0, run: nil), of: helper.spec, day: helper.day,
                 scope: "",
-                grant: try #require(policy.authorize(CaptureRequest(kind: .mail, label: "Deals"), at: .now).grant),
-                replacing: false)
+                grant: try #require(policy.authorize(CaptureRequest(kind: .mail, label: "Deals"), at: .now).grant))
         }
         return (helper, store)
     }

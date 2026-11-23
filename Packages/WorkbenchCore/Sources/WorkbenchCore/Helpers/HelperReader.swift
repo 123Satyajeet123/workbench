@@ -2,40 +2,35 @@ import Foundation
 
 /// Runs one helper over one day: one model call, then the one `Verifier` with the checks its spec implies. The model
 /// decides every item; code keeps an item only when its cited lines exist, its quote is in them, its fields fit their
-/// kinds, and, for a range, it does not overlap an item kept before it. A finding that cites open facts keeps an item
-/// only when every handle is a known open item, every line is new, and the quote is in a cited fact or a cited line.
-/// Each proposal that fails a check is stored with the rule it broke.
+/// kinds, and, for a range, it does not overlap an item kept before it. A machine with a lifecycle also says how each
+/// item relates to the open facts it was shown, and code keeps the relation only when its handle names one of them. A
+/// finding that cites open facts keeps an item only when every handle is a known open item, every line is new, and the
+/// quote is in a cited fact or a cited line. Each proposal that fails a check is stored with the rule it broke.
 public struct HelperReader: Sendable {
     public struct Result: Sendable, Equatable {
+        /// The facts this reading opens.
         public var items: [Item]
-        /// Open items that a new line closed.
-        public var closes: [Close]
-        /// Items and closes the model gave that failed a check. Each has a drop-reason row under `run`.
+        /// The events this reading writes on facts: a restatement or a new date of an open fact, a replacement, a
+        /// proposal to close, and a flag on a fact the model could not place.
+        public var links: [Link]
+        /// Proposals the model gave that failed a check. Each has a drop-reason row under `run`.
         public var dropped: Int
         /// Nil when the day had no evidence, so no model ran.
         public var run: RunID?
 
-        public init(items: [Item], closes: [Close] = [], dropped: Int, run: RunID?) {
+        public init(items: [Item], links: [Link] = [], dropped: Int, run: RunID?) {
             self.items = items
-            self.closes = closes
+            self.links = links
             self.dropped = dropped
             self.run = run
         }
-    }
 
-    /// A new line that closes an open item, as the model read it and code checked it.
-    public struct Close: Sendable, Equatable {
-        public var item: Int64
-        public var outcome: String
-        public var line: Int64
-        public var quote: String
-        /// When the closing line was said.
-        public var at: Date
+        /// The proposals kept: the facts opened and the open facts restated.
+        public var kept: Int { items.count + links.filter { $0.effect == .restate }.count }
     }
 
     struct Reply: Decodable, Sendable {
         var items: [[String: JSONValue]]
-        var closes: [[String: JSONValue]]?
     }
 
     public let spec: HelperSpec
@@ -66,19 +61,13 @@ public struct HelperReader: Sendable {
             holding: [spec.source.kind],
             window: evidence.lines.compactMap { line in line.lineID.map { WindowLine(number: line.id, lineID: $0) } })
         let verifier = Verifier(window: evidence, settings: try model.verifierSettings())
-        let items = try verifier.settle(
+        let proposals = try verifier.settle(
             reply.items, part: "items",
-            check: { try verifier.item($0, spec: spec, open: open, day: day, scope: scope, run: run) },
-            isRepeat: { item, kept in
-                spec.citation != .one
-                    && kept.contains { item.repeats($0, citation: spec.citation, choices: spec.choiceFields) }
-            })
-        let closes = try verifier.settle(
-            reply.closes ?? [], part: "closes", check: { try verifier.close($0, spec: spec, open: open) },
-            isRepeat: { close, kept in kept.contains { $0.item == close.item } })
-        let drops = items.drops + closes.drops
-        try model.record(drops, of: run)
-        return Result(items: items.kept, closes: closes.kept, dropped: drops.count, run: run)
+            check: { try verifier.proposal($0, spec: spec, open: open, day: day, scope: scope, run: run) },
+            isRepeat: { isRepeat($0, among: $1) })
+        try model.record(proposals.drops, of: run)
+        let (items, links) = Self.apply(proposals.kept, spec: spec, open: open)
+        return Result(items: items, links: links, dropped: proposals.drops.count, run: run)
     }
 
     /// The brief, then the rules every helper of this shape follows.
@@ -143,10 +132,14 @@ public struct HelperReader: Sendable {
 
 
             Before the day, you may get the \(spec.itemsNoun) still open from earlier days, each with a handle (F1, F2, \
-            …). Never give an open one again as a new item. When a new line shows that an open one is \
-            \(lifecycle.outcomes.joined(separator: ", ")), give a close: handle, outcome, cite (the number of that \
-            line) and quote (exact words from it). Close only when the line says so: a later mention of the same \
-            topic is not a close.
+            …). Say how each item relates to them in relation: kind, handle, outcome. new: it is a new fact; handle \
+            and outcome are empty. same_as: it says again what an open one says, with the same owner and the same \
+            deliverable, even when the date changed: give that handle, and the new date in the date field. \
+            supersedes: it replaces an open one that no longer holds: give that handle. closes: the line shows an \
+            open one is \(lifecycle.outcomes.joined(separator: ", ")): give that handle and the outcome. unsure: it \
+            may be about an open one and you cannot tell; handle and outcome are empty. Outcome is empty unless the \
+            kind is closes. Never give an open one again as new. Close only when the line says so: a later mention \
+            of the same topic is not a close. A person confirms every close.
             """
     }
 
@@ -184,7 +177,8 @@ public struct HelperReader: Sendable {
     }
 
     private static func values(of item: Item, spec: HelperSpec) -> String {
-        spec.fields.filter { !$0.kind.isComputed }.map { "\($0.name)=\(item[$0.name])" }.joined(separator: " ")
+        let value = { (field: String) in spec.lifecycle?.due == field ? item.dueChanged ?? item[field] : item[field] }
+        return spec.fields.filter { !$0.kind.isComputed }.map { "\($0.name)=\(value($0.name))" }.joined(separator: " ")
     }
 
     public var schema: JSONSchema {
@@ -202,13 +196,20 @@ public struct HelperReader: Sendable {
             case .range: [.init("first", .integer), .init("last", .integer)]
             case .facts: [.init("facts", .array(.string)), .init("lines", .array(.integer))]
             }
-        let items = JSONSchema.Property("items", .array(.object(fields + cite + [.init("quote", .string)])))
-        guard let lifecycle = spec.lifecycle else { return .object([items]) }
-        let close = JSONSchema.object([
-            .init("handle", .string), .init("outcome", .enumeration(lifecycle.outcomes)), .init("cite", .integer),
-            .init("quote", .string),
-        ])
-        return .object([items, .init("closes", .array(close))])
+        let relation: [JSONSchema.Property] =
+            spec.lifecycle.map { [Self.relationProperty(outcomes: $0.outcomes)] } ?? []
+        return .object([.init("items", .array(.object(fields + cite + relation + [.init("quote", .string)])))])
+    }
+
+    /// How an item relates to the open facts: its kind, the handle of the open fact it names (empty for none) and, for
+    /// a close, how the fact ended (empty otherwise). Code checks every part against what the model was shown.
+    private static func relationProperty(outcomes: [String]) -> JSONSchema.Property {
+        .init(
+            "relation",
+            .object([
+                .init("kind", .enumeration(Relation.names)), .init("handle", .string),
+                .init("outcome", .enumeration(outcomes + [""])),
+            ]))
     }
 
     static func input(day: WorkDay, evidence: EvidenceSet) -> String {

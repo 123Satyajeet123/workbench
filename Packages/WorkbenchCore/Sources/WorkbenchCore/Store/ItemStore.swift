@@ -6,85 +6,136 @@ extension Store {
     /// added.
     static let toldBeforeDays = 14
 
-    /// Stores one reading of a day by one helper. A whole reading replaces the items the founder has not marked; a
-    /// reading of only new lines (`replacing: false`) keeps them. A marked item stays, and a new item that repeats it
-    /// is not added; so is a finding of facts that was told before (`toldBeforeDays`). Of the new items, the app picks one at random to ask the founder
-    /// about, and keeps the chance it had. The grant is asked after the model ran, so consent withdrawn meanwhile
-    /// stops the write.
+    /// Stores one reading of a day by one helper. Nothing already stored is deleted or replaced: a fact the founder
+    /// closed, hid or marked stays as the founder left it. A reading adds the facts it opens, and the events it
+    /// writes on facts (a restatement, a new date, a replacement, a proposal to close, a flag), each with the run,
+    /// the line and the quote that show it. A machine with no lifecycle adds no item that repeats one stored before
+    /// it, or a finding of facts told before (`toldBeforeDays`). Of the new items, the app picks one at random to ask
+    /// the founder about, and keeps the chance it had. The grant is asked after the model ran, so consent withdrawn
+    /// meanwhile stops the write.
     public func saveReading(
         _ result: HelperReader.Result, of spec: HelperSpec, day: WorkDay, scope: String, grant: CaptureGrant,
-        replacing: Bool = true, pick: (Int) -> Int = { Int.random(in: 0..<$0) }
+        pick: (Int) -> Int = { Int.random(in: 0..<$0) }
     ) throws {
         try check(grant, kind: spec.source.kind, label: scope.isEmpty ? nil : scope)
         try writer.write { db in
-            if replacing {
-                try db.execute(
-                    sql: """
-                        DELETE FROM item WHERE id IN (
-                            SELECT id FROM item_mark WHERE task = ? AND day = ? AND scope = ? AND state = 'proposed')
-                        """,
-                    arguments: [spec.task, day.description, scope])
+            let known = try knownItems(db, of: spec, day: day, scope: scope)
+            let opened: [Int64?] = try result.items.map { item in
+                guard
+                    !known.contains(where: {
+                        SameClaim.holds(item, $0, citation: spec.citation, choices: spec.choiceFields)
+                    })
+                else { return nil }
+                return try insert(item, day: day, scope: scope, db)
             }
-            let known =
-                spec.citation == .facts
-                ? try Queries.items(db, of: spec.task, since: day.adding(days: -Self.toldBeforeDays))
-                : try Queries.items(db, of: spec.task, day: day, scope: scope)
-            var added: [Int64] = []
-            for item in result.items
-            where !known.contains(where: { item.repeats($0, citation: spec.citation, choices: spec.choiceFields) }) {
-                try db.execute(
-                    sql: """
-                        INSERT INTO item(task, run_id, day, scope, source, cite_first, cite_last, start_at, end_at, fields,
-                            quote, created_at, quote_line, quote_part, quote_start, quote_end, label, authority)
-                        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-                        """,
-                    arguments: [
-                        item.task, item.run, day.description, scope, item.source.rawValue, item.citeFirst,
-                        item.citeLast, item.start.stored, item.end.stored, try Coding.json(item.fields), item.quote,
-                        clock().stored, item.quoteSpan?.line, item.quoteSpan?.part, item.quoteSpan?.start,
-                        item.quoteSpan?.end, try item.label.map { try Coding.json(StoredLabel($0)) },
-                        item.authority.rawValue,
-                    ])
-                added.append(db.lastInsertedRowID)
-            }
+            let added = opened.compactMap { $0 }
             if !added.isEmpty {
                 try db.execute(
                     sql: "UPDATE item SET asked_with = ? WHERE id = ?",
                     arguments: [1 / Double(added.count), added[pick(added.count)]])
             }
             if let run = result.run {
-                for close in result.closes {
-                    try addEvent(
-                        db, item: close.item, kind: "close", outcome: close.outcome, at: close.at,
-                        by: (run: run, line: close.line, quote: close.quote))
-                }
-                try Self.recordYield(db, of: run, kept: result.items.count, dropped: result.dropped)
+                for link in result.links { try apply(link, opened: opened, run: run, db) }
+                try Self.recordYield(db, of: run, kept: result.kept, dropped: result.dropped)
             }
         }
     }
 
-    /// The founder closes an open item by hand, or reopens a closed one: a new event, so the model's close and its
-    /// reversal both stay on record.
+    /// The items a new item of a machine with no lifecycle may repeat. A machine with a lifecycle names the fact it
+    /// restates, so it has none.
+    private func knownItems(_ db: Database, of spec: HelperSpec, day: WorkDay, scope: String) throws -> [Item] {
+        guard spec.lifecycle == nil else { return [] }
+        return spec.citation == .facts
+            ? try Queries.items(db, of: spec.task, since: day.adding(days: -Self.toldBeforeDays))
+            : try Queries.items(db, of: spec.task, day: day, scope: scope)
+    }
+
+    private func insert(_ item: Item, day: WorkDay, scope: String, _ db: Database) throws -> Int64 {
+        try db.execute(
+            sql: """
+                INSERT INTO item(task, run_id, day, scope, source, cite_first, cite_last, start_at, end_at, fields,
+                    quote, created_at, quote_line, quote_part, quote_start, quote_end, label, authority)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                """,
+            arguments: [
+                item.task, item.run, day.description, scope, item.source.rawValue, item.citeFirst, item.citeLast,
+                item.start.stored, item.end.stored, try Coding.json(item.fields), item.quote, clock().stored,
+                item.quoteSpan?.line, item.quoteSpan?.part, item.quoteSpan?.start, item.quoteSpan?.end,
+                try item.label.map { try Coding.json(StoredLabel($0)) }, item.authority.rawValue,
+            ])
+        return db.lastInsertedRowID
+    }
+
+    /// Writes the event of one link. An event on a fact this reading did not open, or opened as a repeat, is not
+    /// written when its fact is not stored.
+    private func apply(_ link: Link, opened: [Int64?], run: RunID, _ db: Database) throws {
+        let fact: Int64?
+        switch link.subject {
+        case .stored(let id): fact = id
+        case .opened(let index): fact = opened[index]
+        }
+        guard let fact else { return }
+        var due: String?
+        var outcome: String?
+        var successor: Int64?
+        switch link.effect {
+        case .restate, .flag: break
+        case .dueChanged(let date): due = date
+        case .supersede(let index): successor = opened[index]
+        case .closeProposed(let proposed): outcome = proposed
+        }
+        try addEvent(
+            db, item: fact, kind: link.kind, outcome: outcome, due: due, successor: successor, at: link.at,
+            by: (run: run, line: link.line, quote: link.quote))
+    }
+
+    /// A trial reads past days with a new brief and keeps its items apart from the machine's own. A new trial of the
+    /// same machine starts from none of the old trial's items; the machine's own items are never touched.
+    public func discardTrialItems(of task: String) throws {
+        try writer.write { db in
+            try db.execute(sql: "DELETE FROM item WHERE task = ?", arguments: [Trial.task(of: task)])
+        }
+    }
+
+    /// The founder closes an open item by hand: a new event, so a later reopening and the model's proposals stay on
+    /// record.
     public func close(item id: Int64, as outcome: String) throws {
-        try writer.write { db in try addEvent(db, item: id, kind: "close", outcome: outcome, at: clock(), by: nil) }
+        try writer.write { db in try addEvent(db, item: id, kind: .close, outcome: outcome, at: clock()) }
+    }
+
+    /// The founder agrees with the model's proposal to close an item: a close with the outcome it proposed, valid
+    /// when the founder acts. The proposal stays on record.
+    public func confirmClose(item id: Int64) throws {
+        try writer.write { db in
+            guard
+                let outcome = try String.fetchOne(
+                    db, sql: "SELECT proposal_outcome FROM item_proposal WHERE item_id = ?", arguments: [id])
+            else { throw StoreError.noCloseProposal(item: id) }
+            try addEvent(db, item: id, kind: .close, outcome: outcome, at: clock())
+        }
     }
 
     public func reopen(item id: Int64) throws {
-        try writer.write { db in try addEvent(db, item: id, kind: "reopen", outcome: nil, at: clock(), by: nil) }
+        try writer.write { db in try addEvent(db, item: id, kind: .reopen, at: clock()) }
+    }
+
+    /// The founder says a fact was never one.
+    public func withdraw(item id: Int64) throws {
+        try writer.write { db in try addEvent(db, item: id, kind: .withdraw, at: clock()) }
     }
 
     func addEvent(
-        _ db: Database, item: Int64, kind: String, outcome: String? = nil, until: Date? = nil, at: Date,
-        by model: (run: RunID, line: Int64, quote: String)? = nil
+        _ db: Database, item: Int64, kind: EventKind, outcome: String? = nil, until: Date? = nil, due: String? = nil,
+        successor: Int64? = nil, at: Date, by model: (run: RunID, line: Int64, quote: String)? = nil
     ) throws {
         try db.execute(
             sql: """
                 INSERT INTO item_event(item_id, kind, outcome, line_id, quote, valid_at, recorded_at, run_id, actor,
-                    until) VALUES (?,?,?,?,?,?,?,?,?,?)
+                    until, due, successor) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
                 """,
             arguments: [
-                item, kind, outcome, model?.line, model?.quote, at.stored, clock().stored, model?.run,
-                model == nil ? "person" : "model", until?.stored,
+                item, kind.rawValue, outcome, model?.line, model?.quote, at.stored, clock().stored, model?.run,
+                model == nil ? "person" : "model", until?.stored, due, successor,
             ])
     }
 
@@ -108,17 +159,20 @@ extension Queries {
     static let itemColumns = """
         id, task, day, scope, source, cite_first, cite_last, start_at, end_at, fields, quote, state, run_id, asked_with,
         status_kind, status_outcome, status_quote, status_at, hiding_kind, hiding_until, source_deleted, quote_line,
-        quote_part, quote_start, quote_end, label, authority
+        quote_part, quote_start, quote_end, label, authority, due_value, proposal_outcome, proposal_quote, proposal_at
         """
-    /// Items with their mark, their latest close or reopen, and their latest hide, snooze or unhide.
+    /// Items with their mark, their status, their latest hide, snooze or unhide, the date their latest line gave, and
+    /// the proposal to close that nobody has acted on.
     static let itemRows = """
         item_mark LEFT JOIN item_status ON item_status.item_id = item_mark.id
             LEFT JOIN item_hiding ON item_hiding.item_id = item_mark.id
+            LEFT JOIN item_due ON item_due.item_id = item_mark.id
+            LEFT JOIN item_proposal ON item_proposal.item_id = item_mark.id
         """
 
     /// The items of a machine still open: of a value its lifecycle keeps open, not rejected, and not closed since.
     /// The newest `limit`, oldest first. With `day`, the items as they stood on that day: opened by the day's end and
-    /// not closed, by the time of the closing line, before the day started.
+    /// not ended, by valid time, before the day started.
     public func openItems(
         of task: String, lifecycle: HelperSpec.Lifecycle, asOf day: WorkDay? = nil, limit: Int = 300
     ) throws -> [Item] {
@@ -128,8 +182,9 @@ extension Queries {
         var bounds = StatementArguments()
         if let day {
             status = """
-                day <= ? AND (SELECT kind FROM item_event WHERE item_id = item_mark.id AND kind IN ('close','reopen')
-                    AND valid_at < ? ORDER BY id DESC LIMIT 1) IS NOT 'close'
+                day <= ? AND COALESCE((SELECT kind FROM item_event WHERE item_id = item_mark.id
+                    AND kind IN ('supersede','close','reopen','withdraw') AND valid_at < ?
+                    ORDER BY valid_at DESC, recorded_at DESC, id DESC LIMIT 1), 'open') NOT IN ('supersede','close','withdraw')
                 """
             bounds = [day.description, day.start.stored]
         } else {
@@ -159,15 +214,30 @@ extension Queries {
         return try openItems(of: follows, lifecycle: lifecycle, asOf: day) + openDealActions(asOf: day)
     }
 
-    /// A machine's items closed between two times, by the time of the closing line, oldest first.
+    /// A machine's items that ended (closed, replaced or withdrawn) between two times, by valid time, oldest first.
     public func closedItems(of task: String, from: Date, to: Date) throws -> [Item] {
         try reader.read { db in
             try db.fetch(
                 "item",
                 """
                 SELECT \(Self.itemColumns) FROM \(Self.itemRows)
-                WHERE task = ? AND status_kind = 'close' AND status_at >= ? AND status_at < ? ORDER BY status_at, id
+                WHERE task = ? AND status_kind IN ('supersede','close','withdraw') AND status_at >= ? AND status_at < ?
+                ORDER BY status_at, id
                 """, [task, from.stored, to.stored], as: Item.init(row:))
+        }
+    }
+
+    /// A machine's open items that a model read as closed, and that nobody has acted on since. A person confirms
+    /// each with `confirmClose`, or ignores it with a reopen.
+    public func closeProposals(of task: String) throws -> [Item] {
+        try reader.read { db in
+            try db.fetch(
+                "item",
+                """
+                SELECT \(Self.itemColumns) FROM \(Self.itemRows)
+                WHERE task = ? AND proposal_outcome IS NOT NULL AND (status_kind IS NULL OR status_kind = 'reopen')
+                ORDER BY proposal_at, id
+                """, [task], as: Item.init(row:))
         }
     }
 
@@ -238,11 +308,16 @@ extension Item {
                 line: line, part: try row.value("quote_part"), start: try row.value("quote_start"),
                 end: try row.value("quote_end"))
         }
-        if try row.optionalValue("status_kind") as String? == "close" {
+        if let kind = try row.optionalValue("status_kind") as String?, kind != EventKind.reopen.rawValue {
             closed = Closed(
                 outcome: try row.value("status_outcome"), quote: try row.optionalValue("status_quote"),
                 at: try row.date("status_at"))
         }
+        if let outcome: String = try row.optionalValue("proposal_outcome") {
+            proposedClose = Closed(
+                outcome: outcome, quote: try row.optionalValue("proposal_quote"), at: try row.date("proposal_at"))
+        }
+        dueChanged = try row.optionalValue("due_value")
         hiding = try Self.hiding(row)
     }
 

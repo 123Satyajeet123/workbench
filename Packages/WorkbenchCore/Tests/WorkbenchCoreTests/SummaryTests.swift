@@ -46,7 +46,7 @@ private struct Fixture {
             fields: ["person": person, "kind": "done", "text": text], quote: text, run: run)
         try store.saveReading(
             HelperReader.Result(items: [item], dropped: 0, run: nil), of: machine.spec, day: today, scope: "work",
-            grant: grant(.whatsapp, label: "work"), replacing: false)
+            grant: grant(.whatsapp, label: "work"))
     }
 
     func plantTeam() throws {

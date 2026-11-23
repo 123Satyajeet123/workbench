@@ -24,8 +24,13 @@ public struct Item: Sendable, Equatable, Identifiable {
     /// The chance the app picked this item to ask about; nil when it did not pick it. A mark on a picked item is an
     /// audit mark: valid evidence of the helper's error rate, because the founder did not choose it.
     public var askedWith: Double?
-    /// How a later line, or the founder, closed it; nil while it is open or for an item that never opens.
+    /// How it ended: a close, a replacement by another fact, or a withdrawal; nil while it is open or for an item that
+    /// never opens.
     public var closed: Closed?
+    /// A model read that a line closes it, and nobody has acted on it since. A person confirms or ignores it.
+    public var proposedClose: Closed?
+    /// The date the latest `due_changed` event gave it; nil when no line changed it.
+    public var dueChanged: String?
     /// Set when the founder hid the item or snoozed it; nil otherwise. See `isHidden(at:)`.
     public var hiding: Hiding?
     /// Where the quote is in the line it came from. Nil for an item whose quote is not from a line: a fact the person
@@ -90,15 +95,4 @@ public struct Item: Sendable, Equatable, Identifiable {
     static let factsField = "facts"
 
     public subscript(field: String) -> String { fields[field] ?? "" }
-
-    /// Whether a new reading's item says what a marked one already says, so the mark stands for it. A finding of facts
-    /// repeats one that cites the same facts and has the same value in each of the spec's `choices` fields.
-    func repeats(_ marked: Item, citation: HelperSpec.Citation, choices: [String] = []) -> Bool {
-        switch citation {
-        case .range: start < marked.end && marked.start < end
-        case .one: citeFirst == marked.citeFirst && fields == marked.fields && quote == marked.quote
-        case .facts:
-            self[Self.factsField] == marked[Self.factsField] && choices.allSatisfy { self[$0] == marked[$0] }
-        }
-    }
 }

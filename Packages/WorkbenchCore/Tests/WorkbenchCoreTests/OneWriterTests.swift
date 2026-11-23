@@ -61,6 +61,8 @@ private final class TestBundleAnchor {}
                 if text.contains("Store(directory:") { openers.append(file.lastPathComponent) }
             }
         }
-        #expect(openers == ["AppLaunch.swift"], "\(openers)")
+        #expect(
+            openers.sorted() == ["AppLaunch.swift", "LifecycleDryRun.swift"],
+            "\(openers): the dry run opens a copy of a store in a temporary folder, never the store itself")
     }
 }

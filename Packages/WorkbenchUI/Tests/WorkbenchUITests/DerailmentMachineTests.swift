@@ -36,7 +36,7 @@ import WorkbenchCore
         let container = try whatsApp(at: noon)
         let model = KeyedModel([
             Self.pipKey:
-                #"{"items":[{"kind":"commitment","text":"Ship the login API","person":"Asha","project":"Login API","eta":"","asks":"team","stance":"said","cite":@login API done@,"quote":"login API done"}],"closes":[]}"#,
+                #"{"items":[{"kind":"commitment","text":"Ship the login API","person":"Asha","project":"Login API","eta":"","asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":@login API done@,"quote":"login API done"}]}"#,
             Self.sentinelKey: Self.overdue,
         ])
         let notifier = FakeNotifier()
@@ -160,7 +160,7 @@ import WorkbenchCore
         #expect(trial.result.added.isEmpty && trial.result.dropped.isEmpty)
     }
 
-    @Test func aTrialOfAMachineWithALifecycleCannotCloseTheLiveMachinesItems() async throws {
+    @Test func aTrialOfAMachineWithALifecycleCannotChangeTheLiveMachinesItems() async throws {
         let s = try await setup()
         let yesterday = WorkDay(containing: noon)
         try #require(EvalSplit(yesterday) == .dev, "the fixture day must be a training day")
@@ -168,7 +168,7 @@ import WorkbenchCore
         let live = try #require(s.pip.open.first)
         s.model.replies.withLock {
             $0[Self.pipKey] =
-                #"{"items":[],"closes":[{"handle":"F1","outcome":"kept","cite":@login API done@,"quote":"login API done"}]}"#
+                #"{"items":[{"kind":"done","text":"Login API","person":"Asha","project":"Login API","eta":"","asks":"team","stance":"said","relation":{"kind":"closes","handle":"F1","outcome":"kept"},"cite":@login API done@,"quote":"login API done"}]}"#
         }
         s.pip.show(yesterday)
         await s.pip.startTrial(brief: HelperSpec.team.brief + " Be brief.")

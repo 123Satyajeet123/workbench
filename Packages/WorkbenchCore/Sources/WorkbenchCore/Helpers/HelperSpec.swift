@@ -165,6 +165,38 @@ public struct HelperSpec: Codable, Sendable, Equatable {
         public var open: [String]
         /// How a line may close one.
         public var outcomes: [String]
+        /// The field that names who owns a fact. A fact's identity is its owner and its deliverable: a `same_as`
+        /// relation must name an open fact with the same owner. Nil: no owner check.
+        public var owner: String? = nil
+        /// The field that holds a fact's due date. A `same_as` relation with another date is a change of date.
+        public var due: String? = nil
+        /// The outcome the person's Done gives an item, by value of `field`; the first outcome when a value has none.
+        public var doneOutcomes: [String: String]? = nil
+    }
+
+    /// Words of a machine's fields that Today reads, as data: a field and the value that carries a meaning.
+    public struct Attention: Codable, Sendable, Equatable {
+        public struct Mark: Codable, Sendable, Equatable {
+            public var field: String
+            public var value: String
+
+            public init(_ field: String, _ value: String) {
+                self.field = field
+                self.value = value
+            }
+        }
+
+        /// A fact that asks the person for something or waits on them.
+        public var asksMe: Mark? = nil
+        /// A finding that asks the person to act today, and one worth a look soon.
+        public var act: Mark? = nil
+        public var watch: Mark? = nil
+
+        public init(asksMe: Mark? = nil, act: Mark? = nil, watch: Mark? = nil) {
+            self.asksMe = asksMe
+            self.act = act
+            self.watch = watch
+        }
     }
 
     /// Once a work day, at the founder's time, name who in a context set has no item.
@@ -186,6 +218,19 @@ public struct HelperSpec: Codable, Sendable, Equatable {
         fields.compactMap { field in
             if case .choice = field.kind { field.name } else { nil }
         }
+    }
+
+    /// The fields that hold none of a message's words: a choice, a member name, a date, a value code computes. An erase
+    /// of a message empties every other field of the facts that cite it, and keeps these.
+    var fieldsWithoutWords: Set<String> {
+        Set(
+            fields.filter { field in
+                switch field.kind {
+                case .choice, .member, .date, .computed: true
+                case .text, .label: false
+                }
+            }.map(\.name)
+        ).union([Item.factsField])
     }
 
     /// Whether a machine of this spec needs another machine's open items to cite: it must be given `follows`.

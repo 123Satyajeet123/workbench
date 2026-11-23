@@ -83,13 +83,14 @@ final class HelperImprovement {
                 }
                 .sorted(by: >).prefix(Self.unmarkedTrialDays)
             }
+            try store.discardTrialItems(of: spec.task)
             let reader = HelperReader(spec: challenger, model: context.makeModel(try context.runner(for: version)))
             for day in days {
                 _ = try await context.grant()
                 var result = try await reader.read(
                     day: day, scope: scope, evidence: try await context.source.evidence(on: day),
                     marked: try context.marked(), open: try store.queries.openItems(readBy: spec, asOf: day))
-                result.closes = []
+                result.links = []
                 try store.saveReading(
                     result, of: challenger, day: day, scope: scope, grant: try await context.grant())
             }

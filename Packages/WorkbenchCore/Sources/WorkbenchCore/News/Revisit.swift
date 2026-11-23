@@ -58,7 +58,7 @@ extension Store {
 
     private func dropRevisits(of deal: String, _ db: Database) throws {
         for id in try Queries.revisits(db, of: deal).filter({ $0.closed == nil }).compactMap(\.id) {
-            try addEvent(db, item: id, kind: "close", outcome: Revisit.dropped, at: clock())
+            try addEvent(db, item: id, kind: .close, outcome: Revisit.dropped, at: clock())
         }
     }
 }

@@ -104,8 +104,7 @@ enum VCFixture {
         let policy = CapturePolicy(switches: [.mail: true], allowList: [.mail: ["Deals"]])
         try store.saveReading(
             HelperReader.Result(items: [item], dropped: 0, run: nil), of: intake.spec, day: day, scope: intake.scope,
-            grant: try #require(policy.authorize(CaptureRequest(kind: .mail, label: "Deals"), at: .now).grant),
-            replacing: false)
+            grant: try #require(policy.authorize(CaptureRequest(kind: .mail, label: "Deals"), at: .now).grant))
     }
 
     @Test func savingNewCriteriaIsANewPromptVersionAndAnUnsavedEditChangesNothing() throws {

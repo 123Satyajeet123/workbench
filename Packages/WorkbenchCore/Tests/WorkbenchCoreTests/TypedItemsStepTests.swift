@@ -65,6 +65,6 @@ import Testing
         let names = try store.writer.read { db in
             try String.fetchAll(db, sql: "SELECT name FROM sqlite_master WHERE tbl_name = 'item' OR name = 'item_mark'")
         }
-        #expect(Set(names) == ["item", "item_day", "item_run", "item_mark"])
+        #expect(Set(names) == ["item", "item_day", "item_run", "item_mark", "item_opens"])
     }
 }

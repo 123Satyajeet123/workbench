@@ -63,7 +63,8 @@ extension HelperSpec {
         itemsNoun: "entries", nudge: Nudge(field: "person", expected: "members", message: "No update today from"),
         lifecycle: Lifecycle(
             field: "kind", open: ["plan", "blocker", "commitment", "question", "decision"],
-            outcomes: ["kept", "answered", "resolved", "reversed", "dropped"]))
+            outcomes: ["kept", "answered", "resolved", "reversed", "dropped"], owner: "person", due: "eta",
+            doneOutcomes: ["blocker": "resolved"]))
 
     /// The day timeline: the founder's screen sessions joined into blocks of work.
     public static let timeline = HelperSpec(
@@ -193,4 +194,11 @@ extension HelperSpec {
         ],
         citation: .facts, view: .grouped(by: "severity"), title: "next", badges: ["project", "kind"],
         tones: ["act": .bad, "watch": .attention, "info": .neutral], itemsNoun: "findings", nudge: nil)
+}
+
+extension HelperSpec.Attention {
+    /// The words the built-in machines write and Today reads: the `asks` value of a fact that waits on the founder, and
+    /// the `severity` values of a finding that needs action now or soon.
+    public static let builtIn = HelperSpec.Attention(
+        asksMe: Mark("asks", "founder"), act: Mark("severity", "act"), watch: Mark("severity", "watch"))
 }

@@ -46,11 +46,11 @@ import Testing
             (
                 try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM item_event"),
                 try String.fetchOne(db, sql: "SELECT status_kind FROM item_status WHERE item_id = 1"),
-                try String.fetchOne(db, sql: "SELECT actor FROM item_event WHERE kind = 'close'"),
+                try String.fetchOne(db, sql: "SELECT actor FROM item_event WHERE kind = 'close_proposed'"),
                 try Row.fetchAll(db, sql: "PRAGMA foreign_key_check")
             )
         }
-        #expect(events == 2 && status == "reopen" && closer == "model" && dangling.isEmpty)
+        #expect(events == 2 + 2 && status == "reopen" && closer == "model" && dangling.isEmpty)
         try store.apply(.snooze(until: WorkDay(containing: t0)), to: [1])
         try store.apply(.done(outcome: "kept"), to: [2])
         let items = try store.queries.items(of: "t", since: #require(WorkDay("2026-11-19")))

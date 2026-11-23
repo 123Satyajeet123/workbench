@@ -34,24 +34,24 @@ extension Store {
 
     private func apply(_ action: ItemAction, to id: Int64, _ db: Database) throws {
         switch action {
-        case .done(let outcome): try addEvent(db, item: id, kind: "close", outcome: outcome, at: clock())
+        case .done(let outcome): try addEvent(db, item: id, kind: .close, outcome: outcome, at: clock())
         case .notRelevant:
             try addMark(db, item: id, .confirmed)
-            try addEvent(db, item: id, kind: "hide", at: clock())
+            try addEvent(db, item: id, kind: .hide, at: clock())
         case .wrong:
             try addMark(db, item: id, .rejected)
-            try addEvent(db, item: id, kind: "hide", at: clock())
-        case .snooze(let day): try addEvent(db, item: id, kind: "snooze", until: day.start, at: clock())
+            try addEvent(db, item: id, kind: .hide, at: clock())
+        case .snooze(let day): try addEvent(db, item: id, kind: .snooze, until: day.start, at: clock())
         }
     }
 
     private func undo(_ action: ItemAction, on id: Int64, _ db: Database) throws {
         switch action {
-        case .done: try addEvent(db, item: id, kind: "reopen", at: clock())
+        case .done: try addEvent(db, item: id, kind: .reopen, at: clock())
         case .notRelevant, .wrong:
             try addMark(db, item: id, .proposed)
-            try addEvent(db, item: id, kind: "unhide", at: clock())
-        case .snooze: try addEvent(db, item: id, kind: "unhide", at: clock())
+            try addEvent(db, item: id, kind: .unhide, at: clock())
+        case .snooze: try addEvent(db, item: id, kind: .unhide, at: clock())
         }
     }
 }

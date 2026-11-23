@@ -41,7 +41,7 @@ private func reply(_ findings: String...) -> String { #"{"items":["# + findings.
         let store = try makeStore()
         let pip = try store.createMachine(from: .team, name: "Pip")
         let factsReply =
-            #"{"items":[{"kind":"commitment","text":"Send the deck","person":"Asha","project":"Deck","eta":"Fri 25 Sep","asks":"team","stance":"said","cite":1,"quote":"send the deck"},{"kind":"question","text":"Hire a designer?","person":"Raj","project":"Team","eta":"","asks":"team","stance":"said","cite":2,"quote":"hire a designer?"}],"closes":[]}"#
+            #"{"items":[{"kind":"commitment","text":"Send the deck","person":"Asha","project":"Deck","eta":"Fri 25 Sep","asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":1,"quote":"send the deck"},{"kind":"question","text":"Hire a designer?","person":"Raj","project":"Team","eta":"","asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":2,"quote":"hire a designer?"}]}"#
         let reader = HelperReader(spec: pip.spec, model: RecordedModel(ScriptedModel(factsReply), store: store))
         let result = try await reader.read(day: first, scope: "work", evidence: dayOne)
         try store.saveReading(result, of: pip.spec, day: first, scope: "work", grant: chatGrant)
@@ -68,7 +68,7 @@ private func reply(_ findings: String...) -> String { #"{"items":["# + findings.
         #expect(input.contains("F2 (\(first)) asks=team eta= kind=question"))
         #expect(result.items.count == 1 && result.dropped == 0)
 
-        try store.saveReading(result, of: sentinel, day: second, scope: "work", grant: chatGrant, replacing: false)
+        try store.saveReading(result, of: sentinel, day: second, scope: "work", grant: chatGrant)
         let saved = try #require(store.queries.items(of: sentinel.task, day: second, scope: "work").first)
         let followed = try store.queries.openItems(readBy: sentinel)
         #expect(saved["facts"] == "\(try #require(followed[0].id))")
@@ -90,7 +90,7 @@ private func reply(_ findings: String...) -> String { #"{"items":["# + findings.
         #expect(result.items.count == 1)
         let item = try #require(result.items.first)
         #expect(item.citeFirst == 0 && item.citeLast == 0 && item.start == at(second, 620) && item.end == item.start)
-        try store.saveReading(result, of: sentinel, day: second, scope: "work", grant: chatGrant, replacing: false)
+        try store.saveReading(result, of: sentinel, day: second, scope: "work", grant: chatGrant)
         #expect(try store.queries.items(of: sentinel.task, day: second, scope: "work").count == 1)
     }
 
@@ -122,7 +122,7 @@ private func reply(_ findings: String...) -> String { #"{"items":["# + findings.
     @Test func aFindingToldInTheLastFourteenDaysIsNotAddedAgainButAnotherFactOrKindIs() async throws {
         let (store, sentinel) = try await watch()
         let (one, _) = try await read(store, sentinel, reply(finding()))
-        try store.saveReading(one, of: sentinel, day: second, scope: "work", grant: chatGrant, replacing: false)
+        try store.saveReading(one, of: sentinel, day: second, scope: "work", grant: chatGrant)
 
         let nextDay = second.adding(days: 1)
         let later = EvidenceSet(
@@ -131,7 +131,7 @@ private func reply(_ findings: String...) -> String { #"{"items":["# + findings.
             ])
         func save(_ answer: String, on day: WorkDay = nextDay) async throws -> Int {
             let (result, _) = try await read(store, sentinel, answer, day: day, evidence: later)
-            try store.saveReading(result, of: sentinel, day: day, scope: "work", grant: chatGrant, replacing: false)
+            try store.saveReading(result, of: sentinel, day: day, scope: "work", grant: chatGrant)
             return try store.queries.items(of: sentinel.task, since: first).count
         }
         let again = finding(lines: "[30]", quote: "ping on the deck")
@@ -158,18 +158,21 @@ private func reply(_ findings: String...) -> String { #"{"items":["# + findings.
                 quote: "q", run: 1)
         }
         let told = finding("overdue")
-        #expect(finding("overdue").repeats(told, citation: .facts, choices: spec.choiceFields))
-        #expect(!finding("blocked").repeats(told, citation: .facts, choices: spec.choiceFields), "another category")
-        #expect(!finding("overdue", severity: "info").repeats(told, citation: .facts, choices: spec.choiceFields))
-        #expect(!finding("overdue", facts: "7,8").repeats(told, citation: .facts, choices: spec.choiceFields))
+        #expect(SameClaim.holds(finding("overdue"), told, citation: .facts, choices: spec.choiceFields))
         #expect(
-            finding("overdue", severity: "info").repeats(told, citation: .facts, choices: []),
+            !SameClaim.holds(finding("blocked"), told, citation: .facts, choices: spec.choiceFields), "another category"
+        )
+        #expect(
+            !SameClaim.holds(finding("overdue", severity: "info"), told, citation: .facts, choices: spec.choiceFields))
+        #expect(!SameClaim.holds(finding("overdue", facts: "7,8"), told, citation: .facts, choices: spec.choiceFields))
+        #expect(
+            SameClaim.holds(finding("overdue", severity: "info"), told, citation: .facts, choices: []),
             "with no choice fields only the facts count")
 
         let (store, _) = try await watch()
         func saved(_ item: Item) throws -> Int {
             let result = HelperReader.Result(items: [item], dropped: 0, run: nil)
-            try store.saveReading(result, of: spec, day: second, scope: "work", grant: chatGrant, replacing: false)
+            try store.saveReading(result, of: spec, day: second, scope: "work", grant: chatGrant)
             return try store.queries.items(of: spec.task, since: first).count
         }
         #expect(try saved(finding("overdue")) == 1)
@@ -199,7 +202,7 @@ private func reply(_ findings: String...) -> String { #"{"items":["# + findings.
         let item = try #require(result.items.first)
         #expect(result.items.count == 1 && result.run != nil)
         #expect(item.start == second.start && item.end == second.start && item.citeFirst == 0)
-        try store.saveReading(result, of: sentinel, day: second, scope: "work", grant: chatGrant, replacing: false)
+        try store.saveReading(result, of: sentinel, day: second, scope: "work", grant: chatGrant)
         #expect(try store.queries.items(of: sentinel.task, day: second, scope: "work").count == 1)
     }
 

@@ -23,7 +23,7 @@ private func raw(_ json: String) throws -> [String: WorkbenchCore.JSONValue] {
 private func proposal(cite: Int, quote: String, kind: String = "done", person: String = "Asha", extra: String = "")
     -> String
 {
-    #"{"person":"\#(person)","project":"Login","kind":"\#(kind)","text":"t","eta":"","asks":"team","stance":"said","cite":\#(cite),"quote":"\#(quote)"\#(extra)}"#
+    #"{"person":"\#(person)","project":"Login","kind":"\#(kind)","text":"t","eta":"","asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":\#(cite),"quote":"\#(quote)"\#(extra)}"#
 }
 
 private func verifier(_ lines: [Evidence], settings: Verifier.Settings = Verifier.Settings(), read: Set<Int64> = [])

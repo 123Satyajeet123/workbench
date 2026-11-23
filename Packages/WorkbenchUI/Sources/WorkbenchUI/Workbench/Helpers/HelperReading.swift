@@ -49,12 +49,11 @@ final class HelperReading {
             let result = try await reader.read(
                 day: day, scope: scope, evidence: evidence, marked: try context.marked(), open: open)
             try store.saveReading(
-                result, of: spec, day: day, scope: scope, grant: try await context.grant(),
-                replacing: !evidence.hasBeenRead)
+                result, of: spec, day: day, scope: scope, grant: try await context.grant())
             try keepCursor(of: full, scope: scope, day: day)
             if followsOpenFacts { try followedKey.save(day, to: store) }
             context.reloadIfShown(day)
-            phase = .read(kept: result.items.count, dropped: result.dropped)
+            phase = .read(kept: result.kept, dropped: result.dropped)
             context.problems.dismiss()
             context.itemsChanged()
             await refreshSummaries(day, with: Summaries(store: store, model: model))

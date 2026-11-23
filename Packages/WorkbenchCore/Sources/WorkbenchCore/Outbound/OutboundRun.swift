@@ -109,7 +109,7 @@ public struct OutboundRun: Sendable {
             try session.store.saveReading(
                 HelperReader.Result(
                     items: own, dropped: result.dropped + result.items.count - own.count, run: result.run),
-                of: spec, day: day, scope: "", grant: session.grant, replacing: false)
+                of: spec, day: day, scope: "", grant: session.grant)
         }
     }
 

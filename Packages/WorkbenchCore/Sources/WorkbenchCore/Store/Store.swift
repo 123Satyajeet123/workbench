@@ -12,6 +12,8 @@ public enum StoreError: Error, Equatable {
     case settingNotApplied(String)
     /// The write-ahead log still holds rows after a checkpoint: another connection is reading it.
     case logNotTruncated
+    /// A person confirmed a close on an item that has no pending proposal to close.
+    case noCloseProposal(item: Int64)
 }
 
 /// The one store: `workbench.sqlite` and the recordings folder beside it. Only the app process opens it. The native

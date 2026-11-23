@@ -30,10 +30,11 @@ private struct Citing: FetchableRecord {
 
 extension Store {
     /// The one erase of copies. The model read the words of a line and kept them in the quote of each item that cites
-    /// it, in the text of the runs that read it or made those items, and in the summaries built from those items. They
-    /// all go with the line: the quote is emptied and the item flagged (it keeps its marks and its link to the
-    /// tombstone), the run text is deleted (the run row stays as the meter), and the summaries are removed, so the
-    /// next reading builds them again without the item. Run it before the lines are deleted, because deleting a line
+    /// it, in the text fields it wrote for that item, in the quotes of the events that cite the line and the quote its open event kept, in the text of the runs
+    /// that read it or made those items, and in the summaries built from those items. They all go with the line: the
+    /// quote and every text field of the item are emptied and the item flagged (it keeps its marks, its choices and its
+    /// link to the tombstone), the quotes of its events are emptied, the run text is deleted (the run row stays as the
+    /// meter), and the summaries are removed, so the next reading builds them again without the item. Run it before the lines are deleted, because deleting a line
     /// deletes the rows that link it to its copies, or after a revoke moved those rows to the tombstone. Returns how
     /// many items were flagged.
     @discardableResult
@@ -54,13 +55,42 @@ extension Store {
         try db.execute(
             sql: "UPDATE item SET quote = '', source_deleted = 1 WHERE id IN (SELECT value FROM json_each(?))",
             arguments: [itemIDs])
+        try emptyModelWords(ofItems: itemIDs, in: db)
         try db.execute(
-            sql: "UPDATE item_event SET quote = '' WHERE id IN (SELECT value FROM json_each(?))",
-            arguments: [eventIDs])
+            sql: """
+                UPDATE item_event SET quote = '' WHERE actor = 'model' AND (
+                    id IN (SELECT value FROM json_each(?))
+                    OR (kind = 'open' AND item_id IN (SELECT value FROM json_each(?))))
+                """, arguments: [eventIDs, itemIDs])
         try db.execute(
             sql: "DELETE FROM run_text WHERE run_id IN (SELECT value FROM json_each(?))",
             arguments: [try Coding.json(Set(windowRuns + itemRuns + eventRuns + summaryRuns).sorted())])
         return items.count
+    }
+
+    /// Empties every field of the items that holds words the model wrote: all but the choices, member names, dates and
+    /// computed values of the machine's spec, and the ids of the facts a finding cites. A machine that is not found
+    /// keeps only the ids, so no words survive.
+    private static func emptyModelWords(ofItems itemIDs: String, in db: Database) throws {
+        let rows = try Row.fetchAll(
+            db, sql: "SELECT id, task, fields FROM item WHERE id IN (SELECT value FROM json_each(?))",
+            arguments: [itemIDs])
+        for row in rows {
+            let spec = try machineSpec(ofTask: Trial.machineTask(of: row["task"]), in: db)
+            let kept = spec?.fieldsWithoutWords ?? [Item.factsField]
+            let fields: [String: String] = try row.json("fields")
+            let emptied = fields.mapValues { _ in "" }.merging(fields.filter { kept.contains($0.key) }) { _, held in
+                held
+            }
+            try db.execute(
+                sql: "UPDATE item SET fields = ? WHERE id = ?",
+                arguments: [try Coding.json(emptied), row["id"] as Int64])
+        }
+    }
+
+    private static func machineSpec(ofTask task: String, in db: Database) throws -> HelperSpec? {
+        try String.fetchOne(db, sql: "SELECT spec FROM machine_now WHERE task = ?", arguments: [task])
+            .map { try Coding.value(HelperSpec.self, from: $0) }
     }
 
     /// Items that cite one of the lines: by their cited numbers in the window of their run, or, for an item made

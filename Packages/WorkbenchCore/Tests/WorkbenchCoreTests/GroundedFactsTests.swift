@@ -30,11 +30,11 @@ import Testing
     }
 
     private func item(cite: Int, quote: String, person: String = "Asha") -> String {
-        #"{"person":"\#(person)","project":"Login","kind":"commitment","text":"t","eta":"","asks":"team","stance":"said","cite":\#(cite),"quote":"\#(quote)"}"#
+        #"{"person":"\#(person)","project":"Login","kind":"commitment","text":"t","eta":"","asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":\#(cite),"quote":"\#(quote)"}"#
     }
 
     private func read(_ items: [String], store: Store) async throws -> HelperReader.Result {
-        let model = ScriptedModel(#"{"items":[\#(items.joined(separator: ","))],"closes":[]}"#)
+        let model = ScriptedModel(#"{"items":[\#(items.joined(separator: ","))]}"#)
         return try await HelperReader(spec: .team, model: RecordedModel(model, store: store))
             .read(day: day, scope: "team", evidence: try chat())
     }
@@ -165,7 +165,7 @@ import Testing
         let bare = EvidenceSet(
             lines: [Evidence(id: 10, start: t0, line: "Asha: login done", quotable: ["login done"])],
             context: ["members": ["Asha"]])
-        let model = ScriptedModel(#"{"items":[\#(item(cite: 10, quote: "login done"))],"closes":[]}"#)
+        let model = ScriptedModel(#"{"items":[\#(item(cite: 10, quote: "login done"))]}"#)
         let result = try await HelperReader(spec: .team, model: RecordedModel(model, store: store))
             .read(day: day, scope: "team", evidence: bare)
         #expect(result.items.first?.authority == .unknown && result.items.first?.label == nil)

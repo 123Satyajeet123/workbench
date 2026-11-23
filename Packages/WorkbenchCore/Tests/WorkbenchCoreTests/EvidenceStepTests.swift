@@ -112,7 +112,8 @@ import Testing
 
     static func legacyIDs(_ db: Database) throws -> [[Int64]] {
         try [
-            "SELECT id, cite_first, cite_last FROM item ORDER BY id", "SELECT id, line_id FROM item_event ORDER BY id",
+            "SELECT id, cite_first, cite_last FROM item ORDER BY id",
+            "SELECT id, line_id FROM item_event WHERE kind <> 'open' ORDER BY id",
             "SELECT id FROM activity ORDER BY id", "SELECT id FROM mail_part ORDER BY id",
         ].map { sql in
             try Row.fetchAll(db, sql: sql).flatMap { row in row.databaseValues.compactMap(Int64.fromDatabaseValue) }

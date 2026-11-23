@@ -181,20 +181,20 @@ import Testing
         #expect(try planted.row("SELECT source_deleted FROM item WHERE id = 2")?["source_deleted"] == 0)
     }
 
-    @Test func aRevokeEmptiesTheClosingQuoteOfAModelCloseThatCitedTheLine() throws {
+    @Test func aRevokeEmptiesTheQuoteOfAModelCloseProposalThatCitedTheLine() throws {
         let planted = try Planted()
         try planted.world.store.writer.write { db in
             for (run, line) in [(planted.windowRun, 5), (planted.oldRun, 20)] {
                 try db.execute(
                     sql: """
                         INSERT INTO item_event(item_id, kind, outcome, line_id, quote, valid_at, recorded_at, run_id, actor)
-                        VALUES (1, 'close', 'done', ?, ?, '2026-11-19T10:00:00Z', '2026-11-19T10:00:00Z', ?, 'model')
+                        VALUES (1, 'close_proposed', 'done', ?, ?, '2026-11-19T10:00:00Z', '2026-11-19T10:00:00Z', ?, 'model')
                         """, arguments: [line, "closing \(planted.secret)", run])
             }
         }
         _ = try planted.revoke("a")
         let quotes = try planted.world.store.writer.read {
-            try String.fetchAll($0, sql: "SELECT quote FROM item_event ORDER BY id")
+            try String.fetchAll($0, sql: "SELECT quote FROM item_event WHERE kind = 'close_proposed' ORDER BY id")
         }
         #expect(quotes == ["", "closing \(planted.secret)"], "the close of the other message stays")
     }

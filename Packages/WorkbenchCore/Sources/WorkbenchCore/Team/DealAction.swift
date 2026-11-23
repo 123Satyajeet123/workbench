@@ -35,10 +35,11 @@ extension Store {
         let now = clock()
         return try writer.write { db in
             try dropActions(of: deal.id, db)
-            let fields = [
+            var fields = [
                 "kind": "commitment", "person": owner, "project": deal.title, "text": what, "eta": due.description,
-                "asks": "founder", "stance": "said", DealAction.dealField: deal.id,
+                "stance": "said", DealAction.dealField: deal.id,
             ]
+            if let asksMe = HelperSpec.Attention.builtIn.asksMe { fields[asksMe.field] = asksMe.value }
             try db.execute(
                 sql: """
                     INSERT INTO item(task, day, scope, source, cite_first, cite_last, start_at, end_at, fields, quote,
@@ -60,7 +61,7 @@ extension Store {
     private func dropActions(of deal: String, _ db: Database) throws {
         let open = try Queries.dealActions(db, of: deal).filter { $0.closed == nil }
         for id in open.compactMap(\.id) {
-            try addEvent(db, item: id, kind: "close", outcome: DealAction.dropped, at: clock())
+            try addEvent(db, item: id, kind: .close, outcome: DealAction.dropped, at: clock())
         }
     }
 }

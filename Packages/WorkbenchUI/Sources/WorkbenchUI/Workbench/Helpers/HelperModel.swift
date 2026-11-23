@@ -153,6 +153,13 @@ final class HelperModel {
         itemsWereChanged()
     }
 
+    /// The founder agrees with the close a line proposed. A model only proposes: nothing closes until this.
+    func confirmClose(_ item: Item) {
+        guard let id = item.id else { return }
+        attempt("confirm the close") { try shared.store.confirmClose(item: id) }
+        itemsWereChanged()
+    }
+
     func reopen(_ item: Item) {
         guard let id = item.id else { return }
         attempt("reopen the item") { try shared.store.reopen(item: id) }

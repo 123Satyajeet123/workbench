@@ -26,7 +26,7 @@ private struct Fixture {
             quote: "send the deck", run: run)
         try store.saveReading(
             HelperReader.Result(items: [item], dropped: 0, run: run), of: machine.spec, day: today, scope: "work",
-            grant: grant(.whatsapp, label: "work"), replacing: false)
+            grant: grant(.whatsapp, label: "work"))
         id = try #require(store.queries.items(of: machine.task, on: today).first?.id)
     }
 

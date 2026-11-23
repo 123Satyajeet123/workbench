@@ -2,7 +2,7 @@ import SwiftUI
 import WorkbenchCore
 
 /// What is still open, from every day, one section per value of a field; below, what a line closed on this day. The
-/// founder can close an item by hand or reopen one closed by mistake.
+/// founder can close an item by hand, confirm the close a message proposes, or reopen one closed by mistake.
 struct ItemChecklist: View {
     let model: HelperModel
     let field: String
@@ -22,6 +22,12 @@ struct ItemChecklist: View {
                     ForEach(own) { item in
                         HStack(alignment: .top) {
                             ItemRow(model: model, item: item, showsSpan: false, grouping: field)
+                            if let proposed = item.proposedClose {
+                                Button("Confirm \(proposed.outcome)") { model.confirmClose(item) }
+                                    .help(
+                                        "A message looks like it closes this: “\(proposed.quote ?? "")”. Closes only when you confirm."
+                                    )
+                            }
                             CloseMenu(outcomes: model.spec.lifecycle?.outcomes ?? []) { model.close(item, as: $0) }
                         }
                     }

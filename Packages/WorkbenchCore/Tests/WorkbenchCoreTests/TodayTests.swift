@@ -153,7 +153,8 @@ private func closed(_ item: Item) -> Item {
 
 @Suite struct ClosingTests {
     private let lifecycle = HelperSpec.Lifecycle(
-        field: "kind", open: ["plan", "blocker"], outcomes: ["kept", "resolved"])
+        field: "kind", open: ["plan", "blocker"], outcomes: ["kept", "resolved"],
+        doneOutcomes: ["blocker": "resolved"])
 
     @Test func eachOpenFactGetsItsOwnOutcomeAndOthersAreLeftAlone() {
         let plan = lifecycle.closing([

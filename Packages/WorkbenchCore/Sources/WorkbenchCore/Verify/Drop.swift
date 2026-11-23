@@ -14,9 +14,11 @@ public enum DropRule: String, CaseIterable, Sendable {
     case fieldKind = "field_kind"
     /// It names an open fact that the model was not shown.
     case unknownHandle = "unknown_handle"
-    /// Its closing line is older than the fact it closes.
+    /// It says it is the same fact as an open one with another owner.
+    case identityMismatch = "identity_mismatch"
+    /// Its line is older than the fact it closes or replaces.
     case lineBeforeFact = "line_before_fact"
-    /// An earlier proposal of the same reading says the same.
+    /// An earlier proposal of the same reading says the same, or names the same open fact.
     case repeatInReading = "repeat_in_reading"
     /// A check failed with an error. A proposal that was not fully checked is never kept.
     case verifierError = "verifier_error"
@@ -24,7 +26,7 @@ public enum DropRule: String, CaseIterable, Sendable {
 
 /// A proposal the verifier refused: what the model wrote and the rule it broke.
 public struct Drop: Sendable, Equatable {
-    /// The list of the reply the proposal came from: "items", "closes" or "claims".
+    /// The list of the reply the proposal came from: "items" or "claims".
     public var part: String
     /// Its place in that list, from 0.
     public var ordinal: Int

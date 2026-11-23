@@ -31,12 +31,14 @@ public struct Trial: Sendable, Equatable {
     ) {
         var twins = 0
         added = challenger.filter { new in
-            let twin = current.contains { new.day == $0.day && new.repeats($0, citation: citation, choices: choices) }
+            let twin = current.contains {
+                new.day == $0.day && SameClaim.holds(new, $0, citation: citation, choices: choices)
+            }
             if twin { twins += 1 }
             return !twin
         }
         dropped = current.filter { old in
-            !challenger.contains { old.day == $0.day && $0.repeats(old, citation: citation, choices: choices) }
+            !challenger.contains { old.day == $0.day && SameClaim.holds($0, old, citation: citation, choices: choices) }
         }
         same = twins
         self.threshold = threshold
