@@ -16,7 +16,7 @@ import WorkbenchCore
     }()
 
     private let reply =
-        #"{"items":[{"person":"Asha","project":"Login","kind":"done","text":"Login API","eta":"","asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":@login API done@,"quote":"login API done"}]}"#
+        #"{"items":[{"person":"Asha","project":"Login","kind":"done","text":"Login API","when":{"direction":"unclear","offset_days":0,"weekday":"none","week":"none","part_of_day":"none","offset_minutes":0,"day_of_month":0,"month":0,"month_which":"none","year":0,"clock_hour":-1,"clock_minute":0,"meridiem":"none","precision":"none","ambiguous":false,"words":""},"asks":"team","stance":"said","relation":{"kind":"new","handle":"","outcome":""},"cite":@login API done@,"quote":"login API done"}]}"#
 
     private struct Scene {
         let store: Store
@@ -213,12 +213,15 @@ import WorkbenchCore
 
     private func item(
         source: SourceKind = .whatsapp, cite: Int64 = 7, quote: String = "quote", span: QuoteSpan? = nil,
-        fields: [String: String] = [:], run: RunID? = 1
+        fields: [String: String] = [:], run: RunID? = 1, dueDay: String? = nil
     ) -> Item {
         Item(
             id: 1, task: HelperSpec.team.task, day: WorkDay(containing: noon), scope: teamJID, source: source,
             citeFirst: cite, citeLast: cite, start: noon, end: noon, fields: fields, quote: quote, run: run,
-            quoteSpan: span)
+            quoteSpan: span,
+            due: dueDay.flatMap { WorkDay($0) }.map {
+                Due(utc: $0.start, zone: TimeZone.current.identifier, source: .stated, precision: .day)
+            })
     }
 
     @Test func aWhatsAppLineIsSplitIntoSenderAndWordsAndOtherSourcesAreNot() {
@@ -304,7 +307,7 @@ import WorkbenchCore
     @Test func historyIsPlainWordsOldestFirst() {
         let found = Date(timeIntervalSince1970: 1_789_900_000)
         let marked = DealStory.Marked(state: .confirmed, at: Date(timeIntervalSince1970: 1_789_950_000))
-        var fact = item(fields: ["eta": "2026-12-04"])
+        var fact = item(dueDay: "2026-12-04")
         let history = ProofHistory(machine: "Pip", version: 3, found: found, marks: [marked])
         #expect(
             history.sentences(of: fact, words) == [
@@ -339,7 +342,7 @@ import WorkbenchCore
         #expect(line.hasPrefix("WhatsApp · Founders group · "))
         #expect(InspectorWords.source(of: item(source: .typed), chat: nil, words).hasPrefix("Typed by you · "))
         #expect(
-            InspectorWords.meta(of: item(fields: ["person": "Asha", "project": "Login", "eta": "2026-12-04"]), words)
+            InspectorWords.meta(of: item(fields: ["person": "Asha", "project": "Login"], dueDay: "2026-12-04"), words)
                 == "Asha · Login · due Fri 4 Dec")
     }
 

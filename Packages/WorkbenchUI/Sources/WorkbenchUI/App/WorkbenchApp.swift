@@ -49,7 +49,7 @@ public struct WorkbenchApp: App {
             }
         } label: {
             switch appDelegate.launch {
-            case .ready(let session): MenuBarIcon(capture: session.capture)
+            case .ready(let session): MenuBarLabel(session: session)
             case .failed: Image(systemName: "exclamationmark.triangle")
             }
         }

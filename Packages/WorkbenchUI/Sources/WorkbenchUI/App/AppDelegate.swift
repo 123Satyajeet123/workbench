@@ -8,7 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     lazy var launch = AppLaunch.start(storeFolder: storeFolder)
     private let storeFolder: URL
     private var island: IslandPanel?
-    /// What the founder did on a notification. The window sets `handler` once it can mark a fact.
+    /// What the founder did on a notification, held until the session can act on it.
     let replies = NotificationReplies()
 
     init(storeFolder: URL) {
@@ -27,7 +27,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        if case .ready(let session) = launch { island = IslandPanel(session: session) }
+        if case .ready(let session) = launch {
+            island = IslandPanel(session: session)
+            let answering = NotificationAnswering(
+                today: session.today, review: session.review, crew: session.crew, navigation: session.navigation)
+            replies.handler = answering.handle
+        }
         DispatchQueue.main.async(execute: Self.comeToFront)
     }
 

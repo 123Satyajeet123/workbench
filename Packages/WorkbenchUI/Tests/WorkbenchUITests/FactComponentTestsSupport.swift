@@ -19,8 +19,12 @@ enum FactFixture {
             start: now.addingTimeInterval(-26 * 3600), end: now.addingTimeInterval(-26 * 3600),
             fields: [
                 "person": person, "project": project, "kind": "commitment", "text": "Ship the login API",
-                "eta": due.map { today.adding(days: $0).description } ?? "",
-            ], quote: "login API aaj raat tak", state: state, run: nil, askedWith: askedWith)
+            ], quote: "login API aaj raat tak", state: state, run: nil, askedWith: askedWith,
+            due: due.map {
+                Due(
+                    utc: today.adding(days: $0).start, zone: TimeZone.current.identifier, source: .stated,
+                    precision: .day)
+            })
         item.id = id
         return item
     }

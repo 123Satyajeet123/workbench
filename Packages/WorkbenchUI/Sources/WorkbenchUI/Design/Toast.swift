@@ -43,6 +43,9 @@ final class ToastCenter {
         action()
     }
 
+    /// Hides the toast and drops its undo, for an undo done another way (⌘Z).
+    func dismiss() { hide() }
+
     private func hide() {
         expiry?.cancel()
         current = nil

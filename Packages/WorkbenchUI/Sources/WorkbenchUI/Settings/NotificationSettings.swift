@@ -15,13 +15,7 @@ struct QuietHours: Equatable {
     }
 }
 
-/// How many notifications a day, and when none. Kept in the app's defaults.
-///
-/// The defaults and where they come from:
-/// - Three a day: a field study with 237 people found that three batches a day left them feeling more in control
-///   than hourly ones (Fitz and others, 2019; research 21).
-/// - Quiet from 22:00 to 08:00, on: the default of the nod assistant (its preferences hold quietStart 22:00,
-///   quietEnd 08:00, and the setting defaults to on in its database).
+/// How many notifications a day, and when none. Kept in the app's defaults: three a day, quiet from 22:00 to 08:00.
 struct NotificationPolicy: Equatable {
     static let capChoices = [1, 2, 3, 5, 10]
 
@@ -71,7 +65,7 @@ struct NotificationSettingsView: View {
                 Text("How many")
             } footer: {
                 FormNote(
-                    "Workbench shows no notification while its window is in front, because you can see the fact there. Three a day is the default: in a study of 237 people, three batches a day left them feeling more in control than hourly ones."
+                    "Workbench shows no notification while its window is in front."
                 )
             }
             Section {

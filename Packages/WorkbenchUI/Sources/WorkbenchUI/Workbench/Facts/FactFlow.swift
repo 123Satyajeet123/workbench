@@ -13,12 +13,6 @@ struct FactContext {
     let items: [Item]
 }
 
-/// One action's undo, held by the window's undo manager. The toast that offers it stops offering it once the undo
-/// stack changes by another route.
-private final class UndoStep: @unchecked Sendable {
-    var isOnToast = true
-}
-
 /// Notification observers that end with their owner.
 private nonisolated final class Observers: @unchecked Sendable {
     nonisolated(unsafe) var tokens: [NSObjectProtocol] = []
@@ -39,7 +33,7 @@ final class FactFlow {
     @ObservationIgnored private let confirmation: Duration
     @ObservationIgnored private let closing: Duration
     @ObservationIgnored private let clock: any Clock<Duration>
-    @ObservationIgnored private var lastToast: (toast: Toast, step: UndoStep)?
+    @ObservationIgnored private var lastToast: Toast?
     @ObservationIgnored private let observers = Observers()
     @ObservationIgnored private weak var watchedManager: UndoManager?
     @ObservationIgnored private weak var watchedCenter: ToastCenter?
@@ -91,11 +85,8 @@ final class FactFlow {
         guard let manager = context.undoManager else { return context.toast.show(text) }
         manager.registerUndo(withTarget: manager) { _ in MainActor.assumeIsolated { undo() } }
         manager.setActionName(action.title)
-        let step = UndoStep()
-        context.toast.show(text) { [weak manager] in
-            if step.isOnToast { manager?.undo() }
-        }
-        if let toast = context.toast.current { lastToast = (toast, step) }
+        context.toast.show(text) { [weak manager] in manager?.undo() }
+        lastToast = context.toast.current
         watch(manager, toast: context.toast)
     }
 
@@ -109,9 +100,8 @@ final class FactFlow {
             NotificationCenter.default.addObserver(forName: name, object: manager, queue: nil) {
                 [weak self, weak center] _ in
                 MainActor.assumeIsolated {
-                    guard let self, let center, let last = self.lastToast, center.current == last.toast else { return }
-                    last.step.isOnToast = false
-                    center.undo()
+                    guard let self, let center, center.current == self.lastToast else { return }
+                    center.dismiss()
                 }
             }
         }
