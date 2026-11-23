@@ -2,7 +2,7 @@ import Foundation
 
 /// The built-in object types. A team's own types come later; these are data in code.
 public enum ObjectTypes {
-    public static let builtIn = [deal]
+    public static let builtIn = [deal, project]
 
     public static func type(for kind: String) -> ObjectType {
         builtIn.first { $0.id == kind } ?? .unlisted(kind)

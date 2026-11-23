@@ -18,17 +18,17 @@ import WorkbenchCore
         let (_, run) = try await RecordedModel(ScriptedModel("{}"), store: store).generate(
             [String: JSONValue].self, schema: .object([]), task: "claims.extract", instructions: "i", input: "deck",
             holding: [.mail])
-        let rows: [(String, ClaimType, String, ClaimVerdict, String, String)] = [
+        let rows: [(String, String, String, ClaimVerdict, String, String)] = [
             (
-                "Acme raised a $20 million seed round in 2023.", .funding, "$20 million", .contradicted,
+                "Acme raised a $20 million seed round in 2023.", "funding", "$20 million", .contradicted,
                 "has raised $11 Mn in its seed funding round", "https://inc42.com/buzz/acme-seed"
             ),
             (
-                "Acme was founded in 2022.", .teamBackground, "2022", .supported, "founded in 2022 by three founders",
+                "Acme was founded in 2022.", "team_background", "2022", .supported, "founded in 2022 by three founders",
                 "https://entrackr.com/acme"
             ),
-            ("Acme serves 40 banks.", .customers, "40 banks", .notFound, "", ""),
-            ("The Indian payroll market is $5 billion.", .marketSize, "$5 billion", .unclear, "", ""),
+            ("Acme serves 40 banks.", "customers", "40 banks", .notFound, "", ""),
+            ("The Indian payroll market is $5 billion.", "market_size", "$5 billion", .unclear, "", ""),
         ]
         let ids = try store.saveClaims(
             rows.map { Claim(deal: deal.id, text: $0.0, type: $0.1, value: $0.2, quote: $0.0, line: 1) }, run: run,

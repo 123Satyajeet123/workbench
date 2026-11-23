@@ -9,7 +9,7 @@ import Testing
     private let pageText = "Acme has raised $11 Mn in its seed funding round, led by Blume. It was founded in 2022."
     private static let knownLabel = Label(source: try! Source(owner: PersonID("me"), key: SourceKey("mail:deals")).id)
     private let claim = Claim(
-        id: 7, deal: "deal-1", text: "Acme raised $20 million.", type: .funding, value: "$20 million",
+        id: 7, deal: "deal-1", text: "Acme raised $20 million.", type: "funding", value: "$20 million",
         quote: "raised $20 million", line: 3, label: knownLabel)
 
     private func hits() -> FakeSearch {
@@ -27,7 +27,7 @@ import Testing
             #"{"queries":["Acme seed round","Acme funding"]}"#,
             #"{"verdict":"\#(verdict)","page":\#(page),"quote":"\#(quote)"}"#,
         ])
-        let checker = ClaimChecker(model: RecordedModel(model, store: store), session: session)
+        let checker = ClaimChecker(model: RecordedModel(model, store: store), session: session, types: fundClaimTypes)
         return (try await checker.check(claim, company: "Acme").check, search, model)
     }
 
@@ -63,13 +63,40 @@ import Testing
         #expect(model.inputs.withLock { $0 }.count == 1, "only the query call ran")
     }
 
+    @Test func aClaimOfATypeFromTheSpecIsCheckedWithWhatCountsAsProofForThatType() async throws {
+        let store = try makeStore()
+        try store.switchWeb(true)
+        let session = try WebSession.fake(store: store, search: hits(), pages: FakePages([article: pageText]))
+        let model = SequencedModel([#"{"queries":["q"]}"#, #"{"verdict":"not_found","page":0,"quote":""}"#])
+        var licence = claim
+        licence.type = "licence"
+        let types = [ClaimType(id: "licence", label: "operating licence", proof: "The regulator's own register.")]
+        _ = try await ClaimChecker(model: RecordedModel(model, store: store), session: session, types: types)
+            .check(licence, company: "Acme")
+        let inputs = model.inputs.withLock { $0 }
+        #expect(inputs[1].contains("operating licence") && inputs[1].contains("The regulator's own register."))
+        #expect(!inputs[0].contains("operating licence"), "the query writer does not see the type")
+    }
+
+    @Test func aClaimWhoseTypeTheSpecNoLongerListsIsStillChecked() async throws {
+        let store = try makeStore()
+        try store.switchWeb(true)
+        let session = try WebSession.fake(store: store, search: hits(), pages: FakePages([article: pageText]))
+        let model = SequencedModel([#"{"queries":["q"]}"#, #"{"verdict":"not_found","page":0,"quote":""}"#])
+        let (result, _) = try await ClaimChecker(model: RecordedModel(model, store: store), session: session, types: [])
+            .check(claim, company: "Acme")
+        #expect(result.verdict == .notFound && model.inputs.withLock { $0 }[1].contains("funding"))
+    }
+
     @Test func theJudgeReadsTheClaimAndThePageTextAndTheRunHoldsWebAndMail() async throws {
         let store = try makeStore()
         try store.switchWeb(true)
         let session = try WebSession.fake(store: store, search: hits(), pages: FakePages([article: pageText]))
         let model = SequencedModel([#"{"queries":["q"]}"#, #"{"verdict":"not_found","page":0,"quote":""}"#])
-        let (_, run) = try await ClaimChecker(model: RecordedModel(model, store: store), session: session)
-            .check(claim, company: "Acme")
+        let (_, run) = try await ClaimChecker(
+            model: RecordedModel(model, store: store), session: session, types: fundClaimTypes
+        )
+        .check(claim, company: "Acme")
         let input = model.inputs.withLock { $0 }[1]
         #expect(input.contains("Acme raised $20 million.") && input.contains(pageText) && input.contains(article))
         #expect(try store.queries.runText(of: run)?.kinds == [.mail, .web])
@@ -90,8 +117,10 @@ import Testing
         let pages = FakePages()
         let session = try WebSession.fake(store: store, search: plain, pages: pages)
         let model = SequencedModel([#"{"queries":["q"]}"#])
-        let (result, _) = try await ClaimChecker(model: RecordedModel(model, store: store), session: session)
-            .check(claim, company: "Acme")
+        let (result, _) = try await ClaimChecker(
+            model: RecordedModel(model, store: store), session: session, types: fundClaimTypes
+        )
+        .check(claim, company: "Acme")
         #expect(pages.fetched.withLock { $0 }.isEmpty && result.verdict == .notFound)
     }
 
@@ -105,7 +134,7 @@ import Testing
         let model = SequencedModel([
             #"{"queries":["Acme seed round"]}"#, #"{"verdict":"not_found","page":0,"quote":""}"#,
         ])
-        let checker = ClaimChecker(model: RecordedModel(model, store: store), session: session)
+        let checker = ClaimChecker(model: RecordedModel(model, store: store), session: session, types: fundClaimTypes)
 
         _ = try await checker.check(claim, company: "Acme")
         #expect(search.queries.withLock { $0 } == ["Acme seed round"])
@@ -121,7 +150,7 @@ import Testing
         let store = try makeStore()
         let run = try store.beginRun(task: Claim.task, model: "m", prompt: "p", input: "deck", kinds: [.mail])
         let ids = try store.saveClaims(
-            [claim, Claim(deal: "deal-1", text: "No label.", type: .other, value: "x", quote: "q", line: 4)], run: run,
+            [claim, Claim(deal: "deal-1", text: "No label.", type: "other", value: "x", quote: "q", line: 4)], run: run,
             grant: grant(.mail, label: "Deals"))
         let kept = try store.queries.claims(of: "deal-1")
         #expect(kept.map(\.label) == [Self.knownLabel, nil] && kept.count == ids.count)
@@ -135,7 +164,7 @@ import Testing
         var deckClaim = claim
         deckClaim.text = "Acme raised money."
         deckClaim.quote = "a quote only the deck holds"
-        _ = try await ClaimChecker(model: RecordedModel(model, store: store), session: session)
+        _ = try await ClaimChecker(model: RecordedModel(model, store: store), session: session, types: fundClaimTypes)
             .check(deckClaim, company: "Acme")
         let input = try #require(model.inputs.withLock { $0 }.first)
         #expect(input == "Company: Acme\nClaim: Acme raised money.")

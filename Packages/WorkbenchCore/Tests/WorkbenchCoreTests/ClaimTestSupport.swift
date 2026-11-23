@@ -3,6 +3,9 @@ import Synchronization
 
 @testable import WorkbenchCore
 
+/// The claim types the built-in deal intake machine lists.
+let fundClaimTypes = MachineTemplate.dealIntake.spec.claimTypes!
+
 /// Answers each call with the next reply in the list, and remembers each input.
 final class SequencedModel: StructuredModel, Sendable {
     let name = "sequenced"

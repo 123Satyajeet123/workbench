@@ -78,7 +78,11 @@ final class ClaimsModel {
                 problems.show("Mail is switched off for the \(label) label, so its text is not read.")
                 return
             }
-            let extractor = ClaimExtractor(model: makeModel(try ModelChoice.saved(in: store)))
+            guard let types = try store.queries.claimTypes() else {
+                problems.show("No machine lists claim types, so there is nothing to read claims for.")
+                return
+            }
+            let extractor = ClaimExtractor(model: makeModel(try ModelChoice.saved(in: store)), types: types)
             let found = try await extractor.extract(deal: deal.id, lines: parts.compactMap(\.evidence))
             if let run = found.run, !found.claims.isEmpty {
                 let known = Set(try store.queries.claims(of: deal.id).map { $0.text.comparable })
@@ -101,9 +105,11 @@ final class ClaimsModel {
         let chosen = current.claims.filter { $0.id.map(current.chosen.contains) ?? false }
         var refusals: [String] = []
         do {
+            let types = try store.queries.claimTypes() ?? []
             for claim in chosen {
                 let session = try openSession()
-                let checker = ClaimChecker(model: makeModel(try ModelChoice.saved(in: store)), session: session)
+                let checker = ClaimChecker(
+                    model: makeModel(try ModelChoice.saved(in: store)), session: session, types: types)
                 do {
                     let done = try await checker.check(claim, company: deal.title)
                     try store.saveCheck(done.check, claimQuote: claim.quote, run: done.run, session: session)

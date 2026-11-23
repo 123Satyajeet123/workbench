@@ -32,7 +32,8 @@ import Testing
         try store.switchWeb(true)
         let model = ScriptedModel(reply)
         let check = NewsCheck(
-            session: try .fake(store: store, feeds: feeds()), model: RecordedModel(model, store: store))
+            session: try .fake(store: store, feeds: feeds()), model: RecordedModel(model, store: store),
+            spec: .news())
         let report = try await check.run(watching: watching ?? [company("Bolt Pay")])
         return (report, store, model)
     }
@@ -42,7 +43,7 @@ import Testing
         var built = false
         #expect(throws: WebBlock.consentOff) {
             try FeedSession.open(
-                store: store,
+                store: store, feeds: [],
                 make: { _ in
                     built = true
                     return FakeFeeds()
@@ -121,7 +122,7 @@ import Testing
             ])
             let check = NewsCheck(
                 session: try .fake(store: store, feeds: feeds),
-                model: RecordedModel(ScriptedModel(reply(quote: quote)), store: store), feeds: [.inc42])
+                model: RecordedModel(ScriptedModel(reply(quote: quote)), store: store), spec: .news(feeds: [.inc42]))
             return try await check.run(watching: [company("Bolt Pay")]).kept
         }
         #expect(try await kept(words: 25) == 1)
@@ -159,13 +160,55 @@ import Testing
         #expect(try store.queries.newsSignals().count == 1)
     }
 
+    @Test func theNewsMachineFetchesOnlyTheFeedsInItsSpec() async throws {
+        func fetched(listing feeds: [NewsFeed]) async throws -> [URL] {
+            let store = try makeStore()
+            try store.switchWeb(true)
+            let fake = self.feeds()
+            let check = NewsCheck(
+                session: try .fake(store: store, feeds: fake, listing: feeds),
+                model: RecordedModel(ScriptedModel("{}"), store: store), spec: .news(feeds: feeds))
+            _ = try await check.run(watching: [])
+            return fake.fetched.withLock { $0 }
+        }
+        #expect(try await fetched(listing: [.yourStory]) == [NewsFeed.yourStory.url])
+        #expect(try await fetched(listing: [.inc42, .yourStory]) == [NewsFeed.inc42.url, NewsFeed.yourStory.url])
+        #expect(try await fetched(listing: []).isEmpty)
+    }
+
+    @Test func aFeedAPersonAddsIsFetchedAndAFeedOnlyTheSessionListsIsNot() async throws {
+        let store = try makeStore()
+        try store.switchWeb(true)
+        let own = HiringTemplate.jobFeed
+        let fake = FakeFeeds([own: rss(rssItem("Hiring", link: "https://jobs.example/a/1", body: "Open role."))])
+        let check = NewsCheck(
+            session: try .fake(store: store, feeds: fake, listing: [own]),
+            model: RecordedModel(ScriptedModel("{}"), store: store), spec: .news(feeds: [own, .inc42]))
+        let report = try await check.run(watching: [])
+        #expect(fake.fetched.withLock { $0 } == [own.url] && report.failedFeeds == ["Inc42"])
+    }
+
+    @Test func aFactIsTrustedOnlyWhenTheSpecListsItsFeedAsTrusted() async throws {
+        func trusted(_ spec: HelperSpec) async throws -> String? {
+            let result = try await SignalReader(
+                model: RecordedModel(ScriptedModel(reply()), store: try makeStore()), spec: spec
+            ).read(
+                article("Bolt Pay lays off staff", text: layoff),
+                candidates: [Candidate(company: company("Bolt Pay"), label: "Bolt Pay")])
+            return result.items.first?.fields[NewsSignals.trustedField]
+        }
+        #expect(try await trusted(.news()) == "yes")
+        #expect(try await trusted(.news(feeds: [])) == "no")
+    }
+
     @Test func aFeedThatFailsIsNamedAndTheOthersAreStillChecked() async throws {
         let store = try makeStore()
         try store.switchWeb(true)
         let feeds = FakeFeeds([.yourStory: rss(rssItem("Acme raises", link: "https://yourstory.com/a/3", body: "Acme"))]
         )
         let check = NewsCheck(
-            session: try .fake(store: store, feeds: feeds), model: RecordedModel(ScriptedModel("{}"), store: store))
+            session: try .fake(store: store, feeds: feeds), model: RecordedModel(ScriptedModel("{}"), store: store),
+            spec: .news())
         let report = try await check.run(watching: [])
         #expect(report.failedFeeds == ["Inc42"] && report.newArticles == 1)
     }

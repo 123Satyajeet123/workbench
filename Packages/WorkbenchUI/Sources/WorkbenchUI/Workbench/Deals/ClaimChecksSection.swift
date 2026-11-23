@@ -65,7 +65,7 @@ private struct ClaimRow: View {
             ) {
                 Text(claim.text)
             }
-            Text("\(claim.type.rawValue.replacingOccurrences(of: "_", with: " ")) · “\(claim.quote)”")
+            Text("\(claim.type.replacingOccurrences(of: "_", with: " ")) · “\(claim.quote)”")
                 .textStyle(.callout).foregroundStyle(.supporting)
             if let check = state.check(of: claim) { VerdictView(deal: deal, check: check) }
         }

@@ -15,23 +15,20 @@ public struct NewsCheck: Sendable {
 
     public let session: FeedSession
     public let model: RecordedModel
-    public let feeds: [NewsFeed]
-    /// The machine's spec: its task owns the items, and its brief is the model's instruction.
+    /// The machine's spec: its task owns the items, its brief is the model's instruction and its feeds are the
+    /// only feeds fetched.
     public let spec: HelperSpec
 
-    public init(
-        session: FeedSession, model: RecordedModel, feeds: [NewsFeed] = NewsFeed.all, spec: HelperSpec = .newsSignals
-    ) {
+    public init(session: FeedSession, model: RecordedModel, spec: HelperSpec) {
         self.session = session
         self.model = model
-        self.feeds = feeds
         self.spec = spec
     }
 
     public func run(watching watched: [WatchedCompany]) async throws -> Report {
         var report = Report()
         let store = session.store
-        for feed in feeds {
+        for feed in spec.feeds ?? [] {
             do {
                 let entries = try FeedParser.entries(in: try await session.fetch(feed))
                 report.newArticles += try store.saveArticles(entries, feed: feed, session: session)

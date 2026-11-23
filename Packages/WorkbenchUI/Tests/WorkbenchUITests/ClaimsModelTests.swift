@@ -102,7 +102,7 @@ final class RecordingSearch: SearchProvider, PageFetching, Sendable {
             CapturePolicy(switches: [.mail: true], allowList: [.mail: ["Deals"]])
                 .authorize(CaptureRequest(kind: .mail, label: "Deals"), at: .now).grant)
         let claim = Claim(
-            deal: s.deal.id, text: text, type: .funding, value: "$20 million",
+            deal: s.deal.id, text: text, type: "funding", value: "$20 million",
             quote: "raised $20 million", line: 11, label: label)
         try store.saveClaims([claim], run: run, grant: mailGrant)
         s.claims.refresh(s.deal)
@@ -185,6 +185,14 @@ final class RecordingSearch: SearchProvider, PageFetching, Sendable {
         await s.claims.checkChosen(in: s.deal)
         #expect(s.search.queries.withLock { $0 } == ["one"])
         #expect(s.claims.problems.text?.contains("cap of 1") == true && s.claims.state(of: s.deal).checks.isEmpty)
+    }
+
+    @Test func withNoMachineListingClaimTypesNothingIsReadAndTheDeckSaysWhy() async throws {
+        let s = try await setup()
+        try s.fixture.store.setState(s.fixture.intake.machine, .deleted)
+        await s.claims.extract(from: s.deal)
+        #expect(s.claims.state(of: s.deal).claims.isEmpty && s.model.inputs.withLock { $0 }.isEmpty)
+        #expect(s.claims.problems.text?.contains("No machine lists claim types") == true)
     }
 
     @Test func withMailOffTheDeckIsNotRead() async throws {

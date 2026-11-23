@@ -15,7 +15,7 @@ extension Store {
         return try writer.write { db in
             try claims.map { claim in
                 let fields = [
-                    Claim.dealField: claim.deal, "text": claim.text, "type": claim.type.rawValue, "value": claim.value,
+                    Claim.dealField: claim.deal, "text": claim.text, "type": claim.type, "value": claim.value,
                 ]
                 return try insertItem(
                     db, task: Claim.task, run: run, source: .mail, cite: claim.line, fields: fields,
@@ -87,7 +87,7 @@ extension Queries {
                 let fields: [String: String] = try row.json("fields")
                 return Claim(
                     id: try row.value("id"), deal: deal, text: fields["text"] ?? "",
-                    type: ClaimType(rawValue: fields["type"] ?? "") ?? .other, value: fields["value"] ?? "",
+                    type: fields["type"] ?? "", value: fields["value"] ?? "",
                     quote: try row.value("quote"), line: try row.value("cite_first"),
                     label: try row.optionalValue("label").map { (text: String) in
                         try Coding.value(StoredLabel.self, from: text).label()
@@ -95,6 +95,9 @@ extension Queries {
             }
         }
     }
+
+    /// The claim types of the first machine that lists any; nil when no machine does.
+    public func claimTypes() throws -> [ClaimType]? { try machines().lazy.compactMap(\.spec.claimTypes).first }
 
     public func chosenClaims(of deal: String) throws -> [Int64] {
         try state(forKey: Store.chosenKey(deal)).flatMap { try? Coding.value([Int64].self, from: $0) } ?? []

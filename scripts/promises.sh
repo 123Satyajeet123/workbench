@@ -100,4 +100,10 @@ run "75 a model close overrides the founder's later reopen" $C/Store/SchemaFactL
 run "76 a changed date makes a new fact" $C/Helpers/HelperReader+Relations.swift 's/(case \.sameAs\(let id\):\n)/$1                items.append(item)\n/' WorkbenchCore
 run "77 a handle outside the shown open set is applied" $C/Verify/Verifier+Spec.swift 's/(open\[index - 1\]\.id != nil\n        else \{ )throw Refusal\(\.unknownHandle\)( \})/$1guard let first = open.first else { throw Refusal(.unknownHandle) }; return first$2/' WorkbenchCore WorkbenchUI
 run "78 an erased line's words survive in a fact field" $C/Store/EvidenceCopies.swift 's/        try emptyModelWords\(ofItems: itemIDs, in: db\)\n//' WorkbenchCore
+run "79 a news feed the machine's spec does not list is fetched" $C/News/NewsFeed.swift 's/guard feeds\.contains\(feed\) else \{ throw FeedError\.notAFeed\(feed\.url\) \}\n//' WorkbenchCore
+run "80 a news feed host is named in code outside the template data" $C/News/NewsFeed.swift 's/The feeds are a list in the machine.s spec/The feeds, such as inc42.com, are a list in the machine'"'"'s spec/' WorkbenchCore
+run "81 a claim type the spec does not list is kept" $C/Claims/ClaimExtractor.swift 's/\.enumeration\(types\.map\(\\\.id\)\)/.string/' WorkbenchCore
+run "82 a store that has machines is started from a template again" $C/Store/CrewStore.swift 's/if isNew \{ try seedMachines/if true { try seedMachines/' WorkbenchCore
+run "83 a template asks for one source twice" $C/Templates/TeamTemplate.swift 's/if !kinds\.contains\(kind\) \{ kinds\.append\(kind\) \}/kinds.append(kind)/' WorkbenchCore
+run "84 an existing machine loses the feeds of its template" $C/Templates/MachineTemplate.swift 's/spec\.feeds = feeds \?\? template\?\.feeds/spec.feeds = feeds/' WorkbenchCore WorkbenchUI
 echo DONE

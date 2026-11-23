@@ -22,9 +22,23 @@ final class FakeFeeds: FeedFetching, Sendable {
     }
 }
 
+extension NewsFeed {
+    static let inc42 = MachineTemplate.newsSignals.spec.feeds![0]
+    static let yourStory = MachineTemplate.newsSignals.spec.feeds![1]
+}
+
+extension HelperSpec {
+    /// The news machine's spec, reading only `feeds`.
+    static func news(feeds: [NewsFeed] = [.inc42, .yourStory]) -> HelperSpec {
+        var spec = HelperSpec.newsSignals
+        spec.feeds = feeds
+        return spec
+    }
+}
+
 extension FeedSession {
-    static func fake(store: Store, feeds: FakeFeeds) throws -> FeedSession {
-        try open(store: store, make: { _ in feeds })
+    static func fake(store: Store, feeds: FakeFeeds, listing: [NewsFeed] = [.inc42, .yourStory]) throws -> FeedSession {
+        try open(store: store, feeds: listing, make: { _ in feeds })
     }
 }
 

@@ -10,8 +10,6 @@ public struct NewsArticle: Sendable, Equatable, Identifiable {
     public var published: Date
     public var text: String
 
-    public var isTrusted: Bool { NewsFeed.isTrusted(feed) }
-
     /// The words matching and the model read: the title and the text.
     var body: String { title + ". " + text }
 }

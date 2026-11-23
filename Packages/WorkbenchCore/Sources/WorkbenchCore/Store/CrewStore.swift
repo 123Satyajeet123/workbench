@@ -12,6 +12,12 @@ extension Store {
         }
     }
 
+    /// Makes the machines of a team template for a store that never held a machine. A store that did is left as it is.
+    public func startTeam(from template: TeamTemplate) throws {
+        let isNew = try writer.read { db in try Int.fetchOne(db, sql: "SELECT 1 FROM machine LIMIT 1") == nil }
+        if isNew { try seedMachines(template.seeds) }
+    }
+
     /// A new machine from a template, with its own task so its items, settings and trust are its own. The task is the
     /// template's with a dash, never a dot, so no machine's settings key starts with another machine's task.
     /// `template` names the template the spec came from; it defaults to the spec's own task, for a template itself.
@@ -153,9 +159,11 @@ extension Queries {
 extension Machine {
     /// A row of `machine_now`.
     init(row: Row) throws {
+        let template: String = try row.value("template")
         self.init(
-            id: try row.value("id"), name: try row.value("name"), template: try row.value("template"),
-            spec: try row.json("spec"), state: try row.enumeration("state"))
+            id: try row.value("id"), name: try row.value("name"), template: template,
+            spec: (try row.json("spec") as HelperSpec).filling(from: MachineTemplate.of(id: template)?.spec),
+            state: try row.enumeration("state"))
     }
 }
 

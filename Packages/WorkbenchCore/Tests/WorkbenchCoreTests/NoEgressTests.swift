@@ -24,14 +24,15 @@ enum EgressScan {
     /// fetch may use; WhatsApp Web, which page capture only excludes; and the two search providers, which only the
     /// consent kind `web` may reach (`WebSession`). The
     /// pages a search returns are fetched from hosts the provider names, never from a host written in the source.
-    /// The two news feed hosts are named in `NewsFeed.swift` only, and only a `FeedSession` (the consent kind `web`)
-    /// may fetch them.
+    /// The two news feed hosts are named in the built-in template data only, and only a `FeedSession` (the consent
+    /// kind `web`) may fetch them.
     static let allowedHosts: Set<String> = [
         "mail.google.com", "web.whatsapp.com", "api.search.brave.com", "api.exa.ai", "inc42.com", "yourstory.com",
     ]
 
-    /// The one file that names the feed hosts, and the feed hosts.
-    static let feedFile = "NewsFeed.swift"
+    /// The one file that names the feed hosts, the feed hosts, and the file of the `FeedSession` that fetches them.
+    static let feedDataFile = "BuiltInTemplates.swift"
+    static let feedSessionFile = "NewsFeed.swift"
     static let feedHosts: Set<String> = ["inc42.com", "yourstory.com"]
     static let feedGuards = ["grant.kind == .web", "grant.expiresAt > store.clock()", "feeds.contains(feed)"]
 
@@ -154,9 +155,9 @@ struct NoEgressTests {
             if EgressScan.feedHosts.contains(where: { text.contains($0) }) {
                 namingFeeds.append(file.lastPathComponent)
             }
-            if file.lastPathComponent == EgressScan.feedFile { feedSession = text }
+            if file.lastPathComponent == EgressScan.feedSessionFile { feedSession = text }
         }
-        #expect(namingFeeds == [EgressScan.feedFile])
+        #expect(namingFeeds == [EgressScan.feedDataFile])
         for guardText in EgressScan.feedGuards { #expect(feedSession.contains(guardText), "lost \(guardText)") }
         #expect(feedSession.contains("else { throw WebBlock.consentOff }"), "the session opens only with consent")
     }

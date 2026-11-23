@@ -6,6 +6,11 @@ import WorkbenchCore
 
 @testable import WorkbenchUI
 
+extension NewsFeed {
+    static let inc42 = MachineTemplate.newsSignals.spec.feeds![0]
+    static let yourStory = MachineTemplate.newsSignals.spec.feeds![1]
+}
+
 /// A fetcher that records every address and serves RSS bodies by address.
 final class RecordingFeeds: FeedFetching, Sendable {
     let fetched = Mutex<[URL]>([])
@@ -63,7 +68,8 @@ struct NewsFixture {
     func switchWeb(_ on: Bool) throws { try capture.update { $0.switches[.web] = on } }
 
     func check(reply: String = Self.reply) async throws -> NewsCheck.Report {
-        try await news.check(with: RecordedModel(ScriptedModel(reply), store: store))
+        try await news.check(
+            with: RecordedModel(ScriptedModel(reply), store: store), spec: MachineTemplate.newsSignals.spec)
     }
 
     /// A deal passed on, with a revisit on `day`.

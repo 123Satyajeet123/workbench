@@ -27,20 +27,20 @@ public struct SignalReader: Sendable {
             guard let company = candidates.first(where: { $0.label == item["company"] })?.company,
                 item.quote.split(whereSeparator: \.isWhitespace).count <= NewsSignals.quoteWords
             else { continue }
-            let fact = Self.fact(item, about: company, in: article)
+            let fact = self.fact(item, about: company, in: article)
             if !kept.contains(where: { $0.fields == fact.fields && $0.quote == fact.quote }) { kept.append(fact) }
         }
         return HelperReader.Result(items: kept, dropped: read.items.count - kept.count + read.dropped, run: read.run)
     }
 
-    private static func fact(_ item: Item, about company: WatchedCompany, in article: NewsArticle) -> Item {
+    private func fact(_ item: Item, about company: WatchedCompany, in article: NewsArticle) -> Item {
         var fact = item
         fact.fields["company"] = company.name
         fact.fields["date"] = WorkDay(item["date"])?.description ?? WorkDay(containing: article.published).description
         fact.fields[NewsSignals.idField] = company.id
         fact.fields[NewsSignals.urlField] = article.url.absoluteString
         fact.fields[NewsSignals.feedField] = article.feed
-        fact.fields[NewsSignals.trustedField] = article.isTrusted ? "yes" : "no"
+        fact.fields[NewsSignals.trustedField] = spec.trusts(feed: article.feed) ? "yes" : "no"
         fact.fields[NewsSignals.headlineField] = article.title
         return fact
     }

@@ -11,7 +11,7 @@ import Testing
         quotable: ["We raised $20 million in 2023."])
 
     private func extracted(_ reply: String, store: Store) async throws -> (claims: [Claim], dropped: Int, run: RunID?) {
-        try await ClaimExtractor(model: RecordedModel(ScriptedModel(reply), store: store))
+        try await ClaimExtractor(model: RecordedModel(ScriptedModel(reply), store: store), types: fundClaimTypes)
             .extract(deal: "d1", lines: [line])
     }
 
@@ -35,9 +35,42 @@ import Testing
             result.claims, run: try #require(result.run), grant: grant(.mail, label: "Deals"))
         try store.choose(claims: ids, deal: "d1")
         let claims = try store.queries.claims(of: "d1")
-        #expect(claims.map(\.id) == ids.map { Optional($0) } && claims[0].type == .funding && claims[0].line == 3)
+        #expect(claims.map(\.id) == ids.map { Optional($0) } && claims[0].type == "funding" && claims[0].line == 3)
         #expect(try store.queries.claims(of: "d2").isEmpty)
         #expect(try store.queries.chosenClaims(of: "d1") == ids)
+    }
+
+    @Test func aClaimTypeFromTheSpecIsExtractedAndAnUnlistedOneIsRefused() async throws {
+        let store = try makeStore()
+        let regulatory =
+            #"{"line":3,"text":"Licensed by the RBI.","type":"regulatory","value":"RBI","quote":"We raised $20 million"}"#
+        let reply = #"{"claims":[\#(regulatory)]}"#
+        func extract(types: [ClaimType]) async throws -> (claims: [Claim], dropped: Int, run: RunID?) {
+            try await ClaimExtractor(model: RecordedModel(ScriptedModel(reply), store: store), types: types)
+                .extract(deal: "d1", lines: [line])
+        }
+        let listed = try await extract(
+            types: fundClaimTypes + [ClaimType(id: "regulatory", label: "licence", proof: "The regulator's register.")]
+        )
+        #expect(listed.claims.map(\.type) == ["regulatory"] && listed.dropped == 0)
+        await #expect(throws: StructuredModelError.self) { try await extract(types: fundClaimTypes) }
+    }
+
+    @Test func theModelIsToldEachTypeOfTheSpec() {
+        let told = ClaimExtractor.instructions(for: [HiringTemplate.reference])
+        #expect(told.contains("`reference`: reference") && !told.contains("market_size"))
+    }
+
+    @Test func claimsStoredWithTheSixOldTypeValuesStillLoad() async throws {
+        let store = try makeStore()
+        let old = ["market_size", "revenue_or_traction", "team_background", "funding", "customers", "other"]
+        let claims = old.enumerated().map { index, type in
+            Claim(deal: "d1", text: "Claim \(index)", type: type, value: "v", quote: "q", line: 3)
+        }
+        let run = try #require(try await extracted(#"{"claims":[]}"#, store: store).run)
+        try store.saveClaims(claims, run: run, grant: grant(.mail, label: "Deals"))
+        #expect(try store.queries.claims(of: "d1").map(\.type) == old)
+        #expect(Set(old) == Set(fundClaimTypes.map(\.id)))
     }
 
     @Test func savingClaimsNeedsTheMailGrant() async throws {

@@ -116,7 +116,8 @@ import Testing
             #"{"line":3,"text":"Raised $20 million.","type":"funding","value":"$20 million","quote":"We've raised $20 million"}"#
         let bad = good.replacingOccurrences(of: "$20 million\"}", with: "$30 million\"}")
         let result = try await ClaimExtractor(
-            model: RecordedModel(ScriptedModel(#"{"claims":[\#(good),\#(bad)]}"#), store: store)
+            model: RecordedModel(ScriptedModel(#"{"claims":[\#(good),\#(bad)]}"#), store: store),
+            types: fundClaimTypes
         ).extract(deal: "d1", lines: [line])
         #expect(result.claims.count == 1 && result.dropped == 1)
         let rows = try store.queries.dropReasons(of: try #require(result.run))

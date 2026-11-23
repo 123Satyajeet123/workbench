@@ -1,4 +1,5 @@
 import SwiftUI
+import WorkbenchCore
 
 struct WelcomeStep: View {
     private struct Member {

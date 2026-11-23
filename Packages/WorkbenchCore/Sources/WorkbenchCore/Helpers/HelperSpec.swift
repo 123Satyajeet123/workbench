@@ -265,6 +265,10 @@ public struct HelperSpec: Codable, Sendable, Equatable {
     /// The model this machine reads with, as a model choice id such as "claude sonnet"; nil uses the founder's choice.
     /// Trust is counted per model, so a new runner earns trust again (research 20 §7.1).
     public var runner: String? = nil
+    /// The news feeds this machine fetches, and nothing else; nil for a machine that reads no feed.
+    public var feeds: [NewsFeed]? = nil
+    /// The kinds of claim this machine's deal pitches are read for; nil for a machine that reads no claims.
+    public var claimTypes: [ClaimType]? = nil
 }
 
 extension HelperSpec {

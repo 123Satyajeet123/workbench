@@ -39,8 +39,8 @@ final class NewsSource: MachineSource {
 
     /// Fetches the feeds, matches the articles and reads each matched one with `model`. The facts belong to the
     /// machine whose spec is given.
-    func check(with model: RecordedModel, spec: HelperSpec = .newsSignals) async throws -> NewsCheck.Report {
-        let session = try FeedSession.open(store: store, make: makeFetcher)
+    func check(with model: RecordedModel, spec: HelperSpec) async throws -> NewsCheck.Report {
+        let session = try FeedSession.open(store: store, feeds: spec.feeds ?? [], make: makeFetcher)
         return try await NewsCheck(session: session, model: model, spec: spec).run(
             watching: try store.queries.watchedCompanies())
     }

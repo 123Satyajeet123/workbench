@@ -1,15 +1,18 @@
 import Foundation
 import Kernel
 
-/// What a claim in a deck is about. It decides which source can settle it: a market size needs the named report, a
-/// funding claim a dated news report, a customer claim the customer's own page.
-public enum ClaimType: String, Codable, CaseIterable, Sendable {
-    case marketSize = "market_size"
-    case revenueOrTraction = "revenue_or_traction"
-    case teamBackground = "team_background"
-    case funding
-    case customers
-    case other
+/// What a claim in a deck is about, as data in a machine's spec. `proof` says what counts as proof of a claim of this
+/// type: it tells the model which source can settle it.
+public struct ClaimType: Codable, Sendable, Equatable, Identifiable {
+    public let id: String
+    public var label: String
+    public var proof: String
+
+    public init(id: String, label: String, proof: String) {
+        self.id = id
+        self.label = label
+        self.proof = proof
+    }
 }
 
 /// One thing a deck says that can be checked: its words, its type, the value it states, and where in the deck it said
@@ -19,7 +22,8 @@ public struct Claim: Sendable, Equatable, Identifiable {
     public var id: Int64?
     public var deal: String
     public var text: String
-    public var type: ClaimType
+    /// The id of one of the machine's claim types. An id the spec no longer lists is kept as it was stored.
+    public var type: String
     /// The number, name or date the claim states, such as "$11 million".
     public var value: String
     /// Words copied from the deck line the claim came from.
@@ -31,7 +35,7 @@ public struct Claim: Sendable, Equatable, Identifiable {
     public var label: Label?
 
     public init(
-        id: Int64? = nil, deal: String, text: String, type: ClaimType, value: String, quote: String, line: Int64,
+        id: Int64? = nil, deal: String, text: String, type: String, value: String, quote: String, line: Int64,
         label: Label? = nil
     ) {
         self.id = id

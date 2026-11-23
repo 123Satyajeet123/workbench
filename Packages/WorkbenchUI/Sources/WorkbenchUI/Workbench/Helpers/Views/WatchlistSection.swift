@@ -116,10 +116,15 @@ struct NewsChooser: View {
     let model: HelperModel
     @Environment(CaptureSettings.self) private var capture
 
+    private var feedNames: String {
+        let names = (model.machine.spec.feeds ?? []).map(\.name)
+        return names.isEmpty ? "no news feed yet" : "the " + names.formatted(.list(type: .and)) + " news feeds"
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: Space.s) {
             Text(
-                "\(model.name) fetches the Inc42 and YourStory news feeds and reads the articles that name a company you follow. Each check sends one plain request to each of the two sites. It sends no company name and nothing about you. Articles are kept 30 days and deleted with the rest of your web data. It is off until you switch on web research."
+                "\(model.name) fetches \(feedNames) and reads the articles that name a company you follow. Each check sends one plain request to each feed's site. It sends no company name and nothing about you. Articles are kept 30 days and deleted with the rest of your web data. It is off until you switch on web research."
             )
             .foregroundStyle(.supporting)
             Button("Turn on web research") {

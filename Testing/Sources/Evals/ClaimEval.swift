@@ -22,12 +22,12 @@ public struct DevClaim: Decodable, Sendable {
         case truthQuote = "truth_quote"
     }
 
-    /// The claim type the dev set's own type belongs to.
-    var type: ClaimType {
+    /// The id of the claim type the dev set's own type belongs to.
+    var type: String {
         switch claimType {
-        case "round_size", "lead_investor": .funding
-        case "incorporation_year", "founding_team_size": .teamBackground
-        default: .other
+        case "round_size", "lead_investor": "funding"
+        case "incorporation_year", "founding_team_size": "team_background"
+        default: "other"
         }
     }
 }
