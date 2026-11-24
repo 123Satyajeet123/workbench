@@ -50,7 +50,7 @@ func store(of day: Int) throws -> Store {
 
 func spent() throws -> Double {
     try days.indices.reduce(0) { total, day in
-        total + (try store(of: day).queries.runs().map(\.usage.costUSD).reduce(0, +))
+        total + (try store(of: day).queries.runs().compactMap(\.usage?.costUSD).reduce(0, +))
     }
 }
 
