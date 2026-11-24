@@ -18,10 +18,12 @@ let package = Package(
         .executable(name: "search-tools", targets: ["SearchToolsDemo"]),
         .executable(name: "grounding-probe", targets: ["GroundingProbe"]),
         .executable(name: "judge-probe", targets: ["JudgeProbe"]),
+        .executable(name: "scheduler-probe", targets: ["SchedulerProbe"]),
     ],
     dependencies: [
         .package(path: "../Packages/WorkbenchCore"), .package(path: "../Packages/WorkbenchUI"),
         .package(path: "../Packages/BaseKit"), .package(path: "../Packages/Kernel"),
+        .package(url: "https://github.com/groue/GRDB.swift", exact: "7.12.0"),
     ],
     targets: [
         .target(name: "Evals", dependencies: ["WorkbenchCore"]),
@@ -69,6 +71,8 @@ let package = Package(
         .executableTarget(
             name: "JudgeProbe",
             dependencies: ["Evals", "WorkbenchCore", .product(name: "AgentCLI", package: "BaseKit")]),
+        .executableTarget(
+            name: "SchedulerProbe", dependencies: [.product(name: "GRDB", package: "GRDB.swift")]),
         .testTarget(name: "EvalsTests", dependencies: ["Evals", "WorkbenchCore"]),
     ]
 )
