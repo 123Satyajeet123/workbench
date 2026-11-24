@@ -19,8 +19,8 @@ struct MachineSheet: View {
     let done: (Int64?) -> Void
     @Environment(Crew.self) private var crew
     @Environment(\.dismiss) private var dismiss
-    @State private var template: MachineTemplate?
-    private static let machines = GalleryTemplate.all.compactMap(\.machine)
+    @State private var item: GalleryTemplate?
+    private static let items = GalleryTemplate.all.filter { $0.machine != nil }
     @State private var text = ""
 
     var body: some View {
@@ -28,11 +28,10 @@ struct MachineSheet: View {
             Text(title).textStyle(.title2, weight: .bold)
             switch edit {
             case .new:
-                Picker("Reads", selection: $template) {
-                    ForEach(Self.machines) { Text($0.reads ?? $0.role).tag(Optional($0)) }
+                ScrollView {
+                    ChoiceList(items: Self.items, chosen: $item) { GalleryItemLabel(template: $0) }
                 }
-                .pickerStyle(.radioGroup)
-                Text(template?.detail ?? "").foregroundStyle(.supporting)
+                .frame(maxHeight: 360)
                 if lacksFollowable { Text(Crew.nothingToFollow).foregroundStyle(Tone.bad.color) }
                 TextField("Name", text: $text, prompt: Text(template?.name ?? "")).textFieldStyle(.roundedBorder)
             case .brief(let helper):
@@ -62,6 +61,8 @@ struct MachineSheet: View {
         .zoomedWidth(480)
         .onAppear(perform: fill)
     }
+
+    private var template: MachineTemplate? { item?.machine }
 
     private var isNew: Bool {
         if case .new = edit { true } else { false }

@@ -36,12 +36,17 @@ final class FirstLookModel {
 
     @ObservationIgnored private let crew: Crew
     @ObservationIgnored private let tasks: Set<String>
+    @ObservationIgnored private let prompts: [TeamStart.Prompt]
     @ObservationIgnored private let today: WorkDay
     @ObservationIgnored private let now: () -> Date
 
-    init(crew: Crew, template: TeamTemplate, today: WorkDay, now: @escaping () -> Date = { .now }) {
+    init(
+        crew: Crew, template: TeamTemplate, prompts: [TeamStart.Prompt], today: WorkDay,
+        now: @escaping () -> Date = { .now }
+    ) {
         self.crew = crew
         tasks = Set(template.seeds.map(\.spec.task))
+        self.prompts = prompts
         self.today = today
         self.now = now
     }
@@ -52,8 +57,14 @@ final class FirstLookModel {
         seeded.filter { !$0.isOutbound && !($0.source is NewsSource) && $0.isReady }
     }
 
-    /// The machines of the template whose source needs a pick, such as the chats a chat machine reads.
-    var choosers: [HelperModel] { seeded.filter { $0.source.picks != nil } }
+    /// The machines whose picker waits for the person, such as the chats a chat machine reads, from the prompts that
+    /// starting the team returned.
+    var choosers: [HelperModel] {
+        prompts.compactMap { prompt in
+            guard case .picker = prompt.block, let machine = prompt.machine else { return nil }
+            return crew.helper(id: machine)
+        }
+    }
 
     /// Every row shown, machine by machine.
     var rows: [Row] { shown.flatMap(\.rows) }

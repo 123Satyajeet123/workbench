@@ -9,7 +9,6 @@ struct ConnectList: View {
     @Environment(MacAccess.self) private var access
     @Environment(CaptureSettings.self) private var capture
     @Environment(TodayModel.self) private var today
-    @Environment(Crew.self) private var crew
     @Environment(ModelSettings.self) private var models
     @Environment(BrowserSetup.self) private var browsers
 
@@ -28,13 +27,9 @@ struct ConnectList: View {
         }
         .padding(.horizontal, Space.m)
         .background(.calloutFill, in: .rect(cornerRadius: Radius.card))
-        if !isChecklist, !choosers.isEmpty { SourceChoices(machines: choosers) }
     }
 
     private var rows: [ConnectRow] { ConnectRow.rows(for: needs) }
-
-    /// The machines already made whose source needs a pick; a new team's machines are made after setup.
-    private var choosers: [HelperModel] { crew.machines.filter { $0.source.picks != nil } }
 
     private func source(of row: ConnectRow) -> CaptureSource? {
         CaptureSource.all.first { $0.source == row.kind }
@@ -58,7 +53,7 @@ struct ConnectList: View {
         case .whatsApp:
             facts.status(of: .whatsApp) == .needsPermission(pane: .fullDiskAccess)
                 ? "Turn on Workbench in Full Disk Access. macOS then asks to quit and reopen; setup opens here again."
-                : reason(of: row) + (choosers.isEmpty ? " You choose its chats after setup." : "")
+                : reason(of: row) + " You choose its chats after setup."
         case .mail: reason(of: row) + " You name the Gmail label on its page."
         case .screen, .screenText, .web, .calendar, .calls: reason(of: row)
         }

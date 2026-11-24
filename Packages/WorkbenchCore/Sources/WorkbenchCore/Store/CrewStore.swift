@@ -26,7 +26,7 @@ extension Store {
             do {
                 let start = try start(
                     entry.item, name: entry.machine.name, overrides: entry.machine.overrides, having: having)
-                started.prompts += start.prompts.map { TeamStart.Prompt(machine: entry.machine.name, block: $0) }
+                started.prompts += start.prompts.map { TeamStart.Prompt(machine: start.machine?.id, block: $0) }
                 if let machine = start.machine {
                     started.machines.append(machine.name)
                     seeded.append(machine)

@@ -296,7 +296,9 @@ extension Gates {
             daysAgo: 2, in: desk)
         let onboarding = desk.onboarding(choosing: .fund)
         advance(onboarding, to: .firstLook)
-        let look = FirstLookModel(crew: desk.crew, template: onboarding.template, today: WorkDay(containing: .now))
+        let look = FirstLookModel(
+            crew: desk.crew, template: onboarding.template, prompts: onboarding.prompts,
+            today: WorkDay(containing: .now))
         await look.estimate()
         check(
             onboarding.screen == .firstLook && look.machines.first?.spec.source == .mail,
@@ -351,7 +353,9 @@ extension Gates {
         let source = try require(pip.source as? WhatsAppSource)
         try source.loadGroups()
         try source.choose(try require(source.groups.first))
-        let look = FirstLookModel(crew: desk.crew, template: onboarding.template, today: WorkDay(containing: .now))
+        let look = FirstLookModel(
+            crew: desk.crew, template: onboarding.template, prompts: onboarding.prompts,
+            today: WorkDay(containing: .now))
         await look.estimate()
         check(
             look.machines.map(\.name) == ["Pip"] && look.cost.calls == 2 && desk.model.inputs.withLock { $0.isEmpty },

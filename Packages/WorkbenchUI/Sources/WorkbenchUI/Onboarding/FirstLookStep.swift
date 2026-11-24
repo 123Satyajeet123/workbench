@@ -13,7 +13,11 @@ struct FirstLookStep: View {
                 FirstLookBody(look: look)
             }
         }
-        .task { look = FirstLookModel(crew: crew, template: onboarding.template, today: WorkDay(containing: .now)) }
+        .task {
+            look = FirstLookModel(
+                crew: crew, template: onboarding.template, prompts: onboarding.prompts, today: WorkDay(containing: .now)
+            )
+        }
     }
 }
 

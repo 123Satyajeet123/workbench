@@ -5,13 +5,12 @@ extension MachineTemplate {
         spec: .team, name: "Pip", role: "Team facts",
         detail:
             "Reads the WhatsApp chats you choose and keeps each person's plans, done work, blockers, commitments, decisions and questions, by project.",
-        reads: "WhatsApp", hue: 0.55
+        hue: 0.55
     )
     public static let teamTelegram = MachineTemplate(
         spec: .teamTelegram, name: "Relay", role: "Team facts",
         detail:
-            "Reads one Telegram group whose members all agreed, and keeps each person's plans, done work, blockers, commitments, decisions and questions, by project.",
-        reads: "Telegram"
+            "Reads one Telegram group whose members all agreed, and keeps each person's plans, done work, blockers, commitments, decisions and questions, by project."
     )
     public static let timeline = MachineTemplate(
         spec: .timeline, name: "Timeline", role: "Day timeline",

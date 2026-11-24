@@ -12,6 +12,8 @@ final class OnboardingModel {
     /// The optional machines of the template the person asked for, by machine template id.
     private(set) var optionalChosen: Set<String> = []
     private(set) var teamIsStarted = false
+    /// What the started team's machines wait for the person to do, as starting the team returned it.
+    private(set) var prompts: [TeamStart.Prompt] = []
     /// The person took the first look, so the step asks to continue and no longer to skip.
     var hasLookedFirst = false
     private(set) var screen = OnboardingScreen.welcome { didSet { save() } }
@@ -118,7 +120,7 @@ final class OnboardingModel {
     private func startTeam() -> Bool {
         guard !teamIsStarted else { return true }
         do {
-            try store?.startTeam(from: template, answers: answers)
+            prompts = try store?.startTeam(from: template, answers: answers).prompts ?? []
             teamStarted()
             teamIsStarted = true
             return true

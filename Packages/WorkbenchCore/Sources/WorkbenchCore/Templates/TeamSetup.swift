@@ -66,8 +66,10 @@ extension HelperSpec {
 /// What starting a team made: the names of its machines, how many answers went into their specs, what the person must
 /// still choose, and the items left out because the app lacks what they need.
 public struct TeamStart: Sendable, Equatable {
+    /// A block of a started item that waits for the person, such as the chats a machine reads.
     public struct Prompt: Sendable, Equatable {
-        public var machine: String
+        /// The id of the machine the block is for; nil for an item that sets up only its folder.
+        public var machine: Int64?
         public var block: GalleryTemplate.StartBlock
     }
 

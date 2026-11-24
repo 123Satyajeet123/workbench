@@ -1,15 +1,12 @@
 import SwiftUI
 import WorkbenchCore
 
-/// The team's name and people, and the template the team starts from.
+/// The team's name and people, the template the team starts from, and the gallery items that template sets up.
 struct TeamStep: View {
     @Environment(OnboardingModel.self) private var model
 
-    private var optionalMachines: [TeamMachine] {
-        model.startsTeam ? model.teamModel.template?.optionalMachines ?? [] : []
-    }
-
     var body: some View {
+        @Bindable var team = model.teamModel
         VStack(alignment: .leading, spacing: Space.l) {
             TeamEditor()
             VStack(alignment: .leading, spacing: Space.s) {
@@ -18,57 +15,48 @@ struct TeamStep: View {
                     Text("This Mac already has machines. Workbench keeps them and adds none from a template.")
                         .textStyle(.callout).foregroundStyle(.supporting)
                 }
-                VStack(spacing: 0) {
-                    ForEach(model.teamModel.templates) { template in
-                        TemplateRow(
-                            template: template, isChosen: template == model.teamModel.template,
-                            choose: { model.teamModel.template = template })
-                        if template != model.teamModel.templates.last { Divider() }
+                ChoiceList(items: team.templates, chosen: $team.template) { template in
+                    VStack(alignment: .leading, spacing: Space.xs / 2) {
+                        Text(template.name).textStyle(.headline)
+                        Text(template.purpose).textStyle(.callout).foregroundStyle(.supporting)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
-                .padding(.horizontal, Space.m)
-                .background(.calloutFill, in: .rect(cornerRadius: Radius.card))
-                ForEach(optionalMachines, id: \.template) { machine in
-                    Toggle(
-                        isOn: Binding(
-                            get: { model.optionalChosen.contains(machine.template) },
-                            set: { model.include(machine, $0) })
-                    ) {
-                        VStack(alignment: .leading, spacing: Space.xs / 2) {
-                            Text("Also add \(machine.name)")
-                            if let detail = MachineTemplate.of(id: machine.template)?.detail {
-                                Text(detail).textStyle(.callout).foregroundStyle(.supporting)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                        }
-                    }
-                }
+                if model.startsTeam, let chosen = team.template { TemplateItems(template: chosen) }
             }
         }
     }
 }
 
-private struct TemplateRow: View {
+/// What a team template sets up, item by item, and the optional items the person may add.
+private struct TemplateItems: View {
     let template: TeamTemplate
-    let isChosen: Bool
-    let choose: () -> Void
+    @Environment(OnboardingModel.self) private var model
+
+    private var optionalItems: [(machine: TeamMachine, item: GalleryTemplate)] {
+        template.optionalMachines.compactMap { machine in GalleryTemplate.of(id: machine.template).map { (machine, $0) }
+        }
+    }
 
     var body: some View {
-        Button(action: choose) {
-            HStack(spacing: Space.m) {
-                Image(systemName: isChosen ? "largecircle.fill.circle" : "circle")
-                    .foregroundStyle(isChosen ? Color.accentFill : Color.bodyText.opacity(0.4))
-                VStack(alignment: .leading, spacing: Space.xs / 2) {
-                    Text(template.name).textStyle(.headline)
-                    Text(template.purpose).textStyle(.callout).foregroundStyle(.supporting)
-                        .fixedSize(horizontal: false, vertical: true)
+        if !template.items.isEmpty || !optionalItems.isEmpty {
+            VStack(alignment: .leading, spacing: Space.m) {
+                Text("What \(template.name) sets up").textStyle(.headline)
+                ForEach(template.items) { GalleryItemLabel(template: $0) }
+                ForEach(optionalItems, id: \.machine.template) { machine, item in
+                    Toggle(
+                        isOn: Binding(
+                            get: { model.optionalChosen.contains(machine.template) },
+                            set: { model.include(machine, $0) })
+                    ) {
+                        GalleryItemLabel(template: item)
+                    }
+                    .toggleStyle(.switch)
                 }
-                Spacer(minLength: 0)
             }
-            .padding(.vertical, Space.m)
-            .contentShape(.rect)
+            .padding(Space.m)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.calloutFill, in: .rect(cornerRadius: Radius.card))
         }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(isChosen ? .isSelected : [])
     }
 }
