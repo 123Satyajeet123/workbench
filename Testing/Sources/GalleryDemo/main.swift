@@ -29,7 +29,8 @@ print(
 print("An unknown id gives nothing: \(GalleryTemplate.of(id: "no.such.machine") == nil ? "yes" : "NO")")
 
 let broken = GalleryTemplate(
-    id: "broken", name: "Broken", icon: "xmark", detail: "", folder: .init(name: "Broken"), machine: .followUps,
+    id: "broken", name: "Broken", icon: "xmark", detail: "", folder: .init(name: "Broken", key: "broken"),
+    machine: .followUps,
     job: "", blocks: [.picker(.mail), .input(.criteria), .facts(task: HelperSpec.followUps.task, view: "board")])
 print("A broken template is caught: \(broken.problems.count == 3 ? "yes" : "NO") \(broken.problems)")
 print("Ids are unique: \(Set(GalleryTemplate.all.map(\.id)).count == GalleryTemplate.all.count ? "yes" : "NO")")

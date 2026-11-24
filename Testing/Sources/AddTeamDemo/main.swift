@@ -1,5 +1,7 @@
 import Foundation
-import WorkbenchCore
+import GRDB
+
+@testable import WorkbenchCore
 
 /// Shows that a team template starts inside an existing workspace, beside the teams already there, in both directions:
 /// the rows before stay as they were, a second add makes a second team, each deal is read by the machines of its own
@@ -7,6 +9,13 @@ import WorkbenchCore
 /// scratch stores and no network.
 
 var failures = 0
+
+struct Missing: Error {}
+
+func need<Value>(_ value: Value?) throws -> Value {
+    guard let value else { throw Missing() }
+    return value
+}
 
 @MainActor func check(_ name: String, _ ok: Bool) {
     print("  \(ok ? "yes" : "NO"): \(name)")
@@ -226,7 +235,165 @@ let none = try allRefused.addTeam(
     TeamTemplate(
         id: "needy", name: "Needy", purpose: "", objectTypes: [],
         machines: [TeamMachine(template: GalleryTemplate.companyResearch.id, name: "Research")]))
+let refusedAllBefore = try Rows(allRefused)
 check("a team whose every item is refused starts no machine", none.machines.isEmpty && none.refused.count == 1)
+let afterRefusal = try Rows(allRefused)
+check("and leaves no team folder", none.folder == nil && afterRefusal == refusedAllBefore)
 
+func startKey(_ store: Store, _ id: WorkObjectID) throws -> String? {
+    try store.writer.read { db in
+        try String.fetchOne(db, sql: "SELECT start_key FROM work_object WHERE id = ?", arguments: [id])
+    }
+}
+
+let dealItem = try! need(GalleryTemplate.of(id: MachineTemplate.dealIntake.id))
+
+print("\n8. A store from before the key step migrates by structure and loses nothing")
+let oldFolder = scratch.appending(path: "old-shape")
+try FileManager.default.createDirectory(at: oldFolder, withIntermediateDirectories: true)
+let oldQueue = try DatabaseQueue(path: oldFolder.appending(path: "workbench.sqlite").path)
+let beforeStep = Schema.steps.count - 1
+let folderType = ObjectTypes.folder.id
+let pageType = ObjectTypes.machinePage.id
+try oldQueue.write { db in
+    for statement in Schema.steps.prefix(beforeStep).joined() { try db.execute(sql: statement) }
+    try db.execute(sql: "PRAGMA user_version = \(beforeStep)")
+    func node(_ id: String, _ type: String, _ parent: String?, _ name: String) throws {
+        try db.execute(
+            sql: "INSERT INTO work_object(id, type, parent_id, position, name) VALUES (?,?,?, ?, ?)",
+            arguments: [id, type, parent, Double(id.hashValue & 0xFF), name])
+    }
+    func machine(_ task: String, _ template: String, page: String, in folder: String) throws {
+        try node(page, pageType, folder, task)
+        try db.execute(
+            sql: "INSERT INTO machine(task, template, created_at, page_id) VALUES (?,?, '2026-11-01T00:00:00Z', ?)",
+            arguments: [task, template, page])
+    }
+    try node("renamed-deals", folderType, nil, "Pipeline")
+    try node("second-deals", folderType, nil, "Deals")
+    try node("people", folderType, nil, "My crew")
+    try node("watch", folderType, nil, "Watchlist")
+    try node("research-1", folderType, nil, "Research")
+    try node("research-2", folderType, nil, "Research")
+    try node("notes", folderType, nil, "Notes")
+    try node("notes-sub", folderType, "notes", "Sub")
+    try machine("deal-1", MachineTemplate.dealIntake.id, page: "page-1", in: "renamed-deals")
+    try machine("deal-2", MachineTemplate.dealIntake.id, page: "page-2", in: "second-deals")
+    try machine("pip-1", MachineTemplate.team.id, page: "page-3", in: "people")
+}
+func oldRows(_ queue: DatabaseQueue) throws -> [Row] {
+    try queue.read { db in
+        try Row.fetchAll(
+            db,
+            sql: "SELECT id, type, parent_id, position, name, archived_at, holds FROM work_object ORDER BY id")
+            + Row.fetchAll(db, sql: "SELECT * FROM machine ORDER BY id")
+    }
+}
+let rowsBefore = try oldRows(oldQueue)
+let migrated = try Store(directory: oldFolder)
+let rowsAfter = try oldRows(oldQueue)
+let keys = try oldQueue.read { db in
+    Dictionary(
+        uniqueKeysWithValues: try Row.fetchAll(db, sql: "SELECT id, start_key FROM work_object").map {
+            ($0["id"] as String, $0["start_key"] as String?)
+        })
+}
+print("  keys: \(keys.filter { $0.value != nil }.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value!)" })")
+check("every row is equal before and after, apart from the new column", rowsBefore == rowsAfter)
+check("a renamed folder that holds a machine page takes the key of its template", keys["renamed-deals"] == "deals")
+check("a folder of another machine template takes that key", keys["people"] == "team")
+check("a second folder for a key that a sibling has stays without a key", keys["second-deals"] == .some(nil))
+check("a root folder with no machine and the exact name takes the key", keys["watch"] == "watchlist")
+check(
+    "two root folders with the same exact name take none",
+    keys["research-1"] == .some(nil) && keys["research-2"] == .some(nil))
+check(
+    "a folder of the person, and its sub-folder, get none",
+    keys["notes"] == .some(nil) && keys["notes-sub"] == .some(nil))
+check("no existing folder is a team", keys.values.allSatisfy { !($0 ?? "").hasPrefix("team:") })
+let quick = try oldQueue.read { try String.fetchAll($0, sql: "PRAGMA quick_check") }
+check("quick_check says ok", quick == ["ok"])
+let version = try oldQueue.read { try Int.fetchOne($0, sql: "PRAGMA user_version") }
+check("the store is at the last step", version == Schema.steps.count)
+check("the migrated store reads and has no team", try migrated.queries.folderTree().team(of: "renamed-deals") == nil)
+let startedAgain = try migrated.start(dealItem)
+check("starting Deals at the root finds the renamed folder, not a new one", startedAgain.folder.id == "renamed-deals")
+
+print("\n9. Rename then start finds the same folder; archive then start makes a new one")
+let keyed = try freshStore("keyed")
+let keyedTeam = try keyed.addTeam(.fund, having: [.taskRunner])
+let teamID = keyedTeam.folder!.id
+let original = try child(keyed, "Deals", of: teamID)
+let folderCount = try children(keyed, of: teamID).count
+try keyed.rename(original.id, to: "Pipeline")
+let found = try keyed.start(dealItem, parent: teamID)
+check("a renamed folder is found again", found.folder.id == original.id)
+check("no folder was added", try children(keyed, of: teamID).count == folderCount)
+try keyed.archive(original.id)
+check("archive clears the key", try startKey(keyed, original.id) == nil)
+let fresh = try keyed.start(dealItem, parent: teamID)
+check(
+    "after an archive a start makes a new keyed folder", fresh.folder.id != original.id && fresh.folder.name == "Deals")
+check("and it carries the key", try startKey(keyed, fresh.folder.id) == "deals")
+
+print("\n10. Move with and without a key clash")
+let moving = try freshStore("moving")
+let keyedRoot = try moving.start(dealItem).folder
+let box = try moving.createWorkObject(type: ObjectTypes.folder, parent: nil, name: "Box")
+let busy = try moving.createWorkObject(type: ObjectTypes.folder, parent: nil, name: "Busy")
+let busyDeals = try moving.start(dealItem, parent: busy.id).folder
+try moving.move(keyedRoot.id, under: box.id)
+check("a keyed folder moved where the key is free keeps it", try startKey(moving, keyedRoot.id) == "deals")
+try moving.move(keyedRoot.id, under: busy.id)
+check("moved where the parent has the key, it loses its key", try startKey(moving, keyedRoot.id) == nil)
+check("the folder already there keeps its key", try startKey(moving, busyDeals.id) == "deals")
+
+print("\n11. The unique index: one live key per parent")
+let index = try freshStore("index")
+let oneFolder = try index.createWorkObject(type: ObjectTypes.folder, parent: nil, name: "One")
+let twoFolder = try index.createWorkObject(type: ObjectTypes.folder, parent: nil, name: "Two")
+func insertKeyed(_ parent: WorkObjectID?, _ id: String) throws {
+    try index.writer.write { db in
+        try db.execute(
+            sql: "INSERT INTO work_object(id, type, parent_id, position, name, start_key) VALUES (?,?,?,1,'x','k')",
+            arguments: [id, folderType, parent])
+    }
+}
+try insertKeyed(oneFolder.id, "a")
+check("the same key under another parent is allowed", (try? insertKeyed(twoFolder.id, "b")) != nil)
+check("a second live folder with the key under one parent is refused", (try? insertKeyed(oneFolder.id, "c")) == nil)
+check(
+    "two roots with the same key are refused too",
+    {
+        (try? insertKeyed(nil, "d")) != nil && (try? insertKeyed(nil, "e")) == nil
+    }())
+
+print("\n12. Only the team key makes a team")
+let owned = try freshStore("owned")
+let plain = try owned.createWorkObject(type: ObjectTypes.folder, parent: nil, name: "Plain")
+let inner = try owned.createWorkObject(type: ObjectTypes.folder, parent: plain.id, name: "Inner")
+let innerer = try owned.createWorkObject(type: ObjectTypes.folder, parent: inner.id, name: "Innermost")
+var ownedTree = try owned.queries.folderTree()
+check("a plain root folder with sub-folders is not a team", ownedTree.team(of: innerer.id) == nil)
+let ownTeam = try owned.addTeam(.fund, having: [.taskRunner])
+let ownDeals = try child(owned, "Deals", of: ownTeam.folder?.id)
+ownedTree = try owned.queries.folderTree()
+check("a folder of a team sits in that team", ownedTree.team(of: ownDeals.id) == ownTeam.folder?.id)
+try owned.move(ownTeam.folder!.id, under: plain.id)
+ownedTree = try owned.queries.folderTree()
+check(
+    "a moved team folder is still a team, and the folder it moved under is not",
+    {
+        ownedTree.team(of: ownDeals.id) == ownTeam.folder?.id && ownedTree.team(of: inner.id) == nil
+    }())
+check(
+    "the team key cannot equal the key of a gallery folder",
+    try {
+        let key = try need(startKey(owned, ownTeam.folder!.id))
+        return key.hasPrefix("team:fund:") && !GalleryTemplate.all.map(\.folder.key).contains(key)
+    }())
+try owned.archive(ownTeam.folder!.id)
+ownedTree = try owned.queries.folderTree()
+check("an archived team is not a team", ownedTree.team(of: ownDeals.id) == nil)
 print(failures == 0 ? "\nALL OK" : "\n\(failures) FAILED")
 exit(failures == 0 ? 0 : 1)

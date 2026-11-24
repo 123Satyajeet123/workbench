@@ -13,34 +13,43 @@ extension Store {
     }
 
     /// Adds a team from `template` beside the teams already in the store: one new top folder for the team, named `name`
-    /// (the template's name by default; a number follows it when a live top folder has that name), and each gallery item
-    /// of the template set up under it with `start`. Each answer goes in the spec of the machine it is for, as a new
-    /// version of that machine. An item that needs what the app cannot give is left out and named in the result; the
-    /// rest of the team still starts. A template with no item adds nothing. No folder or machine that was there is
-    /// changed, so adding the same template again makes a second team.
+    /// (the template's name by default; a number follows it when a live top folder has that name) and marked as a team
+    /// of this template, and each gallery item of the template set up under it with `start`. Each answer goes in the
+    /// spec of the machine it is for, as a new version of that machine. An item that needs what the app cannot give is
+    /// left out and named in the result; the rest of the team still starts. A team with no item to start adds nothing,
+    /// not even its folder. No folder or machine that was there is changed, so adding the same template again makes a
+    /// second team.
     @discardableResult
     public func addTeam(
         _ template: TeamTemplate, name: String? = nil, answers: SetupAnswers = [:],
         having: Set<GalleryTemplate.Need> = []
     ) throws -> TeamStart {
-        guard !template.entries.isEmpty else { return TeamStart() }
+        let refusals = template.entries.map { $0.item.refusal(having: having) }
+        var started = TeamStart()
+        guard refusals.contains(where: { $0 == nil }) else {
+            started.items = zip(template.entries, refusals).compactMap { entry, refusal in
+                refusal.map { .refused(entry.item, $0) }
+            }
+            return started
+        }
         let folder = try writer.write { db in
-            let id = try WorkObjectRows.newTeamFolder(db, named: name?.cleaned ?? template.name)
+            let id = try WorkObjectRows.newTeamFolder(db, of: template.id, named: name?.cleaned ?? template.name)
             return try Queries.workObjects(db, where: "id = ?", [id])[0]
         }
-        var started = TeamStart(folder: folder)
+        started.folder = folder
         var seeded: [Machine?] = []
-        for entry in template.entries {
-            do {
+        for (entry, refusal) in zip(template.entries, refusals) {
+            var machine: Machine?
+            if let refusal {
+                started.items.append(.refused(entry.item, refusal))
+            } else {
                 let start = try start(
                     entry.item, parent: folder.id, name: entry.machine.name, overrides: entry.machine.overrides,
                     having: having)
                 started.items.append(.started(entry.item, start))
-                if entry.item.machine != nil { seeded.append(start.machine) }
-            } catch let refusal as GalleryStartError {
-                started.items.append(.refused(entry.item, refusal))
-                if entry.item.machine != nil { seeded.append(nil) }
+                machine = start.machine
             }
+            if entry.item.machine != nil { seeded.append(machine) }
         }
         for question in template.setupQuestions {
             guard let answer = answers[question] else { continue }
@@ -193,9 +202,8 @@ extension Queries {
     public func folder(forNewMachineOf template: String, in folder: WorkObjectID?) throws -> WorkObjectID? {
         if let folder { return folder }
         return try reader.read { db in
-            try WorkObjectRows.liveChild(
-                db, type: ObjectTypes.folder.id, parent: nil,
-                name: GalleryTemplate.folder(forMachine: template).name)
+            try WorkObjectRows.keyedChild(
+                db, parent: nil, key: GalleryTemplate.folder(forMachine: template).key)
         }
     }
 

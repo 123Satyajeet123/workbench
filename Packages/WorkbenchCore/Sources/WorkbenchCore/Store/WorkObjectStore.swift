@@ -28,11 +28,14 @@ extension Store {
         }
     }
 
-    /// An archived object leaves the tree. Its facts, notes and machines stay where they are.
+    /// An archived object leaves the tree and gives up its folder key, so the next start of its template makes a new
+    /// folder. Its facts, notes and machines stay where they are.
     public func archive(_ id: WorkObjectID) throws {
         try writer.write { db in
             try Queries.requireNotKeptByEvents(db, id)
-            try db.execute(sql: "UPDATE work_object SET archived_at = ? WHERE id = ?", arguments: [clock().stored, id])
+            try db.execute(
+                sql: "UPDATE work_object SET archived_at = ?, start_key = NULL WHERE id = ?",
+                arguments: [clock().stored, id])
         }
     }
 
@@ -46,7 +49,8 @@ extension Store {
     }
 
     /// Puts an object under `parent` (nil: among the roots), just before `sibling`, or last when `sibling` is nil or
-    /// is not a child of `parent`.
+    /// is not a child of `parent`. A folder keeps its key, unless `parent` already has a child with that key: then the
+    /// moved folder loses its key.
     public func move(_ id: WorkObjectID, under parent: WorkObjectID?, before sibling: WorkObjectID? = nil) throws {
         try writer.write { db in
             try Queries.require(db, id)
@@ -60,8 +64,13 @@ extension Store {
                     db, sql: "SELECT COALESCE(MAX(position), 0) + 1 FROM work_object WHERE parent_id IS ? AND id <> ?",
                     arguments: [parent, id]) ?? 1
             try db.execute(
-                sql: "UPDATE work_object SET parent_id = ?, position = ? WHERE id = ?",
-                arguments: [parent, position, id])
+                sql: """
+                    UPDATE work_object SET parent_id = ?, position = ?, start_key = CASE WHEN EXISTS(
+                        SELECT 1 FROM work_object other WHERE other.id <> work_object.id
+                            AND COALESCE(other.parent_id, '') = COALESCE(?, '') AND other.start_key = work_object.start_key)
+                        THEN NULL ELSE start_key END
+                    WHERE id = ?
+                    """, arguments: [parent, position, parent, id])
         }
     }
 

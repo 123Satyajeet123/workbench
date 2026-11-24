@@ -20,6 +20,13 @@ public enum GalleryStartError: Error, Equatable, LocalizedError {
     }
 }
 
+extension GalleryTemplate {
+    /// Why the app cannot set this template up with what it has, or nil when it can.
+    func refusal(having: Set<Need>) -> GalleryStartError? {
+        needs.subtracting(having).min(by: { $0.rawValue < $1.rawValue }).map { .needs(template: name, $0) }
+    }
+}
+
 extension Store {
     /// Sets up a gallery template: its folder, found when a live one of that name exists under `parent` (a root when
     /// nil), and its machine with its page in that folder. The folder keeps the type of the objects it holds. The
@@ -38,9 +45,7 @@ extension Store {
         overrides: SpecOverrides = SpecOverrides(),
         having: Set<GalleryTemplate.Need> = []
     ) throws -> GalleryStart {
-        if let missing = template.needs.subtracting(having).min(by: { $0.rawValue < $1.rawValue }) {
-            throw GalleryStartError.needs(template: template.name, missing)
-        }
+        if let refusal = template.refusal(having: having) { throw refusal }
         let folder = try writer.write { db in
             try Queries.workObjects(
                 db, where: "id = ?", [try WorkObjectRows.folder(db, for: template.folder, parent: parent)])[0]

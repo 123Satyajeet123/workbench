@@ -35,6 +35,7 @@ enum Schema {
                 if runs(timers) { try moveLegacyDueDays(db, zone: ownerZone) }
                 if runs(filing) { try WorkObjectsMove.run(db) }
                 if runs(folderHolds) { try giveFoldersTheirTypes(db) }
+                if runs(startKey) { try giveFoldersTheirKeys(db) }
                 try db.checkForeignKeys()
                 try db.execute(sql: "PRAGMA user_version = \(lastStep)")
                 return .commit
@@ -49,6 +50,7 @@ enum Schema {
         runWindow, sourceDeleted, groundedFacts, factLifecycle, timers, evidenceForwarded,
         morningList, notes, pendingRevokes, filing, itemSearch, runFailures, calls, callGuests, machinePage,
         judgment, folderHolds, runUsageUnknown, homeByPerson, provenance,
+        startKey,
     ]
 
     /// Items that open and close (research 32): a later line closes a commitment or answers a question. An event is

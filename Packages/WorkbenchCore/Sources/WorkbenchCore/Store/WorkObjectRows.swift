@@ -36,14 +36,14 @@ enum WorkObjectRows {
     @discardableResult
     static func insert(
         _ db: Database, id: WorkObjectID = UUID().uuidString, type: TypeID, parent: WorkObjectID?, name: String,
-        archivedAt: Date? = nil, madeBy: String? = nil
+        archivedAt: Date? = nil, madeBy: String? = nil, startKey: String? = nil
     ) throws -> WorkObjectID {
         let parent = try parent ?? place(db, type: type, madeBy: madeBy)
         try db.execute(
             sql: """
-                INSERT INTO work_object(\(WorkObjectRow.columns))
-                VALUES (?,?,?, COALESCE((SELECT MAX(position) FROM work_object WHERE parent_id IS ?), 0) + 1, ?, ?)
-                """, arguments: [id, type, parent, parent, name, archivedAt?.stored])
+                INSERT INTO work_object(\(WorkObjectRow.columns), start_key)
+                VALUES (?,?,?, COALESCE((SELECT MAX(position) FROM work_object WHERE parent_id IS ?), 0) + 1, ?, ?, ?)
+                """, arguments: [id, type, parent, parent, name, archivedAt?.stored, startKey])
         return id
     }
 
@@ -58,6 +58,16 @@ enum WorkObjectRows {
                 WHERE type = ? AND parent_id IS ? AND archived_at IS NULL ORDER BY position, rowid
                 """, arguments: [type, parent]
         ).first { comparable($0["name"]) == wanted }?["id"]
+    }
+
+    /// The child of `parent` (a root when nil) that is not archived and carries `key`: at most one, by the unique index
+    /// `work_object_start_key`, which this expression matches.
+    static func keyedChild(_ db: Database, parent: WorkObjectID?, key: String) throws -> WorkObjectID? {
+        try String.fetchOne(
+            db,
+            sql:
+                "SELECT id FROM work_object WHERE COALESCE(parent_id, '') = ? AND start_key = ? AND archived_at IS NULL",
+            arguments: [parent ?? "", key])
     }
 
     /// The one folder that is not archived and holds objects of `type`. Nil when none does, and when several do: then
@@ -95,23 +105,22 @@ enum WorkObjectRows {
         try madeBy.flatMap { try folder(db, ofMachine: $0) } ?? home(db, of: type)
     }
 
-    /// The folder a template makes under `parent` (a root when nil): the one of its name that is not archived, made
-    /// when `parent` has none. It takes the type of the objects the template's folder holds, when it holds none yet.
-    /// This is the one place a folder is found by its name: the key of `FolderStart` replaces the name here.
+    /// The folder a template makes under `parent` (a root when nil): the one with the template's key that is not
+    /// archived, whatever its name now, made with the key and the name when `parent` has none. It takes the type of the
+    /// objects the template's folder holds, when it holds none yet.
     static func folder(
         _ db: Database, for start: GalleryTemplate.FolderStart, parent: WorkObjectID? = nil
     ) throws -> WorkObjectID {
-        let type = ObjectTypes.folder.id
         let folder =
-            try liveChild(db, type: type, parent: parent, name: start.name)
-            ?? insert(db, type: type, parent: parent, name: start.name)
+            try keyedChild(db, parent: parent, key: start.key)
+            ?? insert(db, type: ObjectTypes.folder.id, parent: parent, name: start.name, startKey: start.key)
         if let holds = start.holds { try setHolds(db, folder: folder, to: holds) }
         return folder
     }
 
-    /// A new root folder for a team. Its name is `name`, or `name` with the first number from 2 that no live root
-    /// folder has, so it never joins a folder that is already there.
-    static func newTeamFolder(_ db: Database, named name: String) throws -> WorkObjectID {
+    /// A new root folder for a team of `template`, with a team key of its own. Its name is `name`, or `name` with the
+    /// first number from 2 that no live root folder has, so it never joins a folder that is already there.
+    static func newTeamFolder(_ db: Database, of template: String, named name: String) throws -> WorkObjectID {
         let taken = try String.fetchAll(
             db, sql: "SELECT name FROM work_object WHERE type = ? AND parent_id IS NULL AND archived_at IS NULL",
             arguments: [ObjectTypes.folder.id]
@@ -122,7 +131,10 @@ enum WorkObjectRows {
             number += 1
             free = "\(name) \(number)"
         }
-        return try insert(db, type: ObjectTypes.folder.id, parent: nil, name: free)
+        let id = UUID().uuidString
+        return try insert(
+            db, id: id, type: ObjectTypes.folder.id, parent: nil, name: free,
+            startKey: FolderTree.teamKey(template: template, folder: id))
     }
 
     private static func comparable(_ name: String) -> String {

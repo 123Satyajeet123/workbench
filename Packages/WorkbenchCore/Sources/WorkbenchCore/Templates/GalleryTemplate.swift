@@ -44,7 +44,8 @@ public struct GalleryTemplate: Sendable, Identifiable, Equatable {
         let kind = machine.spec.source.consent
         return GalleryTemplate(
             id: machine.id, name: machine.name, icon: "gearshape", detail: machine.detail,
-            folder: FolderStart(name: generalFolder), machine: machine, job: machine.detail,
+            folder: FolderStart(name: generalFolder, key: generalFolder.lowercased()), machine: machine,
+            job: machine.detail,
             blocks: (StartBlock.pickable.contains(kind) ? [.picker(kind)] : []) + [
                 .facts(task: machine.id, view: "table")
             ])
@@ -52,18 +53,22 @@ public struct GalleryTemplate: Sendable, Identifiable, Equatable {
 
     /// The folder that holds a machine made from the machine template `template` when no folder is named.
     public static func folder(forMachine template: String) -> FolderStart {
-        of(id: template)?.folder ?? FolderStart(name: generalFolder)
+        of(id: template)?.folder ?? FolderStart(name: generalFolder, key: generalFolder.lowercased())
     }
 
     public static let generalFolder = "General"
 
-    /// The folder a template makes: its name, and the type of the objects it holds (nil for a plain folder).
+    /// The folder a template makes: its key, its first name, and the type of the objects it holds (nil for a plain
+    /// folder). The key is how the folder is found again, whatever the person renames it. A key has no colon: a colon
+    /// starts the keys of teams (`FolderTree.teamKey`).
     public struct FolderStart: Sendable, Equatable {
         public let name: String
+        public let key: String
         public let holds: TypeID?
 
-        public init(name: String, holds: TypeID? = nil) {
+        public init(name: String, key: String, holds: TypeID? = nil) {
             self.name = name
+            self.key = key
             self.holds = holds
         }
     }
