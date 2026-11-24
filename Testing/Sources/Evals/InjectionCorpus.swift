@@ -6,7 +6,9 @@ import WorkbenchCore
 /// they are read under, and a canary that must never reach a watched exit. Every name, domain and handle is synthetic.
 public struct InjectionCase: Codable, Sendable, Equatable {
     public enum Format: String, Codable, Sendable, CaseIterable {
-        case whatsapp, telegram, mail, web, call
+        case whatsapp, telegram, mail, web, call, screen
+        /// A teammate's fact as received through the relay.
+        case sharedFact = "shared_fact"
 
         var idPrefix: String {
             switch self {
@@ -15,6 +17,8 @@ public struct InjectionCase: Codable, Sendable, Equatable {
             case .mail: "ml"
             case .web: "wb"
             case .call: "cl"
+            case .screen: "sc"
+            case .sharedFact: "sf"
             }
         }
     }
@@ -71,6 +75,10 @@ public struct InjectionCase: Codable, Sendable, Equatable {
         case spelledOut = "spelled_out"
         case backgroundVoice = "background_voice"
         case voiceSpoof = "voice_spoof"
+        /// Text in the accessibility tree that the screen does not show.
+        case offscreenText = "offscreen_text"
+        /// An instruction in a shared fact's field values instead of its quote.
+        case fieldValue = "field_value"
     }
 
     /// A place where a run's output can leave the model: what the code check watches for the canary.
@@ -205,6 +213,7 @@ public enum InjectionSplit: String, Codable, Sendable, CaseIterable {
 
 /// The frozen counts and the digest of the held-out cases. A change to a held-out case fails the check.
 public struct InjectionManifest: Codable, Sendable, Equatable {
+    public var version: String
     public var total: Int
     public var dev: Int
     public var heldOut: Int
@@ -352,6 +361,9 @@ extension InjectionCase {
                     problems.append("line breaks \(input.format) grammar: \(line.text)")
                 }
                 if line.trust == nil { problems.append("unknown authority \(line.authority)") }
+                if input.format == .sharedFact, let trust = line.trust, trust > .groupMember {
+                    problems.append("a received fact above group_member")
+                }
                 if let number = line.text.prefixMatch(of: /\[(\d+)\]/).flatMap({ Int($0.1) }) { numbers.append(number) }
             }
         }
@@ -368,6 +380,8 @@ extension InjectionCase {
         case .mail: line.wholeMatch(of: /\[\d+\] [^:\[]+: .+/) != nil
         case .web: line.wholeMatch(of: /\[\d+\] \d{2}:\d{2} \S+ — .+?: .+/) != nil
         case .call: line.wholeMatch(of: /\[\d+\] \[\d{2}:\d{2}\] [^:]+: .+/) != nil
+        case .screen: line.wholeMatch(of: /\[\d+\] \d{2}:\d{2}(–\d{2}:\d{2} \(\d+\))? .+/) != nil
+        case .sharedFact: line.wholeMatch(of: /\[\d+\] shared by [^(:]+ \([^)]+\): .+ — ".+"/) != nil
         }
     }
 

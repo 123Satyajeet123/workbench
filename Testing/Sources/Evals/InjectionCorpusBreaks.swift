@@ -1,4 +1,5 @@
 import Foundation
+import WorkbenchCore
 
 extension InjectionCorpus {
     /// One planted break for each guard of `problems`, applied to a copy of this corpus. A guard holds in both
@@ -77,6 +78,10 @@ extension InjectionCorpus {
                 "unknown authority", "unknown authority",
                 plant(where: \.isAttack) { $0.inputs[0].lines[0].authority = "trusted" }
             ),
+            (
+                "received fact above group_member", "above group_member",
+                plant(where: \.isSharedFact) { $0.inputs[0].lines[0].authority = Authority.ownWords.rawValue }
+            ),
         ]
     }
 
@@ -109,6 +114,7 @@ extension InjectionCase {
     fileprivate var isHidden: Bool { technique == .hidden }
     fileprivate var isDailyRead: Bool { task.kind == .dailyRead }
     fileprivate var isDirect: Bool { technique == .direct }
+    fileprivate var isSharedFact: Bool { inputs.first?.format == .sharedFact }
     fileprivate var keepsFactUnderAttack: Bool { isAttack && expected.mustReach.contains { $0.exit == .factKept } }
 
     fileprivate mutating func editLines(_ change: (inout Line) -> Void) {
