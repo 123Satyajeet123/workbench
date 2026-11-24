@@ -76,9 +76,9 @@ extension Store {
     }
 
     /// Erases the copies of the lines' words, deletes the lines, their dependents and (unless the erasure has an age)
-    /// their cursors, then optimizes the
-    /// search index so no old segment keeps a word. With `secure_delete` on every connection, the caller's
-    /// `finishErase` after the transaction leaves no copy in the file or its log.
+    /// their cursors. The search indexes remove the entries of a deleted row themselves (`Schema.secureSearch`). With
+    /// `secure_delete` on every connection, the caller's `finishErase` after the transaction leaves no copy in the file
+    /// or its log.
     static func eraseEvidence(_ erasure: EvidenceErasure, in db: Database) throws -> EraseCounts {
         let counts = try counts(of: erasure, in: db)
         let condition = try condition(of: erasure)
@@ -97,7 +97,6 @@ extension Store {
         }
         try db.execute(sql: "DELETE FROM evidence WHERE \(condition.sql)", arguments: condition.arguments)
         try EvidenceStamp.dropOrphanStructure(in: db)
-        if counts.lines > 0 { try EvidenceStamp.optimizeSearch(in: db) }
         return counts
     }
 
