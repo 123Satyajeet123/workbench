@@ -88,6 +88,9 @@ public struct HelperSpec: Codable, Sendable, Equatable {
             /// The time a line gives, as a closed record (`TimeRecord`) with the words that state it. Code works out
             /// the due time from it; the field itself holds the words.
             case time
+            /// One live work object of a type, such as the deal a fact is about. The model names it by a handle from a
+            /// list that code shows it; the field holds the object's id, never a name.
+            case objectRef(type: TypeID)
 
             /// The values a choice or computed field may take; nil for the other kinds.
             public var fixedValues: [String]? {
@@ -98,6 +101,9 @@ public struct HelperSpec: Codable, Sendable, Equatable {
             }
 
             var isComputed: Bool { if case .computed = self { true } else { false } }
+
+            /// The type of the object a field of this kind refers to; nil for the other kinds.
+            var objectType: TypeID? { if case .objectRef(let type) = self { type } else { nil } }
         }
 
         public var name: String
@@ -140,7 +146,7 @@ public struct HelperSpec: Codable, Sendable, Equatable {
             case .label:
                 views["by \(field.name)"] = .grouped(by: field.name)
                 if lifecycle != nil { views["open by \(field.name)"] = .checklist(by: field.name) }
-            case .text, .date, .time: break
+            case .text, .date, .time, .objectRef: break
             }
         }
         if let lifecycle, !views.values.contains(where: { if case .checklist = $0 { true } else { false } }) {
@@ -210,12 +216,15 @@ public struct HelperSpec: Codable, Sendable, Equatable {
         Set(
             fields.filter { field in
                 switch field.kind {
-                case .choice, .member, .date, .computed: true
+                case .choice, .member, .date, .computed, .objectRef: true
                 case .text, .label, .time: false
                 }
             }.map(\.name)
         ).union([Item.factsField, Item.dueField])
     }
+
+    /// The fields that refer to a work object, in the spec's order.
+    var objectRefs: [Field] { fields.filter { $0.kind.objectType != nil } }
 
     /// The field that holds the words of a time and gives the fact's due time. The first of the kind.
     public var timeField: String? {

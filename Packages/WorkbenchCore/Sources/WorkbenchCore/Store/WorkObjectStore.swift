@@ -148,15 +148,24 @@ extension Queries {
         }
     }
 
-    /// The objects a model may be shown as places to file a fact under: every kind that holds facts, not archived, in
-    /// the order of the tree, the first `limit`.
-    public func placesToFile(limit: Int = 40) throws -> [WorkObject] {
-        let kinds = ObjectTypes.homes.map(\.id)
-        return try reader.read { db in
+    /// The live objects of some types, not archived, in the order of the tree, the first `limit`.
+    func liveObjects(of types: [TypeID], limit: Int) throws -> [WorkObject] {
+        try reader.read { db in
             try Self.workObjects(
                 db, where: "archived_at IS NULL AND type IN (SELECT value FROM json_each(?))",
-                [try Coding.json(kinds)], order: "parent_id IS NOT NULL, position, rowid LIMIT \(limit)")
+                [try Coding.json(types)], order: "parent_id IS NOT NULL, position, rowid LIMIT \(limit)")
         }
+    }
+
+    /// The objects a model may be shown for a reading of `spec`: the places a fact may be filed under, every kind that
+    /// holds facts, the first `limit` of them; then the first `limit` objects of the type of each field of the spec
+    /// that refers to an object. An object that is in both lists comes once.
+    public func objectsToShow(for spec: HelperSpec, limit: Int = 40) throws -> [WorkObject] {
+        let places = try liveObjects(of: ObjectHandles.placeTypes, limit: limit)
+        let referred = try spec.objectRefs.compactMap(\.kind.objectType).flatMap {
+            try liveObjects(of: [$0], limit: limit)
+        }
+        return places + referred.filter { object in !places.contains { $0.id == object.id } }
     }
 
     /// The objects the condition selects, each with the events of its own, in `order`.

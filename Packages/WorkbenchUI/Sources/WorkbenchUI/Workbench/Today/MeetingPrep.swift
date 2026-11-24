@@ -68,7 +68,7 @@ enum MeetingPrep {
         return Prep(
             subject: .deal(deal.id), name: deal.name, line: nil, stage: deal.stageLabels.first,
             facts: actions.filter {
-                $0[DealAction.dealField] == deal.id && $0.isOpen(in: DealAction.lifecycle, at: now)
+                $0[.deal] == deal.id && $0.isOpen(in: DealAction.lifecycle, at: now)
             },
             quotes: latest.map {
                 Prep.Quote(

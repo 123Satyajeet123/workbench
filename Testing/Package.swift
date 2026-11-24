@@ -26,6 +26,7 @@ let package = Package(
         .executable(name: "judge-probe", targets: ["JudgeProbe"]),
         .executable(name: "machine-roles", targets: ["MachineRolesDemo"]),
         .executable(name: "inject-corpus", targets: ["InjectCorpusCheck"]),
+        .executable(name: "objectref", targets: ["ObjectRefDemo"]),
     ],
     dependencies: [
         .package(path: "../Packages/WorkbenchCore"), .package(path: "../Packages/WorkbenchUI"),
@@ -113,6 +114,9 @@ let package = Package(
                 .product(name: "LocalSources", package: "BaseKit"),
                 .product(name: "Kernel", package: "Kernel"), .product(name: "Lines", package: "Kernel"),
             ],
+            swiftSettings: [.defaultIsolation(MainActor.self)]),
+        .executableTarget(
+            name: "ObjectRefDemo", dependencies: ["WorkbenchCore"],
             swiftSettings: [.defaultIsolation(MainActor.self)]),
         .testTarget(name: "EvalsTests", dependencies: ["Evals", "WorkbenchCore"]),
     ]

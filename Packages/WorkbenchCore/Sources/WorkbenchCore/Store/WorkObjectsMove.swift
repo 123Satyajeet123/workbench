@@ -12,7 +12,7 @@ enum WorkObjectsMove {
                 db, sql: "SELECT object FROM work_event GROUP BY object ORDER BY MIN(clock), object"))
         try projectNotes(db)
         try pageMachines(db)
-        try FactFiling.fileInDefaultHomes(db)
+        try FactFiling.fileInDefaultHomes(db, origin: .deal)
     }
 
     /// A note's lines are written once and name their container, so they cannot move to another container. The

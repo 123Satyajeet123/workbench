@@ -42,7 +42,7 @@ extension HelperReader {
                 items.append(item)
                 links.append(link(.stored(id), .closeProposed(outcome: outcome)))
             }
-            if items.count > opened, case .place(let home) = proposal.home {
+            if items.count > opened, case .object(let home) = proposal.home {
                 homes.append(HomeProposal(item: opened, object: home))
             }
         }

@@ -6,7 +6,6 @@ import Kernel
 /// the lines of the deal's evidence, from any source.
 public struct DealRating: Sendable, Equatable {
     public static let task = "deals.ratings"
-    static let dealField = "deal"
 
     public var deal: String
     /// The rule readings the model gave and code kept, as an intake item keeps them.
@@ -74,7 +73,7 @@ extension Store {
         return try writer.write { db in
             try insertItem(
                 db, task: DealRating.task, run: rating.run, source: grant.kind, cite: rating.line,
-                fields: rating.fields.merging([DealRating.dealField: rating.deal]) { first, _ in first },
+                fields: rating.fields.merging([HelperSpec.Field.deal.name: rating.deal]) { first, _ in first },
                 quote: rating.quote, label: rating.standing.label, authority: rating.standing.authority, at: now)
         }
     }
@@ -88,8 +87,8 @@ extension Queries {
                 "item",
                 """
                 SELECT \(Self.itemColumns) FROM \(Self.itemRows)
-                WHERE task = ? AND json_extract(fields, '$.deal') = ? ORDER BY id DESC LIMIT 1
-                """, [DealRating.task, deal], as: Item.init(row:)
+                WHERE task = ? AND json_extract(fields, '$.' || ?) = ? ORDER BY id DESC LIMIT 1
+                """, [DealRating.task, HelperSpec.Field.deal.name, deal], as: Item.init(row:)
             ).first
         }
     }

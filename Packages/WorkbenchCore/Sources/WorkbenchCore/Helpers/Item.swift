@@ -102,4 +102,7 @@ public struct Item: Sendable, Equatable, Identifiable {
     static let dueField = "due"
 
     public subscript(field: String) -> String { fields[field] ?? "" }
+
+    /// The id the fact holds in a field that refers to an object.
+    public subscript(field: HelperSpec.Field) -> String { self[field.name] }
 }

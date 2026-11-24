@@ -58,8 +58,11 @@ extension Store {
     }
 
     /// The one place a row enters `item`, with every column. It writes no event: the `item_opens` trigger records the
-    /// opening.
-    static func insertItem(_ db: Database, _ item: Item, at now: Date) throws -> Int64 {
+    /// opening. `origin` is the field of a fact that code makes from a work object; the fact is filed under that
+    /// object.
+    static func insertItem(
+        _ db: Database, _ item: Item, at now: Date, origin: HelperSpec.Field? = nil
+    ) throws -> Int64 {
         try db.execute(
             sql: """
                 INSERT INTO item(task, run_id, day, scope, source, cite_first, cite_last, start_at, end_at, fields,
@@ -73,7 +76,7 @@ extension Store {
                 try item.label.map { try Coding.json(StoredLabel($0)) }, item.authority.rawValue,
             ])
         let id = db.lastInsertedRowID
-        try FactFiling.fileInDefaultHomes(db, item: id)
+        try FactFiling.fileInDefaultHomes(db, item: id, origin: origin)
         return id
     }
 

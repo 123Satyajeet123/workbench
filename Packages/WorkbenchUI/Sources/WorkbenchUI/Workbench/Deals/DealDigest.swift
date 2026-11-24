@@ -29,7 +29,7 @@ struct DealDigestReader {
     func digest(
         of deal: WorkObject, machines: [Machine], actions: [Item], signals: [Item] = [], revisits: [Item] = []
     ) throws -> DealDigest {
-        let own = actions.filter { $0[DealAction.dealField] == deal.id }
+        let own = actions.filter { $0[.deal] == deal.id }
         var ratings: [String: Rating] = [:]
         var marks: [String: [DealStory.Marked]] = [:]
         var touching: [StripMachine] = []
@@ -55,7 +55,7 @@ struct DealDigestReader {
             action: own.first { $0.isOpen(in: DealAction.lifecycle, at: store.clock()) },
             story: DealStory.make(deal: deal, ratings: ratings, marks: marks, actions: own), machines: touching,
             signals: signals.filter { $0.signalCompany == deal.id && $0.isListed(at: store.clock()) },
-            revisit: revisits.first { $0[Revisit.dealField] == deal.id && $0.closed == nil })
+            revisit: revisits.first { $0[.deal] == deal.id && $0.closed == nil })
     }
 
     /// The call on the deal's own rating, when the person rated it and did not mark the rating wrong. It follows the

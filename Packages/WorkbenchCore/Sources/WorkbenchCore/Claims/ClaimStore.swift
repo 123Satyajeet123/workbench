@@ -16,7 +16,8 @@ extension Store {
         return try writer.write { db in
             try claims.map { claim in
                 let fields = [
-                    Claim.dealField: claim.deal, "text": claim.text, "type": claim.type, "value": claim.value,
+                    HelperSpec.Field.deal.name: claim.deal, "text": claim.text, "type": claim.type,
+                    "value": claim.value,
                 ]
                 return try insertItem(
                     db, task: Claim.task, run: run, source: grant.kind, cite: claim.line, fields: fields,
@@ -31,7 +32,7 @@ extension Store {
         try check(session.grant, kind: .web)
         let now = clock()
         let fields = [
-            Claim.dealField: result.deal, "claim": String(result.claim), "claim_text": result.claimText,
+            HelperSpec.Field.deal.name: result.deal, "claim": String(result.claim), "claim_text": result.claimText,
             "verdict": result.verdict.rawValue, "url": result.url, "evidence": result.quote.isEmpty ? "none" : "page",
         ]
         return try writer.write { db in
@@ -51,7 +52,7 @@ extension Store {
                 task: task, day: WorkDay(containing: now), scope: "", source: source, citeFirst: cite, citeLast: cite,
                 start: now, end: now, fields: fields, quote: quote, run: run, label: label,
                 authority: authority),
-            at: now)
+            at: now, origin: .deal)
     }
 
     /// The claims of a deal the founder chose to check. Choosing again replaces the choice.
@@ -76,9 +77,9 @@ extension Queries {
             try db.fetch(
                 "item",
                 """
-                SELECT id, cite_first, fields, quote, label, source FROM item WHERE task = ? AND json_extract(fields, '$.deal') = ?
+                SELECT id, cite_first, fields, quote, label, source FROM item WHERE task = ? AND json_extract(fields, '$.' || ?) = ?
                 ORDER BY id
-                """, [Claim.task, deal]
+                """, [Claim.task, HelperSpec.Field.deal.name, deal]
             ) { row in
                 let fields: [String: String] = try row.json("fields")
                 return Claim(
@@ -105,8 +106,8 @@ extension Queries {
                 SELECT id, fields, quote, state, created_at,
                     COALESCE((SELECT state FROM quote_mark WHERE item_id = item_mark.id ORDER BY id DESC LIMIT 1),
                         'proposed') AS quote_state
-                FROM item_mark WHERE task = ? AND json_extract(fields, '$.deal') = ? ORDER BY id
-                """, [Store.checkTask, deal]
+                FROM item_mark WHERE task = ? AND json_extract(fields, '$.' || ?) = ? ORDER BY id
+                """, [Store.checkTask, HelperSpec.Field.deal.name, deal]
             ) { row in
                 let fields: [String: String] = try row.json("fields")
                 var check = ClaimCheck(

@@ -64,7 +64,7 @@ public struct PageCatalog: Equatable, Sendable {
             case .choice, .computed, .member, .label:
                 values[field.name] = Set(field.kind.fixedValues ?? []).union(items.map { $0[field.name] })
                     .subtracting([""])
-            case .text, .date, .time: continue
+            case .text, .date, .time, .objectRef: continue
             }
         }
         columns = Set(spec.fields.map(\.name)).union([Self.quoteColumn, Self.dayColumn])

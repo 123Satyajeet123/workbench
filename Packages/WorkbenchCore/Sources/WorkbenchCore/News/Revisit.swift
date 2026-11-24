@@ -7,8 +7,6 @@ import GRDB
 public enum Revisit {
     public static let task = "vc.revisits"
     public static let lifecycle = HelperSpec.Lifecycle(field: "kind", open: ["revisit"], outcomes: ["done", "dropped"])
-    /// The field of a revisit that names its deal.
-    public static let dealField = "deal"
     /// How long after a pass the revisit falls due, unless the investor sets another day.
     public static let defaultMonths = 6
     static let dropped = "dropped"
@@ -33,7 +31,7 @@ extension Store {
         let reason = reason?.cleaned
         let line = Revisit.line(company: deal.name, reason: reason)
         let fields = [
-            "kind": "revisit", Revisit.dealField: deal.id, "company": deal.name, "why": reason ?? "",
+            "kind": "revisit", HelperSpec.Field.deal.name: deal.id, "company": deal.name, "why": reason ?? "",
             Item.dueField: try Coding.json(Due.stated(on: due)), "text": line, "asks": "",
         ]
         return try writer.write { db in
@@ -43,7 +41,7 @@ extension Store {
                 Item(
                     task: Revisit.task, day: WorkDay(containing: now), scope: "", source: .typed, citeFirst: 0,
                     citeLast: 0, start: now, end: now, fields: fields, quote: line, run: nil, authority: .ownWords),
-                at: now)
+                at: now, origin: .deal)
             try reconcileTimers(db, item: id)
             return id
         }
@@ -77,8 +75,8 @@ extension Queries {
             "item",
             """
             SELECT \(itemColumns) FROM \(itemRows)
-            WHERE task = ? AND (? IS NULL OR json_extract(fields, '$.deal') = ?) ORDER BY id
-            """, [Revisit.task, deal, deal], as: Item.init(row:))
+            WHERE task = ? AND (? IS NULL OR json_extract(fields, '$.' || ?) = ?) ORDER BY id
+            """, [Revisit.task, deal, HelperSpec.Field.deal.name, deal], as: Item.init(row:))
     }
 
     /// The news signals about one company, or about every company, from `day` on, newest first.

@@ -71,18 +71,15 @@ extension Store {
 }
 
 enum FactFiling {
-    /// The field of a fact made from a work object, such as a deal's action, a revisit or a claim: it holds the id.
-    static let originField = "deal"
-
     /// Gives the fact that has no home yet its default home, at the time the fact was made, so every fact has a home
-    /// from its first reading: the folder of its machine, else the work object it was made from. With no `item`, every
-    /// such fact is filed.
-    static func fileInDefaultHomes(_ db: Database, item: ItemID? = nil) throws {
+    /// from its first reading: the folder of its machine, else the work object it was made from, which `origin`
+    /// names: the field of the fact that holds that object's id. With no `item`, every such fact is filed.
+    static func fileInDefaultHomes(_ db: Database, item: ItemID? = nil, origin: HelperSpec.Field? = nil) throws {
         try fileInMachineFolders(db, item: item)
-        try fileInOrigins(db, item: item)
+        if let origin { try fileInOrigins(db, item: item, field: origin.name) }
     }
 
-    private static func fileInOrigins(_ db: Database, item: ItemID?) throws {
+    private static func fileInOrigins(_ db: Database, item: ItemID?, field: String) throws {
         try db.execute(
             sql: """
                 INSERT INTO fact_link(item_id, object_id, how, at, surface)
@@ -90,7 +87,7 @@ enum FactFiling {
                 FROM item JOIN work_object origin ON origin.id = json_extract(item.fields, '$.' || ?)
                 WHERE (? IS NULL OR item.id = ?)
                     AND NOT EXISTS (SELECT 1 FROM fact_link WHERE fact_link.item_id = item.id)
-                """, arguments: [FilingHow.origin.rawValue, originField, item, item])
+                """, arguments: [FilingHow.origin.rawValue, field, item, item])
     }
 
     private static func fileInMachineFolders(_ db: Database, item: ItemID?) throws {

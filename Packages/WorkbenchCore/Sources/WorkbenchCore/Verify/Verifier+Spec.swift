@@ -16,9 +16,11 @@ extension Verifier {
     }
 
     /// The item a proposal of `spec`'s machine states: its cited lines exist, its quote is in them, its fields fit
-    /// their kinds. Its label and authority are computed here from what it cites.
+    /// their kinds, and an `objectRef` field names an object of its type that the model was shown. Its label and
+    /// authority are computed here from what it cites.
     func item(
-        _ raw: [String: JSONValue], spec: HelperSpec, open: [Item], day: WorkDay, scope: String, run: RunID
+        _ raw: [String: JSONValue], spec: HelperSpec, open: [Item], objects: ObjectHandles = ObjectHandles(),
+        day: WorkDay, scope: String, run: RunID
     ) throws -> Item {
         let cited = try cited(raw, spec: spec, day: day, open: open)
         var fields: [String: String] = [:]
@@ -28,6 +30,9 @@ extension Verifier {
                 let mention = try time(given, citing: cited.lines)
                 fields[field.name] = mention.words
                 fields[Item.dueField] = try Coding.json(mention.due)
+            } else if let type = field.kind.objectType {
+                guard let handle = given.string else { throw Refusal(.malformed) }
+                fields[field.name] = try Self.id(of: objects.resolve(handle, among: [type]))
             } else {
                 guard let value = given.string else { throw Refusal(.malformed) }
                 try Self.require(value, fitsInto: field.kind, context: window.context)
@@ -67,43 +72,33 @@ extension Verifier {
             due: TimeResolver.resolve(mention.record, anchor: source.start, zone: zone, hours: hours))
     }
 
-    /// The home a proposal names for its item. It is a hint, so a bad one never drops the item.
-    enum HomeChoice: Sendable, Equatable {
-        case none
-        case place(WorkObjectID)
-        /// A handle that names none of the places the model was shown.
-        case refused(String)
-    }
-
     /// A proposal that passed its checks: the item it states, how it relates to the open facts, the due time it gives,
     /// and the home it names.
     struct Checked: Sendable {
         var item: Item
         var relation: Relation
         var due: Due?
-        var home: HomeChoice
+        var home: ObjectHandles.Choice
     }
 
-    /// The proposal of `spec`'s machine, whole: its item passes `item(_:spec:open:day:scope:run:)`, and its relation
-    /// passes `relation(_:spec:open:item:)`. Its home is read by `home(_:places:)` and never refuses the proposal.
+    /// The proposal of `spec`'s machine, whole: its item passes `item(_:spec:open:objects:day:scope:run:)`, and its
+    /// relation passes `relation(_:spec:open:item:)`. Its home is read by `home(_:objects:)` and never refuses the
+    /// proposal.
     func proposal(
-        _ raw: [String: JSONValue], spec: HelperSpec, open: [Item], places: [WorkObject] = [], day: WorkDay,
-        scope: String, run: RunID
+        _ raw: [String: JSONValue], spec: HelperSpec, open: [Item], objects: ObjectHandles = ObjectHandles(),
+        day: WorkDay, scope: String, run: RunID
     ) throws -> Checked {
-        let item = try item(raw, spec: spec, open: open, day: day, scope: scope, run: run)
+        let item = try item(raw, spec: spec, open: open, objects: objects, day: day, scope: scope, run: run)
         return Checked(
             item: item, relation: try relation(raw, spec: spec, open: open, item: item), due: item.openedDue,
-            home: home(raw, places: places))
+            home: home(raw, objects: objects))
     }
 
     /// The place a proposal files its item under. The model sees the places by handle, so a handle that names none of
     /// them is refused. An empty handle names none, and so does a reading that showed no places.
-    func home(_ raw: [String: JSONValue], places: [WorkObject]) -> HomeChoice {
-        guard !places.isEmpty, let handle = raw["object"]?.string, !handle.isEmpty else { return .none }
-        guard handle.first == "O", let index = Int(handle.dropFirst()), places.indices.contains(index - 1) else {
-            return .refused(handle)
-        }
-        return .place(places[index - 1].id)
+    func home(_ raw: [String: JSONValue], objects: ObjectHandles) -> ObjectHandles.Choice {
+        guard objects.has(ObjectHandles.placeTypes), let handle = raw["object"]?.string else { return .none }
+        return objects.resolve(handle, among: ObjectHandles.placeTypes)
     }
 
     /// How a proposal relates to the open facts shown to the model. A machine with no lifecycle shows none, so every
@@ -190,6 +185,16 @@ extension Verifier {
         return open[index - 1]
     }
 
+    /// The id of the object a handle of an `objectRef` field names, or empty for no object. A handle that names no
+    /// object of the field's type refuses the proposal.
+    private static func id(of choice: ObjectHandles.Choice) throws -> String {
+        switch choice {
+        case .none: ""
+        case .object(let id): id
+        case .refused: throw Refusal(.unknownHandle)
+        }
+    }
+
     /// A value fits its field when it is of the field's kind: a choice is one of its values, a member is in the
     /// context set, a date is a work day written yyyy-MM-dd, or empty when the field does not require one. Code sets a
     /// computed field, so a value for it never fits.
@@ -203,7 +208,7 @@ extension Verifier {
             case .member(let set): context[set]?.contains(value) == true
             case .label: value.cleaned != nil
             case .date(let required): value.isEmpty ? !required : WorkDay(value) != nil
-            case .computed, .time: false
+            case .computed, .time, .objectRef: false
             }
         guard fits else { throw Refusal(.fieldKind) }
     }

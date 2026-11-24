@@ -47,16 +47,19 @@ public struct HelperReader: ModelTask {
     var task: String { spec.task }
     /// The owner's time zone: the zone a time in a line is resolved in.
     public let zone: TimeZone
-    /// The work objects the model may file a fact under. It sees them by handle (O1, O2, …). With none, the reply has no
-    /// `object` and no fact gets a proposed home.
-    public let places: [WorkObject]
+    /// The live work objects the model may name, by handle (O1, O2, …): the places a fact may be filed under, and the
+    /// objects the spec's `objectRef` fields refer to. With no place, the reply has no `object` and no fact gets a
+    /// proposed home.
+    let objects: ObjectHandles
 
-    public init(spec: HelperSpec, model: RecordedModel, zone: TimeZone = .current, places: [WorkObject] = []) {
+    public init(spec: HelperSpec, model: RecordedModel, zone: TimeZone = .current, objects: [WorkObject] = []) {
         self.spec = spec
         self.model = model
         self.zone = zone
-        self.places = places
+        self.objects = ObjectHandles(objects)
     }
+
+    private var hasPlaces: Bool { objects.has(ObjectHandles.placeTypes) }
 
     /// How much new text one model call reads. A longer day is read in parts.
     public static let charactersPerRequest = 40_000
@@ -81,7 +84,8 @@ public struct HelperReader: ModelTask {
         var run: RunID?
         for part in Self.parts(of: evidence, budget: budget) {
             let (reply, partRun) = try await ask(
-                Self.examples(examples, spec: spec) + Self.open(open, spec: spec) + Self.places(places)
+                Self.examples(examples, spec: spec) + Self.open(open, spec: spec)
+                    + Self.objectLists(objects, spec: spec)
                     + Self.input(day: day, evidence: part, zone: zone),
                 holding: [spec.source.kind],
                 window: part.lines.compactMap { line in line.lineID.map { WindowLine(number: line.id, lineID: $0) } })
@@ -90,7 +94,7 @@ public struct HelperReader: ModelTask {
                 reply.items, part: "items",
                 check: {
                     try verifier.proposal(
-                        $0, spec: spec, open: open, places: places, day: day, scope: scope, run: partRun)
+                        $0, spec: spec, open: open, objects: objects, day: day, scope: scope, run: partRun)
                 }, isRepeat: { isRepeat($0, among: proposals + $1) })
             try model.record(settled.drops + refusedHomes(of: settled.kept), of: partRun)
             proposals += settled.kept
@@ -137,6 +141,8 @@ public struct HelperReader: ModelTask {
             case .label(let set):
                 "- \(field.name): reuse a name from the \(set) list when it fits; otherwise a short new name. \(field.meaning)"
             case .time: "- \(field.name): \(Self.timeRule) \(field.meaning)"
+            case .objectRef(let type):
+                "- \(field.name): the handle of one \(type) from the \(Self.listTitle(of: field)) list, or empty when none fits. \(field.meaning)"
             }
         }
         let citeRules =
@@ -193,7 +199,7 @@ public struct HelperReader: ModelTask {
         """
 
     private var placeRule: String {
-        guard !places.isEmpty else { return "" }
+        guard hasPlaces else { return "" }
         return """
 
 
@@ -259,15 +265,15 @@ public struct HelperReader: ModelTask {
         return "Still open from earlier days:\n" + lines.joined(separator: "\n") + "\n\n"
     }
 
-    static func places(_ places: [WorkObject]) -> String {
-        guard !places.isEmpty else { return "" }
-        let lines = places.enumerated().map { handle, place in
-            "\(Self.placeHandle(handle)) \(place.type.noun) \(place.name)"
-        }
-        return "Places a fact may be filed under:\n" + lines.joined(separator: "\n") + "\n\n"
-    }
+    static func listTitle(of field: HelperSpec.Field) -> String { "Objects for \(field.name)" }
 
-    static func placeHandle(_ index: Int) -> String { "O\(index + 1)" }
+    /// The lists of objects the model may name: the places, then the objects of each `objectRef` field.
+    static func objectLists(_ objects: ObjectHandles, spec: HelperSpec) -> String {
+        objects.listing(of: ObjectHandles.placeTypes, title: "Places a fact may be filed under")
+            + spec.objectRefs.map { field in
+                objects.listing(of: field.kind.objectType.map { [$0] } ?? [], title: listTitle(of: field))
+            }.joined()
+    }
 
     private static func followedValues(of item: Item) -> String {
         let fields = item.fields.filter { $0.key != Item.dueField }.sorted { $0.key < $1.key }
@@ -280,6 +286,7 @@ public struct HelperReader: ModelTask {
                 switch field.kind {
                 case .text, .member, .label, .date: .init(field.name, .string)
                 case .time: .init(field.name, TimeMention.schema)
+                case .objectRef: .init(field.name, .string)
                 case .choice(let values): .init(field.name, .enumeration(values))
                 case .computed: nil
                 }
@@ -292,7 +299,7 @@ public struct HelperReader: ModelTask {
             }
         let relation: [JSONSchema.Property] =
             spec.lifecycle.map { [Self.relationProperty(outcomes: $0.outcomes)] } ?? []
-        let place: [JSONSchema.Property] = places.isEmpty ? [] : [.init("object", .string)]
+        let place: [JSONSchema.Property] = hasPlaces ? [.init("object", .string)] : []
         return .object([.init("items", .array(.object(fields + cite + relation + place + [.init("quote", .string)])))])
     }
 

@@ -201,7 +201,7 @@ final class TodayModel {
         var found: [Int64: [Item]] = [:]
         for revisit in revisits {
             guard let id = revisit.id else { continue }
-            found[id] = try store.queries.newsSignals(of: revisit[Revisit.dealField], since: revisit.day)
+            found[id] = try store.queries.newsSignals(of: revisit[.deal], since: revisit.day)
                 .filter { $0.isListed(at: now) }
         }
         return found

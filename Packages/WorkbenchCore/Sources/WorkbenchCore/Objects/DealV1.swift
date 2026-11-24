@@ -53,6 +53,13 @@ extension ObjectTypes {
     public static let homes = builtIn.filter { ![page.id, machinePage.id, privateSection.id].contains($0.id) }
 }
 
+extension HelperSpec.Field {
+    /// The field of a fact that code makes from a deal, such as a deal's action, a revisit, a claim or a rating. It
+    /// holds the deal's id.
+    public static let deal = HelperSpec.Field(
+        "deal", .objectRef(type: ObjectTypes.deal.id), meaning: "The deal the fact is about.")
+}
+
 extension WorkObject {
     /// The deal stage a wait stands in, for the code that settles a wait (removed when timers replace it).
     public static let actionRequired = ObjectTypes.deal.firstStage(meaning: .waiting)!.id

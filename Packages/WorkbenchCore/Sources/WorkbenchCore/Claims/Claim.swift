@@ -59,7 +59,6 @@ public struct Claim: Sendable, Equatable, Identifiable {
     var holding: Set<SourceKind> { source.map { [$0] } ?? [] }
 
     static let task = "vc.claims"
-    static let dealField = "deal"
 }
 
 /// What a check found. "Not found" is no evidence either way: it is never "contradicted".

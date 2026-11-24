@@ -154,9 +154,9 @@ extension Store {
             Item(
                 task: claimTask(of: product.taskType), day: WorkDay(containing: now), scope: "", source: source,
                 citeFirst: 0, citeLast: 0, start: now, end: now,
-                fields: [Claim.dealField: product.object, "text": claim.text, "product": String(id)],
+                fields: [HelperSpec.Field.deal.name: product.object, "text": claim.text, "product": String(id)],
                 quote: claim.cites.first?.quote ?? claim.text, run: run, label: label),
-            at: now)
+            at: now, origin: .deal)
     }
 
     private static func insertProductClaim(

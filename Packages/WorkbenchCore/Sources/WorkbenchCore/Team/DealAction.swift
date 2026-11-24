@@ -2,13 +2,12 @@ import Foundation
 import GRDB
 
 /// What a deal in "Action required" waits for, such as "get the cap table from the founder, by Friday". It is an open
-/// commitment fact with a due date, linked to its deal by the `deal` field. It lives in the item lifecycle, so Today
+/// commitment fact with a due date, linked to its deal by its `deal` object field. It lives in the item lifecycle, so Today
 /// lists it, the derailment watch follows it, and Done closes it. No second open and close system exists.
 public enum DealAction {
     public static let task = "vc.deal-actions"
     public static let lifecycle = HelperSpec.Lifecycle(
         field: "kind", open: ["commitment"], outcomes: ["done", "dropped"], owner: "person")
-    public static let dealField = "deal"
     static let done = "done"
     static let dropped = "dropped"
 
@@ -17,7 +16,7 @@ public enum DealAction {
     public static func settled(_ deals: [WorkObject], actions: [Item]) -> [WorkObject] {
         deals.filter { deal in
             guard deal.stages == [WorkObject.actionRequired] else { return false }
-            let own = actions.filter { $0[dealField] == deal.id }
+            let own = actions.filter { $0[.deal] == deal.id }
             let since = deal.history.filter { deal.stageHeads.contains($0.id) }.map(\.at).max() ?? .distantPast
             return own.allSatisfy { $0.closed != nil }
                 && own.contains { $0.closed?.outcome == done && ($0.closed?.at ?? .distantPast) >= since }
@@ -37,7 +36,7 @@ extension Store {
             var fields = [
                 "kind": "commitment", "person": owner, "project": deal.name, "text": what,
                 Item.dueField: try Coding.json(Due.stated(on: due)),
-                "stance": "said", DealAction.dealField: deal.id,
+                "stance": "said", HelperSpec.Field.deal.name: deal.id,
             ]
             if let asksMe = HelperSpec.Attention.builtIn.asksMe { fields[asksMe.field] = asksMe.value }
             let id = try Self.insertItem(
@@ -45,7 +44,7 @@ extension Store {
                 Item(
                     task: DealAction.task, day: WorkDay(containing: now), scope: "", source: .typed, citeFirst: 0,
                     citeLast: 0, start: now, end: now, fields: fields, quote: what, run: nil, authority: .ownWords),
-                at: now)
+                at: now, origin: .deal)
             try reconcileTimers(db, item: id)
             return id
         }
@@ -80,7 +79,7 @@ extension Queries {
             "item",
             """
             SELECT \(itemColumns) FROM \(itemRows)
-            WHERE task = ? AND (? IS NULL OR json_extract(fields, '$.deal') = ?) ORDER BY id
-            """, [DealAction.task, deal, deal], as: Item.init(row:))
+            WHERE task = ? AND (? IS NULL OR json_extract(fields, '$.' || ?) = ?) ORDER BY id
+            """, [DealAction.task, deal, HelperSpec.Field.deal.name, deal], as: Item.init(row:))
     }
 }
