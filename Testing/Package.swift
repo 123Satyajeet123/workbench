@@ -29,6 +29,7 @@ let package = Package(
         .executable(name: "objectref", targets: ["ObjectRefDemo"]),
         .executable(name: "store-safety-probe", targets: ["StoreSafetyProbe"]),
         .executable(name: "templates-start", targets: ["TemplatesStartDemo"]),
+        .executable(name: "linkedin-import", targets: ["LinkedInImportDemo"]),
     ],
     dependencies: [
         .package(path: "../Packages/WorkbenchCore"), .package(path: "../Packages/WorkbenchUI"),
@@ -79,6 +80,12 @@ let package = Package(
             swiftSettings: [.defaultIsolation(MainActor.self)]),
         .executableTarget(name: "GalleryDemo", dependencies: ["WorkbenchCore"]),
         .executableTarget(name: "TemplatesStartDemo", dependencies: ["WorkbenchCore"]),
+        .executableTarget(
+            name: "LinkedInImportDemo",
+            dependencies: [
+                "WorkbenchCore", .product(name: "Kernel", package: "Kernel"),
+                .product(name: "Lines", package: "Kernel"),
+            ]),
         .target(
             name: "DemoBuild",
             dependencies: [

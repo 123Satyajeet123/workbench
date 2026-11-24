@@ -8,6 +8,9 @@ public enum SourceKind: String, Codable, CaseIterable, Sendable {
     case typed
     /// A file the person added to a deal by hand. Like `typed`, the act is the consent: no switch, no grant.
     case dropped
+    /// The connections file of the person's own LinkedIn data export, chosen by hand. Like `dropped`, the act is the
+    /// consent: no switch, no grant. Workbench never reads LinkedIn itself.
+    case linkedinExport = "linkedin_export"
     /// What the person wrote in a project note. It is their own writing: the capture switch and pause do not stop it,
     /// and age does not erase it. Only the person's delete does. See `Store.saveNote`.
     case note
@@ -24,7 +27,7 @@ public enum SourceKind: String, Codable, CaseIterable, Sendable {
 
 extension SourceKind {
     /// What the person gives by hand: the act of giving it is the consent.
-    public static let byHand: Set<SourceKind> = [.typed, .dropped]
+    public static let byHand: Set<SourceKind> = [.typed, .dropped, .linkedinExport]
 
     public var isByHand: Bool { Self.byHand.contains(self) }
 
@@ -47,6 +50,7 @@ extension SourceKind {
         case .files: "Files"
         case .typed: "Typed by you"
         case .dropped: "A file you added"
+        case .linkedinExport: "Your LinkedIn export"
         case .note: "Your note"
         }
     }

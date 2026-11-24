@@ -110,6 +110,16 @@ extension SourceDescriptor {
         grammar: "a file the person added to a deal. Each line is `[number] who — file page N: the text`.",
         retention: .file, obtainedBy: .db, editWindow: 0)
 
+    /// The connections in the person's own LinkedIn data export, one line for each. The person's act of choosing the
+    /// file is the consent. The lines name third people, so only the person who chose the file reads them.
+    public static let linkedinExport = SourceDescriptor(
+        key: "linkedin.export", aliases: [], consent: .linkedinExport,
+        grammar: """
+            the people the founder is connected to on LinkedIn, from the founder's own data export. Each line is \
+            `[number] name, position at company. connected on date. email. profile URL`; a part the export left empty \
+            is missing.
+            """, retention: .file, obtainedBy: .db, editWindow: 0)
+
     private static let screenWindowGrammar = """
         the windows the founder had in front, in order. Each line is `[number] HH:mm–HH:mm (minutes) app — window \
         title — address`; the address is a web page or a file and can be missing.
@@ -133,8 +143,8 @@ extension SourceDescriptor {
 /// The sources this build knows. A source starts only when a machine names it.
 public enum SourceRegistry {
     public static let all: [SourceDescriptor] = [
-        .whatsAppChat, .telegramChat, .gmailMail, .webPage, .typedNote, .droppedFile, .note, .screenWindow, .screenText,
-        .callTranscript,
+        .whatsAppChat, .telegramChat, .gmailMail, .webPage, .typedNote, .droppedFile, .linkedinExport, .note,
+        .screenWindow, .screenText, .callTranscript,
     ]
 
     /// The source with this key or alias, or nil when no ported source has it.

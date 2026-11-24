@@ -92,7 +92,7 @@ extension Store {
     }
 
     /// Writes lines the person gave by hand, as one reading the owner alone hears, and runs `then` in its transaction.
-    private func recordOwn<Then>(
+    func recordOwn<Then>(
         _ lines: [ObservedLine], of descriptor: SourceDescriptor, label: String, container: String, owner: PersonID,
         then: (Database) throws -> Then
     ) throws -> (report: IngestReport, then: Then) {
