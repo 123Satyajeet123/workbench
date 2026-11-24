@@ -17,6 +17,8 @@ let package = Package(
         .executable(name: "demo-builder", targets: ["DemoBuilder"]),
         .executable(name: "search-tools", targets: ["SearchToolsDemo"]),
         .executable(name: "grounding-probe", targets: ["GroundingProbe"]),
+        .executable(name: "page-eval", targets: ["PageEvalRunner"]),
+        .executable(name: "page-eval-tools", targets: ["PageEvalTools"]),
         .executable(name: "judge-probe", targets: ["JudgeProbe"]),
     ],
     dependencies: [
@@ -24,7 +26,21 @@ let package = Package(
         .package(path: "../Packages/BaseKit"), .package(path: "../Packages/Kernel"),
     ],
     targets: [
-        .target(name: "Evals", dependencies: ["WorkbenchCore"]),
+        .target(name: "PageTools"),
+        .executableTarget(name: "PageEvalTools", dependencies: ["PageTools"]),
+        .target(
+            name: "Evals",
+            dependencies: [
+                "WorkbenchCore", "PageTools", .product(name: "AgentCLI", package: "BaseKit"),
+                .product(name: "Kernel", package: "Kernel"), .product(name: "Lines", package: "Kernel"),
+            ],
+            resources: [.copy("PageEval/PageEvalFacts.json")]),
+        .executableTarget(
+            name: "PageEvalRunner",
+            dependencies: [
+                "Evals", "WorkbenchCore", "WorkbenchUI", .product(name: "AgentCLI", package: "BaseKit"),
+            ],
+            swiftSettings: [.defaultIsolation(MainActor.self)]),
         .executableTarget(name: "ClaimEvalRunner", dependencies: ["Evals", "WorkbenchCore"]),
         .executableTarget(name: "OutboundEvalRunner", dependencies: ["Evals", "WorkbenchCore"]),
         .executableTarget(
