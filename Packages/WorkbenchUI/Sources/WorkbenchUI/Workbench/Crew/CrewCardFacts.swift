@@ -25,12 +25,12 @@ struct CrewCardFacts: Equatable {
             trust: row?.heldOutAudit.status ?? Certificate().status)
     }
 
-    /// How right the machine was by the founder's marks, and what is left before it runs on its own.
+    /// How right the machine was by the founder's marks, and how far it is from trust. No right depends on trust yet.
     static func health(right: Int, of marked: Int, trust: Certificate.Status) -> String {
         let trusted =
             switch trust {
-            case .earned: "runs on its own"
-            case .needsMore(let more): "needs \(more) more \(more == 1 ? "check" : "checks") before it runs on its own"
+            case .earned: TrustWording.earned
+            case .needsMore(let more): "needs \(more) more \(more == 1 ? "check" : "checks") before it is trusted"
             }
         guard marked > 0 else { return trusted.prefix(1).uppercased() + trusted.dropFirst() }
         return "Right \(right) of \(marked) you checked; \(trusted)"

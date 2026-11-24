@@ -22,6 +22,13 @@ struct HelperQuestion: View {
     }
 }
 
+/// The words for a certificate that the method does not yet back fully: it counts per run, not per fact, and a check
+/// the person skipped does not count against the machine (sims-D6 P3, P4). Until the draw ledger lands, "earned" says so.
+enum TrustWording {
+    static let earned = "trusted (provisional)"
+    static let limit = "Provisional: counted per run, and checks you skipped are not counted yet."
+}
+
 /// Progress toward trust: a betting test on audit answers on held-out days, valid however often it is read.
 struct TrustLine: View {
     let name: String
@@ -31,7 +38,7 @@ struct TrustLine: View {
         switch status {
         case .earned(let bound):
             Label(
-                "\(name) has earned trust: wrong at most \(bound.formatted(.percent.precision(.fractionLength(1)))) of the time, 90% sure.",
+                "\(name) is \(TrustWording.earned): wrong at most \(bound.formatted(.percent.precision(.fractionLength(1)))) of the time, 90% sure. \(TrustWording.limit)",
                 systemImage: "checkmark.shield"
             )
             .foregroundStyle(Tone.good.color).textStyle(.callout)
