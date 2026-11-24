@@ -1,0 +1,888 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "workbench-editor-bridge",
+  "title": "Bridge",
+  "description": "The one contract between the editor in the web view and the Swift host. Swift is the one writer: the editor holds a view of the committed page and the person's typing, and sends ops. Version 1.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/ToSwift"
+    },
+    {
+      "$ref": "#/$defs/ToEditor"
+    }
+  ],
+  "$defs": {
+    "ToSwift": {
+      "title": "ToSwift",
+      "description": "Messages the editor sends to Swift.",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/Ready"
+        },
+        {
+          "$ref": "#/$defs/Ops"
+        },
+        {
+          "$ref": "#/$defs/Open"
+        },
+        {
+          "$ref": "#/$defs/Blocked"
+        },
+        {
+          "$ref": "#/$defs/Idle"
+        }
+      ]
+    },
+    "ToEditor": {
+      "title": "ToEditor",
+      "description": "Messages Swift sends to the editor.",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/Environment"
+        },
+        {
+          "$ref": "#/$defs/Load"
+        },
+        {
+          "$ref": "#/$defs/Apply"
+        },
+        {
+          "$ref": "#/$defs/Ack"
+        },
+        {
+          "$ref": "#/$defs/Flush"
+        }
+      ]
+    },
+    "Ready": {
+      "type": "object",
+      "description": "The editor loaded and waits for the environment and the page.",
+      "properties": {
+        "type": {
+          "const": "ready"
+        },
+        "contract": {
+          "const": 1
+        }
+      },
+      "required": [
+        "type",
+        "contract"
+      ],
+      "additionalProperties": false
+    },
+    "Ops": {
+      "type": "object",
+      "description": "What the person did since the last message, in order. Swift answers with an ack of the same seq.",
+      "properties": {
+        "type": {
+          "const": "ops"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "ops": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/Op"
+          }
+        }
+      },
+      "required": [
+        "type",
+        "seq",
+        "ops"
+      ],
+      "additionalProperties": false
+    },
+    "Op": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/OpInsert"
+        },
+        {
+          "$ref": "#/$defs/OpUpdate"
+        },
+        {
+          "$ref": "#/$defs/OpMove"
+        },
+        {
+          "$ref": "#/$defs/OpDelete"
+        },
+        {
+          "$ref": "#/$defs/OpMerge"
+        },
+        {
+          "$ref": "#/$defs/OpMark"
+        }
+      ]
+    },
+    "OpInsert": {
+      "type": "object",
+      "description": "A new paragraph of the person after the block `after`, or first when `after` is null. The editor proposes the id; Swift confirms it or renames it in the ack.",
+      "properties": {
+        "op": {
+          "const": "insert"
+        },
+        "id": {
+          "$ref": "#/$defs/BlockId"
+        },
+        "after": {
+          "$ref": "#/$defs/Place"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "op",
+        "id",
+        "after",
+        "text"
+      ],
+      "additionalProperties": false
+    },
+    "OpUpdate": {
+      "type": "object",
+      "description": "The words of one paragraph of the person changed. `text` is the whole stored line.",
+      "properties": {
+        "op": {
+          "const": "update"
+        },
+        "id": {
+          "$ref": "#/$defs/BlockId"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "op",
+        "id",
+        "text"
+      ],
+      "additionalProperties": false
+    },
+    "OpMove": {
+      "type": "object",
+      "description": "A block of the person or of a machine now stands after `after`, or first when `after` is null.",
+      "properties": {
+        "op": {
+          "const": "move"
+        },
+        "id": {
+          "$ref": "#/$defs/BlockId"
+        },
+        "after": {
+          "$ref": "#/$defs/Place"
+        }
+      },
+      "required": [
+        "op",
+        "id",
+        "after"
+      ],
+      "additionalProperties": false
+    },
+    "OpDelete": {
+      "type": "object",
+      "description": "The person removed a block. A paragraph of the person is erased with its lines; a machine block leaves the page.",
+      "properties": {
+        "op": {
+          "const": "delete"
+        },
+        "id": {
+          "$ref": "#/$defs/BlockId"
+        }
+      },
+      "required": [
+        "op",
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "OpMerge": {
+      "type": "object",
+      "description": "The person joined the paragraph `id` to the paragraph `into`, such as Backspace at its start. Its words live on in `into`: nothing is erased.",
+      "properties": {
+        "op": {
+          "const": "merge"
+        },
+        "id": {
+          "$ref": "#/$defs/BlockId"
+        },
+        "into": {
+          "$ref": "#/$defs/BlockId"
+        }
+      },
+      "required": [
+        "op",
+        "id",
+        "into"
+      ],
+      "additionalProperties": false
+    },
+    "OpMark": {
+      "type": "object",
+      "description": "The person marked a fact in a facts view.",
+      "properties": {
+        "op": {
+          "const": "mark"
+        },
+        "fact": {
+          "type": "integer"
+        },
+        "mark": {
+          "enum": [
+            "right",
+            "wrong"
+          ]
+        }
+      },
+      "required": [
+        "op",
+        "fact",
+        "mark"
+      ],
+      "additionalProperties": false
+    },
+    "Open": {
+      "type": "object",
+      "description": "The person asked to open something that Swift names. The editor never opens or loads anything itself.",
+      "properties": {
+        "type": {
+          "const": "open"
+        },
+        "target": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "cite"
+                },
+                "ref": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "kind",
+                "ref"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "link"
+                },
+                "url": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "kind",
+                "url"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "picker"
+                },
+                "source": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "kind",
+                "source"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "required": [
+        "type",
+        "target"
+      ],
+      "additionalProperties": false
+    },
+    "Blocked": {
+      "type": "object",
+      "description": "The web view refused a load by its Content Security Policy.",
+      "properties": {
+        "type": {
+          "const": "blocked"
+        },
+        "directive": {
+          "type": "string"
+        },
+        "uri": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "directive",
+        "uri"
+      ],
+      "additionalProperties": false
+    },
+    "Environment": {
+      "type": "object",
+      "description": "How to draw: the appearance, whether motion is reduced, and the colour tokens of the app, resolved for that appearance, as CSS values by name.",
+      "properties": {
+        "type": {
+          "const": "environment"
+        },
+        "appearance": {
+          "enum": [
+            "light",
+            "dark"
+          ]
+        },
+        "reduceMotion": {
+          "type": "boolean"
+        },
+        "tokens": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "type",
+        "appearance",
+        "reduceMotion",
+        "tokens"
+      ],
+      "additionalProperties": false
+    },
+    "Load": {
+      "type": "object",
+      "description": "The committed page, in order. It replaces what the editor holds.",
+      "properties": {
+        "type": {
+          "const": "load"
+        },
+        "blocks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PageBlock"
+          }
+        }
+      },
+      "required": [
+        "type",
+        "blocks"
+      ],
+      "additionalProperties": false
+    },
+    "Apply": {
+      "type": "object",
+      "description": "Changes Swift committed, in order. They never move the caret.",
+      "properties": {
+        "type": {
+          "const": "apply"
+        },
+        "changes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/Change"
+          }
+        }
+      },
+      "required": [
+        "type",
+        "changes"
+      ],
+      "additionalProperties": false
+    },
+    "Ack": {
+      "type": "object",
+      "description": "Swift saved the ops of `seq`. A block whose id Swift could not keep gets a new id.",
+      "properties": {
+        "type": {
+          "const": "ack"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "renames": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "from": {
+                "$ref": "#/$defs/BlockId"
+              },
+              "to": {
+                "$ref": "#/$defs/BlockId"
+              }
+            },
+            "required": [
+              "from",
+              "to"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "type",
+        "seq",
+        "renames"
+      ],
+      "additionalProperties": false
+    },
+    "Change": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "change": {
+              "const": "insert"
+            },
+            "after": {
+              "$ref": "#/$defs/Place"
+            },
+            "block": {
+              "$ref": "#/$defs/PageBlock"
+            }
+          },
+          "required": [
+            "change",
+            "after",
+            "block"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "change": {
+              "const": "update"
+            },
+            "block": {
+              "$ref": "#/$defs/PageBlock"
+            }
+          },
+          "required": [
+            "change",
+            "block"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "change": {
+              "const": "move"
+            },
+            "id": {
+              "$ref": "#/$defs/BlockId"
+            },
+            "after": {
+              "$ref": "#/$defs/Place"
+            }
+          },
+          "required": [
+            "change",
+            "id",
+            "after"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "change": {
+              "const": "remove"
+            },
+            "id": {
+              "$ref": "#/$defs/BlockId"
+            }
+          },
+          "required": [
+            "change",
+            "id"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "BlockId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "Place": {
+      "description": "The block a block stands after, or null for first place.",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/BlockId"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "PageBlock": {
+      "oneOf": [
+        {
+          "type": "object",
+          "description": "A paragraph of the person. `text` is the stored line: the words with their formatting as the editor writes it.",
+          "properties": {
+            "kind": {
+              "const": "note"
+            },
+            "id": {
+              "$ref": "#/$defs/BlockId"
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "id",
+            "text"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "description": "A block of a machine, already worked out by Swift. The editor shows it and never changes it.",
+          "properties": {
+            "kind": {
+              "const": "machine"
+            },
+            "id": {
+              "$ref": "#/$defs/BlockId"
+            },
+            "view": {
+              "$ref": "#/$defs/MachineView"
+            }
+          },
+          "required": [
+            "kind",
+            "id",
+            "view"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "Chip": {
+      "type": "object",
+      "description": "One thing a machine's words rest on. The `ref` is the stored cite: fact:12, note:<block> or request.",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string"
+        },
+        "opens": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ref",
+        "label",
+        "opens"
+      ],
+      "additionalProperties": false
+    },
+    "MachineView": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "heading"
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "text"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "text"
+            },
+            "text": {
+              "type": "string"
+            },
+            "cites": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Chip"
+              }
+            }
+          },
+          "required": [
+            "kind",
+            "text",
+            "cites"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "facts"
+            },
+            "title": {
+              "type": "string"
+            },
+            "layout": {
+              "enum": [
+                "list",
+                "board",
+                "table",
+                "counts"
+              ]
+            },
+            "countText": {
+              "type": "string"
+            },
+            "columns": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "sections": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/FactSection"
+              }
+            }
+          },
+          "required": [
+            "kind",
+            "title",
+            "layout",
+            "countText",
+            "columns",
+            "sections"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "grid"
+            },
+            "title": {
+              "type": "string"
+            },
+            "columns": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "rows": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/GridCell"
+                }
+              }
+            },
+            "cites": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Chip"
+              }
+            }
+          },
+          "required": [
+            "kind",
+            "title",
+            "columns",
+            "rows",
+            "cites"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "picker"
+            },
+            "source": {
+              "type": "string"
+            },
+            "title": {
+              "type": "string"
+            },
+            "note": {
+              "type": "string"
+            },
+            "available": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "kind",
+            "source",
+            "title",
+            "note",
+            "available"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "description": "A block whose words were erased with the line they rested on.",
+          "properties": {
+            "kind": {
+              "const": "erased"
+            },
+            "note": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "note"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "FactSection": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "countText": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FactRow"
+          }
+        }
+      },
+      "required": [
+        "name",
+        "countText",
+        "count",
+        "rows"
+      ],
+      "additionalProperties": false
+    },
+    "FactRow": {
+      "type": "object",
+      "properties": {
+        "fact": {
+          "type": "integer"
+        },
+        "person": {
+          "type": "string"
+        },
+        "words": {
+          "type": "string"
+        },
+        "cells": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "fact",
+        "person",
+        "words",
+        "cells"
+      ],
+      "additionalProperties": false
+    },
+    "GridCell": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "words",
+            "number",
+            "formula",
+            "failed"
+          ]
+        },
+        "source": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "text",
+        "kind",
+        "source"
+      ],
+      "additionalProperties": false
+    },
+    "Flush": {
+      "type": "object",
+      "description": "Send the ops that wait now, because the page closes or the app goes to the back.",
+      "properties": {
+        "type": {
+          "const": "flush"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "additionalProperties": false
+    },
+    "Idle": {
+      "type": "object",
+      "description": "The editor sent every op it holds and Swift saved them: the answer to a flush.",
+      "properties": {
+        "type": {
+          "const": "idle"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

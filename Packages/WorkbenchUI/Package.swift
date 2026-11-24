@@ -22,6 +22,7 @@ let package = Package(
                 .product(name: "WebResearch", package: "BaseKit"),
                 .product(name: "TelegramReader", package: "BaseKit"),
             ],
+            resources: [.copy("Resources/Editor")],
             swiftSettings: [.defaultIsolation(MainActor.self)]
         ),
         .testTarget(

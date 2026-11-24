@@ -41,6 +41,7 @@ let package = Package(
         .executable(name: "run-journal", targets: ["RunJournalDemo"]),
         .executable(name: "add-team", targets: ["AddTeamDemo"]),
         .executable(name: "page-truth", targets: ["PageTruthDemo"]),
+        .executable(name: "doc-editor", targets: ["DocEditorDemo"]),
     ],
     dependencies: [
         .package(path: "../Packages/WorkbenchCore"), .package(path: "../Packages/WorkbenchUI"),
@@ -152,6 +153,13 @@ let package = Package(
                 "PageSnapshot", "WorkbenchCore", "WorkbenchUI", .product(name: "CaptureService", package: "BaseKit"),
                 .product(name: "LocalSources", package: "BaseKit"),
                 .product(name: "Kernel", package: "Kernel"), .product(name: "Lines", package: "Kernel"),
+            ],
+            swiftSettings: [.defaultIsolation(MainActor.self)]),
+        .executableTarget(
+            name: "DocEditorDemo",
+            dependencies: [
+                "WorkbenchCore", "WorkbenchUI", .product(name: "Kernel", package: "Kernel"),
+                .product(name: "Lines", package: "Kernel"),
             ],
             swiftSettings: [.defaultIsolation(MainActor.self)]),
         .executableTarget(

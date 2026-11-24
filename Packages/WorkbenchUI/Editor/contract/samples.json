@@ -1,0 +1,278 @@
+{
+  "toEditor" : {
+    "ack" : {
+      "renames" : [
+        {
+          "from" : "n2",
+          "to" : "n6"
+        }
+      ],
+      "seq" : 3,
+      "type" : "ack"
+    },
+    "apply" : {
+      "changes" : [
+        {
+          "after" : null,
+          "block" : {
+            "id" : "m9",
+            "kind" : "machine",
+            "view" : {
+              "kind" : "heading",
+              "text" : "New"
+            }
+          },
+          "change" : "insert"
+        },
+        {
+          "after" : "n1",
+          "block" : {
+            "id" : "n5",
+            "kind" : "note",
+            "text" : "- item"
+          },
+          "change" : "insert"
+        },
+        {
+          "block" : {
+            "id" : "m9",
+            "kind" : "machine",
+            "view" : {
+              "kind" : "erased",
+              "note" : "The message this came from was deleted"
+            }
+          },
+          "change" : "update"
+        },
+        {
+          "after" : "m9",
+          "change" : "move",
+          "id" : "n5"
+        },
+        {
+          "change" : "remove",
+          "id" : "n5"
+        }
+      ],
+      "type" : "apply"
+    },
+    "environment" : {
+      "appearance" : "dark",
+      "reduceMotion" : true,
+      "tokens" : {
+        "page" : "rgba(25, 25, 25, 1.000)"
+      },
+      "type" : "environment"
+    },
+    "flush" : {
+      "type" : "flush"
+    },
+    "load" : {
+      "blocks" : [
+        {
+          "id" : "n1",
+          "kind" : "note",
+          "text" : "Plain words"
+        },
+        {
+          "id" : "m0",
+          "kind" : "machine",
+          "view" : {
+            "kind" : "heading",
+            "text" : "Open follow-ups"
+          }
+        },
+        {
+          "id" : "m1",
+          "kind" : "machine",
+          "view" : {
+            "cites" : [
+              {
+                "label" : "Asha: the deck",
+                "opens" : true,
+                "ref" : "fact:12"
+              },
+              {
+                "label" : "Your request",
+                "opens" : false,
+                "ref" : "request"
+              }
+            ],
+            "kind" : "text",
+            "text" : "Asha waits for the deck."
+          }
+        },
+        {
+          "id" : "m2",
+          "kind" : "machine",
+          "view" : {
+            "columns" : [
+              "quote",
+              "kind"
+            ],
+            "countText" : "1 fact",
+            "kind" : "facts",
+            "layout" : "table",
+            "sections" : [
+              {
+                "count" : 1,
+                "countText" : "1 fact",
+                "name" : "ask",
+                "rows" : [
+                  {
+                    "cells" : [
+                      "“send the deck”",
+                      "ask"
+                    ],
+                    "fact" : 12,
+                    "person" : "Asha",
+                    "words" : "“send the deck”"
+                  }
+                ]
+              }
+            ],
+            "title" : "Open follow-ups"
+          }
+        },
+        {
+          "id" : "m3",
+          "kind" : "machine",
+          "view" : {
+            "cites" : [
+
+            ],
+            "columns" : [
+              "Item",
+              "Amount",
+              "Count",
+              "Check"
+            ],
+            "kind" : "grid",
+            "rows" : [
+              [
+                {
+                  "kind" : "words",
+                  "source" : "The deck",
+                  "text" : "The deck"
+                },
+                {
+                  "kind" : "formula",
+                  "source" : "=SUM(B1:B2)",
+                  "text" : "120"
+                },
+                {
+                  "kind" : "number",
+                  "source" : "80",
+                  "text" : "80"
+                },
+                {
+                  "kind" : "failed",
+                  "source" : "=A1/0",
+                  "text" : "Cannot work this out"
+                }
+              ]
+            ],
+            "title" : "What was promised"
+          }
+        },
+        {
+          "id" : "m4",
+          "kind" : "machine",
+          "view" : {
+            "available" : true,
+            "kind" : "picker",
+            "note" : "",
+            "source" : "whatsapp_chats",
+            "title" : "WhatsApp chats to read"
+          }
+        },
+        {
+          "id" : "m5",
+          "kind" : "machine",
+          "view" : {
+            "kind" : "erased",
+            "note" : "The message this came from was deleted"
+          }
+        }
+      ],
+      "type" : "load"
+    }
+  },
+  "toSwift" : {
+    "blocked" : {
+      "directive" : "img-src",
+      "type" : "blocked",
+      "uri" : "https://example.com/x.png"
+    },
+    "idle" : {
+      "type" : "idle"
+    },
+    "openCite" : {
+      "target" : {
+        "kind" : "cite",
+        "ref" : "fact:12"
+      },
+      "type" : "open"
+    },
+    "openLink" : {
+      "target" : {
+        "kind" : "link",
+        "url" : "https://example.com/a"
+      },
+      "type" : "open"
+    },
+    "openPicker" : {
+      "target" : {
+        "kind" : "picker",
+        "source" : "whatsapp_chats"
+      },
+      "type" : "open"
+    },
+    "ops" : {
+      "ops" : [
+        {
+          "after" : null,
+          "id" : "n1",
+          "op" : "insert",
+          "text" : "# A heading"
+        },
+        {
+          "after" : "n1",
+          "id" : "n2",
+          "op" : "insert",
+          "text" : "Words"
+        },
+        {
+          "id" : "n2",
+          "op" : "update",
+          "text" : "Words, *marked*"
+        },
+        {
+          "after" : null,
+          "id" : "n2",
+          "op" : "move"
+        },
+        {
+          "id" : "n3",
+          "op" : "delete"
+        },
+        {
+          "id" : "n4",
+          "into" : "n2",
+          "op" : "merge"
+        },
+        {
+          "fact" : 12,
+          "mark" : "wrong",
+          "op" : "mark"
+        }
+      ],
+      "seq" : 3,
+      "type" : "ops"
+    },
+    "ready" : {
+      "contract" : 1,
+      "type" : "ready"
+    }
+  }
+}
