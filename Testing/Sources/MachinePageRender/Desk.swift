@@ -4,15 +4,10 @@ import GRDB
 import Kernel
 import Lines
 import LocalSources
+import PageSnapshot
 
 @testable import WorkbenchCore
 @testable import WorkbenchUI
-
-struct RenderFailure: Error, CustomStringConvertible {
-    let description: String
-
-    init(_ description: String) { self.description = description }
-}
 
 /// A machine and its page in a new store in a temporary folder: three paragraphs are not needed, two are, and two
 /// facts quote two stored lines. Nothing here reads the person's store, the network or the Keychain.

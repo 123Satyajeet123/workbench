@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import PageSnapshot
 import SwiftUI
 
 @testable import WorkbenchCore
@@ -19,9 +20,12 @@ do {
 
     func draw(_ name: String) async throws {
         for dark in [false, true] {
-            let page = Page(title: desk.page.name, subtitle: "Follow-ups") { MachinePageView(model: desk.page) }
-                .environment(desk.crew).environment(ModelSettings(store: desk.store, secrets: MemorySecrets()))
-            print(try await snapshot(page, named: name, dark: dark, size: size, in: shots).path)
+            let models = ModelSettings(store: desk.store, secrets: MemorySecrets())
+            print(
+                try await snapshot(
+                    pageOf: desk.page, subtitle: "Follow-ups", crew: desk.crew, models: models, named: name, dark: dark,
+                    size: size, in: shots
+                ).path)
         }
     }
 

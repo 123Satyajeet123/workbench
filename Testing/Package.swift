@@ -22,6 +22,7 @@ let package = Package(
         .executable(name: "page-eval", targets: ["PageEvalRunner"]),
         .executable(name: "page-eval-tools", targets: ["PageEvalTools"]),
         .executable(name: "machine-page-render", targets: ["MachinePageRender"]),
+        .executable(name: "machine-page-live", targets: ["MachinePageLive"]),
         .executable(name: "judge-probe", targets: ["JudgeProbe"]),
         .executable(name: "machine-roles", targets: ["MachineRolesDemo"]),
         .executable(name: "inject-corpus", targets: ["InjectCorpusCheck"]),
@@ -96,10 +97,19 @@ let package = Package(
             dependencies: ["Evals", "WorkbenchCore", .product(name: "AgentCLI", package: "BaseKit")]),
         .executableTarget(name: "MachineRolesDemo", dependencies: ["WorkbenchCore"]),
         .executableTarget(name: "InjectCorpusCheck", dependencies: ["Evals"]),
+        .target(
+            name: "PageSnapshot", dependencies: ["WorkbenchCore", "WorkbenchUI"],
+            swiftSettings: [.defaultIsolation(MainActor.self)]),
+        .executableTarget(
+            name: "MachinePageLive",
+            dependencies: [
+                "PageSnapshot", "WorkbenchCore", "WorkbenchUI", .product(name: "Kernel", package: "Kernel"),
+            ],
+            swiftSettings: [.defaultIsolation(MainActor.self)]),
         .executableTarget(
             name: "MachinePageRender",
             dependencies: [
-                "WorkbenchCore", "WorkbenchUI", .product(name: "CaptureService", package: "BaseKit"),
+                "PageSnapshot", "WorkbenchCore", "WorkbenchUI", .product(name: "CaptureService", package: "BaseKit"),
                 .product(name: "LocalSources", package: "BaseKit"),
                 .product(name: "Kernel", package: "Kernel"), .product(name: "Lines", package: "Kernel"),
             ],
