@@ -25,10 +25,14 @@ public struct HelperReader: ModelTask {
         public var droppedByRule: [DropRule: Int]
         /// What the caps hid from the model in this reading. Not in `dropped`.
         public var leftOut: [LeftOut]
+        /// The events this part adds to the journal of its reading. `readDay` sets them; `saveReading` writes them with
+        /// the part. Nil for a result no `readDay` made.
+        public var journal: PartJournal?
 
         public init(
             items: [Item], links: [Link] = [], homes: [HomeProposal] = [], dropped: Int, run: RunID?,
-            proposed: Int = 0, droppedByRule: [DropRule: Int] = [:], leftOut: [LeftOut] = []
+            proposed: Int = 0, droppedByRule: [DropRule: Int] = [:], leftOut: [LeftOut] = [],
+            journal: PartJournal? = nil
         ) {
             self.items = items
             self.links = links
@@ -38,6 +42,7 @@ public struct HelperReader: ModelTask {
             self.proposed = proposed
             self.droppedByRule = droppedByRule
             self.leftOut = leftOut
+            self.journal = journal
         }
 
         /// The proposals kept: the facts opened and the open facts restated.
@@ -117,21 +122,40 @@ public struct HelperReader: ModelTask {
     /// Reads a day part by part. Each part is saved, with its own run's yield, before the next is read, so a part
     /// that fails leaves the parts before it read, and the lines of the parts after it are sent again. `open` is asked
     /// again for each part, so a part sees the facts the part before it opened.
+    ///
+    /// The reading keeps a journal (`RunEvent`): each part's events are in the part's `journal`, which `saveReading`
+    /// writes in the part's own transaction, and a reading that stops writes its end before the error goes on.
     nonisolated(nonsending) public func readDay(
         day: WorkDay, scope: String, evidence: EvidenceSet, marked: [Item] = [],
         open: () throws -> Capped<Item> = { [] },
         budget: Int = RunSettings.standard.charactersPerRequest, save: (Result) async throws -> Void
     ) async throws -> [Result] {
+        var journal = ReadingJournal(
+            store: model.store, task: task, watermark: try model.store.queries.latestRun(of: task),
+            opening: .start(of: evidence, budget: budget, promptHash: try promptHash),
+            sizes: Self.partSizes(of: evidence, budget: budget))
         var results: [Result] = []
         var pending = evidence
-        repeat {
-            let result = try await read(
-                day: day, scope: scope, evidence: pending, marked: marked, open: try open(), budget: budget)
-            try await save(result)
-            results.append(result)
-            pending = Self.afterFirstPart(of: pending, budget: budget)
-        } while !pending.newLines.isEmpty
+        do {
+            repeat {
+                var result = try await read(
+                    day: day, scope: scope, evidence: pending, marked: marked, open: try open(), budget: budget)
+                let rest = Self.afterFirstPart(of: pending, budget: budget)
+                result.journal = try journal.events(
+                    of: result, number: results.count + 1, isLast: rest.newLines.isEmpty)
+                try await save(result)
+                results.append(result)
+                pending = rest
+            } while !pending.newLines.isEmpty
+        } catch {
+            journal.end(stoppedBy: error)
+            throw error
+        }
         return results
+    }
+
+    private var promptHash: String {
+        get throws { RecordedModel.promptHash(instructions: instructions, schemaText: try schema.jsonText) }
     }
 
     /// The number of new lines in each part `readDay` reads `evidence` in, in order. A day with no new lines is one
@@ -377,5 +401,37 @@ public struct HelperReader: ModelTask {
                 "", "Read before; context only, cite nothing here:",
             ] + seen
             + ["", "New since the last reading; give items only from these lines:"] + new).joined(separator: "\n")
+    }
+}
+
+/// What the journal of one `readDay` needs between its parts: the events a part adds, and the end of a reading that
+/// stops. A reading is named by its first model call, so a reading that made none has no journal.
+private struct ReadingJournal {
+    let store: Store
+    let task: String
+    let watermark: RunID
+    let opening: RunEvent
+    let sizes: [Int]
+    private var reading: RunID?
+
+    init(store: Store, task: String, watermark: RunID, opening: RunEvent, sizes: [Int]) {
+        self.store = store
+        self.task = task
+        self.watermark = watermark
+        self.opening = opening
+        self.sizes = sizes
+    }
+
+    mutating func events(of part: HelperReader.Result, number: Int, isLast: Bool) throws -> PartJournal? {
+        if number == 1 { reading = part.run }
+        guard let reading, part.run != nil else { return nil }
+        let end = isLast ? RunEvent.ending(runs: try store.queries.runs(of: task, from: reading), stop: nil) : []
+        let events = RunEvent.events(of: part, number: number, lines: sizes[number - 1])
+        return PartJournal(reading: reading, events: (number == 1 ? [opening] : []) + events + end)
+    }
+
+    func end(stoppedBy error: any Error) {
+        try? store.endJournal(
+            of: task, reading: reading, after: watermark, opening: opening, stop: RunState.Stop(error: error))
     }
 }

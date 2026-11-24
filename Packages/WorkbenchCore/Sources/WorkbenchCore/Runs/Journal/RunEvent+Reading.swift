@@ -22,15 +22,20 @@ extension RunEvent {
     }
 
     /// The last events of a reading whose model calls are `runs`: how it stopped, if it did, and its cost.
-    public static func ending(runs: [Run]) -> [RunEvent] {
-        let stop: [RunEvent] =
-            if let failure = runs.compactMap(\.failure).first {
-                [.failed(failure)]
-            } else if runs.contains(where: { $0.outcome == .cancelled }) {
-                [.cancelled]
-            } else {
-                []
+    public static func ending(runs: [Run], stop: RunState.Stop?) -> [RunEvent] {
+        let stopped: [RunEvent] =
+            switch stop {
+            case .failed(let reason): [.failed(reason)]
+            case .cancelled: [.cancelled]
+            case nil: []
             }
-        return stop + [.finished(RunCost(of: runs))]
+        return stopped + [.finished(RunCost(of: runs))]
+    }
+}
+
+extension RunState.Stop {
+    /// How a reading ended by `error`: the app stopped it, or it failed for the kind its type names, or `other`.
+    public init(error: any Error) {
+        self = error is CancellationError ? .cancelled : .failed((error as? any ClassifiedFailure)?.failure ?? .other)
     }
 }

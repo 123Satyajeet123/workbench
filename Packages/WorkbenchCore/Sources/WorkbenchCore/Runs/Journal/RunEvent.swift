@@ -33,7 +33,7 @@ public enum RunEvent: Sendable, Equatable {
 }
 
 /// What the model calls of a reading cost. A call that ended with no count of its cost is counted apart, never as free.
-public struct RunCost: Sendable, Equatable {
+public struct RunCost: Codable, Sendable, Equatable {
     public var known: Usage
     public var callsWithoutCost: Int
 

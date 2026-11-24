@@ -63,7 +63,7 @@ public enum NowLine {
             : "It cost \(amount), and \(count(cost.callsWithoutCost, "call")) has no cost figure."
     }
 
-    private static func count(_ number: Int, _ noun: String) -> String {
+    static func count(_ number: Int, _ noun: String) -> String {
         "\(number) \(noun)\(number == 1 ? "" : "s")"
     }
 }

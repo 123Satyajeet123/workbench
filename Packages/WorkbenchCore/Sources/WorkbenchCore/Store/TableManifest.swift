@@ -22,12 +22,12 @@ enum TableManifest {
     ]
 
     /// Ids, keys, hashes, counts and times; the settings and policies; and the text that a person typed or a machine's
-    /// own brief, which are not copies of a source. The tables that were read for a path that puts a source's words in them are in `words`: `run.error` (the message of a failed call), `action.detail`, `work_event.body` and `machine_decision`.
+    /// own brief, which are not copies of a source. `run_event` holds counts, run ids and closed names, and no word of a source. The tables that were read for a path that puts a source's words in them are in `words`: `run.error` (the message of a failed call), `action.detail`, `work_event.body` and `machine_decision`.
     static let noWords: Set<String> = [
         "consent", "container_order", "derivation", "entity_supersede", "evidence_legacy", "evidence_view",
         "fact_link", "handled_batch", "heldout_report", "judge_freeze", "machine", "machine_block_cite",
         "machine_change", "mail_open", "mark", "mark_reason", "member", "member_handle",
-        "pending_revoke", "product_claim", "prompt", "proposal_decision", "quote_mark", "run_input",
+        "pending_revoke", "product_claim", "prompt", "proposal_decision", "quote_mark", "run_event", "run_input",
         "run_window", "sla_policy", "state", "status_change", "team", "timer", "timer_fired", "work_object",
     ]
 }

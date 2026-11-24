@@ -181,7 +181,12 @@ let package = Package(
                 "WorkbenchCore", .product(name: "Kernel", package: "Kernel"),
                 .product(name: "Lines", package: "Kernel"),
             ]),
-        .executableTarget(name: "RunJournalDemo", dependencies: ["WorkbenchCore"]),
+        .executableTarget(
+            name: "RunJournalDemo",
+            dependencies: [
+                "WorkbenchCore", .product(name: "Kernel", package: "Kernel"),
+                .product(name: "Lines", package: "Kernel"),
+            ]),
         .executableTarget(name: "AddTeamDemo", dependencies: ["WorkbenchCore"]),
         .executableTarget(
             name: "PageTruthDemo",

@@ -35,9 +35,12 @@ public struct FailurePolicy: Sendable {
 }
 
 /// A call refused because the plan is at its limit. Nothing is sent, and no run is made.
-public struct ModelPausedError: Error, Equatable, LocalizedError {
+public struct ModelPausedError: ClassifiedFailure, Equatable, LocalizedError {
     public var plan: String
     public var until: Date
+
+    public var failure: Run.Failure { .limit }
+    public var resetsAt: Date? { until }
 
     public var errorDescription: String? {
         "Your \(plan.capitalized) plan is at its limit. Workbench makes no model call until "
@@ -46,25 +49,21 @@ public struct ModelPausedError: Error, Equatable, LocalizedError {
 }
 
 extension Store {
-    private static func pauseKey(plan: String) -> String { "model.pause.\(plan)" }
+    static func pauseKey(plan: String) -> String { "model.pause.\(plan)" }
 
     /// Every caller of the plan stops until `until`. The pause is a row of the store, so all machines share it.
     func pauseModel(plan: String, until: Date) throws {
         try saveState(until.stored, forKey: Self.pauseKey(plan: plan))
     }
 
-    public func pausedUntil(plan: String) -> Date? {
-        guard let text = (try? queries.state(forKey: Self.pauseKey(plan: plan))).flatMap({ $0 }),
-            let until = try? Date(text, strategy: .iso8601), until > clock()
-        else { return nil }
-        return until
-    }
+    public func pausedUntil(plan: String) -> Date? { queries.pausedUntil(plan: plan, at: clock()) }
 
     /// The one point that refuses a call before it starts: no yes to the terms, or a plan at its limit.
     func requireModelAccess(for model: any StructuredModel) throws {
-        try requireModelTerms(for: model)
-        if let plan = model.planName, let until = pausedUntil(plan: plan) {
-            throw ModelPausedError(plan: plan, until: until)
+        switch queries.modelBlock(for: model, at: clock()) {
+        case .termsNotConfirmed?: throw ModelTermsError.notConfirmed
+        case .planLimit(let plan, let until)?: throw ModelPausedError(plan: plan, until: until)
+        case .notInstalled?, nil: return
         }
     }
 
@@ -72,6 +71,31 @@ extension Store {
         guard let plan = model.planName, let failure = error as? any ClassifiedFailure, failure.failure == .limit
         else { return }
         try pauseModel(plan: plan, until: failure.resetsAt ?? clock() + policy.settings.limitWithoutResetSeconds)
+    }
+}
+
+/// Why a call of `model` would not start now, as the store says. A model that is nil is no model installed.
+public enum ModelBlock: Sendable, Equatable {
+    case notInstalled
+    case termsNotConfirmed
+    case planLimit(plan: String, until: Date)
+}
+
+extension Queries {
+    public func modelBlock(for model: (any StructuredModel)?, at now: Date) -> ModelBlock? {
+        guard let model else { return .notInstalled }
+        if model.billedToPlanSignIn, modelTermsConfirmation() == nil { return .termsNotConfirmed }
+        if let plan = model.planName, let until = pausedUntil(plan: plan, at: now) {
+            return .planLimit(plan: plan, until: until)
+        }
+        return nil
+    }
+
+    func pausedUntil(plan: String, at now: Date) -> Date? {
+        guard let text = (try? state(forKey: Store.pauseKey(plan: plan))).flatMap({ $0 }),
+            let until = try? Date(text, strategy: .iso8601), until > now
+        else { return nil }
+        return until
     }
 }
 

@@ -74,7 +74,7 @@ public struct RecordedModel: Sendable {
     ) async throws -> (value: T, run: RunID) {
         try store.requireModelAccess(for: model)
         let schemaText = try schema.jsonText
-        let prompt = Digest.sha256(instructions + "\n" + schemaText)
+        let prompt = Self.promptHash(instructions: instructions, schemaText: schemaText)
         try store.keepPrompt(hash: prompt, task: task, instructions: instructions, schema: schemaText)
         var retries = policy.settings.timeOutRetries
         while true {
@@ -93,6 +93,11 @@ public struct RecordedModel: Sendable {
                 try store.requireModelAccess(for: model)
             }
         }
+    }
+
+    /// The prompt version a run names: a hash of the instructions and the schema.
+    static func promptHash(instructions: String, schemaText: String) -> String {
+        Digest.sha256(instructions + "\n" + schemaText)
     }
 
     private func answer<T: Decodable & Sendable>(
@@ -169,8 +174,9 @@ extension Store {
     /// free.
     func failRun(_ id: RunID, model: String, error: any Error) throws {
         let (cause, usage) = ChargedFailure.split(error)
-        let cancelled = cause is CancellationError
-        let failure = cancelled ? nil : (cause as? any ClassifiedFailure)?.failure ?? .other
+        let stop = RunState.Stop(error: cause)
+        let cancelled = stop == .cancelled
+        let failure: Run.Failure? = if case .failed(let kind) = stop { kind } else { nil }
         try writer.write { db in
             try db.execute(
                 sql: """
@@ -195,13 +201,14 @@ extension Store {
         try db.execute(sql: "UPDATE run SET kept = ?, dropped = ? WHERE id = ?", arguments: [kept, dropped, run])
     }
 
-    /// A run still open when the app starts was cut off.
+    /// A run still open when the app starts was cut off, and so was the journal of a reading that never finished.
     public func closeInterruptedRuns() throws {
         try writer.write { db in
             try db.execute(
                 sql:
                     "UPDATE run SET outcome = 'failed', failure = 'other', ended_at = ?, error = 'Workbench stopped during the run' WHERE outcome = 'running'",
                 arguments: [clock().stored])
+            try Self.endInterruptedJournals(db, at: clock())
         }
     }
 }
@@ -211,11 +218,8 @@ extension Queries {
         try reader.read { db in
             try db.fetch(
                 "run",
-                """
-                SELECT id, task, model, prompt, input_bytes, started_at, ended_at, outcome, error, failure, input_tokens,
-                    cache_read_tokens, cache_write_tokens, output_tokens, cost_usd, kept, dropped
-                FROM run WHERE started_at >= ? ORDER BY id DESC
-                """, [start.stored], as: Run.init(row:))
+                "SELECT \(Run.columns) FROM run WHERE started_at >= ? ORDER BY id DESC", [start.stored],
+                as: Run.init(row:))
         }
     }
 
@@ -234,6 +238,11 @@ extension Queries {
 }
 
 extension Run {
+    static let columns = """
+        id, task, model, prompt, input_bytes, started_at, ended_at, outcome, error, failure, input_tokens,
+        cache_read_tokens, cache_write_tokens, output_tokens, cost_usd, kept, dropped
+        """
+
     private static func usage(_ row: Row) throws -> Usage? {
         guard let cost: Double = try row.optionalValue("cost_usd") else { return nil }
         return Usage(

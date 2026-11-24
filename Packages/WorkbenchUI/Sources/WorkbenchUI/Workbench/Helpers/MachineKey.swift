@@ -7,8 +7,8 @@ import WorkbenchCore
 enum MachineKey {
     static func nudge(_ task: String) -> StateKey<NudgeSchedule> { .json("\(task).nudge") }
     static func nudged(_ task: String) -> StateKey<WorkDay> { .day("\(task).nudged") }
-    static func watch(_ task: String) -> StateKey<WatchSchedule> { .json("\(task).watch") }
-    static func watched(_ task: String) -> StateKey<Date> { .moment("\(task).watched") }
+    static func watch(_ task: String) -> StateKey<WatchSchedule> { .json(WatchSchedule.stateKey(of: task)) }
+    static func watched(_ task: String) -> StateKey<Date> { .moment(WatchSchedule.lastReadKey(of: task)) }
     /// The weekly search of an outbound machine, and the last time it ran.
     static func weekly(_ task: String) -> StateKey<WeeklySearch> { .json("\(task).weekly") }
     static func weeklyRan(_ task: String) -> StateKey<Date> { .moment("\(task).weeklyRan") }

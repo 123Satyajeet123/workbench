@@ -43,6 +43,7 @@ extension Store {
                 for link in result.links { try apply(link, opened: opened, run: run, db) }
                 try Self.recordYield(db, of: run, kept: result.kept, dropped: result.dropped)
             }
+            if let journal = result.journal { try Self.append(db, journal.events, to: journal.reading, at: clock()) }
         }
     }
 

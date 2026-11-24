@@ -41,15 +41,25 @@ public enum ModelTermsError: Error, Equatable, LocalizedError {
     }
 }
 
-extension Store {
+extension Queries {
     /// The confirmation that holds now. Nil when there is none, when it is for older words, or when it cannot be read.
-    public func currentModelTermsConfirmation() -> ModelTermsConfirmation? {
-        let kept = (try? queries.state(forKey: ModelTerms.stateKey)).flatMap { $0 }
+    public func modelTermsConfirmation() -> ModelTermsConfirmation? {
+        let kept = (try? state(forKey: ModelTerms.stateKey)).flatMap { $0 }
         guard let kept,
             let confirmation = try? Self.termsDecoder.decode(ModelTermsConfirmation.self, from: Data(kept.utf8))
         else { return nil }
         return confirmation.conditionsVersion == ModelTerms.currentVersion ? confirmation : nil
     }
+
+    private static let termsDecoder: JSONDecoder = {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return decoder
+    }()
+}
+
+extension Store {
+    public func currentModelTermsConfirmation() -> ModelTermsConfirmation? { queries.modelTermsConfirmation() }
 
     public func keepModelTermsConfirmation(_ confirmation: ModelTermsConfirmation) throws {
         let text = String(decoding: try Self.termsEncoder.encode(confirmation), as: UTF8.self)
@@ -64,19 +74,9 @@ extension Store {
 
     public func withdrawModelTerms() throws { try saveState("", forKey: ModelTerms.stateKey) }
 
-    func requireModelTerms(for model: any StructuredModel) throws {
-        if model.billedToPlanSignIn, currentModelTermsConfirmation() == nil { throw ModelTermsError.notConfirmed }
-    }
-
     private static let termsEncoder: JSONEncoder = {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         return encoder
-    }()
-
-    private static let termsDecoder: JSONDecoder = {
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        return decoder
     }()
 }

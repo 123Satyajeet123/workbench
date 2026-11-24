@@ -252,7 +252,7 @@ print("\n8. A store from before the key step migrates by structure and loses not
 let oldFolder = scratch.appending(path: "old-shape")
 try FileManager.default.createDirectory(at: oldFolder, withIntermediateDirectories: true)
 let oldQueue = try DatabaseQueue(path: oldFolder.appending(path: "workbench.sqlite").path)
-let beforeStep = Schema.steps.count - 1
+let beforeStep = Schema.steps.firstIndex(of: Schema.startKey)!
 let folderType = ObjectTypes.folder.id
 let pageType = ObjectTypes.machinePage.id
 try oldQueue.write { db in
