@@ -131,7 +131,7 @@ extension Queries {
                     db,
                     sql: """
                         SELECT DISTINCT e.id FROM evidence e
-                        JOIN run_window w ON w.line_id = e.line_id JOIN run r ON r.id = w.run_id
+                        JOIN run_line w ON w.line_id = e.line_id JOIN run r ON r.id = w.run_id
                         WHERE r.task = ? AND r.kept IS NOT NULL AND e.id IN (SELECT value FROM json_each(?))
                         """, arguments: [task, try Coding.json(numbers)]))
         }
@@ -169,7 +169,7 @@ extension Queries {
         try StoredLine.fetchAll(
             db,
             sql: """
-                SELECT w.ordinal AS number, \(StoredLine.columns) FROM run_window w
+                SELECT w.ordinal AS number, \(StoredLine.columns) FROM run_line w
                 JOIN evidence e ON e.line_id = w.line_id WHERE w.run_id = ? ORDER BY e.event_time, w.ordinal
                 """, arguments: [run]
         )

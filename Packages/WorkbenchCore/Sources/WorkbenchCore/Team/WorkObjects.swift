@@ -199,6 +199,9 @@ extension Store {
                         event.id, event.object, event.author, event.clock, event.at.stored, event.kind.rawValue,
                         try Coding.json(event),
                     ])
+                if db.changesCount == 1 {
+                    try Self.derive([try DerivedSources.ofWorkEvent(db.lastInsertedRowID, in: db)], at: clock(), in: db)
+                }
             }
             try WorkObjectRows.project(db, objects: events.map(\.object))
         }

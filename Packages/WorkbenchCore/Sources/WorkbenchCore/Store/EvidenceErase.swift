@@ -54,8 +54,9 @@ public struct EraseCounts: Sendable, Equatable {
     /// Saved cursors. A cursor goes with its lines, so a new consent reads the chat again from the start; an erasure
     /// by age keeps them.
     public var cursors = 0
-    /// Facts (`item` rows) that cite an erased line through an old citation id. They stay, flagged, without their
-    /// quote; the run text and summaries that held the words go with it (`eraseCopies`).
+    /// Facts (`item` rows) that the erased lines reach through the closure over `run_input` and `derivation`, and, until
+    /// the backfill is complete, through the old joins. They stay, without their quote; the run text and summaries that
+    /// held the words go with it (`eraseCopies`).
     public var citingFacts = 0
 }
 
@@ -172,17 +173,9 @@ extension Store {
         counts.legacyCitations = try count("SELECT count(*) FROM evidence_legacy WHERE line_id IN (\(selected))")
         counts.searchEntries = try count(
             "SELECT count(*) FROM evidence_fts_docsize WHERE id IN (SELECT id FROM evidence WHERE \(condition.sql))")
-        counts.citingFacts = try LegacySpace.byKind.reduce(0) { total, pair in
-            total
-                + (try Int.fetchOne(
-                    db,
-                    sql: """
-                        SELECT count(*) FROM item WHERE source = ? AND EXISTS (
-                            SELECT 1 FROM evidence_legacy WHERE space = ? AND ref BETWEEN item.cite_first AND item.cite_last
-                                AND line_id IN (\(selected)))
-                        """,
-                    arguments: StatementArguments([pair.0.rawValue, pair.1.rawValue]) + condition.arguments) ?? 0)
-        }
+        counts.citingFacts = try copiesReach(
+            of: LineSelection(sql: selected, arguments: condition.arguments), in: db
+        ).items.count
         for key in try cursorKeys(of: erasure, condition, in: db)
         where try Bool.fetchOne(db, sql: "SELECT EXISTS (SELECT 1 FROM state WHERE key = ?)", arguments: [key]) == true
         {

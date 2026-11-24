@@ -292,6 +292,16 @@ struct EvidenceStamp {
                     """, arguments: StatementArguments([lineID]) + revoke.arguments)
             try db.execute(
                 sql: """
+                    UPDATE OR IGNORE run_input SET ref = ?
+                    WHERE kind = 'line' AND ref IN (SELECT line_id FROM evidence WHERE \(Revoke.erased))
+                    """, arguments: StatementArguments([lineID]) + revoke.arguments)
+            try db.execute(
+                sql: """
+                    UPDATE OR IGNORE derivation SET from_id = ?
+                    WHERE from_kind = 'line' AND from_id IN (SELECT line_id FROM evidence WHERE \(Revoke.erased))
+                    """, arguments: StatementArguments([lineID]) + revoke.arguments)
+            try db.execute(
+                sql: """
                     UPDATE machine_block_cite SET line_id = ?
                     WHERE line_id IN (SELECT line_id FROM evidence WHERE \(Revoke.erased))
                     """, arguments: StatementArguments([lineID]) + revoke.arguments)

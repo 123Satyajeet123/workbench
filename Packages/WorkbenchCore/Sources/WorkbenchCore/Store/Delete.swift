@@ -199,6 +199,10 @@ extension Store {
         return try forgetting.tables.flatMap { try remove($0, in: db, before: cutoff) }
     }
 
+    /// The forgotten tables whose rows are roots of the derivation graph: what rests on such a row is erased by the
+    /// graph before the row goes (research 86, decision 6).
+    private static let derivationRoots: [String: NodeKind] = ["page_snapshot": .snapshot]
+
     private func remove(_ table: Forgetting.Table, in db: Database, before cutoff: Date) throws -> [String] {
         let age: String =
             switch table.age {
@@ -209,6 +213,10 @@ extension Store {
         let folders = try table.folderColumn.map {
             try String.fetchAll(
                 db, sql: "SELECT \($0) FROM \(table.name) WHERE \(condition)", arguments: [age])
+        }
+        if let root = Self.derivationRoots[table.name] {
+            let rows = LineSelection(sql: "SELECT id FROM \(table.name) WHERE \(condition)", arguments: [age])
+            try Self.apply(try Self.closure(of: rows, kind: root, in: db), in: db)
         }
         try db.execute(sql: "DELETE FROM \(table.name) WHERE \(condition)", arguments: [age])
         return folders ?? []

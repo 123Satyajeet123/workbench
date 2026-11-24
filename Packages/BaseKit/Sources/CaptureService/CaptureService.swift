@@ -339,8 +339,9 @@ actor CaptureLoop {
         failure("delete old data") { try store.delete(.everything(before: cutoff)) }
     }
 
-    /// Checks the store once after launch, then makes the daily snapshot when it is due. A store that fails its check
-    /// is checked again each hour and gets no snapshot, so a damaged file never replaces a good backup.
+    /// Checks the store once after launch, then makes the daily snapshot when it is due, then goes on with the backfill
+    /// of the provenance records for up to twenty seconds. A store that fails its check is checked again each hour and
+    /// gets no snapshot, so a damaged file never replaces a good backup.
     func keepStoreSafe() -> String? {
         failure("keep your data safe") {
             if !storeIsChecked {
@@ -348,6 +349,8 @@ actor CaptureLoop {
                 storeIsChecked = true
             }
             try store.snapshotIfDue()
+            try store.advanceProvenanceBackfill(budget: 20)
+            try store.optimize()
         }
     }
 

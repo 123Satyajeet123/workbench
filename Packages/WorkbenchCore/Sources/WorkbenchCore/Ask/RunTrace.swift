@@ -14,16 +14,17 @@ extension Store {
 
     private static func number(of lineID: Data, in run: RunID, _ db: Database) throws -> Int {
         if let held = try Int.fetchOne(
-            db, sql: "SELECT MIN(ordinal) FROM run_window WHERE run_id = ? AND line_id = ?", arguments: [run, lineID])
+            db, sql: "SELECT MIN(ordinal) FROM run_line WHERE run_id = ? AND line_id = ?", arguments: [run, lineID])
         {
             return held
         }
         let next =
             try Int.fetchOne(
-                db, sql: "SELECT COALESCE(MAX(ordinal), 0) + 1 FROM run_window WHERE run_id = ?", arguments: [run])
+                db, sql: "SELECT COALESCE(MAX(ordinal), 0) + 1 FROM run_line WHERE run_id = ?", arguments: [run])
             ?? 1
         try db.execute(
-            sql: "INSERT INTO run_window(run_id, ordinal, line_id) VALUES (?,?,?)", arguments: [run, next, lineID])
+            sql: "INSERT INTO run_input(run_id, ordinal, kind, ref) VALUES (?,?,'line',?)",
+            arguments: [run, next, lineID])
         return next
     }
 }

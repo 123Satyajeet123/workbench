@@ -34,6 +34,8 @@ let package = Package(
         .executable(name: "text-rules", targets: ["TextRulesDemo"]),
         .executable(name: "recall-probe", targets: ["RecallProbe"]),
         .executable(name: "bugfix-check", targets: ["BugfixCheck"]),
+        .executable(name: "provenance-check", targets: ["ProvenanceCheck"]),
+        .executable(name: "provenance-probe", targets: ["ProvenanceProbe"]),
     ],
     dependencies: [
         .package(path: "../Packages/WorkbenchCore"), .package(path: "../Packages/WorkbenchUI"),
@@ -151,6 +153,18 @@ let package = Package(
             dependencies: [
                 "WorkbenchCore", .product(name: "AgentCLI", package: "BaseKit"),
                 .product(name: "Kernel", package: "Kernel"), .product(name: "Lines", package: "Kernel"),
+            ]),
+        .executableTarget(
+            name: "ProvenanceCheck",
+            dependencies: [
+                "WorkbenchCore", .product(name: "Kernel", package: "Kernel"),
+                .product(name: "Lines", package: "Kernel"),
+            ]),
+        .executableTarget(
+            name: "ProvenanceProbe",
+            dependencies: [
+                "WorkbenchCore", .product(name: "Kernel", package: "Kernel"),
+                .product(name: "Lines", package: "Kernel"),
             ]),
         .testTarget(name: "EvalsTests", dependencies: ["Evals", "WorkbenchCore"]),
     ]

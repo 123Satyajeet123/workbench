@@ -164,8 +164,8 @@ extension Queries {
                 sql: """
                     SELECT run.id, run_text.reply, run.error FROM run LEFT JOIN run_text ON run_text.run_id = run.id
                     WHERE run.task = ? AND run.outcome IN ('done','failed') AND run.id IN (
-                        SELECT run_window.run_id FROM run_window
-                        JOIN evidence ON evidence.line_id = run_window.line_id WHERE evidence.container = ?)
+                        SELECT run_line.run_id FROM run_line
+                        JOIN evidence ON evidence.line_id = run_line.line_id WHERE evidence.container = ?)
                     ORDER BY run.id DESC LIMIT 1
                     """, arguments: [CallSummarizer.task, call.container]
             ).map { ($0["id"], $0["reply"], $0["error"]) }

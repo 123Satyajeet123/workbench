@@ -120,7 +120,8 @@ extension Store {
                     try db.execute(
                         sql: "UPDATE item SET asked_with = ? WHERE id = ?", arguments: [AuditPolicy.pickChance, item])
                 }
-                saved.append(try Self.insertProductClaim(db, product: id, ordinal: index, item: item, claim: claim))
+                saved.append(
+                    try Self.insertProductClaim(db, product: id, ordinal: index, item: item, claim: claim, at: now))
             }
             if let (kind, claim) = catches {
                 let catchRun = try Self.beginRun(
@@ -131,8 +132,10 @@ extension Store {
                     db, claim, of: product, id: id, run: catchRun, source: grant.kind, label: label, at: now)
                 saved.append(
                     try Self.insertProductClaim(
-                        db, product: id, ordinal: product.claims.count, item: item, claim: claim, catching: kind))
+                        db, product: id, ordinal: product.claims.count, item: item, claim: claim, catching: kind,
+                        at: now))
             }
+            try Self.derive([try DerivedSources.ofProduct(id, in: db)], at: now, in: db)
             return SavedProduct(id: id, role: role, claims: saved)
         }
     }
@@ -160,7 +163,8 @@ extension Store {
     }
 
     private static func insertProductClaim(
-        _ db: Database, product: Int64, ordinal: Int, item: Int64, claim: ProductClaim, catching kind: CatchKind? = nil
+        _ db: Database, product: Int64, ordinal: Int, item: Int64, claim: ProductClaim, catching kind: CatchKind? = nil,
+        at now: Date
     ) throws -> SavedClaim {
         try db.execute(
             sql: """
@@ -173,6 +177,7 @@ extension Store {
             ])
         let id = db.lastInsertedRowID
         for (position, cite) in claim.cites.enumerated() { try insertCite(db, claim: id, ordinal: position, cite) }
+        try derive(try DerivedSources.ofClaim(id, in: db), at: now, in: db)
         return SavedClaim(id: id, item: item, isCatch: kind != nil, content: claim)
     }
 
@@ -220,6 +225,7 @@ extension Store {
                         product.id, claim, verdict.stage.rawValue, verdict.rubricItem, verdict.verdict.rawValue,
                         verdict.reason, verdict.detail, verdict.score, versions, verdict.run, now,
                     ])
+                try Self.derive([try DerivedSources.ofVerdict(db.lastInsertedRowID, in: db)], at: clock(), in: db)
             }
             for (claim, judged) in zip(product.claims, judgment.claims) {
                 try add(judged.structure, claim: claim.id)
@@ -255,6 +261,7 @@ extension Store {
             try db.execute(
                 sql: "INSERT INTO product_mark(product_id, ts, state, edited_text, surface) VALUES (?,?,?,?,?)",
                 arguments: [product, clock().stored, mark.state, mark.editedText, surface.rawValue])
+            try Self.derive([try DerivedSources.ofProductMark(db.lastInsertedRowID, in: db)], at: clock(), in: db)
         }
     }
 }

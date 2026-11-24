@@ -67,14 +67,14 @@ extension Queries {
                 let thread = try String.fetchOne(
                     db,
                     sql: """
-                        SELECT e.container FROM item JOIN run_window w ON w.run_id = item.run_id
+                        SELECT e.container FROM item JOIN run_line w ON w.run_id = item.run_id
                             AND w.ordinal = item.cite_first JOIN evidence e ON e.line_id = w.line_id
                         WHERE item.id = ? AND item.source = 'mail'
                         UNION
                         SELECT e.container FROM item JOIN evidence_legacy l ON l.space = ? AND l.ref = item.cite_first
                             JOIN evidence e ON e.line_id = l.line_id
                         WHERE item.id = ? AND item.source = 'mail'
-                            AND NOT EXISTS (SELECT 1 FROM run_window WHERE run_id = item.run_id)
+                            AND NOT EXISTS (SELECT 1 FROM run_line WHERE run_id = item.run_id)
                         """, arguments: [id, LegacySpace.mailPart.rawValue, id])
             else { return [] }
             return try StoredLine.fetchAll(

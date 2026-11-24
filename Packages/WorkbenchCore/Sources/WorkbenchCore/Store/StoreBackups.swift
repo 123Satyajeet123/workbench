@@ -47,7 +47,6 @@ extension Store {
             guard removedRows else { return try truncateLog() }
             try backups.removeEverything()
             try truncateLog()
-            try optimize()
         }
     }
 

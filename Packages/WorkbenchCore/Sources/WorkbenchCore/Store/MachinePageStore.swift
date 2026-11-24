@@ -45,6 +45,7 @@ extension Store {
                 try Self.insertBlock(
                     db, blockID, block, page: page, proposal: id, run: proposal.run, context, at: clock())
             }
+            try Self.derive([try DerivedSources.ofPageProposal(id, in: db)], at: clock(), in: db)
             return id
         }
         guard let written else { throw PageStoreError.noRequest }
@@ -295,6 +296,7 @@ extension Store {
                     """,
                 arguments: [id.rawValue, position, cite.item, cite.line, cite.span?.lowerBound, cite.span?.upperBound])
         }
+        try derive([try DerivedSources.ofBlock(id.rawValue, in: db)], at: now, in: db)
     }
 
     /// Who may read the block, as JSON: the join of the labels of the lines it cites and of the facts it cites, by
