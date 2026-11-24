@@ -22,13 +22,15 @@ extension Collection where Element == Machine {
     public func with(_ role: KeyPath<HelperSpec, Bool>) -> [Machine] { filter { $0.spec[keyPath: role] } }
 
     /// The machine with `role` that the work of a deal belongs to, found by data in this order: the machine of the item
-    /// the deal links first, the oldest machine with the role in the deal's folder, the oldest machine with the role.
-    /// Nil when no machine has the role.
-    public func owner(of role: KeyPath<HelperSpec, Bool>, linkedTasks: [String], folder: WorkObjectID?) -> Machine? {
+    /// the deal links first; the machine nearest to the deal's folder (the folder, then the folders above it); the oldest
+    /// machine with the role in the deal's team. A machine of another team never answers for the deal. Nil when no
+    /// machine has the role.
+    public func owner(
+        of role: KeyPath<HelperSpec, Bool>, linkedTasks: [String], folder: WorkObjectID?, in tree: FolderTree
+    ) -> Machine? {
         let candidates = with(role)
         let linked = linkedTasks.lazy.compactMap { task in candidates.first { $0.task == task } }.first
-        let sharing = folder.map { folder in candidates.filter { $0.folder == folder } } ?? []
-        return linked ?? sharing.first ?? candidates.first
+        return linked ?? tree.nearestOrFirstSharingTeam(in: candidates, with: folder, folderOf: \.folder)
     }
 }
 
@@ -36,6 +38,7 @@ extension Queries {
     /// The machine with `role` that the work of `deal` belongs to; see `Collection.owner`.
     public func owner(of deal: WorkObject, role: KeyPath<HelperSpec, Bool>) throws -> Machine? {
         try machines().owner(
-            of: role, linkedTasks: deal.items.compactMap(\.item.task), folder: try parent(of: deal.id))
+            of: role, linkedTasks: deal.items.compactMap(\.item.task), folder: try parent(of: deal.id),
+            in: try folderTree())
     }
 }

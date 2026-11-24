@@ -21,24 +21,29 @@ public enum GalleryStartError: Error, Equatable, LocalizedError {
 }
 
 extension Store {
-    /// Sets up a gallery template: its folder, found when a live one of that name exists, and its machine with its page
-    /// in that folder. The folder keeps the type of the objects it holds. The machine shows its facts in the view the
-    /// template names. A source is never granted here: the template's pickers come back as prompts for the person.
-    /// Setting up the same template twice gives one folder and two machines.
+    /// Sets up a gallery template: its folder, found when a live one of that name exists under `parent` (a root when
+    /// nil), and its machine with its page in that folder. The folder keeps the type of the objects it holds. The
+    /// machine shows its facts in the view the template names. A source is never granted here: the template's pickers
+    /// come back as prompts for the person.
+    /// Setting up the same template twice under one parent gives one folder and two machines. A folder of another
+    /// parent is never touched.
     /// - Parameters:
+    ///   - parent: The folder the template's folder goes under: the folder of a team.
     ///   - name: The machine's name, when it is not the template's own.
     ///   - overrides: The values a team sets in the machine's spec.
     ///   - having: What the app can give. A template that needs more is refused.
     @discardableResult
     public func start(
-        _ template: GalleryTemplate, name: String? = nil, overrides: SpecOverrides = SpecOverrides(),
+        _ template: GalleryTemplate, parent: WorkObjectID? = nil, name: String? = nil,
+        overrides: SpecOverrides = SpecOverrides(),
         having: Set<GalleryTemplate.Need> = []
     ) throws -> GalleryStart {
         if let missing = template.needs.subtracting(having).min(by: { $0.rawValue < $1.rawValue }) {
             throw GalleryStartError.needs(template: template.name, missing)
         }
         let folder = try writer.write { db in
-            try Queries.workObjects(db, where: "id = ?", [try WorkObjectRows.folder(db, for: template.folder)])[0]
+            try Queries.workObjects(
+                db, where: "id = ?", [try WorkObjectRows.folder(db, for: template.folder, parent: parent)])[0]
         }
         let machine = try template.machine.map {
             try createMachine(

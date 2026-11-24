@@ -172,7 +172,7 @@ private func onboarding(
         model.next()
 
         let edited = try scratchStore()
-        try edited.startTeam(from: .fund)
+        try edited.addTeam(.fund)
         try edited.setCriteria(try #require(edited.queries.machines().first), strict)
         #expect(try answered.queries.machines().first?.spec == (try edited.queries.machines().first?.spec))
 

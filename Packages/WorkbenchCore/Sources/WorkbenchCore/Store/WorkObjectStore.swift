@@ -127,6 +127,13 @@ extension Queries {
         }
     }
 
+    /// The folder, not archived, that holds objects of `type` for work done in `context`: the nearest level above
+    /// `context` that has a holder below it gives it. Nil when none does, and when that level has several holders:
+    /// then the person chooses. With no `context`, the one holder of the workspace, or nil when there are several.
+    public func folderHolding(_ type: TypeID, within context: WorkObjectID?) throws -> WorkObjectID? {
+        try reader.read { db in try WorkObjectRows.home(db, of: type, within: context) }
+    }
+
     /// The parent of `object`; nil for a root and for an object that is not there.
     public func parent(of object: WorkObjectID) throws -> WorkObjectID? {
         try reader.read { db in

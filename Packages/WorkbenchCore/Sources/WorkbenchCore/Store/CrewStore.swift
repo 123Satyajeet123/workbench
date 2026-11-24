@@ -12,27 +12,33 @@ extension Store {
         }
     }
 
-    /// Sets up each gallery item of a team template for a store that never held a machine, with `start`, and puts each
-    /// answer in the spec of the machine it is for as a new version of that machine. An item that needs what the app
-    /// cannot give is left out and named in the result. A store that held a machine is left as it is.
+    /// Adds a team from `template` beside the teams already in the store: one new top folder for the team, named `name`
+    /// (the template's name by default; a number follows it when a live top folder has that name), and each gallery item
+    /// of the template set up under it with `start`. Each answer goes in the spec of the machine it is for, as a new
+    /// version of that machine. An item that needs what the app cannot give is left out and named in the result; the
+    /// rest of the team still starts. A template with no item adds nothing. No folder or machine that was there is
+    /// changed, so adding the same template again makes a second team.
     @discardableResult
-    public func startTeam(
-        from template: TeamTemplate, answers: SetupAnswers = [:], having: Set<GalleryTemplate.Need> = []
+    public func addTeam(
+        _ template: TeamTemplate, name: String? = nil, answers: SetupAnswers = [:],
+        having: Set<GalleryTemplate.Need> = []
     ) throws -> TeamStart {
-        guard try !queries.holdsMachine() else { return TeamStart() }
-        var started = TeamStart()
+        guard !template.entries.isEmpty else { return TeamStart() }
+        let folder = try writer.write { db in
+            let id = try WorkObjectRows.newTeamFolder(db, named: name?.cleaned ?? template.name)
+            return try Queries.workObjects(db, where: "id = ?", [id])[0]
+        }
+        var started = TeamStart(folder: folder)
         var seeded: [Machine?] = []
         for entry in template.entries {
             do {
                 let start = try start(
-                    entry.item, name: entry.machine.name, overrides: entry.machine.overrides, having: having)
-                started.prompts += start.prompts.map { TeamStart.Prompt(machine: start.machine?.id, block: $0) }
-                if let machine = start.machine {
-                    started.machines.append(machine.name)
-                    seeded.append(machine)
-                }
+                    entry.item, parent: folder.id, name: entry.machine.name, overrides: entry.machine.overrides,
+                    having: having)
+                started.items.append(.started(entry.item, start))
+                if entry.item.machine != nil { seeded.append(start.machine) }
             } catch let refusal as GalleryStartError {
-                started.refused.append(refusal.localizedDescription)
+                started.items.append(.refused(entry.item, refusal))
                 if entry.item.machine != nil { seeded.append(nil) }
             }
         }

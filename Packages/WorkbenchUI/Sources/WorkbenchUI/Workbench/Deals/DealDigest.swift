@@ -63,7 +63,9 @@ struct DealDigestReader {
     private func ratedTriage(of deal: WorkObject, machines: [Machine]) throws -> Triage? {
         guard let rating = try store.queries.rating(of: deal.id), rating.state != .rejected else { return nil }
         let linkedTasks = deal.items.compactMap(\.item.task)
-        let owner = machines.owner(of: \.rates, linkedTasks: linkedTasks, folder: try store.queries.parent(of: deal.id))
+        let owner = machines.owner(
+            of: \.rates, linkedTasks: linkedTasks, folder: try store.queries.parent(of: deal.id),
+            in: try store.queries.folderTree())
         return owner?.spec.criteria?.triage(rating.fields)
     }
 

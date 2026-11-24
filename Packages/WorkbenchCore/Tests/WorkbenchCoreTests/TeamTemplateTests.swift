@@ -163,10 +163,10 @@ enum TemplateNameScan {
 
     @Test func aTeamStartsWithItsTemplateMachinesOnlyInAStoreThatNeverHeldAMachine() throws {
         let fresh = try makeStore()
-        try fresh.startTeam(from: .fund)
+        try fresh.addTeam(.fund)
         #expect(try fresh.queries.machines().map(\.name) == ["Deal intake", "Outbound", "Founder check", "Signals"])
         let old = try oldStore()
-        try old.startTeam(from: .fund)
+        try old.addTeam(.fund)
         #expect(try old.queries.machines().map(\.name) == ["Pip", "Timeline", "Deals", "News"])
     }
 
@@ -174,7 +174,7 @@ enum TemplateNameScan {
         let store = try makeStore()
         try store.seedMachines([(.team, "Pip")])
         try store.setState(try #require(store.queries.machines().first), .deleted)
-        try store.startTeam(from: .startupTeam)
+        try store.addTeam(.startupTeam)
         #expect(try store.queries.machines().isEmpty)
     }
 

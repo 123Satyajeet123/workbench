@@ -95,7 +95,7 @@ final class Desk {
         let store = try Store(directory: folder, clock: { clock.now })
         let model = SequenceModel(replies)
         let search = FakeSearch()
-        if let template { try store.startTeam(from: template) }
+        if let template { try store.addTeam(template) }
         let service = try CaptureService(store: store, owner: .success(Self.owner))
         let recorded = { (_: ModelChoice) in RecordedModel(model, store: store) }
         let crew = Crew(

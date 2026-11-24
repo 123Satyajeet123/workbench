@@ -50,22 +50,30 @@ enum WorkObjectRows {
     /// The first child of `parent` that is not archived and has this type and this name, compared without case and
     /// without the spaces around it.
     static func liveChild(_ db: Database, type: TypeID, parent: WorkObjectID?, name: String) throws -> WorkObjectID? {
-        let wanted = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let wanted = comparable(name)
         return try Row.fetchAll(
             db,
             sql: """
                 SELECT id, name FROM work_object
                 WHERE type = ? AND parent_id IS ? AND archived_at IS NULL ORDER BY position, rowid
                 """, arguments: [type, parent]
-        ).first { ($0["name"] as String).trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == wanted }?["id"]
+        ).first { comparable($0["name"]) == wanted }?["id"]
     }
 
     /// The one folder that is not archived and holds objects of `type`. Nil when none does, and when several do: then
-    /// the person chooses.
-    static func home(_ db: Database, of type: TypeID) throws -> WorkObjectID? {
+    /// the person chooses. With `context`, the search starts in that folder and goes up: the nearest level that has a
+    /// holder below it gives the answer, and a level with several holders gives none. A folder in a team never gets
+    /// the holder of another team.
+    static func home(_ db: Database, of type: TypeID, within context: WorkObjectID? = nil) throws -> WorkObjectID? {
         let homes = try String.fetchAll(
             db, sql: "SELECT id FROM work_object WHERE holds = ? AND archived_at IS NULL", arguments: [type])
-        return homes.count == 1 ? homes.first : nil
+        guard let context else { return homes.count == 1 ? homes.first : nil }
+        let tree = try FolderTree.read(db)
+        for level in tree.lineage(of: context) {
+            let below = homes.filter { tree.lineage(of: $0).contains(level) }
+            if !below.isEmpty { return below.count == 1 ? below.first : nil }
+        }
+        return nil
     }
 
     /// The folder that holds the page of the machine of `task`. Nil when the machine, its page or the folder is gone.
@@ -87,15 +95,38 @@ enum WorkObjectRows {
         try madeBy.flatMap { try folder(db, ofMachine: $0) } ?? home(db, of: type)
     }
 
-    /// The root folder a template makes: the one of its name that is not archived, made when the store has none. It
-    /// takes the type of the objects the template's folder holds, when it holds none yet.
-    static func folder(_ db: Database, for start: GalleryTemplate.FolderStart) throws -> WorkObjectID {
+    /// The folder a template makes under `parent` (a root when nil): the one of its name that is not archived, made
+    /// when `parent` has none. It takes the type of the objects the template's folder holds, when it holds none yet.
+    /// This is the one place a folder is found by its name: the key of `FolderStart` replaces the name here.
+    static func folder(
+        _ db: Database, for start: GalleryTemplate.FolderStart, parent: WorkObjectID? = nil
+    ) throws -> WorkObjectID {
         let type = ObjectTypes.folder.id
         let folder =
-            try liveChild(db, type: type, parent: nil, name: start.name)
-            ?? insert(db, type: type, parent: nil, name: start.name)
+            try liveChild(db, type: type, parent: parent, name: start.name)
+            ?? insert(db, type: type, parent: parent, name: start.name)
         if let holds = start.holds { try setHolds(db, folder: folder, to: holds) }
         return folder
+    }
+
+    /// A new root folder for a team. Its name is `name`, or `name` with the first number from 2 that no live root
+    /// folder has, so it never joins a folder that is already there.
+    static func newTeamFolder(_ db: Database, named name: String) throws -> WorkObjectID {
+        let taken = try String.fetchAll(
+            db, sql: "SELECT name FROM work_object WHERE type = ? AND parent_id IS NULL AND archived_at IS NULL",
+            arguments: [ObjectTypes.folder.id]
+        ).map(Self.comparable)
+        var free = name
+        var number = 1
+        while taken.contains(comparable(free)) {
+            number += 1
+            free = "\(name) \(number)"
+        }
+        return try insert(db, type: ObjectTypes.folder.id, parent: nil, name: free)
+    }
+
+    private static func comparable(_ name: String) -> String {
+        name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
 
     /// The folder holds objects of `type` from now on, unless it already holds a type.

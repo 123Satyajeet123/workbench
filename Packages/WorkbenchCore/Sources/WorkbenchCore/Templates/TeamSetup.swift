@@ -63,8 +63,8 @@ extension HelperSpec {
     }
 }
 
-/// What starting a team made: the names of its machines, how many answers went into their specs, what the person must
-/// still choose, and the items left out because the app lacks what they need.
+/// What adding a team made: its top folder, what each item of the template became, and how many answers went into the
+/// machines' specs. The person still chooses what the prompts ask; nothing is granted for them.
 public struct TeamStart: Sendable, Equatable {
     /// A block of a started item that waits for the person, such as the chats a machine reads.
     public struct Prompt: Sendable, Equatable {
@@ -73,8 +73,39 @@ public struct TeamStart: Sendable, Equatable {
         public var block: GalleryTemplate.StartBlock
     }
 
-    public var machines: [String] = []
+    /// What one item of the template became.
+    public struct Item: Sendable, Equatable {
+        /// The id of the item's gallery template.
+        public var template: String
+        public var name: String
+        /// Nil when the item starts no machine, and when it was refused.
+        public var machine: Machine?
+        /// The pickers and inputs the person must still answer. Empty for a refused item.
+        public var prompts: [GalleryTemplate.StartBlock]
+        /// Why the item was left out, or nil when it started.
+        public var refusal: String?
+
+        static func started(_ template: GalleryTemplate, _ start: GalleryStart) -> Item {
+            Item(
+                template: template.id, name: start.machine?.name ?? template.name, machine: start.machine,
+                prompts: start.prompts, refusal: nil)
+        }
+
+        static func refused(_ template: GalleryTemplate, _ refusal: GalleryStartError) -> Item {
+            Item(
+                template: template.id, name: template.name, machine: nil, prompts: [],
+                refusal: refusal.localizedDescription)
+        }
+    }
+
+    /// The team's top folder. Nil when the template has no item and nothing was added.
+    public var folder: WorkObject?
+    public var items: [Item] = []
     public var answered = 0
-    public var prompts: [Prompt] = []
-    public var refused: [String] = []
+
+    public var machines: [String] { items.compactMap { $0.machine?.name } }
+    public var prompts: [Prompt] {
+        items.flatMap { item in item.prompts.map { Prompt(machine: item.machine?.id, block: $0) } }
+    }
+    public var refused: [String] { items.compactMap(\.refusal) }
 }

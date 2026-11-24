@@ -37,11 +37,12 @@ print("  fact keepers: \(keepers)")
 let builtInStore = try Store(directory: scratch.appending(path: "built-in"))
 for template in all { try builtInStore.createMachine(from: template.spec, template: template.id, name: template.name) }
 let builtIns = try builtInStore.queries.machines()
+let builtInTree = try builtInStore.queries.folderTree()
 let oldThesis = builtIns.lazy.compactMap(\.spec.criteria).first
-let newThesis = builtIns.owner(of: \.rates, linkedTasks: [], folder: nil)?.spec.criteria
+let newThesis = builtIns.owner(of: \.rates, linkedTasks: [], folder: nil, in: builtInTree)?.spec.criteria
 print("  no link, no folder: same thesis as the old first machine with criteria: \(yes(oldThesis == newThesis))")
 let oldTypes = builtIns.lazy.compactMap(\.spec.claimTypes).first
-let newTypes = builtIns.owner(of: \.checksClaims, linkedTasks: [], folder: nil)?.spec.claimTypes
+let newTypes = builtIns.owner(of: \.checksClaims, linkedTasks: [], folder: nil, in: builtInTree)?.spec.claimTypes
 print("  same claim types as the old first machine with claim types: \(yes(oldTypes == newTypes))")
 
 print("\n3. A second Pip, a renamed template, and the owner of a deal")
@@ -56,11 +57,12 @@ let intakeA = try store.createMachine(from: .dealIntake, template: "deal.intake"
 let intakeB = try store.createMachine(from: .dealIntake, template: "renamed.intake", name: "Intake B", in: studio.id)
 try store.setCriteria(intakeB, Criteria())
 let crew = try store.queries.machines()
+let tree = try store.queries.folderTree()
 print("  fact keepers: \(crew.with(\.keepsFacts).map(\.name))")
 print("  fact keepers in Fund B: \(crew.with(\.keepsFacts).filter { $0.folder == studio.id }.map(\.name))")
-let byLink = crew.owner(of: \.rates, linkedTasks: [intakeB.task], folder: funds.id)
-let byFolder = crew.owner(of: \.rates, linkedTasks: [], folder: studio.id)
-let byOldest = crew.owner(of: \.rates, linkedTasks: [], folder: nil)
+let byLink = crew.owner(of: \.rates, linkedTasks: [intakeB.task], folder: funds.id, in: tree)
+let byFolder = crew.owner(of: \.rates, linkedTasks: [], folder: studio.id, in: tree)
+let byOldest = crew.owner(of: \.rates, linkedTasks: [], folder: nil, in: tree)
 print("  deal linked to Intake B's item, in Fund A: owner \(byLink?.name ?? "none") (the item's own machine)")
 print("  deal with no link, in Fund B: owner \(byFolder?.name ?? "none") (the folder's machine)")
 print("  deal with no link and no folder: owner \(byOldest?.name ?? "none") (the oldest machine that rates)")

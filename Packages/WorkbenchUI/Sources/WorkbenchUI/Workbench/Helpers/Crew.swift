@@ -78,19 +78,27 @@ final class Crew {
     static let nothingToFollow =
         "Add a machine that keeps facts first. This machine follows the open facts of that machine."
 
-    /// The machine a new follower follows: the oldest fact keeper in the folder it lands in, else the oldest one.
+    /// The machine a new follower follows: the fact keeper nearest to the folder it lands in, else the oldest one of
+    /// that folder's team.
     private func keeper(in folder: WorkObjectID?) -> HelperModel? {
-        factKeepers.first { folder != nil && $0.machine.folder == folder } ?? factKeepers.first
+        folderTree().nearestOrFirstSharingTeam(in: factKeepers, with: folder, folderOf: \.machine.folder)
     }
 
-    /// The machine that rates in the folder of `helper`, other than `helper`. A new machine that rates starts with a
-    /// copy of its criteria, and then keeps its own: the editor shows whether the two still match.
+    /// The machine that rates nearest to the folder of `helper`, other than `helper`. A new machine that rates starts
+    /// with a copy of its criteria, and then keeps its own: the editor shows whether the two still match.
     func thesisSource(for helper: HelperModel) -> HelperModel? {
         thesisSource(in: helper.machine.folder, besides: helper)
     }
 
     private func thesisSource(in folder: WorkObjectID?, besides helper: HelperModel? = nil) -> HelperModel? {
-        machines.first { $0 !== helper && folder != nil && $0.machine.folder == folder && $0.spec.rates }
+        folderTree().nearest(
+            in: machines.filter { $0 !== helper && $0.spec.rates }, to: folder, folderOf: \.machine.folder)
+    }
+
+    private func folderTree() -> FolderTree {
+        var tree = FolderTree()
+        problems.attempt("read the folders") { tree = try store.queries.folderTree() }
+        return tree
     }
 
     /// The names of the other machines that read this chat.

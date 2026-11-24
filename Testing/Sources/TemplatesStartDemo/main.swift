@@ -19,7 +19,7 @@ func folderName(_ store: Store, _ id: WorkObjectID?) throws -> String {
 print("1. Each team template starts through Store.start")
 for team in TeamTemplate.builtIn {
     let store = try freshStore(team.id)
-    let started = try store.startTeam(from: team)
+    let started = try store.addTeam(team)
     let folders = try store.queries.workObjects(parent: nil, includeArchived: false).map(\.name)
     print("  \(team.name): folders \(folders); refused \(started.refused)")
     for machine in try store.queries.machines() {
@@ -32,10 +32,10 @@ for team in TeamTemplate.builtIn {
 
 print("\n2. holds: the folder of the Fund takes a new deal; a folder with no holds does not")
 let fund = try freshStore("holds-fund")
-try fund.startTeam(from: .fund)
+try fund.addTeam(.fund)
 let deal = try fund.createWorkObject(type: ObjectTypes.deal, parent: nil, name: "Probe deal")
 let plain = try freshStore("holds-startup")
-try plain.startTeam(from: .startupTeam)
+try plain.addTeam(.startupTeam)
 let loose = try plain.createWorkObject(type: ObjectTypes.deal, parent: nil, name: "Probe deal")
 let dealFolder = try folderName(fund, deal.parentID)
 print("  Fund: deal goes in \(dealFolder): \(yes(dealFolder == "Deals"))")
@@ -53,7 +53,7 @@ let madeByRefusal = try needy.queries.workObjects(parent: nil, includeArchived: 
 print("  no folder was made by the refusal: \(yes(madeByRefusal.isEmpty))")
 let given = try needy.start(.companyResearch, having: [.taskRunner])
 print("  with what it needs, it starts: folder \(given.folder.name), machine \(given.machine?.name ?? "none")")
-let fundStart = try freshStore("need-fund").startTeam(from: .fund, having: [.taskRunner])
+let fundStart = try freshStore("need-fund").addTeam(.fund, having: [.taskRunner])
 print("  Fund with a tool model refuses nothing: \(yes(fundStart.refused.isEmpty))")
 
 print("\n4. The picker is a prompt, never a grant")

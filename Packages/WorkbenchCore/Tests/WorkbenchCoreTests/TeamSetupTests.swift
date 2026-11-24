@@ -66,9 +66,9 @@ import Testing
     @Test func anAnswerIsANewVersionEqualToTheSameEditOnTheMachine() throws {
         let question = try #require(TeamTemplate.fund.setupQuestions.first { $0.kind == .criteria })
         let started = try makeStore()
-        let result = try started.startTeam(from: .fund, answers: [question: .criteria(strictRules)])
+        let result = try started.addTeam(.fund, answers: [question: .criteria(strictRules)])
         let edited = try makeStore()
-        try edited.startTeam(from: .fund)
+        try edited.addTeam(.fund)
         try edited.setCriteria(try machine("Deal intake", in: edited), strictRules)
 
         let answered = try machine("Deal intake", in: started)
@@ -80,7 +80,7 @@ import Testing
 
     @Test func noAnswerLeavesTheTemplateValuesAndNoExtraVersion() throws {
         let store = try makeStore()
-        try store.startTeam(from: .fund)
+        try store.addTeam(.fund)
         let intake = try machine("Deal intake", in: store)
         #expect(intake.spec == MachineTemplate.dealIntake.spec)
         #expect(try versions(of: intake, in: store) == 1)
@@ -89,7 +89,7 @@ import Testing
     @Test func oneAnswerReachesEveryMachineOfASharedQuestionAsItsOwnVersion() throws {
         let question = try #require(TeamTemplate.fund.setupQuestions.first { $0.kind == .criteria })
         let store = try makeStore()
-        let result = try store.startTeam(from: .fund, answers: [question: .criteria(strictRules)])
+        let result = try store.addTeam(.fund, answers: [question: .criteria(strictRules)])
         #expect(result.answered == 1)
         for name in ["Deal intake", "Outbound"] {
             let machine = try machine(name, in: store)
@@ -110,7 +110,7 @@ import Testing
                 case .criteria: nil
                 }
             })
-        try store.startTeam(from: template, answers: answers)
+        try store.addTeam(template, answers: answers)
         #expect(try machine("Job news", in: store).spec.feeds == [jobFeed])
         #expect(try machine("Applications", in: store).spec.claimTypes == [HiringTemplate.reference])
     }
@@ -119,7 +119,7 @@ import Testing
         let store = try makeStore()
         try store.seedMachines([(.team, "Pip")])
         let question = try #require(TeamTemplate.fund.setupQuestions.first)
-        let result = try store.startTeam(from: .fund, answers: [question: .criteria(strictRules)])
+        let result = try store.addTeam(.fund, answers: [question: .criteria(strictRules)])
         #expect(result == TeamStart())
         #expect(try store.queries.machines().map(\.name) == ["Pip"])
     }
@@ -127,13 +127,13 @@ import Testing
     @Test func anAnswerForAnotherTemplateIsLeftOut() throws {
         let stale = try #require(HiringTemplate.template.setupQuestions.first { $0.kind == .feeds })
         let store = try makeStore()
-        let result = try store.startTeam(from: .startupTeam, answers: [stale: .feeds([jobFeed])])
+        let result = try store.addTeam(.startupTeam, answers: [stale: .feeds([jobFeed])])
         #expect(result.answered == 0)
     }
 
     @Test func aClaimTypeListWithNoTypeANamelessTypeOrARepeatedIdIsRefused() throws {
         let store = try makeStore()
-        try store.startTeam(from: .fund)
+        try store.addTeam(.fund)
         let intake = try machine("Deal intake", in: store)
         let good = HiringTemplate.reference
         let nameless = ClaimType(id: "x", label: " ", proof: "p")
@@ -145,7 +145,7 @@ import Testing
 
     @Test func aFeedWithNoNameIsRefused() throws {
         let store = try makeStore()
-        try store.startTeam(from: .fund)
+        try store.addTeam(.fund)
         let news = try machine("Signals", in: store)
         try store.setFeeds(news, [NewsFeed(name: " ", url: jobFeed.url, trusted: false)])
         #expect(try machine("Signals", in: store).spec.feeds == MachineTemplate.newsSignals.spec.feeds)

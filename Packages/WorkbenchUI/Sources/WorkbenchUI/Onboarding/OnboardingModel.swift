@@ -120,7 +120,7 @@ final class OnboardingModel {
     private func startTeam() -> Bool {
         guard !teamIsStarted else { return true }
         do {
-            prompts = try store?.startTeam(from: template, answers: answers).prompts ?? []
+            prompts = try startsTeam ? (store?.addTeam(template, answers: answers).prompts ?? []) : []
             teamStarted()
             teamIsStarted = true
             return true
