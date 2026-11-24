@@ -62,16 +62,16 @@ private final class ProbingModel: StructuredModel, Sendable {
         _ = try await ModelSearch(model: RecordedModel(model, store: store)).search("Acme", count: 5)
         #expect(model.outcomesDuringCall.withLock { $0 } == [[.running]])
         let run = try #require(try store.queries.runs().first)
-        #expect(run.outcome == .done && run.task == ModelSearch.task && run.usage.costUSD == 0.034)
+        #expect(run.outcome == .done && run.task == ModelSearch.task && run.usage?.costUSD == 0.034)
         #expect(try store.queries.runText(of: run.id)?.kinds == [.web])
     }
 
-    @Test func aFailedCallFinishesItsRunWithNoCost() async throws {
+    @Test func aFailedCallThatCarriedNoCountLeavesItsCostUnknown() async throws {
         let store = try makeStore()
         let model = ScriptedModel(failing: .unavailable("offline"))
         _ = try? await ModelSearch(model: RecordedModel(model, store: store)).search("Acme", count: 5)
         let run = try #require(try store.queries.runs().first)
-        #expect(run.outcome == .failed && run.usage.costUSD == 0 && run.error != nil)
+        #expect(run.outcome == .failed && run.usage == nil && run.error != nil)
     }
 
     @Test func withWebResearchOffNoSearchCallLeavesAndNoRunIsWritten() async throws {

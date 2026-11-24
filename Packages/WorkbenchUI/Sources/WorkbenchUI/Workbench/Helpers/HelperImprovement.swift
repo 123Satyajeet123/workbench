@@ -83,12 +83,15 @@ final class HelperImprovement {
             let reader = HelperReader(spec: challenger, model: context.makeModel(try context.runner(for: version)))
             for day in days {
                 _ = try await context.grant()
-                var result = try await reader.read(
+                _ = try await reader.readDay(
                     day: day, scope: scope, evidence: try await context.source.evidence(on: day),
-                    marked: try context.marked(), open: try store.queries.openItems(readBy: spec, asOf: day))
-                result.links = []
-                try store.saveReading(
-                    result, of: challenger, day: day, scope: scope, grant: try await context.grant())
+                    marked: try context.marked(), open: { try store.queries.openItems(readBy: spec, asOf: day) },
+                    save: { read in
+                        var result = read
+                        result.links = []
+                        try store.saveReading(
+                            result, of: challenger, day: day, scope: scope, grant: try await context.grant())
+                    })
             }
             try store.log(
                 Decision(

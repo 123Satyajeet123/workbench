@@ -61,10 +61,11 @@ public struct HelperReader: ModelTask {
 
     private var hasPlaces: Bool { objects.has(ObjectHandles.placeTypes) }
 
-    /// How much new text one model call reads. A longer day is read in parts.
+    /// How much new text one model call reads. A longer day is read in parts, one run each.
     public static let charactersPerRequest = 40_000
 
-    /// `marked` may hold any of the machine's items; only those the leave-one-day-out rule allows become examples.
+    /// Reads the first part of the new lines of `evidence`: one model call and one run. `marked` may hold any of the
+    /// machine's items; only those the leave-one-day-out rule allows become examples.
     /// `open` are the items still open from earlier readings: the machine's own, or those of the machine it follows.
     /// The model sees them by handle (F1, F2, …), never by their store ids, so it cannot name an item that does not
     /// exist. It may close its own; it may cite those it follows. A day with no lines runs no model, except for a
@@ -79,54 +80,57 @@ public struct HelperReader: ModelTask {
         guard !evidence.lines.isEmpty || followsOpenFacts else { return Result(items: [], dropped: 0, run: nil) }
         let examples =
             Exemplars.pick(marked, for: day, count: spec.examples ?? 0)
-        var proposals: [Verifier.Checked] = []
-        var drops = 0
-        var run: RunID?
-        for part in Self.parts(of: evidence, budget: budget) {
-            let (reply, partRun) = try await ask(
-                Self.examples(examples, spec: spec) + Self.open(open, spec: spec)
-                    + Self.objectLists(objects, spec: spec)
-                    + Self.input(day: day, evidence: part, zone: zone),
-                holding: [spec.source.kind],
-                window: part.lines.compactMap { line in line.lineID.map { WindowLine(number: line.id, lineID: $0) } })
-            let verifier = Verifier(window: part, settings: try model.verifierSettings(), zone: zone)
-            let settled = try verifier.settle(
-                reply.items, part: "items",
-                check: {
-                    try verifier.proposal(
-                        $0, spec: spec, open: open, objects: objects, day: day, scope: scope, run: partRun)
-                }, isRepeat: { isRepeat($0, among: proposals + $1) })
-            try model.record(settled.drops + refusedHomes(of: settled.kept), of: partRun)
-            proposals += settled.kept
-            drops += settled.drops.count
-            run = partRun
-        }
-        let applied = Self.apply(proposals, spec: spec, open: open)
-        return Result(items: applied.items, links: applied.links, homes: applied.homes, dropped: drops, run: run)
+        let part = Self.firstPart(of: evidence, budget: budget)
+        let (reply, run) = try await ask(
+            Self.examples(examples, spec: spec) + Self.open(open, spec: spec)
+                + Self.objectLists(objects, spec: spec) + Self.input(day: day, evidence: part, zone: zone),
+            holding: [spec.source.kind],
+            window: part.lines.compactMap { line in line.lineID.map { WindowLine(number: line.id, lineID: $0) } })
+        let verifier = Verifier(window: part, settings: try model.verifierSettings(), zone: zone)
+        let settled = try verifier.settle(
+            reply.items, part: "items",
+            check: {
+                try verifier.proposal($0, spec: spec, open: open, objects: objects, day: day, scope: scope, run: run)
+            }, isRepeat: { isRepeat($0, among: $1) })
+        try model.record(settled.drops + refusedHomes(of: settled.kept), of: run)
+        let applied = Self.apply(settled.kept, spec: spec, open: open)
+        return Result(
+            items: applied.items, links: applied.links, homes: applied.homes, dropped: settled.drops.count, run: run)
     }
 
-    /// The evidence cut into parts of about `budget` characters of new lines. Each part after the first starts with up
-    /// to `context` lines before it, shown and not citable, so a reply such as "done" keeps its question.
-    static func parts(of evidence: EvidenceSet, budget: Int, context: Int = 20) -> [EvidenceSet] {
-        let new = evidence.newLines
-        guard new.reduce(0, { $0 + $1.line.count }) > budget else { return [evidence] }
-        var chunks: [[Evidence]] = [[]]
+    /// Reads a day part by part. Each part is saved, with its own run's yield, before the next is read, so a part
+    /// that fails leaves the parts before it read, and the lines of the parts after it are sent again. `open` is asked
+    /// again for each part, so a part sees the facts the part before it opened.
+    nonisolated(nonsending) public func readDay(
+        day: WorkDay, scope: String, evidence: EvidenceSet, marked: [Item] = [], open: () throws -> [Item] = { [] },
+        budget: Int = charactersPerRequest, save: (Result) async throws -> Void
+    ) async throws -> [Result] {
+        var results: [Result] = []
+        var pending = evidence
+        repeat {
+            let result = try await read(
+                day: day, scope: scope, evidence: pending, marked: marked, open: try open(), budget: budget)
+            try await save(result)
+            results.append(result)
+            let sent = Self.firstPart(of: pending, budget: budget).newLines.map(\.id)
+            pending = pending.marking(read: pending.read.union(sent))
+        } while !pending.newLines.isEmpty
+        return results
+    }
+
+    /// `evidence` cut to its first part: up to `budget` characters of new lines, and up to `context` lines read before
+    /// them, shown and not citable, so a reply such as "done" keeps its question.
+    static func firstPart(of evidence: EvidenceSet, budget: Int, context: Int = 20) -> EvidenceSet {
+        var chunk: [Evidence] = []
         var size = 0
-        for line in new {
-            if size + line.line.count > budget, !(chunks.last?.isEmpty ?? true) {
-                chunks.append([])
-                size = 0
-            }
-            chunks[chunks.count - 1].append(line)
+        for line in evidence.newLines {
+            if size + line.line.count > budget, !chunk.isEmpty { break }
+            chunk.append(line)
             size += line.line.count
         }
-        var before = evidence.lines.filter { evidence.isRead($0.id) }
-        return chunks.map { chunk in
-            let seen = Array(before.suffix(context))
-            before = before + chunk
-            return EvidenceSet(
-                lines: seen + chunk, context: evidence.context, read: Set(seen.map(\.id)))
-        }
+        guard chunk.count < evidence.newLines.count else { return evidence }
+        let seen = Array(evidence.lines.filter { evidence.isRead($0.id) }.suffix(context))
+        return EvidenceSet(lines: seen + chunk, context: evidence.context, read: Set(seen.map(\.id)))
     }
 
     public var instructions: String {

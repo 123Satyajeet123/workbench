@@ -20,7 +20,7 @@ func scratchFolder() -> URL {
 }
 
 func scratchStore(
-    clock: @escaping @Sendable () -> Date = { Date() }, isAudited: @escaping @Sendable (Int) -> Bool = AuditPolicy.picks
+    clock: @escaping @Sendable () -> Date = { Date() }, isAudited: (@Sendable (Int) -> Bool)? = nil
 ) throws -> Store {
     try Store(directory: scratchFolder(), clock: clock, isAudited: isAudited)
 }

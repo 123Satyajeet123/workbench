@@ -26,14 +26,14 @@ struct UsageReport {
         let today = calendar.startOfDay(for: now)
         let first = calendar.date(byAdding: .day, value: 1 - days, to: today) ?? today
         let chosen = runs.filter { [.done, .failed].contains($0.outcome) && $0.startedAt >= first }
-        total = chosen.map(\.usage).reduce(Usage(), +)
+        total = chosen.compactMap(\.usage).reduce(Usage(), +)
         self.runs = chosen
         byModel = Self.rows(chosen) { Self.modelName($0.model) }
         byMachine = Self.rows(chosen) { name($0.task) }
         var perDay = Dictionary(grouping: chosen) { calendar.startOfDay(for: $0.startedAt) }
         byDay = (0..<days).compactMap { offset in
             calendar.date(byAdding: .day, value: offset, to: first).map { day in
-                Day(day: day, usage: (perDay.removeValue(forKey: day) ?? []).map(\.usage).reduce(Usage(), +))
+                Day(day: day, usage: (perDay.removeValue(forKey: day) ?? []).compactMap(\.usage).reduce(Usage(), +))
             }
         }
     }
@@ -49,7 +49,7 @@ struct UsageReport {
 
     private static func rows(_ runs: [Run], by key: (Run) -> String) -> [Row] {
         Dictionary(grouping: runs, by: key).map { name, runs in
-            Row(name: name, usage: runs.map(\.usage).reduce(Usage(), +), calls: runs.count)
+            Row(name: name, usage: runs.compactMap(\.usage).reduce(Usage(), +), calls: runs.count)
         }
         .sorted { ($0.usage.costUSD, $0.usage.tokens, $1.name) > ($1.usage.costUSD, $1.usage.tokens, $0.name) }
     }

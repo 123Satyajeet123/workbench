@@ -96,7 +96,7 @@ private struct RunRow: View {
     }
 
     private var detail: String {
-        var parts = ["\(run.usage.tokensText) tokens", run.usage.costUSD.usageCost]
+        var parts = run.usage.map { ["\($0.tokensText) tokens", $0.costUSD.usageCost] } ?? ["usage not counted"]
         if let ended = run.endedAt {
             parts.append(Duration.seconds(ended.timeIntervalSince(run.startedAt)).formatted(.units(width: .narrow)))
         }

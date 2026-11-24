@@ -30,6 +30,7 @@ let package = Package(
         .executable(name: "store-safety-probe", targets: ["StoreSafetyProbe"]),
         .executable(name: "templates-start", targets: ["TemplatesStartDemo"]),
         .executable(name: "linkedin-import", targets: ["LinkedInImportDemo"]),
+        .executable(name: "bugfix-check", targets: ["BugfixCheck"]),
     ],
     dependencies: [
         .package(path: "../Packages/WorkbenchCore"), .package(path: "../Packages/WorkbenchUI"),
@@ -133,6 +134,12 @@ let package = Package(
             dependencies: [
                 "WorkbenchCore", .product(name: "Kernel", package: "Kernel"),
                 .product(name: "Lines", package: "Kernel"),
+            ]),
+        .executableTarget(
+            name: "BugfixCheck",
+            dependencies: [
+                "WorkbenchCore", .product(name: "AgentCLI", package: "BaseKit"),
+                .product(name: "Kernel", package: "Kernel"), .product(name: "Lines", package: "Kernel"),
             ]),
         .testTarget(name: "EvalsTests", dependencies: ["Evals", "WorkbenchCore"]),
     ]

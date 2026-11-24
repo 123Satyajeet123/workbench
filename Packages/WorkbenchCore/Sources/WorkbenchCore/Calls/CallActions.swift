@@ -54,17 +54,20 @@ public struct CallFollowUps: Sendable {
         let invited = recording.guests ?? []
         let evidence = EvidenceSet(
             lines: lines.map { recording.evidence($0, me: me) },
-            context: invited.isEmpty ? ["founder": [me]] : ["founder": [me], "invited": invited],
-            read: try store.queries.numbersRead(by: spec.task, among: lines.map(\.number)))
-        guard !evidence.newLines.isEmpty else { return }
-        let result = try await HelperReader(spec: spec, model: model).read(
-            day: day, scope: recording.bundleID, evidence: evidence, open: try store.queries.openItems(readBy: spec))
-        let request = CaptureRequest(kind: .call, label: recording.bundleID)
-        guard let grant = try store.queries.policy().authorize(request, at: store.clock()).grant else {
-            throw EvidenceError.consentWithdrawn
-        }
-        try store.saveReading(
-            result, of: spec, day: day, scope: recording.bundleID, grant: grant, isAudited: { _ in false })
+            context: invited.isEmpty ? ["founder": [me]] : ["founder": [me], "invited": invited])
+        let unread = try store.queries.unread(evidence, by: spec.task)
+        guard !unread.newLines.isEmpty else { return }
+        _ = try await HelperReader(spec: spec, model: model).readDay(
+            day: day, scope: recording.bundleID, evidence: unread,
+            open: { try store.queries.openItems(readBy: spec) },
+            save: { result in
+                let request = CaptureRequest(kind: .call, label: recording.bundleID)
+                guard let grant = try store.queries.policy().authorize(request, at: store.clock()).grant else {
+                    throw EvidenceError.consentWithdrawn
+                }
+                try store.saveReading(
+                    result, of: spec, day: day, scope: recording.bundleID, grant: grant, isAudited: { _ in false })
+            })
     }
 }
 

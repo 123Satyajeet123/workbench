@@ -37,9 +37,10 @@ import WorkbenchCore
 
     @Test func aDeclinedAnswerIsAnErrorNotProse() async throws {
         let launcher = reply(#""is_error":false,"result":"I can't help with that.""#)
-        await #expect(throws: StructuredModelError.invalidReply("claude declined: I can't help with that.")) {
+        let failure = await #expect(throws: ChargedFailure.self) {
             _ = try await runner(launcher).generate(Verdict.self, schema: Verdict.schema, instructions: "", input: "x")
         }
+        #expect(failure?.cause as? StructuredModelError == .invalidReply("claude declined: I can't help with that."))
     }
 
     @Test func dataCannotCloseItsTagsAndCodexGetsTheRulesBeforeTheData() async throws {

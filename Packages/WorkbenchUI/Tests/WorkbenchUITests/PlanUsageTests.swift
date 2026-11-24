@@ -47,7 +47,7 @@ private struct ReportsLimits: StructuredModel {
         await usage.refresh()
         #expect(usage.limits == limits && usage.problem == nil && !usage.isRefreshing)
         let runs = try store.queries.runs()
-        #expect(runs.map(\.task) == ["usage.refresh"] && runs.first?.usage.costUSD == 0.0001)
+        #expect(runs.map(\.task) == ["usage.refresh"] && runs.first?.usage?.costUSD == 0.0001)
     }
 
     @Test func aRefreshThatFailsAtTheLimitStillShowsTheLimitAndSaysWhy() async throws {
