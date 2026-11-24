@@ -48,7 +48,7 @@ import WorkbenchCore
         let intake = HelperModel(
             machine: machine, source: source, store: store,
             makeModel: { _ in RecordedModel(ScriptedModel("{\"items\":[]}"), store: store) }, notifier: FakeNotifier())
-        #expect(machine.spec.source == .mail && !intake.isReady)
+        #expect(machine.spec.source == .gmailMail && !intake.isReady)
         await intake.read()
 
         try source.choose("Deals")

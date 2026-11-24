@@ -4,68 +4,6 @@ import Foundation
 /// mode, a view) and adds the brief: the job in plain words. Code derives the prompt rules, the output shape and every
 /// check from these names, so a helper cannot skip consent or the quote check.
 public struct HelperSpec: Codable, Sendable, Equatable {
-    /// Where the evidence comes from. Each case is a reader in code, with its own consent kind.
-    public enum Source: String, Codable, Sendable, CaseIterable {
-        case whatsappChat = "whatsapp_chat"
-        case telegramChat = "telegram_chat"
-        case screenSessions = "screen_sessions"
-        /// The text of web pages the person saw, only on the sites the machine's owner named.
-        case pageText = "page_text"
-        /// Gmail threads the person opened inside the label they named, with the text of attached decks.
-        case mail = "mail_threads"
-        /// Articles from the news feeds, read one at a time, only for companies the investor follows.
-        case news = "news_articles"
-        /// Web pages found by search for the investor's criteria, read one at a time for startups that fit.
-        case webSearch = "web_search"
-        /// What was said in a call the founder recorded, transcribed on this Mac.
-        case callTranscript = "call_transcript"
-
-        public var kind: SourceKind {
-            switch self {
-            case .whatsappChat: .whatsapp
-            case .telegramChat: .telegram
-            case .screenSessions: .screen
-            case .pageText: .screenText
-            case .mail: .mail
-            case .news, .webSearch: .web
-            case .callTranscript: .call
-            }
-        }
-
-        public var lineNoun: String {
-            switch self {
-            case .whatsappChat, .telegramChat: "messages"
-            case .screenSessions: "windows"
-            case .pageText: "pages"
-            case .mail: "messages"
-            case .news: "articles"
-            case .webSearch: "pages"
-            case .callTranscript: "lines"
-            }
-        }
-
-        var lines: String {
-            switch self {
-            case .whatsappChat: SourceDescriptor.whatsAppChat.grammar
-            case .telegramChat: SourceDescriptor.telegramChat.grammar
-            case .screenSessions: SourceDescriptor.screenWindow.grammar
-            case .mail: SourceDescriptor.gmailMail.grammar
-            case .news:
-                """
-                one news article from a feed the investor follows. The line is `[number] feed — title: text`. The \
-                Companies list names the followed companies the article may be about.
-                """
-            case .webSearch:
-                """
-                one web page that a search found. The line is `[number] address — text`. It may name several \
-                startups, or none.
-                """
-            case .pageText: SourceDescriptor.webPage.grammar
-            case .callTranscript: SourceDescriptor.callTranscript.grammar
-            }
-        }
-    }
-
     /// How an item points at its evidence: one line, a run of consecutive lines, or open facts of another machine
     /// (by handle) with the new lines that show it, if any.
     public enum Citation: String, Codable, Sendable {
@@ -236,7 +174,8 @@ public struct HelperSpec: Codable, Sendable, Equatable {
 
     /// The run task name, stable across versions of the brief.
     public var task: String
-    public var source: Source
+    /// Where the evidence comes from: the source this machine reads, stored by the name the registry knows it by.
+    public var source: SourceDescriptor
     public var brief: String
     public var fields: [Field]
     public var citation: Citation

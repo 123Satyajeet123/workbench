@@ -36,22 +36,9 @@ extension SourceKind {
 }
 
 extension SourceKind {
-    /// The source as a person names it.
-    public var words: String {
-        switch self {
-        case .whatsapp: "WhatsApp"
-        case .telegram: "Telegram"
-        case .mail: "Mail"
-        case .call: "Call"
-        case .calendar: "Calendar"
-        case .screen: "Screen"
-        case .screenText: "Web page you read"
-        case .web: "Web"
-        case .files: "Files"
-        case .typed: "Typed by you"
-        case .dropped: "A file you added"
-        case .linkedinExport: "Your LinkedIn export"
-        case .note: "Your note"
-        }
-    }
+    /// The source as a person names it: the name of the first source that reads under this kind.
+    public var words: String { SourceRegistry.descriptor(consent: self)?.name ?? rawValue }
+
+    /// Where a fact came from, as "Captured from ...".
+    public var capturedFrom: String { SourceRegistry.descriptor(consent: self)?.origin ?? rawValue }
 }

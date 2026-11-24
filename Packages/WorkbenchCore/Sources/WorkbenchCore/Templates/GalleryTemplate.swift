@@ -41,7 +41,7 @@ public struct GalleryTemplate: Sendable, Identifiable, Equatable {
     }
 
     static func plain(_ machine: MachineTemplate) -> GalleryTemplate {
-        let kind = machine.spec.source.kind
+        let kind = machine.spec.source.consent
         return GalleryTemplate(
             id: machine.id, name: machine.name, icon: "gearshape", detail: machine.detail,
             folder: FolderStart(name: generalFolder), machine: machine, job: machine.detail,
@@ -86,8 +86,8 @@ public struct GalleryTemplate: Sendable, Identifiable, Equatable {
             }
         }
 
-        /// The kinds of source a person can choose on a page: a chat or group, a mail label, sites, files.
-        public static let pickable: Set<SourceKind> = [.whatsapp, .mail, .screenText, .dropped, .telegram]
+        /// The kinds of source a person can choose on a page: those whose descriptor names a picker.
+        public static var pickable: Set<SourceKind> { SourceRegistry.pickable }
     }
 
     public enum Need: String, Sendable, Hashable {
@@ -122,8 +122,9 @@ public struct GalleryTemplate: Sendable, Identifiable, Equatable {
         for block in blocks {
             switch block {
             case .picker(let kind):
-                if let spec, spec.source.kind != kind {
-                    problems.append("picker asks for \(kind.rawValue), the machine reads \(spec.source.kind.rawValue)")
+                if let spec, spec.source.consent != kind {
+                    problems.append(
+                        "picker asks for \(kind.rawValue), the machine reads \(spec.source.consent.rawValue)")
                 }
             case .input(let kind):
                 if spec.map({ spec in !spec.settingValues.contains { $0.kind == kind } }) ?? true {

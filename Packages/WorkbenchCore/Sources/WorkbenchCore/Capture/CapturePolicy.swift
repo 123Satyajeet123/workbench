@@ -104,8 +104,9 @@ public struct CapturePolicy: Codable, Sendable, Equatable {
     /// Captured data older than this is deleted: it is how far back anything reads.
     public static let retention: TimeInterval = 30 * 86_400
 
-    /// Sources that read other people's words read only the labels listed: one chat or one mail label, never all of them.
-    public static let needsAllowList: Set<SourceKind> = [.whatsapp, .telegram, .mail]
+    /// The sites page capture never keeps, because a source reads them or the site bars readers. Each descriptor lists
+    /// its own.
+    public static let neverKeptHosts: Set<String> = Set(SourceRegistry.all.flatMap(\.pageDenyHosts))
 
     public func isEnabled(_ kind: SourceKind) -> Bool { switches[kind] ?? false }
 
@@ -117,13 +118,14 @@ public struct CapturePolicy: Codable, Sendable, Equatable {
     }
 
     public func authorize(_ request: CaptureRequest, at now: Date) -> CaptureDecision {
-        if request.kind == .note { return authorizeNote(request, at: now) }
+        if SourceRegistry.isOwnWriting(request.kind) { return authorizeOwnWriting(request, at: now) }
         if mode == .off { return .deny(.captureOff) }
         guard isEnabled(request.kind) else { return .deny(.sourceSwitchedOff) }
         if let label = request.label, denyList[request.kind]?.contains(label) == true {
             return .deny(.labelDenied)
         }
-        if let allowed = allowList[request.kind] ?? (Self.needsAllowList.contains(request.kind) ? [] : nil),
+        if let allowed = allowList[request.kind]
+            ?? (SourceRegistry.requiresContainerAllowList(request.kind) ? [] : nil),
             request.label.map({ allowed.contains($0) }) != true
         {
             return .deny(.labelNotAllowed)
@@ -145,11 +147,12 @@ public struct CapturePolicy: Codable, Sendable, Equatable {
 }
 
 extension CapturePolicy {
-    /// A note is what the person writes, not what a sensor reads: only a project the person put on the deny list stops it.
-    fileprivate func authorizeNote(_ request: CaptureRequest, at now: Date) -> CaptureDecision {
-        if let label = request.label, denyList[.note]?.contains(label) == true { return .deny(.labelDenied) }
+    /// What the person writes is not what a sensor reads: only a label the person put on the deny list stops it.
+    fileprivate func authorizeOwnWriting(_ request: CaptureRequest, at now: Date) -> CaptureDecision {
+        if let label = request.label, denyList[request.kind]?.contains(label) == true { return .deny(.labelDenied) }
         return .allow(
-            CaptureGrant(kind: .note, label: request.label, expiresAt: now.addingTimeInterval(Self.grantLifetime)))
+            CaptureGrant(
+                kind: request.kind, label: request.label, expiresAt: now.addingTimeInterval(Self.grantLifetime)))
     }
 }
 

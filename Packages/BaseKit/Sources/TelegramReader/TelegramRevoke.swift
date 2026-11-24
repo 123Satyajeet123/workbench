@@ -11,14 +11,15 @@ import WorkbenchCore
 public enum TelegramRevoke {
     /// Returns why a deletion could not be written yet, or nil. The notes of a failed chat stay for the next try.
     public static func apply(in store: Store, owner: PersonID) async -> String? {
+        let kind = SourceDescriptor.telegramChat.consent
         do {
-            let allowed = try store.currentPolicy().allowList[.telegram] ?? []
+            let allowed = try store.currentPolicy().allowList[kind] ?? []
             var failure: String?
-            for (label, refs) in try store.pendingRevokes(kind: .telegram) {
+            for (label, refs) in try store.pendingRevokes(kind: kind) {
                 guard allowed.contains(label), let chat = Int64(label),
-                    let audience = try store.agreedAudience(kind: .telegram, label: label)
+                    let audience = try store.agreedAudience(kind: kind, label: label)
                 else {
-                    try store.clearRevokes(kind: .telegram, label: label, messageRefs: refs)
+                    try store.clearRevokes(kind: kind, label: label, messageRefs: refs)
                     continue
                 }
                 let reader = Reader(
@@ -27,7 +28,7 @@ public enum TelegramRevoke {
                 if let first = report.failures.first {
                     failure = "Could not erase a deleted Telegram message: \(first.error.localizedDescription)"
                 } else {
-                    try store.clearRevokes(kind: .telegram, label: label, messageRefs: refs)
+                    try store.clearRevokes(kind: kind, label: label, messageRefs: refs)
                 }
             }
             return failure
@@ -57,7 +58,7 @@ public enum TelegramRevoke {
         func observe(state: @Sendable (String) throws -> ScanState, now: Date) async throws -> SourceRead {
             let label = String(chat)
             do {
-                let grant = try await policy.grant(for: .telegram, label: label, at: now)
+                let grant = try await policy.grant(for: SourceDescriptor.telegramChat.consent, label: label, at: now)
                 let lines = messages.compactMap {
                     tombstone(chat: chat, message: $0, readerVersion: TelegramChatReader.readerVersion)
                 }

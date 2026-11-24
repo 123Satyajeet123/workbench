@@ -73,6 +73,6 @@ final class MachineContext {
     }
 
     private func grant(_ label: String?) async throws -> CaptureGrant {
-        try await store.grant(for: spec.source.kind, label: label, at: store.clock())
+        try await store.grant(for: spec.source.consent, label: label, at: store.clock())
     }
 }

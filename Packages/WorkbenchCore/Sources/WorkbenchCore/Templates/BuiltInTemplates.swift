@@ -25,7 +25,7 @@ extension MachineTemplate {
         detail: "Reads your mail pages and lists each inbound startup, rated hot, warm or cold by your own criteria.")
     public static let dealsFromChats = MachineTemplate(
         spec: .dealIntake.reading(
-            .whatsappChat, as: "vc.deals-chats",
+            .whatsAppChat, as: "vc.deals-chats",
             brief: """
                 You read inbound deals for a venture investor from the WhatsApp chats they chose. For each startup \
                 that someone pitches, asks the investor to meet or introduces, give one item with what the chat says \
@@ -92,7 +92,7 @@ extension MachineTemplate {
 
 extension HelperSpec {
     /// The same machine over another source: its own task and brief.
-    fileprivate func reading(_ source: Source, as task: String, brief: String) -> HelperSpec {
+    fileprivate func reading(_ source: SourceDescriptor, as task: String, brief: String) -> HelperSpec {
         var spec = self
         spec.source = source
         spec.task = task

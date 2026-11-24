@@ -11,7 +11,7 @@ import WorkbenchCore
 public final class CaptureService {
     public static let interval: Duration = .seconds(2)
     /// The consent kinds whose lines live in the evidence store under a label the person names.
-    static let evidenceKinds: [SourceKind] = [.whatsapp, .telegram, .mail]
+    static let evidenceKinds = SourceRegistry.all.filter(\.requiresContainerAllowList).map(\.consent)
 
     public private(set) var policy: CapturePolicy
     public private(set) var status: CaptureStatus
@@ -28,7 +28,7 @@ public final class CaptureService {
     @ObservationIgnored private let loop: CaptureLoop
     @ObservationIgnored private let presence = SystemPresence()
     @ObservationIgnored private var ticker: Task<Void, Never>?
-    @ObservationIgnored private var whatsAppWatch: WhatsAppIngestWatch?
+    @ObservationIgnored private var watchers: [String: any SourceWatching] = [:]
     @ObservationIgnored private var power: PowerEvents?
     @ObservationIgnored private var askedForTrust = false
     @ObservationIgnored private var lastPrune = Date.distantPast
@@ -90,7 +90,7 @@ public final class CaptureService {
         ticker = nil
         power?.stop()
         power = nil
-        setWhatsAppWatch(on: false)
+        updateWatchers(isCapturing: false)
     }
 
     /// The new policy is saved as one consent event, then used by the next reading. A WhatsApp chat, a Telegram group or a mail label
@@ -212,8 +212,7 @@ public final class CaptureService {
         let now = store.clock()
         Task { await pruneIfDue(at: now) }
         let isCapturing = status == .capturing || status == .needsPermission
-        setWhatsAppWatch(
-            on: isCapturing && policy.isEnabled(.whatsapp) && policy.allowList[.whatsapp]?.isEmpty == false)
+        updateWatchers(isCapturing: isCapturing)
         let policy = policy
         guard status == .capturing, policy.isEnabled(.screen) else {
             Task { report(await loop.stopStretch(policy: policy, at: now)) }
@@ -244,19 +243,26 @@ public final class CaptureService {
         Task { report(await loop.system(event, policy: policy, at: now)) }
     }
 
-    private func setWhatsAppWatch(on: Bool) {
-        if on, whatsAppWatch == nil {
-            switch ownerResult {
-            case .success(let owner):
-                whatsAppWatch = WhatsAppIngestWatch(store: store, owner: owner) { [weak self] failure in
-                    self?.report(failure)
+    private func updateWatchers(isCapturing: Bool) {
+        for watcher in SourceWatcher.all {
+            let key = watcher.descriptor.key
+            if isCapturing && isWatchable(watcher.descriptor) {
+                guard watchers[key] == nil else { continue }
+                switch ownerResult {
+                case .success(let owner):
+                    watchers[key] = watcher.start(store, owner) { [weak self] failure in self?.report(failure) }
+                case .failure(let error): report(error.localizedDescription)
                 }
-            case .failure(let error): report(error.localizedDescription)
+            } else {
+                watchers.removeValue(forKey: key)?.stop()
             }
-        } else if !on, let watch = whatsAppWatch {
-            watch.stop()
-            whatsAppWatch = nil
         }
+    }
+
+    /// A source is watched while its switch is on and, when it reads only named containers, the person named one.
+    private func isWatchable(_ descriptor: SourceDescriptor) -> Bool {
+        policy.isEnabled(descriptor.consent)
+            && (!descriptor.requiresContainerAllowList || policy.allowList[descriptor.consent]?.isEmpty == false)
     }
 }
 

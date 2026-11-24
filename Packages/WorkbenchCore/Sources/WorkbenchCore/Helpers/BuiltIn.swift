@@ -43,7 +43,7 @@ extension HelperSpec {
     /// Pip, the fact machine: what each person plans, did and is stuck on, and what is decided or asked, by project,
     /// from the chats the founder chose. Open facts stay open until a later line closes them (research 32).
     public static let team = HelperSpec(
-        task: "team.ledger", source: .whatsappChat,
+        task: "team.ledger", source: .whatsAppChat,
         brief: """
             You keep the facts of a founder's company from its work chats: one group or several. Give one item for \
             each fact a message states, with the person it is about and the project it belongs to. Use only what a \
@@ -98,7 +98,7 @@ extension HelperSpec {
 
     /// The day timeline: the founder's screen sessions joined into blocks of work.
     public static let timeline = HelperSpec(
-        task: "day.timeline", source: .screenSessions,
+        task: "day.timeline", source: .screenWindow,
         brief: """
             You write the timeline of one work day of a founder. Join consecutive windows that serve one task into one \
             block, even across apps (for example a terminal, a browser tab with docs, and a chat about the same \
@@ -116,7 +116,7 @@ extension HelperSpec {
 
     /// A page reader: what matters in the pages the founder saw on sites they name. Its brief says what to list.
     public static let pages = HelperSpec(
-        task: "page.reader", source: .pageText,
+        task: "page.reader", source: .webPage,
         brief: """
             You read the web pages a founder saw on the sites they chose, such as their mail, LinkedIn or X. List each \
             thing that needs the founder's attention or follow-up: a request, an introduction, a pitch, a deadline. \
@@ -137,7 +137,7 @@ extension HelperSpec {
     /// judges each rule with a quote; code makes the hot, warm or cold call from the rule results. The starter rules
     /// only mirror the old placeholder: the investor edits them into their own thesis.
     public static let dealIntake = HelperSpec(
-        task: "vc.deals", source: .mail,
+        task: "vc.deals", source: .gmailMail,
         brief: """
             You read inbound deals for a venture investor from the mail threads they opened in their Deals label, and \
             from the decks attached to them. For each startup that pitches, asks for a meeting or is introduced, give \
@@ -160,7 +160,7 @@ extension HelperSpec {
 
     /// VC pack: what a founder's profile page says, to check against what the pitch claims.
     public static let founderCheck = HelperSpec(
-        task: "vc.founders", source: .pageText,
+        task: "vc.founders", source: .webPage,
         brief: """
             You read the profile pages of founders a venture investor looked at. For each founder, list the facts the \
             page states that matter for an investment: past roles, companies founded, exits, education. One item per \
@@ -176,7 +176,7 @@ extension HelperSpec {
 
     /// VC pack: news about portfolio and passed companies from the pages the investor reads.
     public static let companySignals = HelperSpec(
-        task: "vc.signals", source: .pageText,
+        task: "vc.signals", source: .webPage,
         brief: """
             You watch for news about companies a venture investor follows: their portfolio and deals they passed on. \
             From the news and social pages they read, list each signal about a named company: a funding round, a key \
@@ -194,7 +194,7 @@ extension HelperSpec {
     /// The derailment watch: what is going off track, from the open facts of the first machine with a lifecycle (Pip)
     /// and the new lines of a chat (research 31). Its `follows` is set when a person makes the machine.
     public static let derailment = HelperSpec(
-        task: "work.derailment", source: .whatsappChat,
+        task: "work.derailment", source: .whatsAppChat,
         brief: """
             You watch a founder's work for what is going off track. You get the facts still open in the founder's work \
             record (plans, blockers, commitments, questions, decisions), each with a handle, and the new lines of a work chat. Today's \
@@ -228,7 +228,7 @@ extension HelperSpec {
     /// What the person and the people they talk to owe each other, from the chats the person chose. An item stays
     /// open until a later line keeps, answers or drops it.
     public static let followUps = HelperSpec(
-        task: "follow.ups", source: .whatsappChat,
+        task: "follow.ups", source: .whatsAppChat,
         brief: """
             You keep what the person and the people they talk to owe each other, from the chats they chose. Give one \
             item for each line where someone asks the person for something, promises the person something, or the \
@@ -255,7 +255,7 @@ extension HelperSpec {
     /// What happened in the groups the person chose, for the next morning: decisions, asks of the person, news,
     /// plans and problems.
     public static let morningDigest = HelperSpec(
-        task: "morning.digest", source: .whatsappChat,
+        task: "morning.digest", source: .whatsAppChat,
         brief: """
             You write the morning digest of the WhatsApp groups the person chose. Give one item for each thing the \
             person would want to know the next morning: a decision, a request of the person, news, a plan or a \

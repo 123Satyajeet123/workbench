@@ -10,8 +10,8 @@ extension SourceDescriptor {
 
     /// Project notes: what the person writes. Each paragraph is one line, kept under the block's name.
     public static let note = SourceDescriptor(
-        key: "workbench.note", aliases: [], consent: .note, grammar: noteGrammar, retention: .note, obtainedBy: .db,
-        editWindow: 0)
+        key: "workbench.note", name: "Your note", consent: .note, grammar: noteGrammar, retention: .note,
+        obtainedBy: .db, editWindow: 0, ownWriting: true)
 }
 
 extension EntityKey {

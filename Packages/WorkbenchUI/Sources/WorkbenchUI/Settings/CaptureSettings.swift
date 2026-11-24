@@ -148,13 +148,19 @@ final class CaptureSettings {
         let policy = service.policy
         sourceHealth = SourceHealthModel.health(
             SourceHealthInputs(
-                policy: policy, fullDiskAccess: FullDiskAccess.isGranted(),
-                ownerKnown: (try? service.owner()) != nil, accessibilityGranted: ScreenReader.isTrusted,
-                telegramKeysKnown: telegramKeysKnown(),
+                policy: policy, permissions: granted(), ownerKnown: (try? service.owner()) != nil,
+                keys: telegramKeysKnown() ? [.telegramApp] : [],
                 staleSites: staleSites(), browsers: installedBrowsers().map { policy.health(ofBrowser: $0.browser) }))
     }
 
-    func health(of source: SourceHealth.Source) -> SourceHealth? { sourceHealth.first { $0.source == source } }
+    func health(of source: SourceDescriptor) -> SourceHealth? { sourceHealth.first { $0.source == source } }
+
+    private func granted() -> Set<HealthNeed.MacPermission> {
+        var granted: Set<HealthNeed.MacPermission> = []
+        if FullDiskAccess.isGranted() { granted.insert(.fullDiskAccess) }
+        if ScreenReader.isTrusted { granted.insert(.accessibility) }
+        return granted
+    }
 
     /// What the last LinkedIn import kept, in plain words. Nil before the first one in this session.
     private(set) var linkedInNote: String?

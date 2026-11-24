@@ -4,7 +4,7 @@ extension HelperSpec {
     /// VC pack: typed facts from news about the companies the investor follows. One model call reads one article. The
     /// model chooses the event, the polarity and the date; code checks the company, the quote and the date.
     public static let newsSignals = HelperSpec(
-        task: NewsSignals.task, source: .news,
+        task: NewsSignals.task, source: .newsArticle,
         brief: """
             You read one news article for a venture investor. They follow some companies: their portfolio and deals \
             they passed on. The Companies list names those the article may be about. For each of them that the \

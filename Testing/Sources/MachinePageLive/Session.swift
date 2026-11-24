@@ -21,7 +21,7 @@ struct LiveSession {
         case .failed(let failure): throw LiveFailure("the demo store did not open: \(failure.cause)")
         case .ready(let session): app = session
         }
-        guard let pip = app.crew.machines.first(where: { $0.spec.keepsFacts && $0.spec.source == .whatsappChat })
+        guard let pip = app.crew.machines.first(where: { $0.spec.keepsFacts && $0.spec.source == .whatsAppChat })
         else { throw LiveFailure("the demo crew has no machine that keeps facts from a chat") }
         guard let page = pip.pageModel else { throw LiveFailure("\(pip.name) has no page model") }
         (self.pip, self.page) = (pip, page)

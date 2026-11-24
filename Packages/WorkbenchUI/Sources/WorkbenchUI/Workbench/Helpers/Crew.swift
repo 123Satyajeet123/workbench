@@ -252,20 +252,20 @@ final class Crew {
 
     private func source(for machine: Machine) throws -> any MachineSource {
         switch machine.spec.source {
-        case .screenSessions: ScreenSource(store: store)
-        case .pageText: try PageSource(store: store, task: machine.task)
-        case .mail: MailSource(store: store, capture: capture)
-        case .news: NewsSource(store: store, capture: capture)
+        case .screenWindow: ScreenSource(store: store)
+        case .webPage: try PageSource(store: store, task: machine.task)
+        case .gmailMail: MailSource(store: store, capture: capture)
+        case .newsArticle: NewsSource(store: store, capture: capture)
         case .webSearch:
             OutboundSource(store: store, capture: capture, task: machine.task, openSession: openWebSession)
-        case .whatsappChat:
+        case .whatsAppChat:
             try WhatsAppSource(
                 store: store, capture: capture, task: machine.task, founder: founder, container: whatsAppContainer)
         case .telegramChat:
             try TelegramSource(
                 store: store, capture: capture, account: telegram, task: machine.task, founder: founder,
                 othersReading: { [weak self] in self?.telegramChats(except: machine.task) ?? [] })
-        case .callTranscript: throw NotAMachineSource()
+        default: throw NotAMachineSource()
         }
     }
 }

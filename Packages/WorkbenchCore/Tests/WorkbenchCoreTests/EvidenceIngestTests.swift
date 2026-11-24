@@ -458,7 +458,7 @@ import Testing
 
     @Test func aSourceIsFoundByItsKeyOrByTheOldEnumValueAndOnlyNamedSourcesStart() {
         #expect(SourceRegistry.descriptor(named: "whatsapp.chat") == .whatsAppChat)
-        #expect(SourceRegistry.descriptor(named: HelperSpec.Source.whatsappChat.rawValue) == .whatsAppChat)
+        #expect(SourceRegistry.descriptor(named: "whatsapp_chat") == .whatsAppChat)
         #expect(SourceRegistry.descriptor(named: "nonsense") == nil)
         #expect(
             SourceRegistry.demanded(by: ["whatsapp_chat", "whatsapp.chat", "screen_sessions"]) == [
@@ -467,13 +467,12 @@ import Testing
         #expect(SourceRegistry.demanded(by: [String]()).isEmpty, "a source no machine names never starts")
     }
 
-    @Test func everyOldSourceNameIsPortedOrListedAsNot() {
-        let notPorted: Set<HelperSpec.Source> = [.news, .webSearch]
-        for source in HelperSpec.Source.allCases {
-            #expect((SourceRegistry.descriptor(named: source.rawValue) == nil) == notPorted.contains(source))
-        }
-        #expect(HelperSpec.Source.whatsappChat.lines == SourceDescriptor.whatsAppChat.grammar)
-        #expect(SourceDescriptor.whatsAppChat.consent == HelperSpec.Source.whatsappChat.kind)
+    @Test func everyOldSourceNameIsPorted() {
+        let stored = [
+            "whatsapp_chat", "telegram_chat", "screen_sessions", "page_text", "mail_threads", "news_articles",
+            "web_search", "call_transcript",
+        ]
+        for name in stored { #expect(SourceRegistry.descriptor(named: name) != nil) }
     }
 
     @Test func aSourceIDBelongsToItsOwner() throws {

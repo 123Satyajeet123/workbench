@@ -18,7 +18,7 @@ extension Store {
         _ result: HelperReader.Result, of spec: HelperSpec, day: WorkDay, scope: String, grant: CaptureGrant,
         isAudited: ((Int) -> Bool)? = nil
     ) throws {
-        try check(grant, kind: spec.source.kind, label: scope.isEmpty ? nil : scope)
+        try check(grant, kind: spec.source.consent, label: scope.isEmpty ? nil : scope)
         try writer.write { db in
             let known = try knownItems(db, of: spec, day: day, scope: scope)
             let opened: [Int64?] = try result.items.map { item in

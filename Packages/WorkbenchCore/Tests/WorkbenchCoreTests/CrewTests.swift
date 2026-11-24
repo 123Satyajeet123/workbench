@@ -11,12 +11,12 @@ private func addItem(to machine: Machine, in store: Store) async throws -> Item 
         HelperReader.Reply.self, schema: .object([.init("items", .array(.string))]), task: machine.task,
         instructions: machine.spec.brief, input: "x", holding: [])
     let item = Item(
-        task: machine.task, day: day, scope: "", source: machine.spec.source.kind, citeFirst: 1, citeLast: 1,
+        task: machine.task, day: day, scope: "", source: machine.spec.source.consent, citeFirst: 1, citeLast: 1,
         start: day.start,
         end: day.start.addingTimeInterval(600), fields: ["task": "t"], quote: "q", run: run)
     try store.saveReading(
         .init(items: [item], dropped: 0, run: run), of: machine.spec, day: day, scope: "",
-        grant: grant(machine.spec.source.kind))
+        grant: grant(machine.spec.source.consent))
     return try #require(store.queries.items(of: machine.task, day: day, scope: "").first)
 }
 

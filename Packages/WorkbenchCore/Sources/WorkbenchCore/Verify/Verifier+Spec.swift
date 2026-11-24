@@ -45,7 +45,7 @@ extension Verifier {
         }
         let standing = Standing(citing: cited.lines, facts: cited.facts, window: window.lines)
         return Item(
-            task: spec.task, day: day, scope: scope, source: spec.source.kind, citeFirst: cited.first,
+            task: spec.task, day: day, scope: scope, source: spec.source.consent, citeFirst: cited.first,
             citeLast: cited.last, start: cited.start, end: cited.end, fields: fields, quote: cited.quote, run: run,
             quoteSpan: cited.span, label: standing.label, authority: standing.authority)
     }

@@ -11,8 +11,14 @@ extension SourceDescriptor {
 
     /// What was said in a recorded call, transcribed on this Mac. The grant label is the call app's bundle id.
     public static let callTranscript = SourceDescriptor(
-        key: "call.transcript", aliases: ["call_transcript"], consent: .call, grammar: callGrammar, retention: .call,
-        obtainedBy: .speech, editWindow: 0)
+        key: "call.transcript", specName: "call_transcript", name: "Call", consent: .call, grammar: callGrammar,
+        retention: .call, obtainedBy: .speech, editWindow: 0,
+        forgets: Forgetting(
+            tables: [
+                .init(
+                    name: "recording", ageColumn: "started_at", condition: "state != 'recording'",
+                    folderColumn: "folder")
+            ]))
 }
 
 extension Recording {

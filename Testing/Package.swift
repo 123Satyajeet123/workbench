@@ -30,6 +30,7 @@ let package = Package(
         .executable(name: "store-safety-probe", targets: ["StoreSafetyProbe"]),
         .executable(name: "templates-start", targets: ["TemplatesStartDemo"]),
         .executable(name: "linkedin-import", targets: ["LinkedInImportDemo"]),
+        .executable(name: "source-registry", targets: ["SourceRegistryDemo"]),
     ],
     dependencies: [
         .package(path: "../Packages/WorkbenchCore"), .package(path: "../Packages/WorkbenchUI"),
@@ -107,6 +108,7 @@ let package = Package(
             name: "JudgeProbe",
             dependencies: ["Evals", "WorkbenchCore", .product(name: "AgentCLI", package: "BaseKit")]),
         .executableTarget(name: "MachineRolesDemo", dependencies: ["WorkbenchCore"]),
+        .executableTarget(name: "SourceRegistryDemo", dependencies: ["WorkbenchCore"]),
         .executableTarget(name: "InjectCorpusCheck", dependencies: ["Evals"]),
         .target(
             name: "PageSnapshot", dependencies: ["WorkbenchCore", "WorkbenchUI"],

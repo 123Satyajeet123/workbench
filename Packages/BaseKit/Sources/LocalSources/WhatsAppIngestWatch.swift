@@ -49,7 +49,7 @@ public final class WhatsAppIngestWatch {
     /// Reads every allowed chat and writes what is new. Returns why it failed, or nil.
     static func ingest(store: Store, owner: PersonID, container: URL) async -> String? {
         do {
-            let chats = try store.currentPolicy().allowList[.whatsapp] ?? []
+            let chats = try store.currentPolicy().allowList[SourceDescriptor.whatsAppChat.consent] ?? []
             guard !chats.isEmpty else { return nil }
             let reader = WhatsAppChatReader(container: container, chatJIDs: chats.sorted(), policy: store)
             let report = try await store.ingest(reader, owner: owner, now: store.clock())

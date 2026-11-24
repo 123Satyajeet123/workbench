@@ -10,7 +10,7 @@ struct TelegramChooser: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Space.m) {
-            SourceHealthMark(source: .telegram)
+            SourceHealthMark(source: .telegramChat)
             if let problem = source.account.revokeProblem {
                 Text(problem).textStyle(.callout).foregroundStyle(.supporting)
             }

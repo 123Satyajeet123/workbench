@@ -139,19 +139,6 @@ public struct DealStory: Equatable, Sendable {
     }
 }
 
-extension SourceKind {
-    public var capturedFrom: String {
-        switch self {
-        case .whatsapp: "WhatsApp"
-        case .telegram: "Telegram"
-        case .screenText: "a page"
-        case .screen: "the screen"
-        case .typed: "you"
-        default: "another source"
-        }
-    }
-}
-
 extension Queries {
     /// The marks on an item, oldest first.
     public func marks(ofItem id: Int64) throws -> [DealStory.Marked] {

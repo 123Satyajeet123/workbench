@@ -2,7 +2,7 @@ import WorkbenchCore
 
 /// Prints the gallery as data and checks that each template holds together, and that the check finds a broken one.
 func report(_ template: GalleryTemplate) {
-    let machine = template.machine.map { "\($0.name) (\($0.spec.task), reads \($0.spec.source.kind.rawValue))" }
+    let machine = template.machine.map { "\($0.name) (\($0.spec.task), reads \($0.spec.source.consent.rawValue))" }
     print("\(template.name)  [\(template.icon)]")
     print("  folder: \(template.folder.name)\(template.folder.holds.map { ", holds \($0)" } ?? "")")
     print("  machine: \(machine ?? "none")  needs: \(template.needs.map(\.rawValue).sorted())")

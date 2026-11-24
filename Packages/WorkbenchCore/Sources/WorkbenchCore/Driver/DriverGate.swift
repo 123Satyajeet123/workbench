@@ -37,10 +37,6 @@ public struct DriverGate: Sendable {
 
     public init(policy: CapturePolicy) { self.policy = policy }
 
-    /// Sites a machine never opens: the mail and chat clients, which page capture never keeps, and LinkedIn, which the
-    /// founder ruled out.
-    static let neverRead: Set<String> = [MailContext.site, WebPage.whatsAppWebHost, WebPage.linkedInHost]
-
     public func refusal(for request: DriverRequest, at now: Date) -> DriverRefusal? {
         guard request.method == "GET" else { return .notGET(request.method) }
         let url = request.url
@@ -50,7 +46,7 @@ public struct DriverGate: Sendable {
         guard url.user() == nil, url.password() == nil else { return .hasCredentials }
         guard Self.isPublic(host) else { return .notPublicHost(host) }
         if case .deny(let reason) = policy.authorize(CaptureRequest(kind: .web), at: now) { return .consent(reason) }
-        let denied = CapturePolicy.privateDomains.union(Self.neverRead)
+        let denied = CapturePolicy.privateDomains.union(CapturePolicy.neverKeptHosts)
             .union(policy.denyList[.web] ?? []).union(policy.denyList[.screen] ?? [])
         return CapturePolicy.isSite(url.absoluteString, in: denied) ? .deniedSite(host) : nil
     }

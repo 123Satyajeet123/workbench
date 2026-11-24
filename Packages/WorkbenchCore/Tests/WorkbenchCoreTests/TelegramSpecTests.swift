@@ -20,10 +20,10 @@ import Testing
 
     @Test func theTelegramTeamMachineKeepsPipsFactsAndReadsTelegram() {
         let telegram = HelperSpec.teamTelegram
-        #expect(telegram.source.kind == .telegram)
+        #expect(telegram.source.consent == .telegram)
         #expect(telegram.task != HelperSpec.team.task)
         #expect(telegram.fields == HelperSpec.team.fields && telegram.lifecycle == HelperSpec.team.lifecycle)
         #expect(telegram.update(toward: .teamTelegram) == nil)
-        #expect(telegram.source.lines.contains("Telegram group") && !telegram.source.lines.contains("WhatsApp"))
+        #expect(telegram.source.grammar.contains("Telegram group") && !telegram.source.grammar.contains("WhatsApp"))
     }
 }

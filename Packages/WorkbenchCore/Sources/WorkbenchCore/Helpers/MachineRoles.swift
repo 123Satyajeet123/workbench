@@ -12,7 +12,7 @@ extension HelperSpec {
     public var checksClaims: Bool { claimTypes != nil }
 
     /// It reads what the person did on the screen.
-    public var readsScreen: Bool { source == .screenSessions }
+    public var readsScreen: Bool { source.consent == .screen }
 
     /// The facts that no machine of the crew keeps, under the name their keeper shows.
     public static let withoutMachine: [(name: String, spec: HelperSpec)] = [("Echo", .callFollowUps)]

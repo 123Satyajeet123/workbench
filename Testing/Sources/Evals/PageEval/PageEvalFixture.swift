@@ -116,13 +116,13 @@ struct PageEvalFixture {
             })
         try store.finishRun(run, model: "synthetic", usage: Usage(), reply: "")
         let label = Label(source: try SourceDescriptor.typedNote.sourceID(owner: owner))
-        let grant = try readGrant(of: machine.spec.source.kind, scope: scope)
+        let grant = try readGrant(of: machine.spec.source.consent, scope: scope)
         for (day, ofDay) in Dictionary(grouping: facts, by: \.day).sorted(by: { $0.key < $1.key }) {
             guard let workDay = WorkDay(day) else { throw PageEvalError.fixture("bad day \(day)") }
             let items = ofDay.map { fact -> Item in
                 let number = Int64(lineTexts.firstIndex(of: fact.line)! + 1)
                 return Item(
-                    task: machine.spec.task, day: workDay, scope: scope, source: machine.spec.source.kind,
+                    task: machine.spec.task, day: workDay, scope: scope, source: machine.spec.source.consent,
                     citeFirst: number,
                     citeLast: number, start: fact.time, end: fact.time, fields: fact.fields, quote: fact.quote,
                     run: run, quoteSpan: span(of: fact.quote, in: fact.line, line: number), label: label,

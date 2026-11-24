@@ -25,7 +25,7 @@ struct SourceHealthSection: View {
 /// A small mark on a machine that uses one source: nothing while the source is ready, else what stops it.
 struct SourceHealthMark: View {
     @Environment(CaptureSettings.self) private var capture
-    let source: SourceHealth.Source
+    let source: SourceDescriptor
 
     var body: some View {
         if let health = capture.health(of: source), !health.isReady {

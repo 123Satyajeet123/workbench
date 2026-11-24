@@ -3,11 +3,10 @@ import Foundation
 /// Why a source cannot read now, in a form the person can act on. Each case has one sentence.
 public enum SourceProblem: Sendable, Equatable {
     case consentOff
-    case fullDiskAccessMissing
     case ownerMissing
-    case accessibilityMissing
-    /// Telegram signs in only with an app key of the person's own, kept in the keychain.
-    case telegramKeyMissing
+    case permissionMissing(HealthNeed.MacPermission)
+    /// The source signs in only with an app key of the person's own, kept in the keychain.
+    case keyMissing(HealthNeed.AppKey)
     /// The reader for this site found its page changed: the site's record is stale with the site.
     case siteStale(String)
     /// No browser Workbench works in is switched on, or none is known.
@@ -16,37 +15,52 @@ public enum SourceProblem: Sendable, Equatable {
     public var sentence: String {
         switch self {
         case .consentOff: "Turned off in Settings › Capture."
-        case .fullDiskAccessMissing:
-            "macOS has not given Workbench Full Disk Access. Turn it on in System Settings › Privacy & Security, then reopen Workbench."
         case .ownerMissing: "Workbench could not open the name it keeps for you in the Keychain."
-        case .accessibilityMissing: "macOS has not given Workbench Accessibility access yet."
-        case .telegramKeyMissing: "Telegram needs its app key; add it on the machine's page."
+        case .permissionMissing(.fullDiskAccess):
+            "macOS has not given Workbench Full Disk Access. Turn it on in System Settings › Privacy & Security, then reopen Workbench."
+        case .permissionMissing(.accessibility): "macOS has not given Workbench Accessibility access yet."
+        case .keyMissing(.telegramApp): "Telegram needs its app key; add it on the machine's page."
         case .siteStale(let site): AdapterState.sentence(for: site)
         case .browserNotReady(let reason): reason
         }
     }
 }
 
+/// What must hold before a source can read. A descriptor lists its needs; health folds them over what the app knows.
+public enum HealthNeed: Sendable, Equatable {
+    /// The capture switch of the source's consent kind is on.
+    case consent
+    /// The app knows the person who uses this Mac.
+    case owner
+    /// macOS has given Workbench this permission.
+    case permission(MacPermission)
+    /// The person's own app key is in the keychain.
+    case key(AppKey)
+    /// A browser Workbench works in is known and switched on.
+    case browser
+    /// No reader of the sites in this scope reported a changed page.
+    case readerCurrent(SiteScope)
+
+    /// A permission macOS gives per app.
+    public enum MacPermission: Sendable, Hashable { case fullDiskAccess, accessibility }
+
+    /// A key the person adds on a machine's page.
+    public enum AppKey: Sendable, Hashable { case telegramApp }
+
+    /// Which sites a reader reports on: the mail site, or every other.
+    public enum SiteScope: Sendable, Equatable {
+        case mail, otherSites
+
+        func contains(_ site: String) -> Bool { (site == AdapterState.mailSite) == (self == .mail) }
+    }
+}
+
 /// One source and what stops it now. An empty `problems` means ready.
 public struct SourceHealth: Sendable, Equatable, Identifiable {
-    public enum Source: String, Sendable, CaseIterable {
-        case whatsapp, telegram, mail, pages, screen
-
-        public var name: String {
-            switch self {
-            case .whatsapp: "WhatsApp"
-            case .telegram: "Telegram"
-            case .mail: "Mail"
-            case .pages: "Web pages"
-            case .screen: "Screen"
-            }
-        }
-    }
-
-    public let source: Source
+    public let source: SourceDescriptor
     public let problems: [SourceProblem]
 
-    public var id: String { source.rawValue }
+    public var id: String { source.key }
     public var isReady: Bool { problems.isEmpty }
     public var sentences: [String] { problems.map(\.sentence) }
 }
@@ -54,25 +68,24 @@ public struct SourceHealth: Sendable, Equatable, Identifiable {
 /// What the app knows about its Mac and its consent when it asks for the health of every source.
 public struct SourceHealthInputs: Sendable {
     public var policy: CapturePolicy
-    public var fullDiskAccess: Bool
+    /// The permissions macOS has given.
+    public var permissions: Set<HealthNeed.MacPermission>
     public var ownerKnown: Bool
-    public var accessibilityGranted: Bool
-    /// The person's Telegram api_id and api_hash are in the keychain.
-    public var telegramKeysKnown: Bool
+    /// The keys the person has put in the keychain.
+    public var keys: Set<HealthNeed.AppKey>
     /// The sites whose reader reported a changed page, by name.
     public var staleSites: [String]
     /// The health of each browser on this Mac, from the policy.
     public var browsers: [BrowserHealth]
 
     public init(
-        policy: CapturePolicy, fullDiskAccess: Bool, ownerKnown: Bool, accessibilityGranted: Bool,
-        telegramKeysKnown: Bool = true, staleSites: [String], browsers: [BrowserHealth]
+        policy: CapturePolicy, permissions: Set<HealthNeed.MacPermission>, ownerKnown: Bool,
+        keys: Set<HealthNeed.AppKey>, staleSites: [String], browsers: [BrowserHealth]
     ) {
         self.policy = policy
-        self.fullDiskAccess = fullDiskAccess
+        self.permissions = permissions
         self.ownerKnown = ownerKnown
-        self.accessibilityGranted = accessibilityGranted
-        self.telegramKeysKnown = telegramKeysKnown
+        self.keys = keys
         self.staleSites = staleSites
         self.browsers = browsers
     }
@@ -81,32 +94,23 @@ public struct SourceHealthInputs: Sendable {
 /// The one model of source health. Pure: it reads only its inputs.
 public enum SourceHealthModel {
     public static func health(_ inputs: SourceHealthInputs) -> [SourceHealth] {
-        SourceHealth.Source.allCases.map { SourceHealth(source: $0, problems: problems(of: $0, inputs)) }
-    }
-
-    private static func problems(of source: SourceHealth.Source, _ inputs: SourceHealthInputs) -> [SourceProblem] {
-        switch source {
-        case .whatsapp:
-            consent(.whatsapp, inputs) + (inputs.fullDiskAccess ? [] : [.fullDiskAccessMissing]) + owner(inputs)
-        case .telegram:
-            consent(.telegram, inputs) + (inputs.telegramKeysKnown ? [] : [.telegramKeyMissing])
-        case .mail:
-            consent(.mail, inputs) + owner(inputs) + browser(inputs)
-                + stale(inputs) { $0 == AdapterState.mailSite }
-        case .pages:
-            consent(.screenText, inputs) + owner(inputs) + browser(inputs)
-                + stale(inputs) { $0 != AdapterState.mailSite }
-        case .screen:
-            consent(.screen, inputs) + (inputs.accessibilityGranted ? [] : [.accessibilityMissing])
+        SourceRegistry.withNeeds.map { source in
+            SourceHealth(source: source, problems: source.needs.flatMap { problems(of: $0, for: source, inputs) })
         }
     }
 
-    private static func consent(_ kind: SourceKind, _ inputs: SourceHealthInputs) -> [SourceProblem] {
-        inputs.policy.isEnabled(kind) ? [] : [.consentOff]
-    }
-
-    private static func owner(_ inputs: SourceHealthInputs) -> [SourceProblem] {
-        inputs.ownerKnown ? [] : [.ownerMissing]
+    private static func problems(of need: HealthNeed, for source: SourceDescriptor, _ inputs: SourceHealthInputs)
+        -> [SourceProblem]
+    {
+        switch need {
+        case .consent: inputs.policy.isEnabled(source.consent) ? [] : [.consentOff]
+        case .owner: inputs.ownerKnown ? [] : [.ownerMissing]
+        case .permission(let permission):
+            inputs.permissions.contains(permission) ? [] : [.permissionMissing(permission)]
+        case .key(let key): inputs.keys.contains(key) ? [] : [.keyMissing(key)]
+        case .browser: browser(inputs)
+        case .readerCurrent(let scope): inputs.staleSites.filter(scope.contains).map(SourceProblem.siteStale)
+        }
     }
 
     /// Page and mail text come only through a browser that is known and switched on. One working browser is enough.
@@ -115,9 +119,5 @@ public enum SourceHealthModel {
         let reason =
             inputs.browsers.compactMap(\.problem).first ?? "Workbench found no Chromium browser to read pages in."
         return [.browserNotReady(reason)]
-    }
-
-    private static func stale(_ inputs: SourceHealthInputs, where belongs: (String) -> Bool) -> [SourceProblem] {
-        inputs.staleSites.filter(belongs).map(SourceProblem.siteStale)
     }
 }

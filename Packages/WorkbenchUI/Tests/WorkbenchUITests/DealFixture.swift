@@ -59,7 +59,7 @@ final class DealFixture {
         let item = Item(
             task: intake.spec.task, day: intake.day, scope: "", source: source, citeFirst: 1, citeLast: 1,
             start: intake.day.start, end: intake.day.start, fields: fields, quote: "\(company) is raising", run: run)
-        let kind = intake.spec.source.kind
+        let kind = intake.spec.source.consent
         let label: String? = kind == .mail ? "Deals" : nil
         let policy = CapturePolicy(switches: [kind: true], allowList: label.map { [kind: [$0]] } ?? [:])
         try store.saveReading(

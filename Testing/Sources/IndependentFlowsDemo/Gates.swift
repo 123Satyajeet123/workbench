@@ -220,7 +220,7 @@ extension Gates {
         let chats = MachineTemplate.dealsFromChats.spec
         let mail = MachineTemplate.dealIntake.spec
         check(
-            chats.source == .whatsappChat && mail.source == .mail
+            chats.source == .whatsAppChat && mail.source == .gmailMail
                 && chats.fields == mail.fields && chats.criteria == mail.criteria && chats.claimTypes == mail.claimTypes
                 && chats.view == mail.view,
             "\"Deals from chats\" is the deal-intake spec with another source: same fields, criteria, claim types and view"
@@ -301,7 +301,7 @@ extension Gates {
             today: WorkDay(containing: .now))
         await look.estimate()
         check(
-            onboarding.screen == .firstLook && look.machines.first?.spec.source == .mail,
+            onboarding.screen == .firstLook && look.machines.first?.spec.source == .gmailMail,
             "Fund: the first look reads \(look.machines.map(\.name)), chosen from the template's machines")
         check(
             look.cost.calls == 3 && desk.model.inputs.withLock { $0.isEmpty },

@@ -34,7 +34,7 @@ struct LabelChooser: View {
                 "In Gmail, make a label for deal mail and a filter that puts it there. \(model.name) reads a thread only while you have it open in that label, with the Workbench browser extension on. It reads no other mail."
             )
             .foregroundStyle(.supporting)
-            SourceHealthMark(source: .mail)
+            SourceHealthMark(source: .gmailMail)
             HStack {
                 TextField("Label name, as in Gmail", text: $typed).frame(maxWidth: 260)
                 Button("Read this label") {

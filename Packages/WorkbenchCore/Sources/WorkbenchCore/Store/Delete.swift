@@ -180,8 +180,9 @@ extension Store {
     }
 
     private func remove(_ db: Database, _ kind: SourceKind, before cutoff: Date) throws -> [String] {
-        guard !kind.isByHand, kind != .note || cutoff == .distantFuture else { return [] }
-        _ = try Self.eraseEvidence(.kind(kind, before: cutoff == .distantFuture ? nil : cutoff), in: db)
+        let isAgeLimit = cutoff != .distantFuture
+        guard !kind.isByHand, !(SourceRegistry.isOwnWriting(kind) && isAgeLimit) else { return [] }
+        _ = try Self.eraseEvidence(.kind(kind, before: isAgeLimit ? cutoff : nil), in: db)
         try db.execute(
             sql: "DELETE FROM item WHERE source = ? AND start_at < ?", arguments: [kind.rawValue, cutoff.stored])
         try db.execute(
@@ -189,27 +190,28 @@ extension Store {
             arguments: [kind.rawValue, cutoff.stored])
         try removeRunText(db, holding: [kind], before: cutoff)
         try removeSummaries(db, holding: [kind], before: cutoff)
-        switch kind {
-        case .screen:
-            try removeActivity(db, Activity.Kind.allCases.filter { $0 != .file }, before: cutoff)
-        case .screenText: try removeActivity(db, [.text, .page], before: cutoff)
-        case .files: try removeActivity(db, [.file], before: cutoff)
-        case .whatsapp, .telegram, .typed, .dropped, .linkedinExport, .note: break
-        case .mail:
-            try db.execute(sql: "DELETE FROM mail_part WHERE seen_at < ?", arguments: [cutoff.stored])
-            try db.execute(sql: "DELETE FROM mail_open WHERE day < ?", arguments: [String(cutoff.stored.prefix(10))])
-        case .calendar: break
-        case .web:
-            try db.execute(sql: "DELETE FROM news_article WHERE fetched_at < ?", arguments: [cutoff.stored])
-            try db.execute(sql: "DELETE FROM page_snapshot WHERE fetched_at < ?", arguments: [cutoff.stored])
-        case .call:
-            let condition = "state != 'recording' AND started_at < ?"
-            let folders = try String.fetchAll(
-                db, sql: "SELECT folder FROM recording WHERE \(condition)", arguments: [cutoff.stored])
-            try db.execute(sql: "DELETE FROM recording WHERE \(condition)", arguments: [cutoff.stored])
-            return folders
+        return try SourceRegistry.descriptors(consent: kind).flatMap { try forget($0.forgets, in: db, before: cutoff) }
+    }
+
+    /// The rows a source keeps outside the evidence store. Returns the folders of the rows that went.
+    private func forget(_ forgetting: Forgetting, in db: Database, before cutoff: Date) throws -> [String] {
+        if !forgetting.activity.isEmpty { try removeActivity(db, forgetting.activity, before: cutoff) }
+        return try forgetting.tables.flatMap { try remove($0, in: db, before: cutoff) }
+    }
+
+    private func remove(_ table: Forgetting.Table, in db: Database, before cutoff: Date) throws -> [String] {
+        let age: String =
+            switch table.age {
+            case .instant: cutoff.stored
+            case .day: String(cutoff.stored.prefix(10))
+            }
+        let condition = ([table.condition].compactMap { $0 } + ["\(table.ageColumn) < ?"]).joined(separator: " AND ")
+        let folders = try table.folderColumn.map {
+            try String.fetchAll(
+                db, sql: "SELECT \($0) FROM \(table.name) WHERE \(condition)", arguments: [age])
         }
-        return []
+        try db.execute(sql: "DELETE FROM \(table.name) WHERE \(condition)", arguments: [age])
+        return folders ?? []
     }
 
     /// Run text that meets every condition given: holds any of `kinds` or an unknown kind, belongs to a run of one of

@@ -96,8 +96,8 @@ public enum DemoBuild {
         if let terms { try session.store.saveState(terms, forKey: ModelTerms.stateKey) }
 
         try startFundTeam(in: session)
-        let intake = try machine(reading: .mail, in: session)
-        let pip = try machine(reading: .whatsappChat, in: session)
+        let intake = try machine(reading: .gmailMail, in: session)
+        let pip = try machine(reading: .whatsAppChat, in: session)
         let chat = try chooseChat(of: pip)
         try mail(of: intake).choose(MailFeed.label)
         session.capture.setBrowser(MailFeed.browser, named: MailFeed.browserName, on: true)
@@ -196,7 +196,7 @@ public enum DemoBuild {
         session.crew.reload()
     }
 
-    private static func machine(reading source: HelperSpec.Source, in session: AppSession) throws -> HelperModel {
+    private static func machine(reading source: SourceDescriptor, in session: AppSession) throws -> HelperModel {
         guard let found = session.crew.machines.first(where: { $0.spec.source == source }) else {
             throw BuildFailure.missing("machine that reads \(source)")
         }

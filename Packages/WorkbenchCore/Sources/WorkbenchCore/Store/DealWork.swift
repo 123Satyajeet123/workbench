@@ -13,7 +13,7 @@ public enum ReadBlock: Error, Equatable, LocalizedError {
         switch self {
         case .consentUnknown: "A line of this deal has no known consent, so its text is not read."
         case .switchedOff(let consent):
-            "\(consent.kind.words) is switched off or not allowed for \(consent.label), so its text is not read."
+            "Reading \(consent.kind.words) is switched off or not allowed for \(consent.label), so its text is not read."
         }
     }
 }

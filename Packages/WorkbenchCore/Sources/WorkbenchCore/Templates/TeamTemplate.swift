@@ -73,7 +73,7 @@ public struct TeamTemplate: Sendable, Equatable, Identifiable {
     }
 
     /// Whether a machine of this template follows companies in the news.
-    public var watchesCompanies: Bool { seeds.contains { $0.spec.source == .news } }
+    public var watchesCompanies: Bool { seeds.contains { $0.spec.source.followsCompanies } }
 
     /// The gallery items it sets up, in order. An item whose template is unknown is left out.
     public var items: [GalleryTemplate] { entries.map(\.item) }
@@ -92,7 +92,7 @@ public struct TeamTemplate: Sendable, Equatable, Identifiable {
     public var sourceNeeds: [SourceNeed] {
         entries.reduce(into: []) { needs, entry in
             guard let template = entry.item.machine else { return }
-            let kind = template.spec.source.kind
+            let kind = template.spec.source.consent
             if !needs.contains(where: { $0.kind == kind }) {
                 needs.append(SourceNeed(kind: kind, machine: entry.machine.name, reason: template.detail))
             }

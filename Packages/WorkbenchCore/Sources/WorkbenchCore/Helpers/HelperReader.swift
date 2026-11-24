@@ -87,7 +87,7 @@ public struct HelperReader: ModelTask {
                 Self.examples(examples, spec: spec) + Self.open(open, spec: spec)
                     + Self.objectLists(objects, spec: spec)
                     + Self.input(day: day, evidence: part, zone: zone),
-                holding: [spec.source.kind],
+                holding: [spec.source.consent],
                 window: part.lines.compactMap { line in line.lineID.map { WindowLine(number: line.id, lineID: $0) } })
             let verifier = Verifier(window: part, settings: try model.verifierSettings(), zone: zone)
             let settled = try verifier.settle(
@@ -167,7 +167,7 @@ public struct HelperReader: ModelTask {
         return """
             \(spec.brief)\(spec.criteria?.instructions ?? "")
 
-            You get \(spec.source.lines)
+            You get \(spec.source.grammar)
 
             For each item give:
             \((fieldRules + citeRules).joined(separator: "\n"))
