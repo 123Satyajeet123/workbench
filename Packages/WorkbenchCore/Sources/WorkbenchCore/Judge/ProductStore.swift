@@ -116,7 +116,7 @@ extension Store {
             for (index, claim) in product.claims.enumerated() {
                 let item = try Self.insertClaim(
                     db, claim, of: product, id: id, run: run, source: grant.kind, label: label, at: now)
-                if (isAudited ?? self.isAudited)(index) {
+                if audits(item: item, of: product.taskType, index: index, override: isAudited) {
                     try db.execute(
                         sql: "UPDATE item SET asked_with = ? WHERE id = ?", arguments: [AuditPolicy.pickChance, item])
                 }

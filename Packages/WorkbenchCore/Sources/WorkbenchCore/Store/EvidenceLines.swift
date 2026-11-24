@@ -113,9 +113,14 @@ extension Queries {
         }
     }
 
+    /// `evidence` with the lines that an earlier reading of `task` read marked as read.
+    public func unread(_ evidence: EvidenceSet, by task: String) throws -> EvidenceSet {
+        evidence.marking(read: try numbersRead(by: task, among: evidence.lines.map(\.id)))
+    }
+
     /// Which of the lines numbered `numbers` a reading of `task` read: the numbers of the lines that the window of one of
-    /// its runs holds, when `saveReading` saved that run's yield (`run.kept` is set in the same transaction as its
-    /// items). A run that failed, or whose save failed, read nothing. A trial runs under its own task, so it reads
+    /// its runs holds, when `saveReading` saved that run's yield (`run.kept` is set in the same transaction as the
+    /// items of that run's part). A run that failed, or whose save failed, read nothing. A trial runs under its own task, so it reads
     /// nothing for the live machine. A run does not name a scope or a day, and need not: the lines asked about are
     /// already one scope's lines of one day.
     public func numbersRead(by task: String, among numbers: [Int64]) throws -> Set<Int64> {

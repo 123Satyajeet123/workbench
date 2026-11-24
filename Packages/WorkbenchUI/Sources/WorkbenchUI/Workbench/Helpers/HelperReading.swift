@@ -32,12 +32,14 @@ final class HelperReading {
                 context.itemsChanged()
                 return true
             }
-            let full = try await context.source.evidence(on: day)
+            var full = try await context.source.evidence(on: day)
+            for (set, names) in try recentLabels() { full.context[set] = names }
             // A reading sends the lines no earlier reading saw: earlier lines go along as context only, so nothing is
             // read twice and nothing comes back reworded.
-            var evidence = full.marking(read: try numbersRead(in: full))
-            for (set, names) in try recentLabels() { evidence.context[set] = names }
-            let open = try store.queries.openItems(readBy: spec, asOf: day == context.today ? nil : day)
+            let evidence = try store.queries.unread(full, by: spec.task)
+            let asOf = day == context.today ? nil : day
+            let openFacts = { try store.queries.openItems(readBy: spec, asOf: asOf) }
+            let open = try openFacts()
             // A machine that follows another reads each day once even when nobody wrote, while there are facts to
             // watch: a commitment can fall due on a quiet day.
             let followedKey = MachineKey.followedRead(spec.task)
@@ -50,13 +52,14 @@ final class HelperReading {
             }
             let model = try makeModel()
             let reader = HelperReader(spec: spec, model: model, objects: try store.queries.objectsToShow(for: spec))
-            let result = try await reader.read(
-                day: day, scope: scope, evidence: evidence, marked: try context.marked(), open: open)
-            try store.saveReading(
-                result, of: spec, day: day, scope: scope, grant: try await context.grant())
+            let results = try await reader.readDay(
+                day: day, scope: scope, evidence: evidence, marked: try context.marked(), open: openFacts,
+                save: { result in
+                    try store.saveReading(result, of: spec, day: day, scope: scope, grant: try await context.grant())
+                })
             if followsOpenFacts { try followedKey.save(day, to: store) }
             context.reloadIfShown(day)
-            phase = .read(kept: result.kept, dropped: result.dropped)
+            phase = .read(kept: results.map(\.kept).reduce(0, +), dropped: results.map(\.dropped).reduce(0, +))
             context.problems.dismiss()
             context.itemsChanged()
             await refreshSummaries(day, with: Summaries(store: store, model: model))
@@ -66,12 +69,6 @@ final class HelperReading {
             context.problems.report("read the day", error)
             return false
         }
-    }
-
-    /// The numbers of the lines an earlier reading of this machine saw: a line the evidence store holds was read when a
-    /// finished run of this machine had it in its window, so a store that starts again from number one loses nothing.
-    private func numbersRead(in full: EvidenceSet) throws -> Set<Int64> {
-        try context.store.queries.numbersRead(by: context.spec.task, among: full.lines.map(\.id))
     }
 
     /// The model the machine's spec reads with.

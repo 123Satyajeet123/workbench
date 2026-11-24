@@ -176,7 +176,7 @@ public enum DemoBuild {
     }
 
     private static func cost(of session: AppSession) throws -> Double {
-        try session.store.queries.runs().map(\.usage.costUSD).reduce(0, +)
+        try session.store.queries.runs().compactMap(\.usage?.costUSD).reduce(0, +)
     }
 
     /// The same steps as the onboarding screens: the partner's name, the team, the Fund template, then done. The Fund

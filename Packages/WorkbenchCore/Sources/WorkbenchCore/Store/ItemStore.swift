@@ -34,7 +34,8 @@ extension Store {
                 if spec.lifecycle != nil { try reconcileTimers(db, item: id) }
                 return id
             }
-            for (index, id) in opened.compactMap({ $0 }).enumerated() where (isAudited ?? self.isAudited)(index) {
+            for (index, id) in opened.compactMap({ $0 }).enumerated()
+            where audits(item: id, of: spec.task, index: index, override: isAudited) {
                 try db.execute(
                     sql: "UPDATE item SET asked_with = ? WHERE id = ?", arguments: [AuditPolicy.pickChance, id])
             }
@@ -46,6 +47,13 @@ extension Store {
                 try Self.recordYield(db, of: run, kept: result.kept, dropped: result.dropped)
             }
         }
+    }
+
+    /// Whether a new item is picked to ask the founder about: by the audit design of its task, unless a test chose the
+    /// picks by the item's place in its reading.
+    func audits(item: Int64, of task: String, index: Int, override: ((Int) -> Bool)?) -> Bool {
+        if let choose = override ?? isAudited { return choose(index) }
+        return AuditPolicy.pick(design: AuditPolicy.design(of: task), item: item)
     }
 
     /// The items a new item of a machine with no lifecycle may repeat. A machine with a lifecycle names the fact it

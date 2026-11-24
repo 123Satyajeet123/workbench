@@ -32,7 +32,7 @@ final class RunsModel {
             meter = Meter(
                 today: try store.queries.usage(since: today),
                 week: try store.queries.usage(since: today.addingTimeInterval(-6 * 86_400)),
-                all: runs.map(\.usage).reduce(Usage(), +))
+                all: runs.compactMap(\.usage).reduce(Usage(), +))
         }
     }
 }

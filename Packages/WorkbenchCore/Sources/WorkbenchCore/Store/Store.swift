@@ -22,8 +22,8 @@ public final class Store: Sendable {
     public let queries: Queries
     let writer: DatabasePool
     public let clock: @Sendable () -> Date
-    /// Whether the new item at an index of a reading is picked to ask about, unless a reading says otherwise.
-    let isAudited: @Sendable (Int) -> Bool
+    /// Replaces `AuditPolicy.pick` for the new item at an index of a reading, so a test can choose its picks.
+    let isAudited: (@Sendable (Int) -> Bool)?
     let ingestGate = SerialGate()
     let backups: BackupFolder
     /// Held while a snapshot is made and while an erase deletes the backups, so a snapshot cannot outlive an erase.
@@ -31,7 +31,7 @@ public final class Store: Sendable {
 
     public init(
         directory: URL, clock: @escaping @Sendable () -> Date = { Date() }, ownerZone: TimeZone = .current,
-        busyTimeout: TimeInterval = 10, isAudited: @escaping @Sendable (Int) -> Bool = AuditPolicy.picks
+        busyTimeout: TimeInterval = 10, isAudited: (@Sendable (Int) -> Bool)? = nil
     ) throws {
         self.directory = directory
         self.clock = clock

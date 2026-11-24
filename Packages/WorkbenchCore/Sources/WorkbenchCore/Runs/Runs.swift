@@ -22,7 +22,8 @@ public struct Run: Sendable, Equatable, Identifiable {
     public var error: String?
     /// Set when the run failed.
     public var failure: Failure?
-    public var usage: Usage
+    /// Nil when the call ended with no count of its tokens and cost: a time-out kill, a crash, a cancel.
+    public var usage: Usage?
     /// Entries the task kept and dropped from the answer. Nil until the task says.
     public var kept: Int?
     public var dropped: Int?
@@ -84,8 +85,9 @@ public struct RecordedModel: Sendable {
                 return (try await answer(type, schema: schema, instructions: instructions, input: input, run: run), run)
             } catch {
                 try store.failRun(run, model: model.name, error: error)
-                try store.pauseIfLimited(model, by: error, policy: policy)
-                guard (error as? any ClassifiedFailure)?.failure == .timedOut, retries > 0 else { throw error }
+                let cause = ChargedFailure.split(error).cause
+                try store.pauseIfLimited(model, by: cause, policy: policy)
+                guard (cause as? any ClassifiedFailure)?.failure == .timedOut, retries > 0 else { throw cause }
                 retries -= 1
                 try await policy.waitBeforeRetry()
                 try store.requireModelAccess(for: model)
@@ -99,7 +101,8 @@ public struct RecordedModel: Sendable {
         let answer = try await model.generate(
             type, schema: schema, instructions: instructions, input: input, dataOwner: profile.render("{the role's}"))
         guard schema.accepts(json: answer.reply) else {
-            throw StructuredModelError.invalidReply("the reply does not fit the schema")
+            throw ChargedFailure(
+                StructuredModelError.invalidReply("the reply does not fit the schema"), usage: answer.usage)
         }
         try store.finishRun(run, model: answer.model, usage: answer.usage, reply: answer.reply)
         return answer.value
@@ -161,19 +164,24 @@ extension Store {
         try db.execute(sql: "UPDATE run_text SET reply = ? WHERE run_id = ?", arguments: [reply, id])
     }
 
-    /// A cancelled call is `cancelled`. Any other error is a failure of the kind its type names, or `other`.
+    /// A cancelled call is `cancelled`. Any other error is a failure of the kind its type names, or `other`. The
+    /// tokens and cost are the ones the failure carried; a failure that carried none leaves them NULL: unknown is not
+    /// free.
     func failRun(_ id: RunID, model: String, error: any Error) throws {
-        let cancelled = error is CancellationError
-        let failure = cancelled ? nil : (error as? any ClassifiedFailure)?.failure ?? .other
+        let (cause, usage) = ChargedFailure.split(error)
+        let cancelled = cause is CancellationError
+        let failure = cancelled ? nil : (cause as? any ClassifiedFailure)?.failure ?? .other
         try writer.write { db in
             try db.execute(
                 sql: """
-                    UPDATE run SET model = ?, ended_at = ?, outcome = ?, error = ?, failure = ?
+                    UPDATE run SET model = ?, ended_at = ?, outcome = ?, error = ?, failure = ?, input_tokens = ?,
+                        cache_read_tokens = ?, cache_write_tokens = ?, output_tokens = ?, cost_usd = ?
                     WHERE id = ? AND outcome = 'running'
                     """,
                 arguments: [
                     model, clock().stored, cancelled ? "cancelled" : "failed",
-                    cancelled ? nil : error.localizedDescription, failure?.rawValue, id,
+                    cancelled ? nil : cause.localizedDescription, failure?.rawValue, usage?.inputTokens,
+                    usage?.cacheReadTokens, usage?.cacheWriteTokens, usage?.outputTokens, usage?.costUSD, id,
                 ])
         }
     }
@@ -221,11 +229,19 @@ extension Queries {
     }
 
     public func usage(since start: Date) throws -> Usage {
-        try runs(since: start).map(\.usage).reduce(Usage(), +)
+        try runs(since: start).compactMap(\.usage).reduce(Usage(), +)
     }
 }
 
 extension Run {
+    private static func usage(_ row: Row) throws -> Usage? {
+        guard let cost: Double = try row.optionalValue("cost_usd") else { return nil }
+        return Usage(
+            inputTokens: try row.value("input_tokens"), cacheReadTokens: try row.value("cache_read_tokens"),
+            cacheWriteTokens: try row.value("cache_write_tokens"), outputTokens: try row.value("output_tokens"),
+            costUSD: cost)
+    }
+
     init(row: Row) throws {
         self.init(
             id: try row.value("id"), task: try row.value("task"), model: try row.value("model"),
@@ -236,10 +252,7 @@ extension Run {
                 guard let failure = Run.Failure(rawValue: text) else { throw StoredValueError("failure") }
                 return failure
             },
-            usage: Usage(
-                inputTokens: try row.value("input_tokens"), cacheReadTokens: try row.value("cache_read_tokens"),
-                cacheWriteTokens: try row.value("cache_write_tokens"), outputTokens: try row.value("output_tokens"),
-                costUSD: try row.value("cost_usd")),
+            usage: try Self.usage(row),
             kept: try row.optionalValue("kept"), dropped: try row.optionalValue("dropped"))
     }
 }

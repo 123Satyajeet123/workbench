@@ -107,6 +107,8 @@ public struct OutboundRun: Sendable {
     private static func key(_ item: Item) -> String { item[Outbound.urlField] + "|" + item["company"].comparable }
 
     private func modelUSD(of runs: [RunID], since start: Date) throws -> Double {
-        try session.store.queries.runs(since: start).filter { runs.contains($0.id) }.reduce(0) { $0 + $1.usage.costUSD }
+        try session.store.queries.runs(since: start).filter { runs.contains($0.id) }.reduce(0) {
+            $0 + ($1.usage?.costUSD ?? 0)
+        }
     }
 }

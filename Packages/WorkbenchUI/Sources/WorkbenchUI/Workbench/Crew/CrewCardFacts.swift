@@ -37,7 +37,7 @@ struct CrewCardFacts: Equatable {
     }
 
     private static func cost(_ runs: [Run]) -> String {
-        let usage = runs.map(\.usage).reduce(Usage(), +)
+        let usage = runs.compactMap(\.usage).reduce(Usage(), +)
         return usage.costUSD == 0 ? "No cost this week" : "\(usage.costText) this week"
     }
 }

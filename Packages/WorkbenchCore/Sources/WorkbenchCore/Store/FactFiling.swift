@@ -23,9 +23,6 @@ public struct Filing: Sendable, Equatable {
     public var object: WorkObject
     public var how: FilingHow
     public var at: Date
-
-    /// A model proposed this home and no person has acted on it yet.
-    public var isProposal: Bool { how == .modelProposed }
 }
 
 public enum FilingError: Error, Equatable {
@@ -41,11 +38,13 @@ extension Store {
         try writer.write { db in try file(db, item: item, into: object, how: how, surface: surface) }
     }
 
-    /// A person agrees with the home a fact has: a model's proposal, or the folder of its machine.
+    /// A person agrees with the place a fact waits to be filed under, or else with the home it has.
     public func confirmHome(of item: ItemID, surface: MarkSurface) throws {
         try writer.write { db in
-            guard let home = try Queries.filing(db, of: item) else { throw FilingError.noHome(item: item) }
-            try file(db, item: item, into: home.object.id, how: .personConfirmed, surface: surface)
+            guard let place = try Queries.proposedHome(db, of: item) ?? Queries.filing(db, of: item)?.object else {
+                throw FilingError.noHome(item: item)
+            }
+            try file(db, item: item, into: place.id, how: .personConfirmed, surface: surface)
         }
     }
 
@@ -63,9 +62,10 @@ extension Store {
             arguments: [item, object, how.rawValue, clock().stored, surface?.rawValue])
     }
 
-    /// Files the fact a model proposed a home for, unless it already stands there.
+    /// Files the fact a model proposed a home for, unless it already stands there or waits for it.
     func fileProposal(_ db: Database, item: ItemID, into object: WorkObjectID) throws {
-        guard try Queries.filing(db, of: item)?.object.id != object else { return }
+        let standing = try Queries.proposedHome(db, of: item) ?? Queries.filing(db, of: item)?.object
+        guard standing?.id != object else { return }
         try file(db, item: item, into: object, how: .modelProposed, surface: nil)
     }
 }
@@ -118,6 +118,28 @@ extension Queries {
             let object = try Self.workObjects(db, where: "id = ?", [row["object_id"] as String]).first
         else { return nil }
         return Filing(object: object, how: try row.enumeration("how"), at: try row.date("at"))
+    }
+
+    /// The place a model proposed for a fact that no person has acted on: its latest proposal, when that is newer than
+    /// the home. Nil otherwise. The inspector says "Filed to X?".
+    public func proposedHome(of item: ItemID) throws -> WorkObject? {
+        try reader.read { db in try Self.proposedHome(db, of: item) }
+    }
+
+    static func proposedHome(_ db: Database, of item: ItemID) throws -> WorkObject? {
+        guard
+            let id = try String.fetchOne(
+                db,
+                sql: """
+                    SELECT proposal.object_id FROM fact_link proposal
+                    WHERE proposal.item_id = ?1 AND proposal.how = 'modelProposed'
+                        AND NOT EXISTS (
+                            SELECT 1 FROM fact_home home WHERE home.item_id = ?1
+                                AND (home.at, home.id) > (proposal.at, proposal.id))
+                    ORDER BY proposal.at DESC, proposal.id DESC LIMIT 1
+                    """, arguments: [item])
+        else { return nil }
+        return try Self.workObjects(db, where: "id = ?", [id]).first
     }
 
     /// The facts whose home is `object`, and with `includeChildren` the facts whose home is any object below it.

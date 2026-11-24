@@ -57,14 +57,19 @@ private func read(
             """#
         let store = try makeStore()
         let model = ScriptedModel(reply)
-        let result = try await HelperReader(spec: .team, model: RecordedModel(model, store: store)).read(
+        let results = try await HelperReader(spec: .team, model: RecordedModel(model, store: store)).readDay(
             day: day, scope: "work", evidence: EvidenceSet(lines: lines, context: ["members": ["Asha", "Raj"]]),
-            budget: 70)
+            budget: 70
+        ) { part in
+            try store.saveReading(part, of: .team, day: day, scope: "work", grant: grant(.whatsapp, label: "work"))
+        }
         let inputs = model.inputs.withLock { $0 }
         #expect(inputs.count == 2)
         #expect(!inputs[0].contains("login API done") && inputs[1].contains("Read before"))
         #expect(inputs[1].contains("Raj: do we hire a designer?") && inputs[1].contains("Members: Asha, Raj"))
-        #expect(result.items.map(\.quote) == ["send the deck", "login API done"] && result.dropped == 2)
+        #expect(results.flatMap(\.items).map(\.quote) == ["send the deck", "login API done"])
+        #expect(results.map(\.dropped).reduce(0, +) == 2)
+        #expect(try store.queries.runs().map(\.kept) == [1, 1], "each part's run has its own yield")
         #expect(try store.queries.runs().count == 2)
     }
 

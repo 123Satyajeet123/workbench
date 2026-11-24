@@ -76,3 +76,25 @@ extension Store {
         try pauseModel(plan: plan, until: failure.resetsAt ?? clock() + policy.limitWithoutReset)
     }
 }
+
+/// A failed call that the model's source had already counted: `usage` is what the CLI reported on its result line.
+/// A failure with no result line (a time-out kill, a crash) is not wrapped: its usage is unknown, not zero.
+public struct ChargedFailure: ClassifiedFailure, LocalizedError {
+    public let cause: any Error
+    public let usage: Usage
+
+    public init(_ cause: any Error, usage: Usage) {
+        self.cause = cause
+        self.usage = usage
+    }
+
+    public var failure: Run.Failure { (cause as? any ClassifiedFailure)?.failure ?? .other }
+    public var resetsAt: Date? { (cause as? any ClassifiedFailure)?.resetsAt }
+    public var errorDescription: String? { cause.localizedDescription }
+
+    /// The error a caller of the model should see, and the usage the failure carried, if any.
+    static func split(_ error: any Error) -> (cause: any Error, usage: Usage?) {
+        guard let charged = error as? ChargedFailure else { return (error, nil) }
+        return (charged.cause, charged.usage)
+    }
+}

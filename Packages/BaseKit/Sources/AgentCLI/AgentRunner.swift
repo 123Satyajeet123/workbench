@@ -71,7 +71,7 @@ public struct AgentRunner: StructuredModel {
             let value = try JSONDecoder().decode(T.self, from: Data(answer.utf8))
             return ModelAnswer(value: value, model: answeredBy, usage: usage, reply: answer)
         } catch {
-            throw StructuredModelError.invalidReply("\(error)")
+            throw ChargedFailure(StructuredModelError.invalidReply("\(error)"), usage: usage)
         }
     }
 
@@ -81,13 +81,18 @@ public struct AgentRunner: StructuredModel {
         }
         if result.isError || output.status != 0 {
             if let full = limits?.windowsAtLimit, !full.isEmpty {
-                throw AgentCLIError.planLimit(resetsAt: full.compactMap(\.resetsAt).max())
+                throw ChargedFailure(
+                    AgentCLIError.planLimit(resetsAt: full.compactMap(\.resetsAt).max()), usage: result.usage)
             }
-            throw StructuredModelError.unavailable("claude failed: \(result.text ?? output.stderr)")
+            throw ChargedFailure(
+                StructuredModelError.unavailable("claude failed: \(result.text ?? output.stderr)"),
+                usage: result.usage)
         }
         // With --json-schema the answer is `structured_output`; without it the model declined (code.claude.com/docs/en/headless).
         guard let answer = result.structuredAnswer else {
-            throw StructuredModelError.invalidReply("claude declined: \(result.text ?? "no text")")
+            throw ChargedFailure(
+                StructuredModelError.invalidReply("claude declined: \(result.text ?? "no text")"),
+                usage: result.usage)
         }
         return (answer, result.model ?? model, result.usage)
     }
