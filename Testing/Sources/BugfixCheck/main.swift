@@ -55,20 +55,8 @@ final class PartsModel: StructuredModel, Sendable {
 
 /// A day of twelve lines of about 100 characters, stored the way a chat source stores them.
 func splitDay(in store: Store) throws -> EvidenceSet {
-    let lines = try (1...12).map { number in
-        ObservedLine(
-            line: Line(
-                entity: try EntityKey.whatsAppGroup(chat: chat, author: .member(member), stanzaID: "m\(number)"),
-                text: "Asha: line-\(String(format: "%02d", number)) " + String(repeating: "x", count: 80),
-                readerVersion: "check 1"),
-            eventTime: UTCInstant(milliseconds: 1_795_000_000_000 + Int64(number) * 60_000), actor: member,
-            messageRef: "m\(number)")
-    }
     _ = try store.record(
-        SourceReading(
-            grant: try permission(store), label: chat, container: chat,
-            audience: AudienceDigest(owner: "me", members: [member]), lines: lines, cursorAfter: nil,
-            readerVersion: "check 1"), of: .whatsAppChat, owner: try PersonID("owner"))
+        reading(dayLines(), grant: try permission(store)), of: .whatsAppChat, owner: try PersonID("owner"))
     let stored = try store.queries.currentLines(in: [chat], from: .distantPast, to: .distantFuture)
     return EvidenceSet(
         lines: stored.map {
@@ -77,8 +65,29 @@ func splitDay(in store: Store) throws -> EvidenceSet {
         })
 }
 
+func reading(_ lines: [ObservedLine], grant: CaptureGrant) -> SourceReading {
+    SourceReading(
+        grant: grant, label: chat, container: chat, audience: AudienceDigest(owner: "me", members: [member]),
+        lines: lines, cursorAfter: nil, readerVersion: "check 1")
+}
+
+func dayLines() throws -> [ObservedLine] {
+    try (1...12).map { number in
+        ObservedLine(
+            line: Line(
+                entity: try EntityKey.whatsAppGroup(chat: chat, author: .member(member), stanzaID: "m\(number)"),
+                text: "Asha: line-\(String(format: "%02d", number)) " + String(repeating: "x", count: 80),
+                readerVersion: "check 1"),
+            eventTime: UTCInstant(milliseconds: 1_795_000_000_000 + Int64(number) * 60_000), actor: member,
+            messageRef: "m\(number)")
+    }
+}
+
+/// Turns the chat on in the store's own policy, as the person does in the app, and returns its grant. The store checks
+/// consent again inside each write against the saved policy, so a grant made only in memory is refused.
 func permission(_ store: Store) throws -> CaptureGrant {
     let policy = CapturePolicy(switches: [.whatsapp: true], allowList: [.whatsapp: [chat]])
+    try store.savePolicy(policy)
     guard let grant = policy.authorize(CaptureRequest(kind: .whatsapp, label: chat), at: store.clock()).grant else {
         throw CheckFailure(description: "no grant")
     }
@@ -145,6 +154,8 @@ do {
     expect(
         "the next read sends the lines of part 2 and part 3, none of part 1: \(again)",
         again.flatMap { $0 }.sorted() == Array(5...12))
+} catch {
+    expect("Split day (D4 G2): ran without an error: \(error)", false)
 }
 
 // MARK: Failed attempts
@@ -217,6 +228,8 @@ do {
     expect(
         "a good answer still stores its usage by the same parse: \(String(describing: answered.usage))",
         answered.outcome == .done && answered.usage == counted)
+} catch {
+    expect("Failed attempts (D4 G1): ran without an error: \(error)", false)
 }
 
 // MARK: Seeded pick
@@ -237,6 +250,8 @@ do {
         (1...200).contains {
             AuditPolicy.pick(design: design, item: Int64($0)) != AuditPolicy.pick(design: other, item: Int64($0))
         })
+} catch {
+    expect("Seeded audit pick (D6): ran without an error: \(error)", false)
 }
 
 // MARK: Home of a fact
@@ -272,6 +287,27 @@ do {
         "after confirmHome the home was filed as personConfirmed",
         try store.queries.filing(of: id)?.how == .personConfirmed)
     expect("after confirmHome no proposal is pending", try store.queries.proposedHome(of: id) == nil)
+} catch {
+    expect("Home of a fact (G4b): ran without an error: \(error)", false)
+}
+
+heading("Consent inside the write (contract 86 §1)")
+do {
+    let store = try Store(directory: scratch.appending(path: "consent"), clock: { start })
+    let grant = try permission(store)
+    try store.savePolicy(CapturePolicy(switches: [.whatsapp: false], allowList: [.whatsapp: [chat]]))
+    var refused = false
+    do {
+        _ = try store.record(reading(dayLines(), grant: grant), of: .whatsAppChat, owner: try PersonID("owner"))
+    } catch EvidenceError.consentWithdrawn {
+        refused = true
+    }
+    expect("a write after the person turned the chat off is refused", refused)
+    expect(
+        "no line of the refused write is stored",
+        try store.queries.currentLines(in: [chat], from: .distantPast, to: .distantFuture).isEmpty)
+} catch {
+    expect("Consent inside the write: ran without an error: \(error)", false)
 }
 
 if let failed {
