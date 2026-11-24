@@ -8,7 +8,8 @@ enum EditorTokens {
         let colors: [String: NSColor] = [
             "page": Palette.page, "text": Palette.text, "supporting": supporting(), "divider": Palette.divider,
             "hover": Palette.hover, "selected": Palette.selected, "icon": Palette.icon, "accent": Palette.accent,
-            "link": Palette.link, "callout": Palette.callout,
+            "link": Palette.link, "callout": Palette.callout, "good": .systemGreen, "attention": .systemOrange,
+            "bad": .systemRed,
         ]
         var tokens = colors.mapValues { css($0, appearance) }
         tokens["body"] = "\(Font.TextStyle.documentBody.macSize * scale)px"

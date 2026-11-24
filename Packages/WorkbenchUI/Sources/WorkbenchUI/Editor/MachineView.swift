@@ -21,21 +21,53 @@ struct FactsRendering: Codable, Equatable, Sendable {
     var title: String
     var layout: String
     var countText: String
+    /// How many facts ask the person, in words; empty when none does.
+    var needsText: String
+    /// How many facts of a section show before the rest fold; 0 shows them all.
+    var limit: Int
     var columns: [String]
+    /// The values the sections are counted by, in the order every section's tally follows; empty for an unfolded view.
+    var tallyColumns: [String]
     var sections: [Section]
 
     struct Section: Codable, Equatable, Sendable {
         var name: String
         var countText: String
         var count: Int
+        var needs: Int
+        var summary: Summary?
+        var tally: [Tally]
+        var latest: String
+        var latestDay: String
         var rows: [Row]
+    }
+
+    struct Summary: Codable, Equatable, Sendable {
+        var text: String
+        var cites: [CiteChip]
+    }
+
+    struct Tally: Codable, Equatable, Sendable {
+        var value: String
+        var count: Int
+        var tone: String
+    }
+
+    struct Tag: Codable, Equatable, Sendable {
+        var text: String
+        var tone: String
     }
 
     struct Row: Codable, Equatable, Sendable {
         var fact: Int64
-        var person: String
+        /// What the fact is about, when the sections do not already say it: a member, else the machine's title.
+        var subject: String
         var words: String
         var cells: [String]
+        var needs: [Tag]
+        var tags: [Tag]
+        var due: String
+        var state: String
         var marks: [FactMark]
     }
 }

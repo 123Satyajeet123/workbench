@@ -82,6 +82,12 @@ extension HelperSpec {
         fields.first { if case .member = $0.kind { true } else { false } }?.name
     }
 
+    /// The field that says what a fact is about: the one that names a member, else the one the machine titles its
+    /// facts with when that is a field of its own.
+    public var subjectField: String? {
+        memberField ?? (fields.contains { $0.name == title } ? title : nil)
+    }
+
     public var labelField: String? {
         fields.first { if case .label = $0.kind { true } else { false } }?.name
     }

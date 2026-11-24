@@ -4,6 +4,8 @@ import WorkbenchCore
 struct FactLine: View {
     let item: Item
     let model: TodayModel
+    /// The field the list around the line is grouped by: its heading says it, so the line does not.
+    var grouping: String?
 
     @State private var isOpen = false
     @State private var chat: [ChatLine]?
@@ -41,9 +43,8 @@ struct FactLine: View {
     private var isDone: Bool { model.isDone([item]) }
 
     private var meta: String {
-        var parts = [item["person"], item["project"], item["company"], item["event"], item["feed"]].filter {
-            !$0.isEmpty
-        }
+        var parts = ["person", "project", "company", "event", "feed"].filter { $0 != grouping }.map { item[$0] }
+            .filter { !$0.isEmpty }
         if let due = item.dueDay {
             parts.append("due \(due.start.formatted(.dateTime.weekday(.abbreviated).day().month()))")
         }

@@ -154,7 +154,7 @@ struct SummaryLineRow: View {
     var body: some View {
         Fold {
             VStack(alignment: .leading, spacing: Space.xs) {
-                ForEach(row.facts) { FactLine(item: $0, model: model).transition(.opacity) }
+                ForEach(row.facts) { FactLine(item: $0, model: model, grouping: row.groupField).transition(.opacity) }
             }
             .padding(.leading, Space.s)
         } label: {
@@ -183,7 +183,9 @@ struct PersonFacts: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Space.xs) {
             Text(group.name.isEmpty ? "No person named" : group.name).fontWeight(.semibold)
-            ForEach(group.open + group.rest) { FactLine(item: $0, model: model).transition(.opacity) }
+            ForEach(group.open + group.rest) {
+                FactLine(item: $0, model: model, grouping: "person").transition(.opacity)
+            }
         }
     }
 }

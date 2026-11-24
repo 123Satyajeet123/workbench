@@ -59,7 +59,7 @@ struct FactGroupsBody: View {
     }
 
     private func line(_ item: Item) -> some View {
-        FactLine(item: item, model: model)
+        FactLine(item: item, model: model, grouping: lens == .people ? "person" : "project")
             .matchedGeometryEffect(id: item.id, in: lines)
     }
 }

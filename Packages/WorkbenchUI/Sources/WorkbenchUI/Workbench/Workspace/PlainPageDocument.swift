@@ -43,7 +43,10 @@ struct PlainPageDocument: View {
             let controller = try PageEditorController(
                 store: crew.store, page: page, owner: owner, host: EditorHost(), appearance: look.appearance,
                 reduceMotion: look.reduceMotion, scale: look.scale,
-                views: { MachineViewBuilder(facts: [], titleOf: { _ in "" }, pickerNote: { _ in nil }) })
+                views: {
+                    MachineViewBuilder(
+                        facts: [], titleOf: { _ in "" }, lens: FactsLens(spec: .pages, now: Date()), pickerNote: { _ in nil })
+                })
             controller.onOpen = { target in
                 if case .link(let address) = target { EditorHost.openLink(address) }
             }

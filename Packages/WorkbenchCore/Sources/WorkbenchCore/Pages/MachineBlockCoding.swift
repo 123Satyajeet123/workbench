@@ -87,7 +87,7 @@ extension PageCite {
 /// and nowhere else.
 extension MachineBlock: Codable {
     private enum Key: String, CodingKey {
-        case kind, text, title, cites, filters, groupBy, layout, columns, rows, source
+        case kind, text, title, cites, filters, groupBy, layout, columns, rows, source, countBy, show, order, limit
     }
 
     public init(from decoder: any Decoder) throws {
@@ -105,7 +105,11 @@ extension MachineBlock: Codable {
                     filters: try values.decode([String: [String]].self, forKey: .filters),
                     groupBy: try values.decodeIfPresent(String.self, forKey: .groupBy),
                     layout: try values.decode(FactsView.Layout.self, forKey: .layout),
-                    columns: try values.decode([String].self, forKey: .columns)))
+                    columns: try values.decode([String].self, forKey: .columns),
+                    countBy: try values.decodeIfPresent(String.self, forKey: .countBy),
+                    show: try values.decodeIfPresent(FactsView.Show.self, forKey: .show) ?? .all,
+                    order: try values.decodeIfPresent(FactsView.Order.self, forKey: .order) ?? .stored,
+                    limit: try values.decodeIfPresent(Int.self, forKey: .limit)))
         case .grid:
             self = .grid(
                 Grid(
@@ -130,6 +134,10 @@ extension MachineBlock: Codable {
             try values.encodeIfPresent(view.groupBy, forKey: .groupBy)
             try values.encode(view.layout, forKey: .layout)
             try values.encode(view.columns, forKey: .columns)
+            try values.encodeIfPresent(view.countBy, forKey: .countBy)
+            if view.show != .all { try values.encode(view.show, forKey: .show) }
+            if view.order != .stored { try values.encode(view.order, forKey: .order) }
+            try values.encodeIfPresent(view.limit, forKey: .limit)
         case .grid(let grid):
             try values.encode(grid.title, forKey: .title)
             try values.encode(grid.columns, forKey: .columns)
@@ -150,4 +158,6 @@ extension MachineBlock: Codable {
 }
 
 extension FactsView.Layout: Codable {}
+extension FactsView.Show: Codable {}
+extension FactsView.Order: Codable {}
 extension PickerKind: Codable {}

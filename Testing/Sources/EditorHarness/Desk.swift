@@ -9,26 +9,28 @@ import Lines
 /// A machine and its page in a new store in a temporary folder, with synthetic words only. Nothing here reads the
 /// person's store, the network or the Keychain.
 @MainActor
-final class Desk {
-    static let paragraphTexts = ["Budget talk with Asha.", "Next steps are unclear.", "Ravi owes the numbers."]
+public final class Desk {
+    public static let paragraphTexts = ["Budget talk with Asha.", "Next steps are unclear.", "Ravi owes the numbers."]
 
-    let folder = FileManager.default.temporaryDirectory.appending(path: "doc-editor-\(UUID().uuidString)")
-    private(set) var store: Store
-    let owner: PersonID
-    let machine: Machine?
-    let pageObject: WorkObjectID
-    let paragraphs: [BlockID]
-    private(set) var machineBlocks: [MachineBlockID] = []
+    public let folder = FileManager.default.temporaryDirectory.appending(path: "doc-editor-\(UUID().uuidString)")
+    public private(set) var store: Store
+    public let owner: PersonID
+    public let machine: Machine?
+    public let pageObject: WorkObjectID
+    public let paragraphs: [BlockID]
+    public private(set) var machineBlocks: [MachineBlockID] = []
 
-    var page: WorkObjectID { pageObject }
-    var note: NoteID { NoteID(object: page)! }
+    public var page: WorkObjectID { pageObject }
+    public var note: NoteID { NoteID(object: page)! }
 
     /// A machine's page holding `texts` as its paragraphs.
-    init(texts: [String] = Desk.paragraphTexts) async throws {
+    public init(texts: [String] = Desk.paragraphTexts, spec: HelperSpec = .followUps, name: String = "Follow-ups")
+        async throws
+    {
         let store = try Store(directory: folder)
         let owner = try PersonID("editor-owner")
-        let work = try store.createWorkObject(type: ObjectTypes.folder, parent: nil, name: "Follow-ups (synthetic)")
-        let machine = try store.createMachine(from: .followUps, name: "Follow-ups", in: work.id)
+        let work = try store.createWorkObject(type: ObjectTypes.folder, parent: nil, name: "\(name) (synthetic)")
+        let machine = try store.createMachine(from: spec, name: name, in: work.id)
         self.machine = machine
         pageObject = machine.page!
         self.store = store
@@ -37,7 +39,7 @@ final class Desk {
     }
 
     /// A plain page that no machine owns, holding `texts`.
-    init(plainPage texts: [String]) async throws {
+    public init(plainPage texts: [String]) async throws {
         let store = try Store(directory: folder)
         let owner = try PersonID("editor-owner")
         pageObject = try store.createWorkObject(type: ObjectTypes.page, parent: nil, name: "Notes (synthetic)").id
@@ -49,7 +51,7 @@ final class Desk {
 
     /// Saves lines as paragraphs the way the old native editor did: one plain line each, in order.
     @discardableResult
-    static func save(_ texts: [String], on page: WorkObjectID, in store: Store, owner: PersonID) async throws
+    public static func save(_ texts: [String], on page: WorkObjectID, in store: Store, owner: PersonID) async throws
         -> [BlockID]
     {
         let blocks = texts.map { _ in BlockID() }
@@ -62,13 +64,13 @@ final class Desk {
     }
 
     /// A store opened again on the same folder: what a restart of the app gives.
-    func reopen() throws { store = try Store(directory: folder) }
+    public func reopen() throws { store = try Store(directory: folder) }
 
-    func close() { try? FileManager.default.removeItem(at: folder) }
+    public func close() { try? FileManager.default.removeItem(at: folder) }
 
     /// Two blocks of the machine, as a proposal makes them and the person accepts them: a heading after the first
     /// paragraph, and a line that cites the second paragraph after the second.
-    func addMachineBlocks(_ blocks: [(MachineBlock, after: PageBlockRef?)]) throws {
+    public func addMachineBlocks(_ blocks: [(MachineBlock, after: PageBlockRef?)]) throws {
         let current = try store.queries.page(of: page, for: PageViewer(owner: owner))
         let gate = PageGate(catalog: PageCatalog(spec: machine!.spec, items: []))
         let (proposed, verdicts) = gate.apply(
@@ -87,8 +89,14 @@ final class Desk {
         }
     }
 
+    /// Takes away the blocks the machine started its page with, so a page holds only what a check puts on it.
+    public func clearMachineBlocks() throws {
+        let current = try store.queries.page(of: page, for: PageViewer(owner: owner))
+        for case .machine(let id) in current.page.order { try store.removeBlock(id, surface: .machinePage) }
+    }
+
     /// Everything the store holds for the page, as one string: the checks compare it before and after.
-    func fingerprint() throws -> String {
+    public func fingerprint() throws -> String {
         try store.queries.reader.read { db in
             let lines = try Row.fetchAll(db, sql: "SELECT count(*) AS n, max(id) AS last FROM evidence")
             let order = try String.fetchAll(

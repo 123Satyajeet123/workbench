@@ -42,6 +42,7 @@ let package = Package(
         .executable(name: "add-team", targets: ["AddTeamDemo"]),
         .executable(name: "page-truth", targets: ["PageTruthDemo"]),
         .executable(name: "doc-editor", targets: ["DocEditorDemo"]),
+        .executable(name: "view-stress", targets: ["ViewStressDemo"]),
     ],
     dependencies: [
         .package(path: "../Packages/WorkbenchCore"), .package(path: "../Packages/WorkbenchUI"),
@@ -156,10 +157,26 @@ let package = Package(
                 .product(name: "Kernel", package: "Kernel"), .product(name: "Lines", package: "Kernel"),
             ],
             swiftSettings: [.defaultIsolation(MainActor.self)]),
+        .target(
+            name: "EditorHarness",
+            dependencies: [
+                "PageSnapshot", "WorkbenchCore", "WorkbenchUI", .product(name: "Kernel", package: "Kernel"),
+                .product(name: "Lines", package: "Kernel"),
+            ],
+            swiftSettings: [.defaultIsolation(MainActor.self)]),
+        .executableTarget(
+            name: "ViewStressDemo",
+            dependencies: [
+                "EditorHarness", "PageSnapshot", "WorkbenchCore", "WorkbenchUI",
+                .product(name: "CaptureService", package: "BaseKit"),
+                .product(name: "LocalSources", package: "BaseKit"), .product(name: "Kernel", package: "Kernel"),
+                .product(name: "Lines", package: "Kernel"),
+            ],
+            swiftSettings: [.defaultIsolation(MainActor.self)]),
         .executableTarget(
             name: "DocEditorDemo",
             dependencies: [
-                "PageSnapshot", "WorkbenchCore", "WorkbenchUI", .product(name: "Kernel", package: "Kernel"),
+                "EditorHarness", "PageSnapshot", "WorkbenchCore", "WorkbenchUI", .product(name: "Kernel", package: "Kernel"),
                 .product(name: "Lines", package: "Kernel"),
             ],
             swiftSettings: [.defaultIsolation(MainActor.self)]),

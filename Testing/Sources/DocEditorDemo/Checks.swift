@@ -1,58 +1,10 @@
 import AppKit
+import EditorHarness
 import Foundation
 import Kernel
 
 @testable import WorkbenchCore
 @testable import WorkbenchUI
-
-/// One page in a scratch store with its editor in a window that is never shown.
-@MainActor
-struct Session {
-    let desk: Desk
-    let editor: OffscreenEditor
-    let controller: PageEditorController
-
-    static let machineReady =
-        "return window.wbEditor && window.wbEditor.document.length > 1 && document.querySelector('.machine') !== null"
-
-    init(desk: Desk, dark: Bool = false, facts: [Item] = [], ready: String = Session.machineReady) async throws {
-        self.desk = desk
-        editor = OffscreenEditor(dark: dark)
-        controller = try PageEditorController(
-            store: desk.store, page: desk.page, owner: desk.owner, host: editor.host,
-            appearance: dark ? .dark : .light, reduceMotion: false,
-            views: { MachineViewBuilder(facts: facts, titleOf: { _ in "" }, pickerNote: { _ in nil }) })
-        controller.start()
-        guard try await editor.waitUntil(ready) else {
-            throw DemoFailure("the editor did not load the page")
-        }
-    }
-
-    /// The page as the editor shows it: type, id and words of each block.
-    func shown() async throws -> [String] {
-        let text = try await editor.json(
-            "return window.wbEditor.document.map(b => b.type + '|' + b.id + '|' + (b.content||[]).map(c=>c.text||'').join(''))"
-        )
-        return try JSONDecoder().decode([String].self, from: Data(text.utf8))
-    }
-
-    /// The blocks with words, and the machine blocks: the editor also holds an empty paragraph to write in.
-    func filled() async throws -> [String] {
-        try await shown().filter { !($0.hasPrefix("paragraph") && $0.hasSuffix("|")) }
-    }
-
-    func storedWords() throws -> [String] { try desk.store.queries.noteBlocks(of: desk.note).map(\.text) }
-
-    func place(_ id: BlockID, at end: String = "end") async throws {
-        try await editor.run(
-            "window.wbEditor.setTextCursorPosition('\(id.rawValue)', '\(end)'); window.wbEditor.focus();")
-    }
-
-    func settle() async throws {
-        try await Task.sleep(for: .milliseconds(250))
-        guard await controller.flush() else { throw DemoFailure("the editor did not settle") }
-    }
-}
 
 enum Checks {
     static func standardDesk() async throws -> Desk {

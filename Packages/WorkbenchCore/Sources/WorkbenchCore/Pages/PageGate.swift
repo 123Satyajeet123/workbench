@@ -21,6 +21,9 @@ public enum PageRefusal: Error, Equatable, Sendable, CustomStringConvertible {
     case unknownCite(String)
     case unevenGrid
     case formula(String)
+    case countsWithoutSections
+    case nothingOpens
+    case boardTooWide(field: String, values: Int, cap: Int)
 
     public var description: String {
         switch self {
@@ -34,6 +37,11 @@ public enum PageRefusal: Error, Equatable, Sendable, CustomStringConvertible {
         case .unknownCite(let name): "It cites something that is not on the page or among the facts (\(name))."
         case .unevenGrid: "Its rows are not all as long as its header."
         case .formula(let text): "Its formula cannot be worked out (\(text))."
+        case .countsWithoutSections:
+            "It counts the facts of sections, but it has no sections, or it is not a list or a table."
+        case .nothingOpens: "Facts of this machine never open or close, so it cannot show only the open ones."
+        case .boardTooWide(let field, let values, let cap):
+            "A board has a column for each \(field), and there are \(values) of them: more than \(cap). Use sections."
         }
     }
 }
@@ -56,6 +64,8 @@ public struct PageCatalog: Equatable, Sendable {
     public var values: [String: Set<String>]
     public var columns: Set<String>
     public var facts: Set<Int64>
+    /// Whether facts of the machine open and close.
+    public var hasLifecycle: Bool
 
     public init(spec: HelperSpec, items: [Item]) {
         values = [:]
@@ -69,6 +79,7 @@ public struct PageCatalog: Equatable, Sendable {
         }
         columns = Set(spec.fields.map(\.name)).union([Self.quoteColumn, Self.dayColumn])
         facts = Set(items.compactMap(\.id))
+        hasLifecycle = spec.lifecycle != nil
     }
 }
 
@@ -89,10 +100,13 @@ public struct PageVerdict: Equatable, Sendable {
 public struct PageGate: Sendable {
     public var catalog: PageCatalog
     public var blockCap: Int
+    /// The most columns a board may have: more do not fit beside each other, so the facts go in sections.
+    public var boardColumnCap: Int
 
-    public init(catalog: PageCatalog, blockCap: Int = 8) {
+    public init(catalog: PageCatalog, blockCap: Int = 8, boardColumnCap: Int = 6) {
         self.catalog = catalog
         self.blockCap = blockCap
+        self.boardColumnCap = boardColumnCap
     }
 
     /// The page with every allowed operation applied in order, and each operation's verdict. Several inserts at one
@@ -147,6 +161,18 @@ public struct PageGate: Sendable {
                 }
             }
             if let groupBy = view.groupBy, catalog.values[groupBy] == nil { return .unknownField(groupBy) }
+            if let countBy = view.countBy {
+                guard catalog.values[countBy] != nil else { return .unknownField(countBy) }
+                guard view.groupBy != nil, view.layout == .list || view.layout == .table else {
+                    return .countsWithoutSections
+                }
+            }
+            if view.show != .all, !catalog.hasLifecycle { return .nothingOpens }
+            if view.layout == .board, let groupBy = view.groupBy, let count = catalog.values[groupBy]?.count,
+                count > boardColumnCap
+            {
+                return .boardTooWide(field: groupBy, values: count, cap: boardColumnCap)
+            }
             return view.columns.first { !catalog.columns.contains($0) }.map(PageRefusal.unknownField)
         case .grid(let grid):
             guard grid.rows.allSatisfy({ $0.count == grid.columns.count }) else { return .unevenGrid }

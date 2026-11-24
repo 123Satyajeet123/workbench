@@ -33,6 +33,8 @@ struct SummaryRow: Identifiable {
     var subject: String
 
     var id: String { summary.scope }
+    /// The field the summary groups by, from its scope ("person: Asha" groups by person).
+    var groupField: String? { summary.scope.split(separator: ":", maxSplits: 1).first.map(String.init) }
 }
 
 /// What Today, People and Projects show: the facts of the last seven days, the day's summaries, and the morning list:

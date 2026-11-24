@@ -8,8 +8,10 @@ struct FactHeadline: Equatable {
     let words: String
     let isQuote: Bool
 
-    init(item: Item, title: String) {
-        person = item["person"]
+    /// `grouping` is the field the list around the fact is grouped by: its heading already says the person, so the
+    /// headline does not say it again.
+    init(item: Item, title: String, grouping: String? = nil) {
+        person = grouping == "person" ? "" : item["person"]
         let quote = item.quote.split(whereSeparator: \.isWhitespace).joined(separator: " ")
         isQuote = !quote.isEmpty
         words = isQuote ? quote : title

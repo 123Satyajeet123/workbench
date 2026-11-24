@@ -1,3 +1,4 @@
+import EditorHarness
 import Foundation
 
 @testable import WorkbenchUI
@@ -52,14 +53,23 @@ enum ContractSamples {
             ]),
         .facts(
             FactsRendering(
-                title: "Open follow-ups", layout: "table", countText: "1 fact", columns: ["quote", "kind"],
+                title: "Open follow-ups", layout: "list", countText: "1 fact", needsText: "1 needs you", limit: 0,
+                columns: ["quote", "kind"], tallyColumns: ["ask"],
                 sections: [
                     FactsRendering.Section(
-                        name: "ask", countText: "1 fact", count: 1,
+                        name: "Asha Example", countText: "1 fact", count: 1, needs: 1,
+                        summary: FactsRendering.Summary(
+                            text: "Asha Example waits for the deck.",
+                            cites: [CiteChip(ref: "fact:12", label: "send the deck", opens: true)]),
+                        tally: [FactsRendering.Tally(value: "ask", count: 1, tone: "attention")],
+                        latest: "send the deck", latestDay: "Tue 25 Nov",
                         rows: [
                             FactsRendering.Row(
-                                fact: 12, person: "Asha", words: "\u{201C}send the deck\u{201D}",
-                                cells: ["\u{201C}send the deck\u{201D}", "ask"], marks: [.right, .wrong, .done])
+                                fact: 12, subject: "", words: "\u{201C}send the deck\u{201D}",
+                                cells: ["\u{201C}send the deck\u{201D}", "ask"],
+                                needs: [FactsRendering.Tag(text: "Late 2 days", tone: "bad")],
+                                tags: [FactsRendering.Tag(text: "ask", tone: "attention")], due: "Due Sun 23 Nov",
+                                state: "", marks: [.right, .wrong, .done])
                         ])
                 ])),
         .grid(

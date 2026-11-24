@@ -11,12 +11,12 @@ struct FactRow: Identifiable, Equatable {
 
     /// Nil for an item with no id: nothing can mark it. `title` is the machine's own line, shown only when the item has
     /// no quote.
-    init?(item: Item, title: String, chat: String? = nil) {
+    init?(item: Item, title: String, chat: String? = nil, grouping: String? = nil) {
         guard let id = item.id else { return nil }
         self.id = id
         self.item = item
         self.chat = chat
-        headline = FactHeadline(item: item, title: title)
+        headline = FactHeadline(item: item, title: title, grouping: grouping)
     }
 }
 

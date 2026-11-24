@@ -1,4 +1,5 @@
 import AppKit
+import EditorHarness
 import Foundation
 
 @testable import WorkbenchUI

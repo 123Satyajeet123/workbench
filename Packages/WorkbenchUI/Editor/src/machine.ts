@@ -1,4 +1,4 @@
-import type { Chip, FactRow, FactSection, GridCell, MachineView, OpMark, PageBlock } from "./bridge.generated.ts";
+import type { Chip, FactRow, FactSection, FactTag, GridCell, MachineView, OpMark, PageBlock } from "./bridge.generated.ts";
 import { el } from "./dom.ts";
 
 export interface MachineActions {
@@ -85,34 +85,137 @@ function gridRow(cells: GridCell[]): HTMLElement {
 function factsParts(view: Facts, actions: MachineActions): HTMLElement[] {
   const head = el("div", "machine-head");
   head.append(el("h4", "machine-title", view.title), el("span", "supporting", view.countText));
-  const body = el("div", `facts facts-${view.layout}`);
-  for (const section of view.sections) body.append(sectionOf(view, section, actions));
+  if (view.needsText !== "") head.append(el("span", "needs-pill", view.needsText));
+  const folded = view.tallyColumns.length > 0;
+  const body = el("div", `facts facts-${view.layout}${folded ? " facts-folded" : ""}`);
+  if (folded && view.layout === "table") body.append(groupTable(view, actions));
+  else for (const section of view.sections) body.append(sectionOf(view, section, actions, folded));
   return [head, body];
 }
 
-function sectionOf(view: Facts, section: FactSection, actions: MachineActions): HTMLElement {
-  const node = el("div", "facts-section");
+function sectionOf(view: Facts, section: FactSection, actions: MachineActions, folded: boolean): HTMLElement {
   if (view.layout === "counts") {
+    const node = el("div", "facts-section");
     node.append(el("span", undefined, section.name === "" ? "Facts" : section.name), el("span", "count", String(section.count)));
     return node;
   }
-  if (section.name !== "") node.append(el("h5", "facts-name", section.name));
+  if (folded) return groupOf(section, actions);
+  const node = el("div", "facts-section");
+  if (section.name !== "") node.append(sectionName(section));
   if (view.layout === "table") node.append(factTable(view, section, actions));
-  else for (const row of section.rows) node.append(factLine(row, actions));
+  else appendLimited(node, section.rows, view.limit, actions);
   return node;
+}
+
+/** The first `limit` facts, and the rest behind one control; every fact when `limit` is 0. */
+function appendLimited(node: HTMLElement, rows: FactRow[], limit: number, actions: MachineActions): void {
+  const shown = limit > 0 ? rows.slice(0, limit) : rows;
+  for (const row of shown) node.append(factLine(row, actions));
+  if (shown.length === rows.length) return;
+  const more = el("details", "more");
+  more.append(el("summary", "more-row", `Show ${rows.length - shown.length} more`));
+  for (const row of rows.slice(shown.length)) more.append(factLine(row, actions));
+  node.append(more);
+}
+
+function sectionName(section: FactSection): HTMLElement {
+  const name = el("h5", "facts-name", section.name);
+  name.append(el("span", "supporting", ` ${section.count}`));
+  return name;
+}
+
+/** One section as one row that unfolds: its name, what needs the person, its tally, one line, then its facts. */
+function groupOf(section: FactSection, actions: MachineActions): HTMLElement {
+  const group = el("details", "group");
+  const row = el("summary", "group-row");
+  row.append(el("span", "group-name", section.name));
+  if (section.needs > 0) row.append(el("span", "needs-pill", `${section.needs} ${section.needs === 1 ? "needs" : "need"} you`));
+  row.append(tallyChips(section), el("span", "group-count", String(section.count)));
+  const line = el("p", "group-line");
+  if (section.summary) {
+    line.append(document.createTextNode(section.summary.text), numberChips(section.summary.cites, actions));
+  } else {
+    line.append(el("span", "supporting", `${section.latestDay} · ${section.latest}`));
+  }
+  const facts = el("div", "group-facts");
+  for (const fact of section.rows) facts.append(factLine(fact, actions));
+  group.append(row, line, facts);
+  return group;
+}
+
+function tallyChips(section: FactSection): HTMLElement {
+  const chips = el("span", "group-tally");
+  for (const tally of section.tally) {
+    if (tally.count > 0) chips.append(el("span", `tag tag-${tally.tone}`, `${tally.value} ${tally.count}`));
+  }
+  return chips;
+}
+
+function numberChips(cites: Chip[], actions: MachineActions): HTMLElement {
+  const row = el("span", "chips chips-number");
+  cites.forEach((cite, index) => {
+    const chip = cite.opens ? el("button", "chip chip-open", String(index + 1), { type: "button", title: cite.label }) : el("span", "chip", String(index + 1), { title: cite.label });
+    if (cite.opens) chip.addEventListener("click", () => actions.openCite(cite.ref));
+    row.append(chip);
+  });
+  return row;
+}
+
+/** The sections as the rows of one table: a count for each value, what needs the person, the newest fact. */
+function groupTable(view: Facts, actions: MachineActions): HTMLElement {
+  const wrap = el("div", "table-wrap");
+  const table = el("table", "machine-table group-table");
+  const head = el("tr");
+  head.append(el("th", undefined, ""));
+  for (const value of view.tallyColumns) head.append(el("th", "num", value));
+  head.append(el("th", "num", "Needs you"), el("th", "newest", "Newest"));
+  table.append(headOf(head));
+  for (const section of view.sections) {
+    const body = el("tbody", "group-body");
+    const row = el("tr", "group-trow");
+    const toggle = el("button", "group-toggle", section.name, { type: "button", "aria-expanded": "false" });
+    const first = el("td", "group-cell");
+    first.append(toggle);
+    row.append(first);
+    for (const tally of section.tally) row.append(el("td", `num tone-${tally.count > 0 ? tally.tone : "none"}`, tally.count > 0 ? String(tally.count) : "·"));
+    row.append(el("td", "num", section.needs > 0 ? String(section.needs) : "·"));
+    row.append(el("td", "group-newest", `${section.latestDay} · ${section.latest}`, { title: section.latest }));
+    const open = el("tr", "group-open");
+    open.hidden = true;
+    const cell = el("td", undefined, undefined, { colspan: String(view.tallyColumns.length + 3) });
+    for (const fact of section.rows) cell.append(factLine(fact, actions));
+    open.append(cell);
+    toggle.addEventListener("click", () => {
+      open.hidden = !open.hidden;
+      toggle.setAttribute("aria-expanded", String(!open.hidden));
+    });
+    body.append(row, open);
+    table.append(body);
+  }
+  wrap.append(table);
+  return wrap;
+}
+
+function tagOf(tag: FactTag): HTMLElement {
+  return el("span", `tag tag-${tag.tone}`, tag.text);
 }
 
 function factLine(row: FactRow, actions: MachineActions): HTMLElement {
   const line = el("div", "fact");
   const words = el("button", "fact-words", undefined, { type: "button" });
-  if (row.person !== "") words.append(el("strong", undefined, row.person), document.createTextNode(" "));
+  if (row.subject !== "") words.append(el("strong", undefined, row.subject), document.createTextNode(" "));
   words.append(document.createTextNode(row.words));
   words.addEventListener("click", () => actions.openCite(`fact:${row.fact}`));
-  line.append(words, markButtons(row, actions));
+  const meta = el("span", "fact-meta");
+  meta.append(...row.needs.map(tagOf), ...row.tags.map(tagOf));
+  if (row.due !== "") meta.append(el("span", "supporting", row.due));
+  if (row.state !== "") meta.append(el("span", "supporting", row.state));
+  line.append(words, meta, markButtons(row, actions));
   return line;
 }
 
 function factTable(view: Facts, section: FactSection, actions: MachineActions): HTMLElement {
+  const wrap = el("div", "table-wrap");
   const table = el("table", "machine-table");
   const head = el("tr");
   for (const name of view.columns) head.append(el("th", undefined, name));
@@ -128,7 +231,8 @@ function factTable(view: Facts, section: FactSection, actions: MachineActions): 
     body.append(tr);
   }
   table.append(body);
-  return table;
+  wrap.append(table);
+  return wrap;
 }
 
 const MARK_WORDS: Record<OpMark["mark"], string> = { right: "Right", wrong: "Wrong", done: "Done" };

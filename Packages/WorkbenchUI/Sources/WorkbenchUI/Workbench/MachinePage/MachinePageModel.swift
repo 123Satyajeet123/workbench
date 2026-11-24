@@ -105,7 +105,7 @@ final class MachinePageModel {
     /// What the machine's blocks show: its facts with the marks it offers for each, and what each picker can do.
     private var viewBuilder: MachineViewBuilder {
         MachineViewBuilder(
-            facts: facts, titleOf: { [spec] item in item[spec.title] },
+            facts: facts, titleOf: { [spec] item in item[spec.title] }, lens: FactsLens(spec: spec, now: Date()),
             pickerNote: { [helper] kind in PickerChoice.unavailableNote(kind, for: helper) },
             marks: { [unowned self] item in actions(for: item).compactMap(FactMark.init(action:)) })
     }

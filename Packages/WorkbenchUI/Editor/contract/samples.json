@@ -117,29 +117,68 @@
             ],
             "countText" : "1 fact",
             "kind" : "facts",
-            "layout" : "table",
+            "layout" : "list",
+            "limit" : 0,
+            "needsText" : "1 needs you",
             "sections" : [
               {
                 "count" : 1,
                 "countText" : "1 fact",
-                "name" : "ask",
+                "latest" : "send the deck",
+                "latestDay" : "Tue 25 Nov",
+                "name" : "Asha Example",
+                "needs" : 1,
                 "rows" : [
                   {
                     "cells" : [
                       "“send the deck”",
                       "ask"
                     ],
+                    "due" : "Due Sun 23 Nov",
                     "fact" : 12,
                     "marks" : [
                       "right",
                       "wrong",
                       "done"
                     ],
-                    "person" : "Asha",
+                    "needs" : [
+                      {
+                        "text" : "Late 2 days",
+                        "tone" : "bad"
+                      }
+                    ],
+                    "state" : "",
+                    "subject" : "",
+                    "tags" : [
+                      {
+                        "text" : "ask",
+                        "tone" : "attention"
+                      }
+                    ],
                     "words" : "“send the deck”"
+                  }
+                ],
+                "summary" : {
+                  "cites" : [
+                    {
+                      "label" : "send the deck",
+                      "opens" : true,
+                      "ref" : "fact:12"
+                    }
+                  ],
+                  "text" : "Asha Example waits for the deck."
+                },
+                "tally" : [
+                  {
+                    "count" : 1,
+                    "tone" : "attention",
+                    "value" : "ask"
                   }
                 ]
               }
+            ],
+            "tallyColumns" : [
+              "ask"
             ],
             "title" : "Open follow-ups"
           }

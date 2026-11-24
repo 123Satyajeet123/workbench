@@ -693,6 +693,19 @@
               "items": {
                 "$ref": "#/$defs/FactSection"
               }
+            },
+            "needsText": {
+              "type": "string"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "tallyColumns": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           },
           "required": [
@@ -701,7 +714,10 @@
             "layout",
             "countText",
             "columns",
-            "sections"
+            "sections",
+            "needsText",
+            "limit",
+            "tallyColumns"
           ],
           "additionalProperties": false
         },
@@ -805,6 +821,25 @@
           "type": "integer",
           "minimum": 0
         },
+        "needs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "summary": {
+          "$ref": "#/$defs/FactSummary"
+        },
+        "tally": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FactTally"
+          }
+        },
+        "latest": {
+          "type": "string"
+        },
+        "latestDay": {
+          "type": "string"
+        },
         "rows": {
           "type": "array",
           "items": {
@@ -816,6 +851,10 @@
         "name",
         "countText",
         "count",
+        "needs",
+        "tally",
+        "latest",
+        "latestDay",
         "rows"
       ],
       "additionalProperties": false
@@ -826,7 +865,7 @@
         "fact": {
           "type": "integer"
         },
-        "person": {
+        "subject": {
           "type": "string"
         },
         "words": {
@@ -848,14 +887,36 @@
               "done"
             ]
           }
+        },
+        "needs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FactTag"
+          }
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FactTag"
+          }
+        },
+        "due": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
         }
       },
       "required": [
         "fact",
-        "person",
+        "subject",
         "words",
         "cells",
-        "marks"
+        "marks",
+        "needs",
+        "tags",
+        "due",
+        "state"
       ],
       "additionalProperties": false
     },
@@ -949,6 +1010,72 @@
         "type",
         "height",
         "caret"
+      ],
+      "additionalProperties": false
+    },
+    "FactSummary": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "cites": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Chip"
+          }
+        }
+      },
+      "required": [
+        "text",
+        "cites"
+      ],
+      "additionalProperties": false
+    },
+    "FactTally": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tone": {
+          "enum": [
+            "good",
+            "attention",
+            "bad",
+            "neutral"
+          ]
+        }
+      },
+      "required": [
+        "value",
+        "count",
+        "tone"
+      ],
+      "additionalProperties": false
+    },
+    "FactTag": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "tone": {
+          "enum": [
+            "good",
+            "attention",
+            "bad",
+            "neutral"
+          ]
+        }
+      },
+      "required": [
+        "text",
+        "tone"
       ],
       "additionalProperties": false
     }

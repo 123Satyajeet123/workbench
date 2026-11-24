@@ -25,6 +25,24 @@ public struct FactsView: Equatable, Sendable {
         case list, board, table, counts
     }
 
+    /// Which facts the view holds, by what the spec says about them.
+    public enum Show: String, CaseIterable, Sendable {
+        /// Every fact that passes the filters.
+        case all
+        /// The facts that are still open in the machine's lifecycle.
+        case open
+        /// The open facts that ask the person for something, are late, or are in trouble.
+        case needsAttention
+    }
+
+    /// The order of the facts in a section, and of the sections.
+    public enum Order: String, CaseIterable, Sendable {
+        /// As the store gives them.
+        case stored
+        /// What needs the person first, then what is open and due soonest, then the newest.
+        case urgent
+    }
+
     public var title: String
     /// The values a fact's field may have to be shown, by field. A field that is not named shows every value.
     public var filters: [String: [String]]
@@ -33,16 +51,35 @@ public struct FactsView: Equatable, Sendable {
     public var layout: Layout
     /// The fields a table shows, in order.
     public var columns: [String]
+    /// With a grouping: each section folds into one row that counts its facts by the values of this field, and the
+    /// row unfolds to its facts. Nil shows every fact of every section.
+    public var countBy: String?
+    public var show: Show
+    public var order: Order
+    /// How many facts of each section show before the rest fold behind one control; nil shows them all.
+    public var limit: Int?
 
     public init(
         title: String, filters: [String: [String]] = [:], groupBy: String? = nil, layout: Layout = .table,
-        columns: [String] = []
+        columns: [String] = [], countBy: String? = nil, show: Show = .all, order: Order = .stored,
+        limit: Int? = nil
     ) {
         self.title = title
         self.filters = filters
         self.groupBy = groupBy
         self.layout = layout
         self.columns = columns
+        self.countBy = countBy
+        self.show = show
+        self.order = order
+        self.limit = limit
+    }
+
+    /// The columns a table shows: the ones named, without the field the sections are made of, which the heading of
+    /// each section already says.
+    public var shownColumns: [String] {
+        let named = columns.isEmpty ? [PageCatalog.quoteColumn] : columns
+        return named.filter { $0 != groupBy }
     }
 }
 
