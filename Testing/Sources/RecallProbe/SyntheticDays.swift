@@ -4,17 +4,28 @@ import WorkbenchCore
 
 @testable import DemoBuild
 
+/// What the generator knows about a line: whether it holds a fact, who wrote it and how long its text is. The audit's
+/// answering person reads these labels.
+struct LineLabel {
+    let isFact: Bool
+    let from: Member
+    let length: Int
+}
+
 /// A synthetic team-chat day with its planted needles: the evidence the reader gets, for each needle the number of its
-/// line, and the numbers of the background fact lines.
+/// line, and the label of every line.
 struct SyntheticDay {
     let day: WorkDay
     let evidence: EvidenceSet
     let needles: [(needle: Needle, line: Int64)]
-    let background: Set<Int64>
+    let labels: [Int64: LineLabel]
+
+    var characters: Int { evidence.lines.map(\.line.count).reduce(0, +) }
+    var factLines: [Int64] { labels.filter(\.value.isFact).map(\.key) }
 }
 
-/// Builds the probe's days from one seed: chatter, background facts (the demo's script and more invented lines) and
-/// needles, shuffled into one ordered chat per day. Pure: the same seed gives the same days.
+/// Builds the probe's days from one seed: generated chatter up to a day length, background facts (the demo's script and
+/// more invented lines) and needles, shuffled into one ordered chat per day. Pure: the same seed gives the same days.
 enum SyntheticDays {
     typealias Said = (from: Member, text: String)
 
@@ -24,12 +35,10 @@ enum SyntheticDays {
         return calendar
     }()
 
-    static let dates = [
-        "2026-11-09", "2026-11-10", "2026-11-11", "2026-11-12", "2026-11-13", "2026-11-16", "2026-11-17", "2026-11-18",
-    ]
-    static let chatterPerDay = 30
-    static let backgroundPerDay = 5
-    static let needlesPerDay = 6
+    static let dates = ["2026-11-09", "2026-11-10", "2026-11-11", "2026-11-12", "2026-11-13", "2026-11-16"]
+    static let characters = 22_000...32_000
+    static let backgroundPerDay = 7
+    static let needlesPerDay = 8
 
     static var context: [String: [String]] {
         ["members": Member.allCases.map(\.rawValue), "founder": [Member.meera.rawValue]]
@@ -40,44 +49,48 @@ enum SyntheticDays {
         let background = (demoLines + moreBackground).shuffled(using: &random)
         let needles = Needle.all.shuffled(using: &random)
         return dates.prefix(count).enumerated().map { index, date in
-            let chatter = Array(chatterPool.shuffled(using: &random).prefix(chatterPerDay))
-            let facts = background[index * backgroundPerDay..<(index + 1) * backgroundPerDay]
-            let planted = needles[index * needlesPerDay..<(index + 1) * needlesPerDay]
+            let facts = Array(background[index * backgroundPerDay..<(index + 1) * backgroundPerDay])
+            let planted = Array(needles[index * needlesPerDay..<(index + 1) * needlesPerDay])
+            let fixed = (facts + planted.map { ($0.from, $0.text) }).map { $0.from.rawValue.count + 2 + $0.text.count }
+            let chatter = Chatter.lines(
+                characters: Int.random(in: characters, using: &random) - fixed.reduce(0, +), using: &random)
             return compose(
-                date: date, filler: (chatter + facts).shuffled(using: &random), facts: Set(facts.map(\.text)),
-                needles: Array(planted), random: &random)
+                date: date, filler: (chatter.map { ($0, false) } + facts.map { ($0, true) }).shuffled(using: &random),
+                needles: planted, random: &random)
         }
     }
 
-    /// Puts each needle (after its question, with up to one chatter line between) at a random place in the filler, then
+    /// Puts each needle (after its question, with up to two chatter lines between) at a random place in the filler, then
     /// numbers and times the lines.
     private static func compose(
-        date: String, filler: [Said], facts: Set<String>, needles: [Needle], random: inout SeededGenerator
+        date: String, filler: [(said: Said, isFact: Bool)], needles: [Needle], random: inout SeededGenerator
     ) -> SyntheticDay {
-        var lines: [(said: Said, needle: Needle?)] = filler.map { ($0, nil) }
+        typealias Line = (said: Said, isFact: Bool, needle: Needle?)
+        var lines: [Line] = filler.map { ($0.said, $0.isFact, nil) }
         for needle in needles {
             let at = Int.random(in: 0...lines.count, using: &random)
-            var unit: [(said: Said, needle: Needle?)] = [((needle.from, needle.text), needle)]
+            var unit: [Line] = [((needle.from, needle.text), true, needle)]
             if let question = needle.question {
-                let gap = Bool.random(using: &random) ? [(said: chatterPool[0], needle: Needle?.none)] : []
-                unit = [((question.from, question.text), nil)] + gap + unit
+                let gap = Chatter.lines(characters: Int.random(in: 0...40, using: &random), using: &random)
+                unit = [((question.from, question.text), false, nil)] + gap.map { ($0, false, nil) } + unit
             }
             lines.insert(contentsOf: unit, at: at)
         }
         let day = WorkDay(containing: time(date, minutes: 12 * 60), calendar: calendar)
-        let step = (11 * 60) / max(lines.count, 1)
+        let seconds = 15 * 3600 / max(lines.count, 1)
+        let number = { (index: Int) in Int64(1001 + index) }
         let evidence = lines.enumerated().map { index, line in
             Evidence(
-                id: Int64(101 + index), start: time(date, minutes: 9 * 60 + index * step),
+                id: number(index), start: time(date, minutes: 8 * 60).addingTimeInterval(Double(index * seconds)),
                 line: "\(line.said.from.rawValue): \(line.said.text)", quotable: [line.said.text])
         }
-        let planted = lines.enumerated().compactMap { index, line in
-            line.needle.map { ($0, Int64(101 + index)) }
+        let labels = lines.enumerated().map { index, line in
+            (number(index), LineLabel(isFact: line.isFact, from: line.said.from, length: line.said.text.count))
         }
-        let background = evidence.filter { facts.contains($0.quotable[0]) }.map(\.id)
         return SyntheticDay(
-            day: day, evidence: EvidenceSet(lines: evidence, context: context), needles: planted,
-            background: Set(background))
+            day: day, evidence: EvidenceSet(lines: evidence, context: context),
+            needles: lines.enumerated().compactMap { index, line in line.needle.map { ($0, number(index)) } },
+            labels: Dictionary(uniqueKeysWithValues: labels))
     }
 
     private static func time(_ date: String, minutes: Int) -> Date {
@@ -117,24 +130,7 @@ enum SyntheticDays {
         (.meera, "Bolbhasha pe IC 2 December ko hoga."),
         (.aditi, "Ledgerwick founder ne valuation 40 se 32 crore kar diya."),
         (.kabir, "Tallyra ne Series A ke liye ek aur fund se bhi baat shuru ki hai."),
-    ]
-
-    static let chatterPool: [Said] = [
-        (.kabir, "👍"), (.aditi, "Good morning sab 🌞"), (.rohan, "gm"), (.nisha, "ok"), (.meera, "Theek hai"),
-        (.rohan, "haha"), (.aditi, "😂😂"), (.nisha, "Lunch order kar rahe hain, kisko kya chahiye?"),
-        (.kabir, "Mera ek paneer wrap"), (.rohan, "Same for me"), (.aditi, "Thanks!"), (.nisha, "Thank you 🙏"),
-        (.kabir, "Noted"), (.rohan, "Sahi hai"), (.aditi, "Call pe hoon, baad me dekhti hoon"),
-        (.kabir, "Traffic bahut hai aaj, 15 min late"), (.nisha, "Reached office"), (.rohan, "AC phir se band hai 🥵"),
-        (.aditi, "https://www.livemint.com/companies/start-ups/funding-roundup-november"),
-        (.aditi, "Ye article dekho, interesting hai"), (.kabir, "lol"), (.rohan, "Chai break?"), (.nisha, "Coming"),
-        (.meera, "Nice"), (.meera, "Great work team"), (.kabir, "🔥"), (.rohan, "Happy birthday Nisha!! 🎂"),
-        (.aditi, "Happy birthday 🎉"), (.nisha, "Thank you sab ❤️"), (.kabir, "Cake kab hai?"), (.nisha, "Shaam ko 😄"),
-        (.rohan, "Ok cool"), (.aditi, "Haan"), (.kabir, "Nahi yaar"), (.nisha, "Weekend kaisa tha?"),
-        (.rohan, "Badhiya, Lonavala gaye the"), (.aditi, "Pics bhejo"), (.rohan, "Sending"),
-        (.kabir, "Meeting room 2 free hai?"), (.nisha, "Haan free hai"), (.aditi, "👌"), (.rohan, "Ek min"),
-        (.rohan, "Back"), (.meera, "Rain bahut hai, sab dhyan se ghar jaana"), (.nisha, "Bye all, kal milte hain"),
-        (.kabir, "Good night"), (.aditi, "Parking full hai aaj"), (.rohan, "Kisi ke paas Type C charger hai?"),
-        (.nisha, "Mere paas hai, le lo"), (.kabir, "+1"), (.aditi, "Agreed 😂"), (.rohan, "Monday blues"),
-        (.nisha, "Coffee machine theek ho gayi 🎉"),
+        (.meera, "Ledgerwick ka next call Friday ko hai, sab log aana."),
+        (.nisha, "Voltarth ne apna Q3 MIS share kar diya."),
     ]
 }

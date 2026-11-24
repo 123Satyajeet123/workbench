@@ -1,79 +1,73 @@
 import Foundation
 import WorkbenchCore
 
-/// A kept item, as the tally needs it: its line, its kind and its words.
+/// A kept item, as the tally and the gleaning pass need it: its line, its fields and its words.
 struct Kept: Codable {
     let line: Int64
-    let kind: String
-    let person: String
-    let text: String
+    let fields: [String: String]
     let quote: String
 
     init(_ item: Item) {
         line = item.citeFirst
-        kind = item["kind"]
-        person = item["person"]
-        text = item["text"]
+        fields = item.fields
         quote = item.quote
     }
-}
 
-/// One run of one day: the first reading (arm A) and its gleaning pass. Arm B is both together. Saved as JSON, so a
-/// run that finished is never asked again.
-struct DayRun: Codable {
-    let day: Int
-    let run: Int
-    let model: String
-    let first: [Kept]
-    let firstDrops: [String]
-    let firstUsage: Usage
-    let gleaned: [Kept]
-    let gleanDrops: [String]
-    let gleanUsage: Usage
+    var kind: String { fields["kind"] ?? "" }
+    var person: String { fields["person"] ?? "" }
 
-    func items(_ arm: Arm) -> [Kept] { arm == .a ? first : first + gleaned }
-
-    /// Gleaned items on a line where the first reading already kept an item of the same kind, in other words.
-    var nearRepeats: Int {
-        gleaned.filter { new in first.contains { $0.line == new.line && $0.kind == new.kind } }.count
+    /// The item again, for a later pass to list and to compare with `SameClaim`.
+    func item(task: String, day: SyntheticDay) -> Item {
+        let start = day.evidence.lines.first { $0.id == line }?.start ?? day.day.start
+        return Item(
+            task: task, day: day.day, scope: "synthetic", source: .whatsapp, citeFirst: line, citeLast: line,
+            start: start, end: start, fields: fields, quote: quote, run: nil)
     }
 }
 
-enum Arm: String, CaseIterable {
+/// The arms: today's read (A), A plus one gleaning pass (B, which saves only what the pass adds), the read with the
+/// founder sentence in the brief (C), and today's read with the founder named by plain name in the lines and the
+/// members list (D, added after the drops showed the "(You)" label at work).
+enum Arm: String, CaseIterable, Codable {
     case a = "A"
     case b = "B"
+    case c = "C"
+    case d = "D"
 }
 
-/// How a needle fared in one arm of one run, matched by code: the line an item cites and the kind it gives.
+/// One model pass of one arm on one day. Saved as JSON, so a pass that finished is never asked again.
+struct Reading: Codable {
+    let day: Int
+    let arm: Arm
+    let run: Int
+    let model: String
+    let kept: [Kept]
+    let drops: [String]
+    let usage: Usage
+}
+
+/// How a needle fared in one reading, matched by code: the line an item cites and the kind and person it gives.
 struct Outcome {
     let needle: Needle
     let strict: Bool
     let line: Bool
-    /// The kinds the arm gave on the needle's line.
+    let personRight: Bool
+    /// The kinds the reading gave on the needle's line.
     let kinds: [String]
 
     init(_ needle: Needle, line number: Int64, items: [Kept]) {
         self.needle = needle
-        kinds = items.filter { $0.line == number }.map(\.kind)
-        line = !kinds.isEmpty
+        let onLine = items.filter { $0.line == number }
+        kinds = onLine.map(\.kind)
+        line = !onLine.isEmpty
         strict = kinds.contains(needle.kind.rawValue)
+        personRight = onLine.contains { $0.kind == needle.kind.rawValue && $0.person == needle.person.rawValue }
     }
 }
 
-extension DayRun {
-    func outcomes(_ arm: Arm, on day: SyntheticDay) -> [Outcome] {
-        day.needles.map { Outcome($0.needle, line: $0.line, items: items(arm)) }
-    }
-
-    func otherLines(_ items: [Kept], on day: SyntheticDay) -> Int {
-        let needles = Set(day.needles.map(\.line))
-        return items.filter { !needles.contains($0.line) }.count
-    }
-}
-
-/// Share as "found of total (percent)".
+/// Share as "found/total (percent)".
 func share(_ found: Int, of total: Int) -> String {
-    total == 0 ? "0 of 0" : "\(found) of \(total) (\(String(format: "%.1f", 100 * Double(found) / Double(total)))%)"
+    total == 0 ? "0/0" : "\(found)/\(total) (\(String(format: "%.1f", 100 * Double(found) / Double(total)))%)"
 }
 
 func dollars(_ value: Double) -> String { String(format: "%.4f USD", value) }
