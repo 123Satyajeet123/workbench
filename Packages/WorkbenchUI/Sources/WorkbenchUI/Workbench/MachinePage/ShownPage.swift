@@ -35,8 +35,6 @@ struct ShownPage: Equatable {
         }
     }
 
-    var hasMachineBlocks: Bool { !blocks.isEmpty }
-
     /// The live block the store holds at the place of a shown block: the block itself, the block a replacement
     /// stands in for, or none for a block a proposal brings in.
     func liveBlock(at shown: MachineBlockID) -> MachineBlockID? {

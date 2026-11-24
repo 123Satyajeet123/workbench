@@ -40,6 +40,7 @@ let package = Package(
         .executable(name: "provenance-probe", targets: ["ProvenanceProbe"]),
         .executable(name: "run-journal", targets: ["RunJournalDemo"]),
         .executable(name: "add-team", targets: ["AddTeamDemo"]),
+        .executable(name: "page-truth", targets: ["PageTruthDemo"]),
     ],
     dependencies: [
         .package(path: "../Packages/WorkbenchCore"), .package(path: "../Packages/WorkbenchUI"),
@@ -133,7 +134,11 @@ let package = Package(
             dependencies: ["DemoBuild", "Evals", "WorkbenchCore", .product(name: "AgentCLI", package: "BaseKit")],
             swiftSettings: [.defaultIsolation(MainActor.self)]),
         .target(
-            name: "PageSnapshot", dependencies: ["WorkbenchCore", "WorkbenchUI"],
+            name: "PageSnapshot",
+            dependencies: [
+                "WorkbenchCore", "WorkbenchUI", .product(name: "Kernel", package: "Kernel"),
+                .product(name: "Lines", package: "Kernel"),
+            ],
             swiftSettings: [.defaultIsolation(MainActor.self)]),
         .executableTarget(
             name: "MachinePageLive",
@@ -178,6 +183,14 @@ let package = Package(
             ]),
         .executableTarget(name: "RunJournalDemo", dependencies: ["WorkbenchCore"]),
         .executableTarget(name: "AddTeamDemo", dependencies: ["WorkbenchCore"]),
+        .executableTarget(
+            name: "PageTruthDemo",
+            dependencies: [
+                "PageSnapshot", "WorkbenchCore", "WorkbenchUI", .product(name: "CaptureService", package: "BaseKit"),
+                .product(name: "AgentCLI", package: "BaseKit"), .product(name: "LocalSources", package: "BaseKit"),
+                .product(name: "Kernel", package: "Kernel"), .product(name: "Lines", package: "Kernel"),
+            ],
+            swiftSettings: [.defaultIsolation(MainActor.self)]),
         .testTarget(name: "EvalsTests", dependencies: ["Evals", "WorkbenchCore"]),
     ]
 )

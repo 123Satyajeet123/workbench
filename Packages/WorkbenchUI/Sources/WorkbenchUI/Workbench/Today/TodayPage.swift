@@ -4,7 +4,6 @@ import WorkbenchCore
 /// The sections of Mochi's page, in order. A section with nothing in it is not shown; a day with nothing says so.
 struct TodayBody: View {
     let model: TodayModel
-    let brief: MorningBrief?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -20,7 +19,6 @@ struct TodayBody: View {
             fromCalls
             team
             projects
-            if let brief { YesterdayBrief(brief: brief) }
         }
         .animation(Motion.settle(reduceMotion: reduceMotion), value: model.revision)
     }
@@ -202,22 +200,5 @@ struct UndoBar: View {
             Button("Dismiss", action: model.dismissUndo).buttonStyle(.ghost)
         }
         .textStyle(.callout).foregroundStyle(Tone.attention.color)
-    }
-}
-
-private struct YesterdayBrief: View {
-    let brief: MorningBrief
-
-    var body: some View {
-        Fold("Yesterday's brief · \(brief.day)") {
-            VStack(alignment: .leading, spacing: Space.s) {
-                if !brief.headline.isEmpty { Text(brief.headline).textStyle(.headline) }
-                ForEach(Array(brief.lines.enumerated()), id: \.offset) { _, line in
-                    Text(line.text).foregroundStyle(.supporting)
-                }
-            }
-            .padding(.top, Space.s)
-        }
-        .textStyle(.headline)
     }
 }

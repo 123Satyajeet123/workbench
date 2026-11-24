@@ -98,6 +98,7 @@ extension Store {
         spec.task = machine.spec.task
         spec.runner = machine.spec.runner
         spec.examples = machine.spec.examples
+        spec.job = machine.spec.job
         spec.follows = machine.spec.follows ?? builtIn.follows
         spec.criteria = machine.spec.criteria ?? builtIn.criteria
         if spec.views.values.contains(machine.spec.view) { spec.view = machine.spec.view }
@@ -107,6 +108,14 @@ extension Store {
     public func rename(_ machine: Machine, to name: String) throws {
         guard let name = name.cleaned else { return }
         try change(machine, name: name, spec: machine.spec, state: machine.state)
+    }
+
+    /// The job sentence of the page. It is not part of the prompt, so the machine keeps its trust. A blank job gives the
+    /// template's job back.
+    public func edit(_ machine: Machine, job: String) throws {
+        var spec = machine.spec
+        spec.job = job.cleaned
+        try change(machine, name: machine.name, spec: spec, state: machine.state)
     }
 
     /// A new brief is a new prompt version: the earlier versions' marks and trust stay with them.
@@ -181,6 +190,7 @@ extension Store {
         let page = try WorkObjectRows.addMachinePage(db, machine: id, template: template, name: name, folder: folder)
         let machine = Machine(id: id, name: name, template: template, spec: spec, state: .active, page: page)
         try change(db, machine, name: name, spec: spec, state: .active)
+        try startPage(db, of: machine)
         return machine
     }
 

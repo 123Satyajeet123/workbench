@@ -1,7 +1,11 @@
 import Foundation
 import Kernel
 import Observation
+import SwiftUI
 import WorkbenchCore
+
+/// A text of the page that is edited in place.
+enum PageField { case name, job }
 
 /// The page of one machine as the person works on it: the live blocks, the proposal that waits, the machine's facts,
 /// and the note the person writes in. The store is the truth; every action writes to it and reads the page again.
@@ -15,6 +19,8 @@ final class MachinePageModel {
     /// last until the person decides on the proposal.
     private(set) var refusals: [PageRefusal] = []
     private(set) var isAsking = false
+    /// The words of the page the person is editing where they stand.
+    private(set) var editing: PageField?
 
     let editor: NoteEditorModel
     let problems = ProblemSlot()
@@ -26,10 +32,12 @@ final class MachinePageModel {
     @ObservationIgnored private let viewer: PageViewer
     @ObservationIgnored private let makeModel: () throws -> RecordedModel
     @ObservationIgnored unowned let helper: HelperModel
+    /// What the machine is doing now, in one line under the job. Nothing shows until a status read is given here.
+    @ObservationIgnored let nowLine: () -> String?
 
     init(
         helper: HelperModel, page: WorkObjectID, store: Store, owner: PersonID,
-        makeModel: @escaping () throws -> RecordedModel
+        nowLine: @escaping () -> String? = { nil }, makeModel: @escaping () throws -> RecordedModel
     ) throws {
         guard let note = NoteID(object: page) else { throw WorkObjectError.unknown(page) }
         self.helper = helper
@@ -37,22 +45,36 @@ final class MachinePageModel {
         self.store = store
         self.owner = owner
         self.makeModel = makeModel
+        self.nowLine = nowLine
         viewer = try PageViewer(owner: owner)
         editor = NoteEditorModel(note: note, store: store, owner: owner)
         shown = ShownPage(contents: PageContents(page: MachinePage(), notes: [], erased: []), proposal: nil)
         runs = PageRuns(order: [], documentBlocks: [])
         editor.pageOrder = { [weak self] saving in self?.pageOrder(saving: saving) ?? saving.map(PageBlockRef.note) }
+        problems.attempt("start the page") { try store.startPage(of: helper.machine) }
         reload()
     }
 
     var name: String { helper.name }
     var spec: HelperSpec { helper.spec }
     var reads: String { helper.reads }
-    /// The job in one sentence, in the person's words, from the machine's template. Nil for a machine whose template
-    /// is not known.
-    var job: String? { GalleryTemplate.of(id: helper.machine.template)?.job }
-    var hasNothingYet: Bool { !shown.hasMachineBlocks && proposal == nil }
+    /// The job in one sentence, in the person's words: the machine's own, else its template's.
+    var job: String? { helper.machine.job }
     var slots: [PageSlot] { runs.slots(order: shown.order) }
+
+    /// The title of the page as a text that is edited in place; `commit` gets the new name.
+    func renaming(commit: @escaping (String) -> Void) -> PageRename {
+        PageRename(
+            isEditing: Binding(get: { self.editing == .name }, set: { self.setEditing(.name, $0) }), commit: commit)
+    }
+
+    func setEditing(_ field: PageField, _ isEditing: Bool) {
+        if isEditing {
+            editing = field
+        } else if editing == field {
+            editing = nil
+        }
+    }
 
     func reload() {
         problems.attempt("read the page") {

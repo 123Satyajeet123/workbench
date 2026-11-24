@@ -1,7 +1,7 @@
 import SwiftUI
 import WorkbenchCore
 
-/// The one bar at the bottom of the page while a proposal waits: Mochi's line, each change the gate refused, and the
+/// The one bar at the bottom of the page, under a rule, while a proposal waits: Mochi's line, each change the gate refused, and the
 /// two buttons the person decides with.
 struct ProposalBar: View {
     let note: String
@@ -25,7 +25,8 @@ struct ProposalBar: View {
                 Button("Accept", action: accept).buttonStyle(.primary).keyboardShortcut(.defaultAction)
             }
         }
-        .calloutBox(fillsWidth: true)
+        .padding(.top, Space.s)
+        .overlay(alignment: .top) { Divider() }
         .accessibilityElement(children: .contain)
     }
 }

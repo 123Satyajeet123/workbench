@@ -19,6 +19,7 @@ struct Sidebar: View {
     @Environment(DealsModel.self) private var deals
     @Environment(WorkspaceModel.self) private var workspace
     @State private var editing: MachineEdit?
+    @State private var isAddingTeam = false
     @State private var deleting: HelperModel?
     @State private var renaming: WorkObjectID?
     @State private var footRowHeight: CGFloat = 20
@@ -70,6 +71,7 @@ struct Sidebar: View {
         .safeAreaInset(edge: .bottom, spacing: 0) { foot }
         .onChange(of: crew.crew.map(\.machine.id)) { workspace.refresh() }
         .onChange(of: deals.deals.map(\.id)) { workspace.refresh() }
+        .sheet(isPresented: $isAddingTeam) { TeamSheet(model: TeamAddModel(crew: crew)) }
         .sheet(item: $editing) { edit in
             MachineSheet(edit: edit) { id in
                 workspace.refresh()
@@ -138,6 +140,7 @@ struct Sidebar: View {
                 Divider()
             }
             newItems(under: nil)
+            Button("Add a team…") { isAddingTeam = true }
         } label: {
             HStack(spacing: Space.xs) {
                 Text(team.team.name.cleaned ?? "Workspace")

@@ -44,7 +44,8 @@ public func snapshot(
     pageOf model: MachinePageModel, subtitle: String, crew: Crew, models: ModelSettings, named name: String,
     dark: Bool, size: CGSize, in folder: URL
 ) async throws -> URL {
-    let page = Page(title: model.name, subtitle: subtitle) { MachinePageView(model: model) }
+    let rename = model.renaming { crew.rename(model.helper, to: $0) }
+    let page = Page(title: model.name, subtitle: subtitle, rename: rename) { MachinePageView(model: model) }
         .environment(crew).environment(models)
     return try await snapshot(page, named: name, dark: dark, size: size, in: folder)
 }

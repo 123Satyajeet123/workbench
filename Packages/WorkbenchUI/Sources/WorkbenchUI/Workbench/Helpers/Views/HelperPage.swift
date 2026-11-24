@@ -3,10 +3,18 @@ import WorkbenchCore
 
 struct HelperPage: View {
     let model: HelperModel
+    @Environment(Crew.self) private var crew
+    @Environment(WorkspaceModel.self) private var workspace
 
     var body: some View {
         Page(
             title: model.name, subtitle: subtitle, look: model.pageModel == nil ? .of(model.machine) : nil,
+            rename: model.pageModel.map { page in
+                page.renaming { name in
+                    crew.rename(model, to: name)
+                    workspace.refresh()
+                }
+            },
             accessory: { DayStepper(day: model.day, today: model.today, show: model.show) },
             content: { content })
     }
@@ -19,7 +27,7 @@ struct HelperPage: View {
                 Fold(isOpen: model.isChoosingSource) {
                     HelperContent(model: model).padding(.top, Space.m)
                 } label: {
-                    Text("Readings and settings").text(.sectionTitle)
+                    Text("Readings and settings").text(.meta)
                 }
             }
             .onAppear(perform: model.reload)

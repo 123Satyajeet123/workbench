@@ -1,0 +1,284 @@
+import AppKit
+import CaptureService
+import Foundation
+import GRDB
+import Kernel
+import LocalSources
+import PageSnapshot
+import SwiftUI
+import Synchronization
+
+@testable import AgentCLI
+@testable import WorkbenchCore
+@testable import WorkbenchUI
+
+/// Shows that a machine's page tells the truth, in both directions: a started machine gets its facts block, an
+/// existing machine gets it once and never again after the person removed it, a job edit leaves the prompt as it
+/// was, and the Add a team sheet makes the rows `Store.addTeam` makes. It draws the pages to PNGs off screen.
+/// It uses scratch stores and no network, and never opens a window. Usage: page-truth [png-folder]
+
+setvbuf(stdout, nil, _IOLBF, 0)
+_ = NSApplication.shared
+var failures = 0
+
+func check(_ name: String, _ ok: Bool) {
+    print("  \(ok ? "ok  " : "FAIL") \(name)")
+    if !ok { failures += 1 }
+}
+
+func heading(_ text: String) { print("\n\(text)") }
+
+struct Missing: Error {}
+
+func need<Value>(_ value: Value?) throws -> Value {
+    guard let value else { throw Missing() }
+    return value
+}
+
+final class Scripted: StructuredModel, Sendable {
+    let name = "scripted"
+
+    func generate<T: Decodable & Sendable>(_ type: T.Type, schema: JSONSchema, instructions: String, input: String)
+        async throws -> ModelAnswer<T>
+    {
+        ModelAnswer(
+            value: try JSONDecoder().decode(T.self, from: Data(#"{"items":[]}"#.utf8)), model: name, usage: Usage(),
+            reply: "")
+    }
+}
+
+final class QuietNotifier: Notifier {
+    func authorize() async -> SystemAccess { .allowed }
+    func post(title: String, body: String, page: SidebarSelection) async throws {}
+}
+
+let shots = URL(
+    filePath: CommandLine.arguments.dropFirst().first
+        ?? "/Users/jeet/Projects/worktrace/plans/2026-11-24-page-truth/shots")
+let scratch = FileManager.default.temporaryDirectory.appending(path: "page-truth-\(UUID().uuidString)")
+defer { try? FileManager.default.removeItem(at: scratch) }
+let owner = try PersonID("page-truth-owner")
+let pipTemplate = try need(GalleryTemplate.of(id: MachineTemplate.team.id))
+
+func freshStore(_ name: String) throws -> Store { try Store(directory: scratch.appending(path: name)) }
+
+func count(_ store: Store, _ sql: String, _ arguments: StatementArguments = []) throws -> Int {
+    try store.writer.read { db in try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM \(sql)", arguments: arguments) ?? 0 }
+}
+
+func blockRows(_ store: Store, of machine: Machine) throws -> Int {
+    try count(store, "machine_block WHERE object_id = ?", [machine.page])
+}
+
+func liveBlocks(_ store: Store, of machine: Machine) throws -> [MachineBlockID: MachineBlock] {
+    try store.queries.page(of: try need(machine.page), for: PageViewer(owner: owner)).page.blocks
+}
+
+/// What an old store held: a machine with a page, and no row in `machine_block`.
+func makeOldMachine(_ store: Store, of template: GalleryTemplate = pipTemplate) throws -> Machine {
+    let machine = try need(try store.start(template).machine)
+    let page = try need(machine.page)
+    try store.writer.write { db in
+        try db.execute(
+            sql: "DELETE FROM container_order WHERE container = ?", arguments: [try Store.container(of: page)])
+        try db.execute(sql: "DELETE FROM machine_block WHERE object_id = ?", arguments: [page])
+    }
+    return machine
+}
+
+func makeCrew(_ store: Store) throws -> Crew {
+    Crew(
+        store: store, capture: try CaptureService(store: store, owner: .success(owner)), founder: { "Rhea" },
+        makeModel: nil, notifier: QuietNotifier(), owner: .success(owner),
+        whatsAppContainer: scratch.appending(path: "no-whatsapp"))
+}
+
+// MARK: 1. Start
+
+heading("1. A machine that starts has its template's facts block on its page")
+let startStore = try freshStore("start")
+let started = try need(try startStore.start(pipTemplate, name: "Pip").machine)
+let startBlocks = try liveBlocks(startStore, of: started)
+print("  Pip's page after start: \(startBlocks.values)")
+check("start writes one live facts block", startBlocks.count == 1)
+check(
+    "it shows Pip's board of facts, by person",
+    startBlocks.values.contains {
+        if case .facts(let view) = $0 { view.layout == .board && view.groupBy == "person" } else { false }
+    })
+check(
+    "it has no run and no proposal, as the person's own start",
+    try count(startStore, "machine_block WHERE state = 'live' AND made_by_run IS NULL AND proposal_id IS NULL") == 1)
+let crewStore = try freshStore("crew")
+let crew = try makeCrew(crewStore)
+let made = try need(crew.create(from: .followUps, name: "Follow-ups").flatMap { crew.helper(id: $0) })
+check("Crew.create gives the same block", try liveBlocks(crewStore, of: made.machine).count == 1)
+
+// MARK: 2. An existing machine
+
+heading("2. A machine that exists with a page and no block gets its block once")
+let oldStore = try freshStore("old")
+let old = try makeOldMachine(oldStore)
+check("before: the old page has 0 rows in machine_block", try blockRows(oldStore, of: old) == 0)
+try oldStore.startPage(of: old)
+check("the first load gives it one block", try liveBlocks(oldStore, of: old).count == 1)
+try oldStore.startPage(of: old)
+try oldStore.startPage(of: old)
+check("a second and third load add nothing", try blockRows(oldStore, of: old) == 1)
+
+heading("3. A block the person removed is not added again")
+try oldStore.removeBlock(try need(try liveBlocks(oldStore, of: old).keys.first), surface: .machinePage)
+check("the person removes it: 0 live blocks", try liveBlocks(oldStore, of: old).isEmpty)
+try oldStore.startPage(of: old)
+check("the next load adds none", try liveBlocks(oldStore, of: old).isEmpty)
+check(
+    "the marker is the removed row itself: 1 row, state removed",
+    try count(oldStore, "machine_block WHERE state = 'removed'") == 1)
+
+// MARK: 4. Job
+
+heading("4. A job edit is one machine_change row and leaves the prompt as it was")
+let jobStore = try freshStore("job")
+let pip = try need(try jobStore.start(pipTemplate, name: "Pip").machine)
+let changesBefore = try count(jobStore, "machine_change WHERE machine_id = ?", [pip.id])
+let reader = { (machine: Machine) in HelperReader(spec: machine.spec, model: RecordedModel(Scripted(), store: jobStore))
+}
+check("before: the page shows the template's job", pip.job == pipTemplate.job)
+try jobStore.edit(pip, job: "Keep my team's plans and blockers in view.")
+let edited = try need(try jobStore.queries.machines().first { $0.id == pip.id })
+check(
+    "one new machine_change row",
+    try count(jobStore, "machine_change WHERE machine_id = ?", [pip.id]) == changesBefore + 1)
+check("the machine's own job shows", edited.job == "Keep my team's plans and blockers in view.")
+check("the prompt is the same bytes", reader(pip).instructions == reader(edited).instructions)
+check("the output schema is the same", reader(pip).schema == reader(edited).schema)
+let sameSpec = { (machine: Machine) -> Machine in
+    var plain = machine
+    plain.spec.job = nil
+    return plain
+}
+check("the spec is the same apart from the job", sameSpec(edited).spec == pip.spec)
+try jobStore.edit(edited, job: "   ")
+check(
+    "a blank job gives the template's job back",
+    try need(try jobStore.queries.machines().first { $0.id == pip.id }).job == pipTemplate.job)
+
+// MARK: 5. Add a team
+
+heading("5. The Add a team sheet makes the rows Store.addTeam makes")
+func shape(_ store: Store) throws -> [String] {
+    let objects = try store.queries.everyWorkObject().map { "\($0.kind):\($0.name)" }.sorted()
+    let machines = try store.queries.machines().map { "\($0.template):\($0.name)" }.sorted()
+    let rows = try ["machine", "machine_change", "machine_block", "work_object"].map { "\($0)=\(try count(store, $0))" }
+    return objects + machines + rows
+}
+let coreStore = try freshStore("core")
+let coreTeam = try coreStore.addTeam(.fund)
+let sheetStore = try freshStore("sheet")
+let sheetCrew = try makeCrew(sheetStore)
+let sheetModel = TeamAddModel(crew: sheetCrew)
+sheetModel.chosen = .fund
+sheetModel.add()
+print("  Fund started \(sheetModel.started?.machines ?? []), refused \(sheetModel.started?.refused ?? [])")
+check("the sheet and the Core call make the same rows", try shape(coreStore) == shape(sheetStore))
+check(
+    "the sheet shows what the Core call returned",
+    sheetModel.started?.machines == coreTeam.machines && sheetModel.started?.refused == coreTeam.refused)
+check(
+    "each started machine has its facts block",
+    try count(sheetStore, "machine_block WHERE state = 'live'") == coreTeam.machines.count)
+let blankStore = try freshStore("blank")
+let blankModel = TeamAddModel(crew: try makeCrew(blankStore))
+let blankBefore = try shape(blankStore)
+blankModel.chosen = .blank
+blankModel.add()
+check(
+    "Blank adds nothing and says so",
+    try shape(blankStore) == blankBefore && blankModel.started?.folder == nil
+        && blankModel.started?.items.isEmpty == true)
+
+// MARK: 6. Pictures
+
+heading("6. Pictures, drawn off screen into \(shots.path)")
+let size = CGSize(width: 1000, height: 1400)
+
+func draw(_ view: some View, _ name: String) async throws {
+    for dark in [false, true] {
+        print("  \(try await snapshot(view, named: name, dark: dark, size: size, in: shots).path)")
+    }
+}
+
+let pipStore = try freshStore("pip")
+let pipMachine = try need(try pipStore.start(pipTemplate, name: "Pip").machine)
+let pipFacts = try await saveSyntheticFacts(
+    in: pipStore, of: pipMachine, owner: owner, scope: "page-truth",
+    sources: [
+        "Asha: I will send the deck by Friday", "Ravi: blocked on the signing key", "Meera: shipped the new onboarding",
+    ],
+    quotes: ["I will send the deck by Friday", "blocked on the signing key", "shipped the new onboarding"],
+    fields: [
+        [
+            "person": "Asha", "project": "Launch", "kind": "commitment", "text": "Asha sends the deck by Friday",
+            "stance": "said", "asks": "team",
+        ],
+        [
+            "person": "Ravi", "project": "Release", "kind": "blocker", "text": "Ravi waits for the signing key",
+            "stance": "said", "asks": "founder",
+        ],
+        [
+            "person": "Meera", "project": "Onboarding", "kind": "done", "text": "Meera shipped the new onboarding",
+            "stance": "said", "asks": "team",
+        ],
+    ])
+let pipCrew = try makeCrew(pipStore)
+let pipHelper = try need(pipCrew.helper(id: pipMachine.id))
+let pipPage = try need(pipHelper.pageModel)
+let models = ModelSettings(store: pipStore, secrets: MemorySecrets())
+
+func pageView(_ page: MachinePageModel) -> some View {
+    Page(title: page.name, subtitle: "Team chats", rename: page.renaming { pipCrew.rename(pipHelper, to: $0) }) {
+        MachinePageView(model: page)
+    }
+    .environment(pipCrew).environment(models)
+}
+
+try pipStore.writer.write { db in
+    try db.execute(sql: "DELETE FROM container_order")
+    try db.execute(sql: "DELETE FROM machine_block")
+}
+pipPage.reload()
+check(
+    "before: Pip has \(pipFacts.count) facts and its page shows no block",
+    pipPage.facts.count == pipFacts.count && pipPage.shown.blocks.isEmpty)
+try await draw(pageView(pipPage), "1-pip-before")
+let loaded = try MachinePageModel(
+    helper: pipHelper, page: try need(pipMachine.page), store: pipStore, owner: owner,
+    makeModel: { throw Missing() })
+check("after: the page model that loads it gives it its facts view", loaded.shown.blocks.count == 1)
+try await draw(pageView(loaded), "2-pip-after")
+loaded.setEditing(.name, true)
+try await draw(pageView(loaded), "3-pip-name-editing")
+loaded.setEditing(.name, false)
+loaded.setEditing(.job, true)
+try await draw(pageView(loaded), "4-pip-job-editing")
+
+let mochiStore = try freshStore("mochi")
+let mochiCrew = try makeCrew(mochiStore)
+let oldBrief = """
+    {"day":"\(WorkDay(containing: mochiStore.clock()).adding(days: -5))","headline":"Ask Asha for the signing key before the release slips.",
+    "lines":[{"kind":"ask","basis":"seen","text":"Ravi waits on you for the signing key.","cites":[1]}],"unseen":[],"dropped":0}
+    """
+try StateKey<MorningBrief>.json("mochi.brief").save(
+    try JSONDecoder().decode(MorningBrief.self, from: Data(oldBrief.utf8)), to: mochiStore)
+let mochiHome = MochiPage()
+    .environment(TodayModel(store: mochiStore, crew: mochiCrew)).environment(IdentityModel(store: mochiStore))
+    .environment(MochiModel(store: mochiStore, crew: mochiCrew)).environment(
+        ReviewModel(store: mochiStore, crew: mochiCrew)
+    )
+    .environment(mochiCrew)
+try await draw(mochiHome, "5-mochi-old-brief")
+
+try await draw(TeamSheet(model: sheetModel).environment(sheetCrew), "6-add-a-team-fund")
+
+print(failures == 0 ? "\nALL OK" : "\n\(failures) FAILED")
+exit(failures == 0 ? 0 : 1)

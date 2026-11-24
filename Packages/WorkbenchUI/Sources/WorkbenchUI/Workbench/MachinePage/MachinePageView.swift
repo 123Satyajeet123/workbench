@@ -2,17 +2,14 @@ import SwiftUI
 import WorkbenchCore
 
 /// The page of a machine as one document: the job, then the person's paragraphs and the machine's blocks in one
-/// order, then the machine's proposal and the box to ask it for a change.
+/// order, then the machine's proposal and the box to ask it for a change. The job is edited where it stands.
 struct MachinePageView: View {
     let model: MachinePageModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: Space.l) {
-            JobHeader(job: model.job, brief: model.spec.brief, reads: model.reads)
+            JobHeader(model: model)
             ProblemSlotBanner(slot: model.problems)
-            if model.hasNothingYet {
-                Text("Nothing here yet. Ask \(model.name) for a view of its facts.").text(.meta)
-            }
             ForEach(model.slots, id: \.self) { PageSlotView(model: model, slot: $0) }
             if let proposal = model.proposal {
                 ProposalBar(
@@ -26,31 +23,35 @@ struct MachinePageView: View {
     }
 }
 
-/// What the machine is for, in one sentence in the person's words, and what it reads. The brief is what the machine
-/// itself is told: it is one click away, and it changes in the settings.
+/// What the machine is for, in one sentence in the person's words, edited where it stands; what it reads; what it is
+/// doing now; and the brief the machine itself is told, which opens in the same editor as the sidebar's.
 private struct JobHeader: View {
-    let job: String?
-    let brief: String
-    let reads: String
+    let model: MachinePageModel
+    @Environment(Crew.self) private var crew
+    @State private var isEditingBrief = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: Space.xs) {
-            VStack(alignment: .leading, spacing: Space.xs) {
-                Label {
-                    Text("The job").text(.sectionTitle)
-                } icon: {
-                    Image(systemName: "gearshape").foregroundStyle(.iconTint)
-                }
-                if let job { Text(job).textStyle(.body).textSelection(.enabled) }
-                Text("Reads: \(reads)").text(.meta)
-            }
-            .accessibilityElement(children: .combine)
+            InPlaceText(
+                text: model.job ?? "", prompt: "Say what \(model.name) is for.", isEditing: isEditingJob,
+                commit: { crew.setJob(model.helper, to: $0) })
+            Text("Reads: \(model.reads)").text(.meta)
+            if let now = model.nowLine() { Text(now).text(.meta) }
             Fold {
-                Text(brief).textStyle(.body).textSelection(.enabled).padding(.top, Space.xs)
+                VStack(alignment: .leading, spacing: Space.s) {
+                    Text(model.spec.brief).textStyle(.body).textSelection(.enabled)
+                    Button("Edit brief…") { isEditingBrief = true }.buttonStyle(.ghost)
+                }
+                .padding(.top, Space.xs)
             } label: {
                 Text("How it works").text(.meta)
             }
         }
+        .sheet(isPresented: $isEditingBrief) { MachineSheet(edit: .brief(model.helper)) { _ in } }
+    }
+
+    private var isEditingJob: Binding<Bool> {
+        Binding(get: { model.editing == .job }, set: { model.setEditing(.job, $0) })
     }
 }
 
@@ -75,12 +76,10 @@ private struct RunEditor: View {
     let index: Int
     @Environment(\.uiScale) private var scale
 
-    private var isWholePage: Bool { model.runs.lastRun == 0 }
-
     var body: some View {
-        NoteTextEditor(model: model.run(index), minimumHeight: (isWholePage ? 96 : 24) * scale)
+        NoteTextEditor(model: model.run(index), minimumHeight: 24 * scale)
             .overlay(alignment: .topLeading) {
-                if isWholePage, model.editor.text.isEmpty {
+                if model.runs.lastRun == 0, model.editor.text.isEmpty {
                     Text(Self.placeholder).textStyle(.body).foregroundStyle(.supporting).allowsHitTesting(false)
                 }
             }

@@ -11,15 +11,6 @@ import WorkbenchCore
 /// Today, People and Projects drawn over a scratch store with the sample day, to a PNG for a person to look at. The
 /// folder comes from `TODAY_PREVIEW_DIR`, else the temporary folder.
 @Suite struct TodayRenderTests {
-    private func brief() throws -> MorningBrief {
-        let json = """
-            {"day":"2026-09-20","headline":"Ask Asha for the signing key before the OTA slips.","lines":[
-            {"kind":"ask","basis":"seen","text":"Raj waits on you to pick USD or INR.","cites":[3]},
-            {"kind":"happened","basis":"seen","text":"Asha shipped OTA 4.1.11.","cites":[7]}],"unseen":[],"dropped":0}
-            """
-        return try JSONDecoder().decode(MorningBrief.self, from: Data(json.utf8))
-    }
-
     private func folder() -> URL {
         ProcessInfo.processInfo.environment["TODAY_PREVIEW_DIR"].map { URL(filePath: $0) }
             ?? FileManager.default.temporaryDirectory
@@ -45,7 +36,7 @@ import WorkbenchCore
 
     @Test func todayIsDrawnWithItsSectionsInOrder() async throws {
         let model = try await sampleDay()
-        let data = try png(of: TodayFrame(model: model, brief: try brief()))
+        let data = try png(of: TodayFrame(model: model))
         try data.write(to: folder().appending(path: "today-summaries.png"))
         #expect(data.count > 20_000)
     }

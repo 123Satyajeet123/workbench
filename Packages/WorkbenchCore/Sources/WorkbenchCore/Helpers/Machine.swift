@@ -19,6 +19,9 @@ public struct Machine: Sendable, Equatable, Identifiable {
 
     public var task: String { spec.task }
 
+    /// The job in one sentence: the machine's own, else its template's. Nil for a machine whose template is not known.
+    public var job: String? { spec.job ?? GalleryTemplate.of(id: template)?.job }
+
     public init(
         id: Int64, name: String, template: String, spec: HelperSpec, state: State, page: WorkObjectID? = nil,
         folder: WorkObjectID? = nil

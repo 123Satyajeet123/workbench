@@ -222,6 +222,11 @@ final class Crew {
         reload()
     }
 
+    func setJob(_ helper: HelperModel, to job: String) {
+        problems.attempt("change \(helper.name)'s job") { try store.edit(helper.machine, job: job) }
+        reload()
+    }
+
     /// New criteria are a new prompt version, as a new brief is.
     func setCriteria(_ helper: HelperModel, _ criteria: Criteria) {
         problems.attempt("save \(helper.name)'s criteria") { try store.setCriteria(helper.machine, criteria) }

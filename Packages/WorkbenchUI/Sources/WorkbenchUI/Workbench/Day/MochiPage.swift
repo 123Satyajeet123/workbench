@@ -6,6 +6,7 @@ import WorkbenchCore
 struct MochiPage: View {
     @Environment(TodayModel.self) private var today
     @Environment(IdentityModel.self) private var identity
+    @Environment(MochiModel.self) private var mochi
 
     var body: some View {
         Page(
@@ -13,9 +14,10 @@ struct MochiPage: View {
             title: identity.identity.greeting(), subtitle: Date.now.formatted(date: .complete, time: .omitted),
             look: SidebarSelection.mochi.look
         ) {
-            BriefCard()
+            if mochi.leadsPage { BriefCard() }
             QuestionCard()
-            TodayBody(model: today, brief: nil)
+            TodayBody(model: today)
+            if !mochi.leadsPage { BriefCard() }
         }
         .onAppear(perform: today.refresh)
         .task { await today.refreshMeetings() }
@@ -105,15 +107,17 @@ private struct BriefCard: View {
                     .foregroundStyle(.supporting)
             }
             if let problem = mochi.briefProblem { Text(problem).textStyle(.callout).foregroundStyle(.supporting) }
-            Button(mochi.briefPhase == .reading ? "Writing…" : "Brief yesterday now") {
-                Task { await mochi.writeBrief(for: WorkDay(containing: .now).adding(days: -1)) }
+            Button(mochi.briefPhase == .reading ? "Writing…" : "Brief \(MochiModel.name(of: mochi.briefDay)) now") {
+                Task { await mochi.writeBrief(for: mochi.briefDay) }
             }
             .buttonStyle(.primary)
             .disabled(mochi.briefPhase == .reading)
         }
     }
 
-    private var title: String { mochi.brief.map { "Brief of \($0.day)" } ?? "Morning brief" }
+    private var title: String {
+        mochi.brief.map { "Brief of \(mochi.words(forBriefOf: $0.day))" } ?? "Morning brief"
+    }
 
     private func symbol(_ kind: MorningBrief.Line.Kind) -> String {
         switch kind {

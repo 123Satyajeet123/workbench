@@ -180,6 +180,9 @@ public struct HelperSpec: Codable, Sendable, Equatable {
     /// Where the evidence comes from: the source this machine reads, stored by the name the registry knows it by.
     public var source: SourceDescriptor
     public var brief: String
+    /// What the machine is for, in one sentence in the person's words. It is for the page only: the machine is never told
+    /// it. Nil shows the job of the machine's template.
+    public var job: String? = nil
     public var fields: [Field]
     public var citation: Citation
     public var view: View

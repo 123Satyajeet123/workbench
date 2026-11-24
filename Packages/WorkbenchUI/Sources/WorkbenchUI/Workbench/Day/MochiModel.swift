@@ -31,6 +31,32 @@ final class MochiModel {
         refresh()
     }
 
+    /// The day the next brief is for: the day before today.
+    var briefDay: WorkDay { WorkDay(containing: store.clock()).adding(days: -1) }
+
+    /// Whether the brief belongs at the head of the page: it is for the day before today, or there is none yet. A brief
+    /// of an earlier day is shown below today's sections.
+    var leadsPage: Bool { brief.map { $0.day == briefDay.description } ?? true }
+
+    /// Which day a brief is for, in words: "Thursday, 19 Nov, 5 days ago".
+    func words(forBriefOf day: String) -> String {
+        guard let day = WorkDay(day) else { return day }
+        return "\(Self.name(of: day)), \(Self.age(of: day, from: WorkDay(containing: store.clock())))"
+    }
+
+    static func name(of day: WorkDay) -> String {
+        "\(day.weekdayName), \(day.start.formatted(.dateTime.day().month(.abbreviated).locale(Locale(identifier: "en_GB"))))"
+    }
+
+    private static func age(of day: WorkDay, from today: WorkDay) -> String {
+        let days = Calendar.current.dateComponents([.day], from: day.start, to: today.start).day ?? 0
+        switch days {
+        case 0: return "today"
+        case 1: return "yesterday"
+        default: return "\(days) days ago"
+        }
+    }
+
     var waiting: [Proposal] { proposals.filter { $0.decision == .waiting } }
     var canDiscover: Bool { trainingDays >= RunSettings.standard.proposalDays && phase != .reading }
 

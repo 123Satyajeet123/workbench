@@ -37,6 +37,12 @@ extension ShapeStyle where Self == Color {
     static var supporting: Color { Color.bodyText.opacity(supportingOpacity) }
 }
 
+/// What lets a page's title be edited where it stands.
+struct PageRename {
+    let isEditing: Binding<Bool>
+    let commit: (String) -> Void
+}
+
 struct Page<Content: View, Accessory: View>: View {
     static var columnWidth: CGFloat { 760 }
 
@@ -44,6 +50,7 @@ struct Page<Content: View, Accessory: View>: View {
     let title: String
     var subtitle: String?
     var look: Mascot.Look?
+    var rename: PageRename?
     @ViewBuilder let accessory: Accessory
     @ViewBuilder let content: Content
     @AppStorage(DismissedIntros.key) private var dismissed = DismissedIntros()
@@ -85,17 +92,24 @@ struct Page<Content: View, Accessory: View>: View {
             if let look { Mascot(look: look, size: 64) }
             VStack(alignment: .leading, spacing: Space.xs) {
                 HStack(alignment: .center, spacing: Space.xs) {
-                    if oneLine {
-                        Text(title).textStyle(.largeTitle, weight: .bold).fixedSize()
-                    } else {
-                        PageTitle(title: title)
-                    }
+                    titleView(oneLine: oneLine)
                     if let intro, intro.intro != nil, dismissed.contains(intro) {
                         PageIntroButton { setDismissed(false, intro) }
                     }
                 }
                 if let subtitle { Text(subtitle).foregroundStyle(.supporting) }
             }
+        }
+    }
+
+    @ViewBuilder private func titleView(oneLine: Bool) -> some View {
+        if let rename {
+            InPlaceText(text: title, isEditing: rename.isEditing, commit: rename.commit)
+                .textStyle(.largeTitle, weight: .bold)
+        } else if oneLine {
+            Text(title).textStyle(.largeTitle, weight: .bold).fixedSize()
+        } else {
+            PageTitle(title: title)
         }
     }
 
@@ -109,10 +123,11 @@ struct Page<Content: View, Accessory: View>: View {
 extension Page where Accessory == EmptyView {
     init(
         intro: SidebarSelection? = nil, title: String, subtitle: String? = nil, look: Mascot.Look? = nil,
-        @ViewBuilder content: () -> Content
+        rename: PageRename? = nil, @ViewBuilder content: () -> Content
     ) {
         self.init(
-            intro: intro, title: title, subtitle: subtitle, look: look, accessory: { EmptyView() }, content: content)
+            intro: intro, title: title, subtitle: subtitle, look: look, rename: rename, accessory: { EmptyView() },
+            content: content)
     }
 }
 
