@@ -7,6 +7,11 @@ struct FactsBlockView: View {
     let model: MachinePageModel
     let view: FactsView
     @State private var inspected: Item?
+    @Environment(\.uiScale) private var scale
+
+    /// The width of one column of a board: a fact's words read as sentences at this width, whatever the number of
+    /// columns. More columns than the page holds scroll sideways.
+    private static let boardColumnWidth: CGFloat = 300
 
     var body: some View {
         let sections = view.sections(in: model.facts)
@@ -22,14 +27,17 @@ struct FactsBlockView: View {
                     FactRows(model: model, items: section.facts, inspected: $inspected)
                 }
             case .board:
-                HStack(alignment: .top, spacing: Space.m) {
-                    ForEach(sections, id: \.name) { section in
-                        VStack(alignment: .leading, spacing: Space.s) {
-                            SectionHeading(name: section.name)
-                            FactRows(model: model, items: section.facts, inspected: $inspected)
+                ScrollView(.horizontal) {
+                    HStack(alignment: .top, spacing: Space.m) {
+                        ForEach(sections, id: \.name) { section in
+                            VStack(alignment: .leading, spacing: Space.s) {
+                                SectionHeading(name: section.name)
+                                FactRows(model: model, items: section.facts, inspected: $inspected)
+                            }
+                            .frame(width: Self.boardColumnWidth * scale, alignment: .topLeading)
                         }
-                        .frame(maxWidth: .infinity, alignment: .topLeading)
                     }
+                    .padding(.bottom, Space.m)
                 }
             case .table:
                 ForEach(sections, id: \.name) { section in

@@ -212,26 +212,28 @@ func draw(_ view: some View, _ name: String) async throws {
 
 let pipStore = try freshStore("pip")
 let pipMachine = try need(try pipStore.start(pipTemplate, name: "Pip").machine)
+/// Nine invented people with long names and long words, the shape of a team chat: a board must stay readable with them.
+let people = [
+    "Anantharaman Example", "Asha Example", "Benedikt Varga Example", "Chidi Example", "Dominika Kowalczyk Example",
+    "Emeka Example", "Farida Example", "Giovanni Rossi Example", "Hyun-woo Park",
+]
+let words = [
+    "the build is uploaded and the update has not reached the test tablet yet",
+    "send the update to the second tablet before the review this afternoon",
+    "this week we finish the shortcut work for every one of the system apps",
+    "approve the branch so that the merge can happen before the evening",
+    "check the serial numbers for the update test and send the list back",
+    "four in the afternoon works, the notes will be shared after the class",
+    "the pairing flow can start as soon as the signing key is available",
+    "the weather app is free to take, the notes app is already taken",
+    "use the corner table for the demo, the charger will be there",
+]
 let pipFacts = try await saveSyntheticFacts(
     in: pipStore, of: pipMachine, owner: owner, scope: "page-truth",
-    sources: [
-        "Asha: I will send the deck by Friday", "Ravi: blocked on the signing key", "Meera: shipped the new onboarding",
-    ],
-    quotes: ["I will send the deck by Friday", "blocked on the signing key", "shipped the new onboarding"],
-    fields: [
-        [
-            "person": "Asha", "project": "Launch", "kind": "commitment", "text": "Asha sends the deck by Friday",
-            "stance": "said", "asks": "team",
-        ],
-        [
-            "person": "Ravi", "project": "Release", "kind": "blocker", "text": "Ravi waits for the signing key",
-            "stance": "said", "asks": "founder",
-        ],
-        [
-            "person": "Meera", "project": "Onboarding", "kind": "done", "text": "Meera shipped the new onboarding",
-            "stance": "said", "asks": "team",
-        ],
-    ])
+    sources: zip(people, words).map { "\($0): \($1)" }, quotes: words,
+    fields: zip(people, words).map {
+        ["person": $0, "project": "Update", "kind": "plan", "text": $1, "stance": "said", "asks": "team"]
+    })
 let pipCrew = try makeCrew(pipStore)
 let pipHelper = try need(pipCrew.helper(id: pipMachine.id))
 let pipPage = try need(pipHelper.pageModel)
