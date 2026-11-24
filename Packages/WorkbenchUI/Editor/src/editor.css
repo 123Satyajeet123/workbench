@@ -93,7 +93,7 @@ img.ProseMirror-separator { display: inline !important; border: none !important;
 .facts-board .facts-section { flex: 0 0 260px; min-width: 0; }
 .facts-counts .facts-section { display: flex; justify-content: space-between; padding: 2px 0; }
 .count { font-variant-numeric: tabular-nums; }
-.fact { display: flex; flex-wrap: wrap; gap: 2px 12px; align-items: baseline; padding: 3px 0; min-width: 0; }
+div.fact { display: flex; flex-wrap: wrap; gap: 2px 12px; align-items: baseline; padding: 3px 0; min-width: 0; }
 .fact-words { flex: 1 1 24em; min-width: 0; font: inherit; color: inherit; text-align: left; background: none; border: 0; padding: 0; cursor: pointer; overflow-wrap: anywhere; white-space: normal; }
 .fact-words:hover { text-decoration: underline; text-decoration-color: var(--wb-divider); }
 .fact-meta { display: inline-flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; font-size: 0.8125em; min-width: 0; }
@@ -104,7 +104,7 @@ img.ProseMirror-separator { display: inline !important; border: none !important;
 .tag-bad::before { background: var(--wb-bad); }
 .needs-pill { font-size: 0.8125em; font-weight: 600; color: var(--wb-text); background: color-mix(in srgb, var(--wb-attention) 22%, transparent); border-radius: 999px; padding: 0 8px; white-space: nowrap; }
 .marks { display: inline-flex; gap: 4px; opacity: 0; transition: opacity var(--wb-quick) ease-out; }
-.fact:hover .marks, .fact:focus-within .marks { opacity: 1; }
+.fact:hover .marks, .fact:focus-within .marks, .fact-card:hover .marks, .fact-card:focus-within .marks { opacity: 1; }
 .mark, .picker-button { font: inherit; font-size: 0.8125em; color: var(--wb-supporting); background: none; border: 1px solid var(--wb-divider); border-radius: 4px; padding: 0 8px; cursor: pointer; }
 .mark:hover, .picker-button:hover { color: var(--wb-text); background: var(--wb-hover); }
 .group { border-bottom: 1px solid var(--wb-divider); padding: 6px 0; }
@@ -130,9 +130,15 @@ img.ProseMirror-separator { display: inline !important; border: none !important;
 .group-table .group-cell { min-width: 11em; width: 30%; overflow-wrap: break-word; }
 .group-toggle { overflow-wrap: break-word; word-break: normal; }
 .group-fit.no-newest .group-newest, .group-fit.no-newest th.newest { display: none; }
-.group-fit .group-list-fallback { display: none; }
-.group-fit.as-list .table-wrap { display: none; }
-.group-fit.as-list .group-list-fallback { display: block; }
+.group-list-fallback, .fact-list-fallback { display: none; }
+.group-fit.as-list .table-wrap, .fact-fit.as-list .table-wrap { display: none; }
+.group-fit.as-list .group-list-fallback, .fact-fit.as-list .fact-list-fallback { display: block; }
+.fact-table .cell-box { min-width: 8em; overflow-wrap: break-word; }
+.fact-table th.marks-cell, .fact-table td.marks-cell { width: 1%; white-space: nowrap; }
+.fact-card { padding: 6px 0; border-bottom: 1px solid var(--wb-divider); }
+.fact-card-field { display: flex; flex-direction: column; margin-bottom: 2px; }
+.fact-card-name { font-size: 0.8125em; text-transform: capitalize; }
+.fact-card-words { overflow-wrap: anywhere; }
 .group-body { border-bottom: 1px solid var(--wb-divider); }
 .group-toggle { font: inherit; font-weight: 600; text-align: left; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
 .group-toggle::before { content: "\203A"; display: inline-block; width: 1em; color: var(--wb-icon); }

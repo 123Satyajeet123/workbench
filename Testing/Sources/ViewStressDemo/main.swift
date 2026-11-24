@@ -30,6 +30,7 @@ await check("the view bar offers what the gate allows, and stores a choice as th
 }
 await check("the whole page: the document alone") { try await WholePage.run(into: folder) }
 await check("every layout at its extremes, 700 pt wide") { try await Stress.run(into: folder) }
+await check("the plain table: 2, 3 and 6 columns, a long cell, a long word") { try await PlainTable.run(into: folder) }
 for set in [Sets.team, Sets.deals, Sets.news] {
     await check("pictures of \(set.name)") { try await Expression.render(set, into: folder) }
 }

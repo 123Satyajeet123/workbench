@@ -119,7 +119,7 @@ let sources = ["Packages/WorkbenchCore/Sources", "Packages/WorkbenchUI/Sources",
 
 /// Prints each line of Sources that `pattern` finds, as class B when `generic` explains it and as class A when not.
 /// Returns the count of class A.
-func scan(_ pattern: String, generic: [Generic]) throws -> Int {
+func scan(_ pattern: String, generic: [Generic]) throws -> (lines: Int, unexplained: Int) {
     let expression = try NSRegularExpression(pattern: pattern)
     var hits: [(file: String, line: Int, text: String)] = []
     for source in sources {
@@ -146,12 +146,12 @@ func scan(_ pattern: String, generic: [Generic]) throws -> Int {
         }
     }
     print("  lines: \(hits.count); class A: \(unexplained); class B: \(hits.count - unexplained)")
-    return unexplained
+    return (hits.count, unexplained)
 }
 
 let inventory = #"template *==|\.task *==|helper\(task:|MachineTemplate\.[a-zA-Z]+\.id|HelperSpec\.[a-zA-Z]+\.task"#
-let inventoryA = try scan(inventory, generic: genericLines)
-print("  the inventory had 41 lines at 7c7d3141; class A is 0: \(yes(inventoryA == 0))")
+let (inventoryLines, inventoryA) = try scan(inventory, generic: genericLines)
+print("  the inventory had 41 lines at 7c7d3141 and finds \(inventoryLines) now; class A is 0: \(yes(inventoryA == 0))")
 
 print("\n5. Other identity branches: a named machine, or the first machine of a template or role")
 let named =
@@ -164,11 +164,11 @@ let namedLines = [
     Generic("MachineSheet.swift", "MachineTemplate.team", "the add sheet's first choice (M8)"),
     Generic("WelcomeStep.swift", "MachineTemplate.team", "the welcome screen's card (M8)"),
 ]
-let namedA = try scan(named, generic: namedLines)
+let (_, namedA) = try scan(named, generic: namedLines)
 print("  named machines left unexplained: \(namedA)")
 
 print("\n6. Force paths: a machine that needs a known template id")
 let forcing =
     #"GalleryTemplate\.of\(id:[^)]*\)[^\n]*(!|\?\? *[A-Za-z.]+\b)|guard let [^=]*= *[^\n]*GalleryTemplate\.of\(id:|MachineTemplate\.of\([^)]*\)!"#
-let forcePaths = try scan(forcing, generic: [])
+let (_, forcePaths) = try scan(forcing, generic: [])
 print("  a machine with no template needs no known template id anywhere: \(yes(forcePaths == 0))")

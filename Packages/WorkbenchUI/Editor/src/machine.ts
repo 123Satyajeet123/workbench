@@ -302,18 +302,36 @@ function groupTableOrList(view: Facts, actions: MachineActions): HTMLElement {
   const wrap = el("div", "group-fit");
   const table = groupTable(view, actions);
   const list = el("div", "group-list-fallback");
-  for (const section of view.sections) list.append(groupOf(section, actions));
   wrap.append(table, list);
-  const scroller = table;
+  fitTableOrList(wrap, table, list, ["no-newest"], () => {
+    for (const section of view.sections) list.append(groupOf(section, actions));
+  });
+  return wrap;
+}
+
+/**
+ * The one rule for every table: it keeps its natural width, with a real minimum for each column. Each step in `steps`
+ * is a class that takes something out; when the table still needs more than the block has, the rows show as a list
+ * (`as-list`). The list is made only when it shows, so a fact is in the page once. Decided again whenever the block
+ * changes width, and only then: a change of height keeps the rows the person has open.
+ */
+function fitTableOrList(wrap: HTMLElement, scroller: HTMLElement, list: HTMLElement, steps: string[], fill: () => void): void {
+  const fits = () => scroller.scrollWidth <= scroller.clientWidth + 1;
+  let decidedAt = -1;
   const fit = () => {
-    wrap.classList.remove("no-newest", "as-list");
-    if (scroller.scrollWidth <= scroller.clientWidth + 1) return;
-    wrap.classList.add("no-newest");
-    if (scroller.scrollWidth <= scroller.clientWidth + 1) return;
+    if (wrap.clientWidth === decidedAt) return;
+    decidedAt = wrap.clientWidth;
+    wrap.classList.remove("as-list", ...steps);
+    list.replaceChildren();
+    for (const step of steps) {
+      if (fits()) return;
+      wrap.classList.add(step);
+    }
+    if (fits()) return;
     wrap.classList.add("as-list");
+    fill();
   };
   new ResizeObserver(fit).observe(wrap);
-  return wrap;
 }
 
 /** The sections as the rows of one table: a count for each value, what needs the person, the newest fact. */
@@ -370,16 +388,17 @@ function factLine(row: FactRow, actions: MachineActions): HTMLElement {
 }
 
 function factTable(view: Facts, section: FactSection, actions: MachineActions): HTMLElement {
+  const fit = el("div", "fact-fit");
   const wrap = el("div", "table-wrap");
-  const table = el("table", "machine-table");
+  const table = el("table", "machine-table fact-table");
   const head = el("tr");
-  for (const name of view.columns) head.append(el("th", undefined, name));
-  head.append(el("th"));
+  for (const name of view.columns) head.append(boxed("th", name));
+  head.append(el("th", "marks-cell"));
   table.append(headOf(head));
   const body = el("tbody");
   for (const row of section.rows) {
     const tr = el("tr", "fact");
-    for (const cell of row.cells) tr.append(el("td", undefined, cell));
+    for (const cell of row.cells) tr.append(boxed("td", cell));
     const marks = el("td", "marks-cell");
     marks.append(markButtons(row, actions));
     tr.append(marks);
@@ -387,7 +406,31 @@ function factTable(view: Facts, section: FactSection, actions: MachineActions): 
   }
   table.append(body);
   wrap.append(table);
-  return wrap;
+  const list = el("div", "fact-list-fallback");
+  fit.append(wrap, list);
+  fitTableOrList(fit, wrap, list, [], () => {
+    for (const row of section.rows) list.append(factCard(view.columns, row, actions));
+  });
+  return fit;
+}
+
+/** A cell whose words sit in a box with a real minimum width: a table cell has none of its own that every engine keeps. */
+function boxed(tag: "th" | "td", words: string): HTMLElement {
+  const cell = el(tag);
+  cell.append(el("div", "cell-box", words));
+  return cell;
+}
+
+/** One fact of a table as a card: each column's name, then its words, stacked. */
+function factCard(columns: string[], row: FactRow, actions: MachineActions): HTMLElement {
+  const card = el("div", "fact-card");
+  columns.forEach((name, index) => {
+    const field = el("div", "fact-card-field");
+    field.append(el("span", "supporting fact-card-name", name), el("span", "fact-card-words", row.cells[index] ?? ""));
+    card.append(field);
+  });
+  card.append(markButtons(row, actions));
+  return card;
 }
 
 const MARK_WORDS: Record<OpMark["mark"], string> = { right: "Right", wrong: "Wrong", done: "Done" };

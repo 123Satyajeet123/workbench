@@ -5,7 +5,8 @@ import Lines
 @testable import WorkbenchCore
 
 /// Stored lines, one run that read them, and one fact quoting each line, saved the way a reading saves them. The
-/// lines, quotes and fields are synthetic and in the same order. Nothing here reads the person's store or the network.
+/// lines, quotes and fields are synthetic and in the same order. No fact is picked for the person's audit, which a
+/// reading picks at random: a fixture that changes from run to run is not a fixture. Nothing here reads the person's store or the network.
 @MainActor
 public func saveSyntheticFacts(
     in store: Store, of machine: Machine, owner: PersonID, scope: String, sources: [String], quotes: [String],
@@ -56,7 +57,7 @@ public func saveSyntheticFacts(
     }
     try store.saveReading(
         HelperReader.Result(items: items, dropped: 0, run: run), of: machine.spec, day: today, scope: scope,
-        grant: grant)
+        grant: grant, isAudited: { _ in false })
     let stored = try store.queries.items(of: machine.spec.task, day: today, scope: scope)
     return try quotes.map { quote in
         guard let fact = stored.first(where: { $0.quote == quote }) else { throw RenderFailure("fact not saved") }

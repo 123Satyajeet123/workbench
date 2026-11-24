@@ -5,15 +5,17 @@ import Foundation
 @testable import WorkbenchUI
 
 // Checks the document editor with no window on screen, on scratch stores and synthetic words.
-// Usage: doc-editor [--update-contract] [shots-folder]
+// Usage: doc-editor [--update-contract] [--only <words of a check's name>] [shots-folder]
 setvbuf(stdout, nil, _IOLBF, 0)
 NSApplication.shared.setActivationPolicy(.prohibited)
 let arguments = Array(CommandLine.arguments.dropFirst())
+let only = arguments.firstIndex(of: "--only").map { arguments[$0 + 1] }
 let shots = URL(
-    filePath: arguments.first { !$0.hasPrefix("--") }
+    filePath: arguments.first { !$0.hasPrefix("--") && $0 != only }
         ?? "/Users/jeet/Projects/worktrace/plans/2026-11-25-machine-one-program/shots/editor-swap")
 
 func check(_ name: String, _ work: () async throws -> String) async {
+    if let only, !name.contains(only) { return }
     do { print("PASS \(name): \(try await work())") } catch {
         print("FAIL \(name): \(error)")
         exit(1)
