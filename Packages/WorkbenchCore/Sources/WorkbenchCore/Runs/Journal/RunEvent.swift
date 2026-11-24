@@ -18,21 +18,18 @@ public enum RunEvent: Sendable, Equatable {
     case kept(Int)
     /// The proposals of the part that code refused, counted by the rule each broke.
     case dropped([DropRule: Int])
-    /// A cap hid this many entries from the model in the part.
-    case capHit(RunCap, leftOut: Int)
+    /// A cap hid this many entries from the model in the part. It is counted here and never in `dropped`.
+    case capHit(LeftOut.Part, leftOut: Int)
     /// This many facts of the part got a proposed home.
     case filed(Int)
     /// Reserved for the questions step: this many questions were put to the person. Nothing writes it yet.
     case asked(Int)
     /// The reading stopped for this reason.
     case failed(Run.Failure)
+    /// The app stopped the reading. Only `finished` may follow.
+    case cancelled
     /// The reading ended. Nothing follows.
     case finished(RunCost)
-}
-
-/// A cap that hides entries from the model. The cases name the cuts a reading can make.
-public enum RunCap: String, Sendable, CaseIterable {
-    case openFacts, objects, pageCharacters, memoryEntries
 }
 
 /// What the model calls of a reading cost. A call that ended with no count of its cost is counted apart, never as free.

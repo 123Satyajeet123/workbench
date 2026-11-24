@@ -26,17 +26,23 @@ public enum NowLine {
         case .asked(let asked):
             return "\(machine) has \(count(asked, "question")) for you."
         case .failed(let reason):
-            return stopped(state, reason: reason, machine: machine)
+            return stopped(state, stop: .failed(reason), machine: machine)
+        case .cancelled:
+            return stopped(state, stop: .cancelled, machine: machine)
         case .finished(let cost):
-            if let reason = state.failure { return stopped(state, reason: reason, machine: machine) }
+            if let stop = state.stop { return stopped(state, stop: stop, machine: machine) }
             return
                 "\(machine) finished. It kept \(state.yield.kept) and dropped \(state.yield.dropped). \(costWords(cost))"
         }
     }
 
-    private static func stopped(_ state: RunState, reason: Run.Failure, machine: String) -> String {
+    private static func stopped(_ state: RunState, stop: RunState.Stop, machine: String) -> String {
         let progress = "\(machine) stopped after \(state.partsRead) of \(count(state.parts, "part"))"
-        return reason == .limit ? "\(progress) and waits. \(reason.cause)" : "\(progress). \(reason.cause)"
+        switch stop {
+        case .cancelled: return "\(progress), because the app stopped it."
+        case .failed(.limit): return "\(progress) and waits. \(Run.Failure.limit.cause)"
+        case .failed(let reason): return "\(progress). \(reason.cause)"
+        }
     }
 
     private static func words(of reasons: [DropRule: Int]) -> String {
@@ -62,7 +68,7 @@ public enum NowLine {
     }
 }
 
-extension RunCap {
+extension LeftOut.Part {
     fileprivate var noun: String {
         switch self {
         case .openFacts: "open fact"
@@ -106,6 +112,7 @@ extension DropRule {
         case .pageDateMissing: "the page states no date"
         case .factNotCited: "a number, date or name was not in the cited words"
         case .verifierError: "the check could not run"
+        case .leftOut: "a limit cut it"
         }
     }
 }

@@ -9,22 +9,28 @@ extension RunEvent {
             promptHash: promptHash)
     }
 
-    /// The events of part `number`, which showed the model `lines` new lines. `leftOut` is what each cap hid from
-    /// the model in this part.
-    public static func events(
-        of part: HelperReader.Result, number: Int, lines: Int, leftOut: [RunCap: Int] = [:]
-    ) -> [RunEvent] {
+    /// The events of part `number`, which showed the model `lines` new lines. What a cap hid from the model is a
+    /// `capHit`, and is not in `dropped`: `Result.droppedByRule` holds the refused proposals only.
+    public static func events(of part: HelperReader.Result, number: Int, lines: Int) -> [RunEvent] {
         let read = RunEvent.partRead(number: number, lines: lines, run: part.run)
         guard part.run != nil else { return [read] }
-        let caps = leftOut.filter { $0.value > 0 }.sorted { $0.key.rawValue < $1.key.rawValue }
+        let caps = part.leftOut.filter { $0.count > 0 }
         return [read, .proposed(part.proposed), .kept(part.kept)]
             + (part.droppedByRule.isEmpty ? [] : [.dropped(part.droppedByRule)])
-            + caps.map { .capHit($0.key, leftOut: $0.value) }
+            + caps.map { .capHit($0.part, leftOut: $0.count) }
             + (part.homes.isEmpty ? [] : [.filed(part.homes.count)])
     }
 
-    /// The last events of a reading whose model calls are `runs`, and that stopped for `failure`, if it did.
-    public static func ending(runs: [Run], failure: Run.Failure? = nil) -> [RunEvent] {
-        (failure.map { [.failed($0)] } ?? []) + [.finished(RunCost(of: runs))]
+    /// The last events of a reading whose model calls are `runs`: how it stopped, if it did, and its cost.
+    public static func ending(runs: [Run]) -> [RunEvent] {
+        let stop: [RunEvent] =
+            if let failure = runs.compactMap(\.failure).first {
+                [.failed(failure)]
+            } else if runs.contains(where: { $0.outcome == .cancelled }) {
+                [.cancelled]
+            } else {
+                []
+            }
+        return stop + [.finished(RunCost(of: runs))]
     }
 }

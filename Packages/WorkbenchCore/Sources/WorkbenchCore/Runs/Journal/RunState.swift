@@ -22,7 +22,8 @@ public enum RunJournalError: Error, Equatable, CustomStringConvertible {
     case repeatedInPart
     case moreKeptAndDroppedThanProposed
     case afterFinish
-    case afterFailure
+    case afterStop
+    case capCountedAsDrop
     case finishedEarly(read: Int, planned: Int)
 
     public var description: String {
@@ -36,8 +37,10 @@ public enum RunJournalError: Error, Equatable, CustomStringConvertible {
         case .repeatedInPart: "proposed, kept or dropped comes twice in one part"
         case .moreKeptAndDroppedThanProposed: "a part keeps and drops more than the model proposed"
         case .afterFinish: "an event comes after finished"
-        case .afterFailure: "an event other than finished comes after failed"
-        case .finishedEarly(let read, let planned): "finished after \(read) of \(planned) parts, with no failure"
+        case .afterStop: "an event other than finished comes after failed or cancelled"
+        case .capCountedAsDrop: "a cap hit is counted in dropped"
+        case .finishedEarly(let read, let planned):
+            "finished after \(read) of \(planned) parts, with no failure or cancel"
         }
     }
 }
@@ -45,6 +48,12 @@ public enum RunJournalError: Error, Equatable, CustomStringConvertible {
 /// A journal folded to what it says: the plan, the totals, and the last event. Only `fold` makes one, so a state is
 /// always the state of a well formed journal.
 public struct RunState: Sendable, Equatable {
+    /// Why a reading ended before its last part.
+    public enum Stop: Sendable, Equatable {
+        case failed(Run.Failure)
+        case cancelled
+    }
+
     /// What one part has said so far.
     public struct Part: Sendable, Equatable {
         public var proposed: Int?
@@ -60,10 +69,10 @@ public struct RunState: Sendable, Equatable {
     public private(set) var proposed = 0
     public private(set) var kept = 0
     public private(set) var droppedByRule: [DropRule: Int] = [:]
-    public private(set) var leftOut: [RunCap: Int] = [:]
+    public private(set) var leftOut: [LeftOut.Part: Int] = [:]
     public private(set) var filed = 0
     public private(set) var asked = 0
-    public private(set) var failure: Run.Failure?
+    public private(set) var stop: Stop?
     public private(set) var cost: RunCost?
     /// The last event of the journal: the tail the now line reads.
     public private(set) var last: RunEvent
@@ -82,8 +91,8 @@ public struct RunState: Sendable, Equatable {
 
     private mutating func apply(_ event: RunEvent) throws(RunJournalError) {
         if isFinished { throw .afterFinish }
-        if failure != nil {
-            guard case .finished = event else { throw .afterFailure }
+        if stop != nil {
+            guard case .finished = event else { throw .afterStop }
         }
         switch event {
         case .started: throw .startedTwice
@@ -95,6 +104,7 @@ public struct RunState: Sendable, Equatable {
             try say(\.kept, count)
             kept += count
         case .dropped(let reasons):
+            if reasons[.leftOut] != nil { throw .capCountedAsDrop }
             try say(\.dropped, reasons.values.reduce(0, +))
             droppedByRule.merge(reasons, uniquingKeysWith: +)
         case .capHit(let cap, let count):
@@ -106,7 +116,8 @@ public struct RunState: Sendable, Equatable {
         case .asked(let count):
             try requirePart()
             asked += count
-        case .failed(let reason): failure = reason
+        case .failed(let reason): stop = .failed(reason)
+        case .cancelled: stop = .cancelled
         case .finished(let spent): try finish(with: spent)
         }
         last = event
@@ -131,7 +142,7 @@ public struct RunState: Sendable, Equatable {
     }
 
     private mutating func finish(with spent: RunCost) throws(RunJournalError) {
-        if failure == nil, partsRead < parts { throw .finishedEarly(read: partsRead, planned: parts) }
+        if stop == nil, partsRead < parts { throw .finishedEarly(read: partsRead, planned: parts) }
         cost = spent
     }
 

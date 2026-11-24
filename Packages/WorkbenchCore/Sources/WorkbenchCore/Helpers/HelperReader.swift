@@ -23,10 +23,12 @@ public struct HelperReader: ModelTask {
         public var proposed: Int
         /// `dropped`, counted by the rule each refused proposal broke.
         public var droppedByRule: [DropRule: Int]
+        /// What the caps hid from the model in this reading. Not in `dropped`.
+        public var leftOut: [LeftOut]
 
         public init(
             items: [Item], links: [Link] = [], homes: [HomeProposal] = [], dropped: Int, run: RunID?,
-            proposed: Int = 0, droppedByRule: [DropRule: Int] = [:]
+            proposed: Int = 0, droppedByRule: [DropRule: Int] = [:], leftOut: [LeftOut] = []
         ) {
             self.items = items
             self.links = links
@@ -35,6 +37,7 @@ public struct HelperReader: ModelTask {
             self.run = run
             self.proposed = proposed
             self.droppedByRule = droppedByRule
+            self.leftOut = leftOut
         }
 
         /// The proposals kept: the facts opened and the open facts restated.
@@ -102,13 +105,13 @@ public struct HelperReader: ModelTask {
                     $0, spec: spec, open: open.items, objects: objects, day: day, scope: scope, run: run)
             }, isRepeat: { isRepeat($0, among: $1) })
         try model.record(settled.drops + refusedHomes(of: settled.kept), of: run)
-        try model.record(
-            [LeftOut(.openFacts, count: open.leftOut), LeftOut(.objects, count: objectsLeftOut)], of: run)
+        let leftOut = [LeftOut(.openFacts, count: open.leftOut), LeftOut(.objects, count: objectsLeftOut)]
+        try model.record(leftOut, of: run)
         let applied = Self.apply(settled.kept, spec: spec, open: open.items)
         return Result(
             items: applied.items, links: applied.links, homes: applied.homes, dropped: settled.drops.count, run: run,
             proposed: reply.items.count,
-            droppedByRule: Dictionary(settled.drops.map { ($0.rule, 1) }, uniquingKeysWith: +))
+            droppedByRule: Dictionary(settled.drops.map { ($0.rule, 1) }, uniquingKeysWith: +), leftOut: leftOut)
     }
 
     /// Reads a day part by part. Each part is saved, with its own run's yield, before the next is read, so a part
@@ -133,7 +136,9 @@ public struct HelperReader: ModelTask {
 
     /// The number of new lines in each part `readDay` reads `evidence` in, in order. A day with no new lines is one
     /// part of none.
-    public static func partSizes(of evidence: EvidenceSet, budget: Int = charactersPerRequest) -> [Int] {
+    public static func partSizes(of evidence: EvidenceSet, budget: Int = RunSettings.standard.charactersPerRequest)
+        -> [Int]
+    {
         var pending = evidence
         var sizes: [Int] = []
         repeat {
