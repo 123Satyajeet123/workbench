@@ -17,6 +17,11 @@ extension NowLine {
         return "\(doing) \(next(nextReading, now: now, moments))"
     }
 
+    /// One sentence for each event of a journal: what `sentence(of:machine:)` says when that event is the last one.
+    public static func lines(of events: [RunEvent], machine: String) throws -> [String] {
+        try events.indices.map { sentence(of: try RunState.fold(Array(events[...$0])), machine: machine) }
+    }
+
     private static func blocked(_ machine: String, _ reason: NotReading, _ moments: Moments) -> String {
         switch reason {
         case .pausedByPerson: "\(machine) is paused: you paused it."
@@ -36,7 +41,7 @@ extension NowLine {
             "It last read on \(moments.dayAtTime(last.at)) and kept \(count(last.yield.kept, "fact"))."
         case .notFinished: "It has not finished a reading yet."
         case .unrecorded(let lastCall):
-            "\(machine) has no record of its last reading. Its last model call was on \(moments.dayAtTime(lastCall))."
+            "\(machine)'s last model call was on \(moments.dayAtTime(lastCall)), and it has no record of that reading."
         case .never: "\(machine) has not read yet."
         }
     }

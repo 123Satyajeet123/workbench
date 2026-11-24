@@ -27,6 +27,7 @@ final class NewsSource: MachineSource {
 
     let scope = ""
     var isReady: Bool { capture.policy.isEnabled(.web) }
+    var standing: SourceStanding { isReady ? .ready : .off }
     var context: [String: [String]] { [NewsSignals.companies: companies.map(\.name)] }
 
     func refresh(on day: WorkDay) throws {

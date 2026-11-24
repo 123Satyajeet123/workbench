@@ -26,6 +26,9 @@ final class MailSource: MachineSource {
     /// The labels mail may be read in; empty while mail is off.
     var labels: [String] { capture.policy.isEnabled(.mail) ? (capture.policy.allowList[.mail] ?? []).sorted() : [] }
     var isReady: Bool { !labels.isEmpty }
+    var standing: SourceStanding {
+        if isReady { .ready } else if capture.policy.isEnabled(.mail) { .nothingChosen } else { .off }
+    }
     var picks: String? { "a label" }
     var grantLabels: [String?] { labels }
     var chosenSummary: String? { isReady ? "Gmail · " + labels.joined(separator: ", ") : nil }

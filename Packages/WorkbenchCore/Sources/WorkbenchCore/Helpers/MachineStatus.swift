@@ -40,6 +40,8 @@ public struct LatestReading: Sendable, Equatable {
     public var state: RunState
     /// What `NowLine` says of the journal's last event.
     public var nowLine: String
+    /// What `NowLine` says after each event of the journal, in order.
+    public var lines: [String]
 }
 
 /// What a machine can say of itself, from stored facts only: what it is doing, when it last read, why it does not read,
@@ -50,7 +52,7 @@ public struct MachineStatus: Sendable, Equatable {
     public var history: ReadingHistory
     /// Why no model call starts now, the one that stops it first at the head. Empty when it can read.
     public var notReading: [NotReading]
-    /// When the schedule starts the next reading. Nil when the schedule is off or the machine does not read.
+    /// When the schedule starts the next reading. Nil when the schedule is off, the machine does not read, or a reading is open.
     public var nextReading: Date?
     /// The one sentence for the page: `NowLine` over the typed parts above.
     public var sentence: String
@@ -70,11 +72,13 @@ extension Queries {
         let latest = try latestJournal(of: task).map { journal -> LatestReading in
             let state = try journal.state(of: task)
             return LatestReading(
-                journal: journal, state: state, nowLine: NowLine.sentence(of: state, machine: machine.name))
+                journal: journal, state: state, nowLine: NowLine.sentence(of: state, machine: machine.name),
+                lines: try NowLine.lines(of: journal.events, machine: machine.name))
         }
         let history = try history(of: task)
         let notReading = notReading(machine, model: model, source: source, now: now)
-        let nextReading = notReading.isEmpty ? try nextReading(of: machine, now: now, zone: zone) : nil
+        let isReading = latest.map { !$0.state.isFinished } ?? false
+        let nextReading = notReading.isEmpty && !isReading ? try nextReading(of: machine, now: now, zone: zone) : nil
         return MachineStatus(
             latest: latest, history: history, notReading: notReading, nextReading: nextReading,
             sentence: NowLine.sentence(

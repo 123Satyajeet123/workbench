@@ -239,11 +239,11 @@ let pipHelper = try need(pipCrew.helper(id: pipMachine.id))
 let pipPage = try need(pipHelper.pageModel)
 let models = ModelSettings(store: pipStore, secrets: MemorySecrets())
 
-func pageView(_ page: MachinePageModel) -> some View {
-    Page(title: page.name, subtitle: "Team chats", rename: page.renaming { pipCrew.rename(pipHelper, to: $0) }) {
+func pageView(_ page: MachinePageModel, crew: Crew = pipCrew, helper: HelperModel = pipHelper) -> some View {
+    Page(title: page.name, subtitle: "Team chats", rename: page.renaming { crew.rename(helper, to: $0) }) {
         MachinePageView(model: page)
     }
-    .environment(pipCrew).environment(models)
+    .environment(crew).environment(models)
 }
 
 try pipStore.writer.write { db in
@@ -295,6 +295,134 @@ let mochiHome = MochiPage()
 try await draw(mochiHome, "5-mochi-old-brief")
 
 try await draw(TeamSheet(model: sheetModel).environment(sheetCrew), "6-add-a-team-fund")
+
+// MARK: 7. What a machine says of itself
+
+heading("7. Pip as the founder's store holds it: paused by the plan limit, last reading made before the journal")
+NSTimeZone.default = try need(TimeZone(identifier: "Asia/Kolkata"))
+
+struct LimitReached: ClassifiedFailure {
+    let failure = Run.Failure.limit
+    let resetsAt: Date?
+}
+
+final class StoryClock: Sendable {
+    private let moment: Mutex<Date>
+    nonisolated init(_ start: Date) { moment = Mutex(start) }
+    nonisolated var now: Date { moment.withLock { $0 } }
+    nonisolated func move(to date: Date) { moment.withLock { $0 = date } }
+}
+
+func utc(_ text: String) throws -> Date { try need(try? Date(text, strategy: .iso8601)) }
+
+let storyNow = try utc("2026-11-24T12:00:00Z")
+
+/// Pip in a scratch store whose clock the story moves, with 85 synthetic facts in five days' worth, the schedule on
+/// (hourly, 9 to 22), and the Claude terms confirmed.
+func storyPip(_ name: String) async throws -> (store: Store, clock: StoryClock, crew: Crew, helper: HelperModel) {
+    let clock = StoryClock(storyNow)
+    let store = try Store(directory: scratch.appending(path: name), clock: { clock.now })
+    let machine = try need(try store.start(pipTemplate, name: "Pip").machine)
+    let sources = (1...85).map { "Asha: update number \($0) on the launch plan" }
+    _ = try await saveSyntheticFacts(
+        in: store, of: machine, owner: owner, scope: name, sources: sources,
+        quotes: sources.map { _ in "on the launch plan" },
+        fields: sources.indices.map { index in
+            [
+                "person": ["Asha", "Ravi", "Meera"][index % 3], "project": "Launch", "kind": "commitment",
+                "text": "Update number \(index + 1) on the launch plan", "stance": "said", "asks": "team",
+            ]
+        })
+    try store.saveState(
+        String(decoding: try JSONEncoder().encode(WatchSchedule(isOn: true)), as: UTF8.self),
+        forKey: WatchSchedule.stateKey(of: machine.task))
+    try store.saveState(storyNow.ISO8601Format(), forKey: WatchSchedule.lastReadKey(of: machine.task))
+    try MachineKey.chats(machine.task).save([WhatsAppChat(jid: "120363@g.us", name: "Team chat")], to: store)
+    try store.confirmModelTerms()
+    let crew = try makeCrew(store)
+    return (store, clock, crew, try need(crew.helper(id: machine.id)))
+}
+
+func storyPage(_ pip: (store: Store, clock: StoryClock, crew: Crew, helper: HelperModel)) throws -> MachinePageModel {
+    try MachinePageModel(
+        helper: pip.helper, page: try need(pip.helper.machine.page), store: pip.store, owner: owner,
+        status: { _ in pip.helper.status(at: storyNow) }, makeModel: { throw Missing() })
+}
+
+func sentence(_ helper: HelperModel) throws -> String { try helper.status(at: storyNow).get().sentence }
+
+let founder = try await storyPip("founder-case")
+let task = founder.helper.machine.task
+founder.clock.move(to: try utc("2026-11-23T16:13:00Z"))
+let finishedRun = try founder.store.beginRun(
+    task: task, model: "synthetic", prompt: "none", input: "x", kinds: [.typed])
+try founder.store.finishRun(finishedRun, model: "synthetic", usage: Usage(costUSD: 0.3), reply: "")
+try founder.store.recordYield(of: finishedRun, kept: 12, dropped: 1)
+founder.clock.move(to: try utc("2026-11-24T08:00:00Z"))
+let limitedRun = try founder.store.beginRun(task: task, model: "synthetic", prompt: "none", input: "x", kinds: [.typed])
+let pausedUntil = try utc("2026-11-25T09:00:00Z")
+try founder.store.failRun(limitedRun, model: "synthetic", error: LimitReached(resetsAt: pausedUntil))
+try founder.store.pauseModel(plan: "claude", until: pausedUntil)
+founder.clock.move(to: storyNow)
+let founderStatus = try founder.helper.status(at: storyNow).get()
+let founderSentence = founderStatus.sentence
+print("  the page says: \(founderSentence)")
+check("the founder's case has no journal", founderStatus.latest == nil)
+check(
+    "it gives the pause, its end in India time, and the last model call, and no yield",
+    founderSentence
+        == "Pip is paused until 25 Nov, 2:30 PM: the Claude plan limit is reached. Pip's last model call was on 24 Nov at 1:30 PM, and it has no record of that reading."
+)
+check(
+    "the plan pause is the only reason",
+    founderStatus.notReading == [.model(.planLimit(plan: "claude", until: pausedUntil))])
+check("the page seam shows what the helper says", try founder.helper.status(at: storyNow).get() == founderStatus)
+check("85 facts are stored for Pip", try count(founder.store, "item WHERE task = ?", [task]) == 85)
+try await draw(pageView(try storyPage(founder), crew: founder.crew, helper: founder.helper), "8-pip-status-limit")
+
+heading("A healthy Pip in the middle of a reading")
+let busy = try await storyPip("mid-reading")
+let busyRun = try busy.store.beginRun(
+    task: busy.helper.machine.task, model: "synthetic", prompt: "none", input: "x", kinds: [.typed])
+try busy.store.writer.write { db in
+    try Store.append(
+        db,
+        [
+            .started(lines: 6, parts: 3, promptHash: "abc"), .partRead(number: 1, lines: 2, run: busyRun), .proposed(4),
+            .kept(2), .dropped([.quoteNotInLines: 2]), .partRead(number: 2, lines: 2, run: busyRun), .proposed(3),
+        ], to: busyRun, at: storyNow)
+}
+let busySentence = try sentence(busy.helper)
+print("  the page says: \(busySentence)")
+check("mid-reading says the part and what it found", busySentence.hasPrefix("Pip found 3 items in part 2 of 3."))
+try await draw(pageView(try storyPage(busy), crew: busy.crew, helper: busy.helper), "8-pip-status-mid-reading")
+
+heading("Pip with a finished journal, the fold open")
+let done = try await storyPip("finished")
+let doneRun = try done.store.beginRun(
+    task: done.helper.machine.task, model: "synthetic", prompt: "none", input: "x", kinds: [.typed])
+try done.store.finishRun(doneRun, model: "synthetic", usage: Usage(costUSD: 0.12), reply: "")
+try done.store.writer.write { db in
+    try Store.append(
+        db,
+        [
+            .started(lines: 4, parts: 2, promptHash: "abc"), .partRead(number: 1, lines: 2, run: doneRun), .proposed(3),
+            .kept(2), .dropped([.quoteNotInLines: 1]), .partRead(number: 2, lines: 2, run: doneRun), .proposed(1),
+            .kept(1), .finished(RunCost(of: try Store.runs(db, of: done.helper.machine.task, from: doneRun))),
+        ], to: doneRun, at: try utc("2026-11-24T11:00:00Z"))
+}
+let doneStatus = try done.helper.status(at: storyNow).get()
+print("  the page says: \(doneStatus.sentence)")
+for line in doneStatus.latest?.lines ?? [] { print("    \(line)") }
+check("a finished journal lists one line for each event", doneStatus.latest?.lines.count == 9)
+check(
+    "its sentence names the schedule's next reading",
+    doneStatus.sentence.hasSuffix("Its next reading is due on 24 Nov at 6:30 PM."))
+try await draw(pageView(try storyPage(done), crew: done.crew, helper: done.helper), "8-pip-status-finished")
+try await draw(
+    MachineStatusView(isReading: false, shows: .journal(isOpen: true), read: { _ in .success(doneStatus) })
+        .padding(Space.page).environment(done.crew).environment(models),
+    "8-pip-status-fold-open")
 
 print(failures == 0 ? "\nALL OK" : "\n\(failures) FAILED")
 exit(failures == 0 ? 0 : 1)

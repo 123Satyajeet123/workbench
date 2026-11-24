@@ -80,7 +80,7 @@ private struct MachineCard: View {
             icon: { Mascot(look: .of(helper.machine), size: 22, mood: helper.mood) },
             content: {
                 Text("Reads: \(helper.reads)")
-                Text(facts.lastReading)
+                MachineStatusView(isReading: helper.phase == .reading, shows: .sentence, read: helper.status(at:))
                 Text(facts.health).fontWeight(.medium)
                 Text(facts.costThisWeek).foregroundStyle(.supporting)
                 if let update = crew.update(for: helper) {

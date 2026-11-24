@@ -36,7 +36,8 @@ private struct JobHeader: View {
                 text: model.job ?? "", prompt: "Say what \(model.name) is for.", isEditing: isEditingJob,
                 commit: { crew.setJob(model.helper, to: $0) })
             Text("Reads: \(model.reads)").text(.meta)
-            if let now = model.nowLine() { Text(now).text(.meta) }
+            MachineStatusView(
+                isReading: model.helper.phase == .reading, shows: .journal(isOpen: false), read: model.status)
             Fold {
                 VStack(alignment: .leading, spacing: Space.s) {
                     Text(model.spec.brief).textStyle(.body).textSelection(.enabled)

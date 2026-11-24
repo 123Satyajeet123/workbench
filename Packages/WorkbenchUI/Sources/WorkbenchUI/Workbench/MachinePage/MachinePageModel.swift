@@ -32,12 +32,13 @@ final class MachinePageModel {
     @ObservationIgnored private let viewer: PageViewer
     @ObservationIgnored private let makeModel: () throws -> RecordedModel
     @ObservationIgnored unowned let helper: HelperModel
-    /// What the machine is doing now, in one line under the job. Nothing shows until a status read is given here.
-    @ObservationIgnored let nowLine: () -> String?
+    /// What the machine says of itself at a moment: what it is doing, why it does not read, and its last reading.
+    @ObservationIgnored let status: (Date) -> Result<MachineStatus, any Error>?
 
     init(
         helper: HelperModel, page: WorkObjectID, store: Store, owner: PersonID,
-        nowLine: @escaping () -> String? = { nil }, makeModel: @escaping () throws -> RecordedModel
+        status: @escaping (Date) -> Result<MachineStatus, any Error>? = { _ in nil },
+        makeModel: @escaping () throws -> RecordedModel
     ) throws {
         guard let note = NoteID(object: page) else { throw WorkObjectError.unknown(page) }
         self.helper = helper
@@ -45,7 +46,7 @@ final class MachinePageModel {
         self.store = store
         self.owner = owner
         self.makeModel = makeModel
-        self.nowLine = nowLine
+        self.status = status
         viewer = try PageViewer(owner: owner)
         editor = NoteEditorModel(note: note, store: store, owner: owner)
         shown = ShownPage(contents: PageContents(page: MachinePage(), notes: [], erased: []), proposal: nil)

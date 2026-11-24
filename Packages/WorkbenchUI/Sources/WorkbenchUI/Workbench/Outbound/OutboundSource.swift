@@ -29,6 +29,7 @@ final class OutboundSource: MachineSource {
 
     let scope = ""
     var isReady: Bool { capture.policy.isEnabled(.web) }
+    var standing: SourceStanding { isReady ? .ready : .off }
 
     func refresh(on day: WorkDay) throws {
         let today = WorkDay(containing: store.clock())

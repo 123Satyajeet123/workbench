@@ -131,6 +131,7 @@ final class HelperModel {
         guard let page = machine.page, case .success(let owner) = owner else { return }
         pageModel = try? MachinePageModel(
             helper: self, page: page, store: shared.store, owner: owner,
+            status: { [weak self] now in self?.status(at: now) },
             makeModel: { [shared] in try shared.makeModel.current() })
     }
 
@@ -154,6 +155,18 @@ final class HelperModel {
     }
 
     func read() async { await reading.read(day) }
+
+    /// What the machine says of itself at `now`, from the store alone. A view that calls this draws again when a
+    /// reading starts or ends, when the machine is paused or resumed, and when its schedule changes; the store's own
+    /// clock (the pause ends, the next reading falls due) is the caller's to tick.
+    func status(at now: Date) -> Result<MachineStatus, any Error> {
+        _ = (phase, watch, items.count)
+        return Result {
+            try shared.store.queries.status(
+                of: machine, model: try? shared.makeModel.current().model, source: source.standing, now: now,
+                zone: .current)
+        }
+    }
 
     func hasMissingSummaries(on day: WorkDay) -> Bool { reading.hasMissingSummaries(on: day) }
     func summarize(_ day: WorkDay) async -> Bool { await reading.summarize(day) }
