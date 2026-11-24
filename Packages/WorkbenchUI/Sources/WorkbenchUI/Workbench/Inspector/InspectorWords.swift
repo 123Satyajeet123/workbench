@@ -37,14 +37,9 @@ struct DateWords {
 
 /// The plain-words lines of the inspector that are not proof lines.
 enum InspectorWords {
-    static func meta(of item: Item, home: Filing? = nil, proposed: WorkObject? = nil, _ words: DateWords) -> String {
+    static func meta(of item: Item, _ words: DateWords) -> String {
         var parts = ["project", "company", "event", "feed"].map { item[$0] }.filter { !$0.isEmpty }
         if let due = item.dueDay { parts.append("due \(words.date(due.start))") }
-        if let proposed {
-            parts.append("Filed to \(proposed.name)?")
-        } else if let home {
-            parts.append("in \(home.object.name)")
-        }
         return parts.joined(separator: " · ")
     }
 

@@ -62,7 +62,8 @@ struct FactInspector: View {
     var body: some View {
         Group {
             if let proof {
-                InspectorView(item: item) { EmptyView() }.environment(proof).frame(maxWidth: .infinity)
+                InspectorView(item: item, surface: .machinePage) { EmptyView() }.environment(proof).frame(
+                    maxWidth: .infinity)
             } else {
                 Color.clear.frame(height: 1)
             }

@@ -16,6 +16,7 @@ struct ItemActions: View {
                 Button("Add to Reminders") {
                     Task { await actions.remind(item, from: model.machine, title: item[model.spec.title]) }
                 }
+                MoveToMenu(items: [item], surface: .machinePage)
             }
             .labelStyle(.iconOnly).menuStyle(.button).buttonStyle(.ghost).menuIndicator(.hidden)
             .foregroundStyle(.supporting).fixedSize()

@@ -66,7 +66,7 @@ struct ClaimChecksSection: View {
             }
             JudgedClaimsView(deal: deal)
             if let selected, let item = state.items[selected], let proof {
-                InspectorView(item: item) { EmptyView() }.environment(proof).frame(maxWidth: .infinity)
+                InspectorView(item: item, surface: .deals) { EmptyView() }.environment(proof).frame(maxWidth: .infinity)
             }
             actions
         }

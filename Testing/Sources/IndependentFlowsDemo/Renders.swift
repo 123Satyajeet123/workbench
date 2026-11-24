@@ -18,7 +18,7 @@ import SwiftUI
             }.first)
         let proof = desk.claims.proofModel(crew: desk.crew)
         await proof.load(item)
-        let inspector = InspectorView(item: item) { EmptyView() }.environment(proof).environment(team)
+        let inspector = InspectorView(item: item, surface: .deals) { EmptyView() }.environment(proof).environment(team)
             .frame(width: 380, height: 360)
         print("  png \(try await renderPNG(inspector, named: "claim-inspector", in: png, width: 420).path)")
     }
