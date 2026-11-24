@@ -242,10 +242,8 @@ let pipPage = try need(pipHelper.pageModel)
 let models = ModelSettings(store: pipStore, secrets: MemorySecrets())
 
 func pageView(_ page: MachinePageModel, crew: Crew = pipCrew, helper: HelperModel = pipHelper) -> some View {
-    Page(title: page.name, subtitle: "Team chats", rename: page.renaming { crew.rename(helper, to: $0) }) {
-        MachinePageView(model: page)
-    }
-    .environment(crew).environment(models)
+    DocumentPage { MachinePageView(model: page) }
+        .environment(crew).environment(models)
 }
 
 try pipStore.writer.write { db in
@@ -262,15 +260,10 @@ check(
     pipPage.facts.count == pipFacts.count && machineBlockCount(pipPage) == 0)
 try await draw(pageView(pipPage), "1-pip-before")
 let loaded = try MachinePageModel(
-    helper: pipHelper, page: try need(pipMachine.page), store: pipStore, owner: owner,
+    helper: pipHelper, page: try need(pipMachine.page), store: pipStore, owner: .success(owner),
     makeModel: { throw Missing() })
 check("after: the page model that loads it gives it its facts view", machineBlockCount(loaded) == 3)
 try await draw(pageView(loaded), "2-pip-after")
-loaded.setEditing(.name, true)
-try await draw(pageView(loaded), "3-pip-name-editing")
-loaded.setEditing(.name, false)
-loaded.setEditing(.job, true)
-try await draw(pageView(loaded), "4-pip-job-editing")
 
 let mochiStore = try freshStore("mochi")
 let mochiCrew = try makeCrew(mochiStore)
@@ -339,7 +332,7 @@ func storyPip(_ name: String) async throws -> (store: Store, clock: StoryClock, 
 
 func storyPage(_ pip: (store: Store, clock: StoryClock, crew: Crew, helper: HelperModel)) throws -> MachinePageModel {
     try MachinePageModel(
-        helper: pip.helper, page: try need(pip.helper.machine.page), store: pip.store, owner: owner,
+        helper: pip.helper, page: try need(pip.helper.machine.page), store: pip.store, owner: .success(owner),
         status: { _ in pip.helper.status(at: storyNow) }, makeModel: { throw Missing() })
 }
 

@@ -100,11 +100,12 @@ extension Behaviour {
         let before = try tables.map { try count(desk, $0) }
         let editable = try await editor.json("return window.wbEditor.isEditable")
         let notice = try await editor.json("return document.querySelector('.machine-notice')?.textContent ?? ''")
+        let actions = try await editor.json("return document.querySelectorAll('.machine-action').length")
         try await Task.sleep(for: .seconds(1))
         let after = try tables.map { try count(desk, $0) }
-        guard editable == "false", notice.contains("read-only"), before == after else {
+        guard editable == "false", actions == "0", notice.contains("read-only"), before == after else {
             throw DemoFailure("editable \(editable), notice \(notice), rows \(before) -> \(after)")
         }
-        return "opens with a plain line (\(notice)); editable false; row counts \(after) unchanged"
+        return "opens with a plain line (\(notice)); editable false; 0 clickable phrases; row counts \(after) unchanged"
     }
 }

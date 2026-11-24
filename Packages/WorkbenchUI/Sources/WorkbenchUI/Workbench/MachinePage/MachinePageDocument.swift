@@ -39,14 +39,14 @@ extension MachinePageModel {
                 .line(
                     LineRendering(
                         text: "Reads: \(reads).",
-                        act: ActionLink(name: .choose, label: "Change what it reads")))),
+                        act: link(.choose, "Change what it reads")))),
             line(Self.briefBlock, .text(text: spec.brief, cites: [])),
             line(
                 Self.briefBlock + ".edit",
                 .line(
                     LineRendering(
                         text: "This is what \(name) is told when it reads.",
-                        act: ActionLink(name: .brief, label: "Edit the brief")))),
+                        act: link(.brief, "Edit the brief")))),
             line(Self.settingsBlock, .settings(SettingsRendering(sentences: settingSentences))),
         ]
         if let rules = spec.criteria?.rules.count {
@@ -56,7 +56,7 @@ extension MachinePageModel {
                     .line(
                         LineRendering(
                             text: "Criteria: \(rules) \(rules == 1 ? "rule" : "rules").",
-                            act: ActionLink(name: .criteria, label: "Edit…")))))
+                            act: link(.criteria, "Edit…")))))
         }
         blocks.append(
             line(
@@ -64,8 +64,13 @@ extension MachinePageModel {
                 .line(
                     LineRendering(
                         text: "Marks, trials, sharing and what each source sends:",
-                        act: ActionLink(name: .more, label: "Open them")))))
+                        act: link(.more, "Open them")))))
         return blocks
+    }
+
+    /// A phrase the person may click. A page that is read-only offers none: everything they open writes.
+    private func link(_ name: OpenTarget.Action, _ label: String) -> ActionLink? {
+        owner == nil ? nil : ActionLink(name: name, label: label)
     }
 
     private func line(_ id: String, _ view: MachineView) -> PageBlockData {
@@ -105,7 +110,7 @@ extension MachinePageModel {
 
     private var readAction: ActionLink? {
         let canRead = helper.phase != .reading && !helper.source.hasNothingToRead && !helper.isPaused
-        return canRead ? ActionLink(name: .read, label: helper.spec.source.readVerb) : nil
+        return canRead ? link(.read, helper.spec.source.readVerb) : nil
     }
 
     /// Shows the machine's account of itself again: now, then every minute, and every two seconds while a reading runs.
@@ -218,7 +223,7 @@ extension MachinePageModel {
         let note = settingNote.flatMap { $0.sentence == id ? $0 : nil }
         return SettingsRendering.Sentence(
             parts: parts, note: note?.text ?? "",
-            act: note != nil && settingUndo != nil ? ActionLink(name: .undo, label: "Undo") : nil)
+            act: note != nil && settingUndo != nil ? link(.undo, "Undo") : nil)
     }
 
     private func on(_ isOn: Bool) -> String { isOn ? "on" : "off" }
