@@ -45,7 +45,8 @@ struct PlainPageDocument: View {
                 reduceMotion: look.reduceMotion, scale: look.scale,
                 views: {
                     MachineViewBuilder(
-                        facts: [], titleOf: { _ in "" }, lens: FactsLens(spec: .pages, now: Date()), pickerNote: { _ in nil })
+                        facts: [], titleOf: { _ in "" }, lens: FactsLens(spec: .pages, now: Date()),
+                        pickerNote: { _ in nil })
                 })
             controller.onOpen = { target in
                 if case .link(let address) = target { EditorHost.openLink(address) }

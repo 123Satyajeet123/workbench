@@ -27,6 +27,8 @@ enum EditorOp: Equatable, Sendable {
     case delete(id: String)
     case merge(id: String, into: String)
     case mark(fact: Int64, FactMark)
+    /// The person chose another form or group field for a facts view. Swift asks the gate and stores the change.
+    case view(block: String, form: String, groupBy: String)
 }
 
 enum FactMark: String, Codable, Equatable, Sendable {
@@ -165,6 +167,7 @@ extension EditorOp: Codable {
             self = .mark(
                 fact: try values.decode(Int64.self, forKey: Key("fact")),
                 try values.decode(FactMark.self, forKey: Key("mark")))
+        case "view": self = .view(block: try string("id"), form: try string("form"), groupBy: try string("groupBy"))
         default: throw unknown(op, in: values)
         }
     }
@@ -196,6 +199,11 @@ extension EditorOp: Codable {
             try values.encode("mark", forKey: Key("op"))
             try values.encode(fact, forKey: Key("fact"))
             try values.encode(mark, forKey: Key("mark"))
+        case .view(let block, let form, let groupBy):
+            try values.encode("view", forKey: Key("op"))
+            try values.encode(block, forKey: Key("id"))
+            try values.encode(form, forKey: Key("form"))
+            try values.encode(groupBy, forKey: Key("groupBy"))
         }
     }
 }

@@ -197,3 +197,27 @@ public struct PageGate: Sendable {
         return nil
     }
 }
+
+/// What a person may switch a facts view to: the forms and the group fields the gate allows for this machine's facts.
+public struct ViewOptions: Equatable, Sendable {
+    public var forms: [FactsView.Form]
+    public var groups: [String]
+}
+
+extension PageGate {
+    /// Whether the rules allow a view on a page.
+    public func allows(_ view: FactsView) -> Bool { refusal(for: .facts(view), on: MachinePage()) == nil }
+
+    /// The forms the view may take with its own group field, and the fields it may be grouped by in its own form.
+    /// A choice the gate refuses is not in the list.
+    public func options(for view: FactsView, of spec: HelperSpec) -> ViewOptions {
+        let countField = FirstForm.countField(of: spec)
+        let allowed = { (form: FactsView.Form, field: String?) -> Bool in
+            view.changed(to: form, groupBy: field, countField: countField).map(allows) ?? false
+        }
+        let groupable = spec.fields.map(\.name).filter { catalog.values[$0] != nil }
+        return ViewOptions(
+            forms: FactsView.Form.allCases.filter { allowed($0, view.groupBy) },
+            groups: groupable.filter { allowed(view.form, $0) })
+    }
+}

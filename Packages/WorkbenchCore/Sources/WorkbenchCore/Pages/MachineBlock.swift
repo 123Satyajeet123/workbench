@@ -75,6 +75,48 @@ public struct FactsView: Equatable, Sendable {
         self.limit = limit
     }
 
+    /// The title of a view that is just grouped by a field, as `FirstForm` gives it.
+    public static func title(groupedBy field: String) -> String { "By \(field)" }
+
+    /// The forms a person can switch a view among. A form is a layout with the settings it needs.
+    public enum Form: String, CaseIterable, Sendable {
+        case foldedList, list, table, board, counts
+    }
+
+    /// The form the view is in now.
+    public var form: Form {
+        switch layout {
+        case .list: countBy == nil ? .list : .foldedList
+        case .table: .table
+        case .board: .board
+        case .counts: .counts
+        }
+    }
+
+    /// The view as the person would have it in `form`, grouped by `field`; everything else stays. Nil when the form
+    /// needs sections and there is no field to make them. `countField` is what a folded list counts by.
+    public func changed(to form: Form, groupBy field: String?, countField: String?) -> FactsView? {
+        var view = self
+        if let old = groupBy, let field, title == Self.title(groupedBy: old) {
+            view.title = Self.title(groupedBy: field)
+        }
+        view.groupBy = field
+        view.countBy = nil
+        switch form {
+        case .foldedList:
+            guard field != nil, let countField, countField != field else { return nil }
+            view.layout = .list
+            view.countBy = countField
+        case .list: view.layout = .list
+        case .table: view.layout = .table
+        case .board:
+            guard field != nil else { return nil }
+            view.layout = .board
+        case .counts: view.layout = .counts
+        }
+        return view
+    }
+
     /// The columns a table shows: the ones named, without the field the sections are made of, which the heading of
     /// each section already says.
     public var shownColumns: [String] {

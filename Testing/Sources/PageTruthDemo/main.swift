@@ -100,19 +100,19 @@ let startStore = try freshStore("start")
 let started = try need(try startStore.start(pipTemplate, name: "Pip").machine)
 let startBlocks = try liveBlocks(startStore, of: started)
 print("  Pip's page after start: \(startBlocks.values)")
-check("start writes one live facts block", startBlocks.count == 1)
+check("start writes the three live blocks of the first form", startBlocks.count == 3)
 check(
-    "it shows Pip's board of facts, by person",
-    startBlocks.values.contains {
-        if case .facts(let view) = $0 { view.layout == .board && view.groupBy == "person" } else { false }
-    })
+    "it shows what needs the person, then Pip's facts by person and by project",
+    startBlocks.values.compactMap { block -> String? in
+        if case .facts(let view) = block { view.groupBy ?? "needs" } else { nil }
+    }.sorted() == ["needs", "person", "project"])
 check(
     "it has no run and no proposal, as the person's own start",
-    try count(startStore, "machine_block WHERE state = 'live' AND made_by_run IS NULL AND proposal_id IS NULL") == 1)
+    try count(startStore, "machine_block WHERE state = 'live' AND made_by_run IS NULL AND proposal_id IS NULL") == 3)
 let crewStore = try freshStore("crew")
 let crew = try makeCrew(crewStore)
 let made = try need(crew.create(from: .followUps, name: "Follow-ups").flatMap { crew.helper(id: $0) })
-check("Crew.create gives the same block", try liveBlocks(crewStore, of: made.machine).count == 1)
+check("Crew.create gives the first form of its machine", try liveBlocks(crewStore, of: made.machine).count == 2)
 
 // MARK: 2. An existing machine
 
@@ -121,19 +121,21 @@ let oldStore = try freshStore("old")
 let old = try makeOldMachine(oldStore)
 check("before: the old page has 0 rows in machine_block", try blockRows(oldStore, of: old) == 0)
 try oldStore.startPage(of: old)
-check("the first load gives it one block", try liveBlocks(oldStore, of: old).count == 1)
+check("the first load gives it the first form: 3 blocks", try liveBlocks(oldStore, of: old).count == 3)
 try oldStore.startPage(of: old)
 try oldStore.startPage(of: old)
-check("a second and third load add nothing", try blockRows(oldStore, of: old) == 1)
+check("a second and third load add nothing", try blockRows(oldStore, of: old) == 3)
 
 heading("3. A block the person removed is not added again")
-try oldStore.removeBlock(try need(try liveBlocks(oldStore, of: old).keys.first), surface: .machinePage)
-check("the person removes it: 0 live blocks", try liveBlocks(oldStore, of: old).isEmpty)
+for block in try liveBlocks(oldStore, of: old).keys {
+    try oldStore.removeBlock(block, surface: .machinePage)
+}
+check("the person removes all three: 0 live blocks", try liveBlocks(oldStore, of: old).isEmpty)
 try oldStore.startPage(of: old)
 check("the next load adds none", try liveBlocks(oldStore, of: old).isEmpty)
 check(
-    "the marker is the removed row itself: 1 row, state removed",
-    try count(oldStore, "machine_block WHERE state = 'removed'") == 1)
+    "the markers are the removed rows themselves: 3 rows, state removed",
+    try count(oldStore, "machine_block WHERE state = 'removed'") == 3)
 
 // MARK: 4. Job
 
@@ -262,7 +264,7 @@ try await draw(pageView(pipPage), "1-pip-before")
 let loaded = try MachinePageModel(
     helper: pipHelper, page: try need(pipMachine.page), store: pipStore, owner: owner,
     makeModel: { throw Missing() })
-check("after: the page model that loads it gives it its facts view", machineBlockCount(loaded) == 1)
+check("after: the page model that loads it gives it its facts view", machineBlockCount(loaded) == 3)
 try await draw(pageView(loaded), "2-pip-after")
 loaded.setEditing(.name, true)
 try await draw(pageView(loaded), "3-pip-name-editing")

@@ -21,16 +21,20 @@ struct InventedFact {
 func seed(_ invented: [InventedFact], in store: Store, of machine: Machine, owner: PersonID, scope: String) throws
     -> [Item]
 {
+    let today = WorkDay(containing: Date())
+    let fields = try invented.map { source -> [String: String] in
+        var fields = source.fields
+        if let due = source.dueInDays {
+            fields[Item.dueField] = try Coding.json(Due.stated(on: today.adding(days: due)))
+        }
+        return fields
+    }
     let stored = try saveSyntheticFacts(
         in: store, of: machine, owner: owner, scope: scope, sources: invented.map(\.quote),
-        quotes: invented.map(\.quote), fields: invented.map(\.fields))
-    let today = WorkDay(containing: Date())
-    return try zip(stored, invented).map { fact, source in
+        quotes: invented.map(\.quote), fields: fields)
+    return zip(stored, invented).map { fact, source in
         var item = fact
         item.day = today.adding(days: -source.daysAgo)
-        if let due = source.dueInDays {
-            item.fields[Item.dueField] = try Coding.json(Due.stated(on: today.adding(days: due)))
-        }
         item.closed = source.closedAs.map { Item.Closed(outcome: $0, quote: nil, at: Date()) }
         return item
     }

@@ -180,7 +180,20 @@
             "tallyColumns" : [
               "ask"
             ],
-            "title" : "Open follow-ups"
+            "title" : "Open follow-ups",
+            "viewBar" : {
+              "form" : "foldedList",
+              "forms" : [
+                "foldedList",
+                "list",
+                "table"
+              ],
+              "groupBy" : "person",
+              "groups" : [
+                "person",
+                "kind"
+              ]
+            }
           }
         },
         {
@@ -339,6 +352,12 @@
           "fact" : 12,
           "mark" : "wrong",
           "op" : "mark"
+        },
+        {
+          "form" : "board",
+          "groupBy" : "project",
+          "id" : "m1",
+          "op" : "view"
         },
         {
           "fact" : 12,

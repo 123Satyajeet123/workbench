@@ -8,9 +8,9 @@ enum Sets {
         name: "team", spec: .team, facts: InventedTeam.facts(),
         candidates: { items, lens in
             [
-                Candidate(name: "A-attention", views: FirstForm.views(of: lens.spec, items: items, lens: lens)),
+                Candidate(name: "A-attention", views: FirstForm.views(of: lens.spec)),
                 Candidate(
-                    name: "A-attention-unfolded", views: FirstForm.views(of: lens.spec, items: items, lens: lens),
+                    name: "A-attention-unfolded", views: FirstForm.views(of: lens.spec),
                     unfoldFirst: true),
                 Candidate(
                     name: "B-by-kind",
@@ -52,7 +52,7 @@ enum Sets {
                     ]),
                 Candidate(
                     name: "board-by-stage", views: [FactsView(title: "Pipeline", groupBy: "stage", layout: .board)]),
-                Candidate(name: "derived", views: FirstForm.views(of: lens.spec, items: items, lens: lens)),
+                Candidate(name: "derived", views: FirstForm.views(of: lens.spec)),
             ]
         })
 
@@ -63,7 +63,7 @@ enum Sets {
                 Candidate(
                     name: "default",
                     views: GalleryTemplate.newsSignals.startFactsView(of: lens.spec).map { [$0] } ?? []),
-                Candidate(name: "derived", views: FirstForm.views(of: lens.spec, items: items, lens: lens)),
+                Candidate(name: "derived", views: FirstForm.views(of: lens.spec)),
                 Candidate(
                     name: "by-polarity",
                     views: [FactsView(title: "Signals", groupBy: "polarity", layout: .list, order: .urgent)]),

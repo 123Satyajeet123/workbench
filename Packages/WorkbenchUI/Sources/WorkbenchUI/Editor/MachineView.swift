@@ -25,6 +25,8 @@ struct FactsRendering: Codable, Equatable, Sendable {
     var needsText: String
     /// How many facts of a section show before the rest fold; 0 shows them all.
     var limit: Int
+    /// What the person may switch the view to; every choice in it is one the gate allows.
+    var viewBar: ViewBar
     var columns: [String]
     /// The values the sections are counted by, in the order every section's tally follows; empty for an unfolded view.
     var tallyColumns: [String]
@@ -40,6 +42,13 @@ struct FactsRendering: Codable, Equatable, Sendable {
         var latest: String
         var latestDay: String
         var rows: [Row]
+    }
+
+    struct ViewBar: Codable, Equatable, Sendable {
+        var form: String
+        var forms: [String]
+        var groupBy: String
+        var groups: [String]
     }
 
     struct Summary: Codable, Equatable, Sendable {

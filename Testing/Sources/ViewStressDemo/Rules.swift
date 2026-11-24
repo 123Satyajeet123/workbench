@@ -40,22 +40,29 @@ enum Rules {
         ]
     }
 
-    /// The first form, from structure alone, for each machine shape: never a board, and the same function for all.
+    /// The first form, from the spec alone, for each machine shape: what it gives, and never a board.
     static func firstForms() throws -> [String] {
         var lines: [String] = []
-        for (name, spec, items) in [
-            ("team", HelperSpec.team, Extreme.items(groups: 9, perGroup: 3)),
-            ("one group", .team, Extreme.items(groups: 1, perGroup: 4)),
-            ("no facts", .team, []),
-        ] {
-            let views = FirstForm.views(of: spec, items: items, lens: FactsLens(spec: spec, now: Date()))
+        let shapes: [(String, HelperSpec)] = [
+            ("team (lifecycle, member, label)", .team), ("follow-ups (lifecycle, no naming field)", .followUps),
+            ("deals (rating, no lifecycle)", .dealIntake), ("news (member, polarity)", .newsSignals),
+            ("morning digest (kind)", .morningDigest), ("screen timeline (text only)", .timeline),
+        ]
+        for (name, spec) in shapes {
+            let views = FirstForm.views(of: spec)
             guard views.allSatisfy({ $0.layout != .board }) else {
                 throw DemoFailure("\(name): the first form has a board")
             }
+            let gate = PageGate(catalog: PageCatalog(spec: spec, items: []))
+            for view in views {
+                guard gate.refusal(for: .facts(view), on: MachinePage()) == nil else {
+                    throw DemoFailure("\(name): the gate refuses its own first form (\(view.title))")
+                }
+            }
             lines.append(
                 "\(name): "
-                    + views.map { "\($0.title) [\($0.layout.rawValue)\($0.groupBy.map { " by \($0)" } ?? "")]" }.joined(
-                        separator: ", "))
+                    + views.map { "\($0.title) [\($0.layout.rawValue)\($0.groupBy.map { " by \($0)" } ?? "")]" }
+                    .joined(separator: ", "))
         }
         return lines
     }

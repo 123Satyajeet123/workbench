@@ -110,6 +110,25 @@ extension Store {
         }
     }
 
+    /// The person changes a live block of a machine, such as the layout of a view: the new block is a live row of its own,
+    /// made by no run and no proposal, in the old one's place, and the old one stays as `replaced`. Returns the new
+    /// block's name.
+    @discardableResult
+    public func replaceBlock(_ old: MachineBlockID, with block: MachineBlock) throws -> MachineBlockID {
+        try writer.write { db in
+            let page = try Self.livePage(of: old, in: db)
+            let new = MachineBlockID()
+            let oldKey = try Self.blockKey(of: old, in: db)
+            try Self.setBlockState(old, to: "replaced", from: "live", in: db)
+            let newKey = try insertLive(block, as: new, on: page, in: db)
+            let container = try Self.container(of: page)
+            let order = try EvidenceStamp.order(of: container, in: db).map { $0 == oldKey ? newKey : $0 }
+            try EvidenceStamp.replaceOrder(of: container, with: order, in: db)
+            try Self.derive([try DerivedSources.ofBlock(new.rawValue, in: db)], at: clock(), in: db)
+            return new
+        }
+    }
+
     /// The person moves a live block of a machine to stand after `after`, or first on the page when it is nil.
     public func moveBlock(_ block: MachineBlockID, after: PageBlockRef?) throws {
         try writer.write { db in

@@ -17,6 +17,15 @@ struct MachineViewBuilder {
 
     static let erasedNote = "The message this came from was deleted"
 
+    /// The view the person's choice makes, or nil when the gate does not allow it.
+    func changed(_ view: FactsView, to form: FactsView.Form, groupBy field: String) -> FactsView? {
+        let changed = view.changed(
+            to: form, groupBy: field.isEmpty ? view.groupBy : field, countField: FirstForm.countField(of: lens.spec))
+        return changed.flatMap { gate.allows($0) ? $0 : nil }
+    }
+
+    private var gate: PageGate { PageGate(catalog: PageCatalog(spec: lens.spec, items: facts)) }
+
     func view(of block: MachineBlock, erased: Bool) -> MachineView {
         guard !erased else { return .erased(note: Self.erasedNote) }
         switch block {
@@ -53,7 +62,7 @@ struct MachineViewBuilder {
             title: view.title, layout: view.layout.rawValue,
             countText: Self.countText(sections.reduce(0) { $0 + $1.facts.count }),
             needsText: needing == 0 ? "" : (needing == 1 ? "1 needs you" : "\(needing) need you"),
-            limit: view.limit ?? 0, columns: view.shownColumns, tallyColumns: tallyColumns,
+            limit: view.limit ?? 0, viewBar: viewBar(of: view), columns: view.shownColumns, tallyColumns: tallyColumns,
             sections: sections.map { section in
                 let newest = lens.newest(of: section.facts)
                 return FactsRendering.Section(
@@ -64,6 +73,13 @@ struct MachineViewBuilder {
                     latestDay: newest.map(\.day).map(Self.dayText) ?? "",
                     rows: section.facts.compactMap { row(of: $0, view: view) })
             })
+    }
+
+    private func viewBar(of view: FactsView) -> FactsRendering.ViewBar {
+        let options = gate.options(for: view, of: lens.spec)
+        return FactsRendering.ViewBar(
+            form: view.form.rawValue, forms: options.forms.map(\.rawValue), groupBy: view.groupBy ?? "",
+            groups: options.groups)
     }
 
     private func needs(in facts: [Item]) -> Int { facts.filter { !lens.needs(of: $0).isEmpty }.count }

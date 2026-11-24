@@ -41,7 +41,7 @@ export function machineSpec(actions: MachineActions) {
     {
       render(block) {
         const view = JSON.parse(block.props.view) as MachineView;
-        return { dom: renderMachine(view, block.props.standing as Standing, actions) };
+        return { dom: renderMachine(view, block.props.standing as Standing, block.id, actions) };
       },
     },
   );

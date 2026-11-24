@@ -119,6 +119,9 @@
         },
         {
           "$ref": "#/$defs/OpMark"
+        },
+        {
+          "$ref": "#/$defs/OpView"
         }
       ]
     },
@@ -706,6 +709,9 @@
               "items": {
                 "type": "string"
               }
+            },
+            "viewBar": {
+              "$ref": "#/$defs/FactViewBar"
             }
           },
           "required": [
@@ -717,7 +723,8 @@
             "sections",
             "needsText",
             "limit",
-            "tallyColumns"
+            "tallyColumns",
+            "viewBar"
           ],
           "additionalProperties": false
         },
@@ -1076,6 +1083,79 @@
       "required": [
         "text",
         "tone"
+      ],
+      "additionalProperties": false
+    },
+    "OpView": {
+      "type": "object",
+      "description": "The person chose another form or group field for a facts view. Swift asks the gate and stores the change as the person's own edit; a choice the gate refuses changes nothing.",
+      "properties": {
+        "op": {
+          "const": "view"
+        },
+        "id": {
+          "$ref": "#/$defs/BlockId"
+        },
+        "form": {
+          "enum": [
+            "foldedList",
+            "list",
+            "table",
+            "board",
+            "counts"
+          ]
+        },
+        "groupBy": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "op",
+        "id",
+        "form",
+        "groupBy"
+      ],
+      "additionalProperties": false
+    },
+    "FactViewBar": {
+      "type": "object",
+      "properties": {
+        "form": {
+          "enum": [
+            "foldedList",
+            "list",
+            "table",
+            "board",
+            "counts"
+          ]
+        },
+        "forms": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "foldedList",
+              "list",
+              "table",
+              "board",
+              "counts"
+            ]
+          }
+        },
+        "groupBy": {
+          "type": "string"
+        },
+        "groups": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "form",
+        "forms",
+        "groupBy",
+        "groups"
       ],
       "additionalProperties": false
     }

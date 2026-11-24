@@ -51,7 +51,8 @@ enum Expression {
             for width in widths {
                 for dark in [false, true] {
                     let session = try await Session(
-                        desk: desk, dark: dark, width: width, facts: items, summaries: summaries, ready: Session.blocksReady)
+                        desk: desk, dark: dark, width: width, facts: items, summaries: summaries,
+                        ready: Session.blocksReady)
                     try await Task.sleep(for: .milliseconds(300))
                     if candidate.unfoldFirst { try await unfold(session.editor) }
                     let name = "\(set.name)-\(candidate.name)-\(Int(width))-\(dark ? "dark" : "light")"

@@ -76,6 +76,9 @@ struct PageMeasure: Codable {
     var narrowest: Double
     var facts: Int
     var height: Int
+    var overlaps: Int
+    var asList: Bool
+    var offenders: String
 }
 
 enum Stress {
@@ -92,10 +95,15 @@ enum Stress {
             for extreme in Extreme.all() {
                 try groupFieldAbsent(
                     layout.view, extreme.items, spec: desk.machine!.spec, where: "\(layout.rawValue) \(extreme.name)")
-                let session = try await Session(desk: desk, width: width, facts: extreme.items, ready: Session.blocksReady)
+                let session = try await Session(
+                    desk: desk, width: width, facts: extreme.items, ready: Session.blocksReady)
                 try await Task.sleep(for: .milliseconds(200))
                 let measure = try await measure(session.editor)
                 let label = "\(layout.rawValue) / \(extreme.name)"
+                guard measure.overlaps == 0 else {
+                    throw DemoFailure(
+                        "\(label): \(measure.overlaps) table cells overlap or spill (\(measure.offenders))")
+                }
                 guard measure.overflow == 0 else {
                     throw DemoFailure("\(label): \(measure.overflow) elements stick out of the page column")
                 }
@@ -111,8 +119,37 @@ enum Stress {
                 report.append("\(label): ok, narrowest \(Int(measure.narrowest)) pt, page \(measure.height) pt")
             }
         }
+        report += try await foldedTableFit(in: folder)
         report.append(try await control(in: folder))
         return report
+    }
+
+    /// The rule that decides between the table and the list: seven count columns fit in a window of 700 pt or more, and
+    /// do not in a window of 500 pt, where the same sections show as folded rows. No cell overlaps another either way.
+    private static func foldedTableFit(in folder: URL) async throws -> [String] {
+        let desk = try await Desk(texts: [], spec: .team, name: "fit")
+        defer { desk.close() }
+        try desk.clearMachineBlocks()
+        try desk.addMachineBlocks([(.facts(StressLayout.foldedTable.view), after: nil)])
+        var lines: [String] = []
+        for (window, wantsList) in [(1000.0, false), (700.0, false), (500.0, true)] {
+            let session = try await Session(
+                desk: desk, width: window, facts: Extreme.items(groups: 9, perGroup: 7), ready: Session.blocksReady)
+            try await Task.sleep(for: .milliseconds(300))
+            let measure = try await measure(session.editor)
+            guard measure.overlaps == 0 else {
+                throw DemoFailure("fit \(Int(window)): \(measure.overlaps) cells overlap")
+            }
+            guard measure.asList == wantsList else {
+                throw DemoFailure(
+                    "fit \(Int(window)): form is \(measure.asList ? "list" : "table"), expected \(wantsList ? "list" : "table")"
+                )
+            }
+            try await session.editor.fullPagePNG(
+                to: folder.appending(path: "stress/fit-folded-table-\(Int(window)).png"))
+            lines.append("folded table in a \(Int(window)) pt window: \(measure.asList ? "list" : "table"), no overlap")
+        }
+        return lines
     }
 
     /// The check must fail on a defect: the old board, whose columns shrank with their number, drawn at 12 groups.
@@ -121,7 +158,8 @@ enum Stress {
         defer { desk.close() }
         try desk.clearMachineBlocks()
         try desk.addMachineBlocks([(.facts(StressLayout.board.view), after: nil)])
-        let session = try await Session(desk: desk, width: width, facts: Extreme.items(groups: 12, perGroup: 3), ready: Session.blocksReady)
+        let session = try await Session(
+            desk: desk, width: width, facts: Extreme.items(groups: 12, perGroup: 3), ready: Session.blocksReady)
         try await session.editor.run(
             "document.querySelectorAll('.facts-section').forEach((node) => { node.style.flex = '1'; node.style.minWidth = '0'; node.style.width = 'auto'; });"
         )
@@ -143,9 +181,17 @@ enum Stress {
             await new Promise((done) => setTimeout(done, 150));
             const page = document.getElementById('page').getBoundingClientRect();
             const outside = [...document.querySelectorAll('#page .machine *')].filter((node) => !node.closest('.table-wrap, .facts-board') && node.getBoundingClientRect().width > 0 && node.getBoundingClientRect().right > page.right + 1).length;
+            const drawn = (node) => node.getBoundingClientRect().width > 0;
+            let overlaps = 0;
+            for (const row of [...document.querySelectorAll('.group-table tr')].filter(drawn)) {
+              const boxes = [...row.children].map((cell) => cell.getBoundingClientRect()).filter((box) => box.width > 0).sort((a, b) => a.left - b.left);
+              for (let index = 0; index + 1 < boxes.length; index++) if (boxes[index].right > boxes[index + 1].left + 1) overlaps++;
+            }
+            const spillers = [...document.querySelectorAll('.group-table th, .group-table td')].filter((cell) => drawn(cell) && cell.scrollWidth > cell.clientWidth + 1).map((cell) => `${cell.tagName}.${cell.className}:${cell.textContent.slice(0, 20)}:${cell.scrollWidth}>${cell.clientWidth}`);
+            const spill2 = [...document.querySelectorAll('.group-table th, .group-table td')].filter((cell) => drawn(cell) && cell.scrollWidth > cell.clientWidth + 1).length;
             const spill = document.documentElement.scrollWidth > window.innerWidth ? 1 : 0;
             const widths = [...document.querySelectorAll('.fact-words, .group-row, .facts-section, .machine-table')].map((node) => node.getBoundingClientRect().width).filter((width) => width > 0);
-            return { overflow: outside + spill, narrowest: widths.length ? Math.min(...widths) : 9999, facts: document.querySelectorAll('.machine .fact').length, height: Math.round(document.documentElement.scrollHeight) };
+            return { overflow: outside + spill, narrowest: widths.length ? Math.min(...widths) : 9999, facts: [...document.querySelectorAll('.machine .fact')].filter((node) => node.getBoundingClientRect().width > 0).length, height: Math.round(document.documentElement.scrollHeight), overlaps: overlaps + spill2, asList: Boolean(document.querySelector('.group-fit.as-list')), offenders: spillers.join(' | ') };
             """)
         return try JSONDecoder().decode(PageMeasure.self, from: Data(json.utf8))
     }

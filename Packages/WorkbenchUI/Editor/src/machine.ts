@@ -5,6 +5,7 @@ export interface MachineActions {
   openCite(ref: string): void;
   openPicker(source: string): void;
   mark(fact: number, mark: OpMark["mark"]): void;
+  changeView(block: string, form: Facts["viewBar"]["form"], groupBy: string): void;
 }
 
 type Facts = Extract<MachineView, { kind: "facts" }>;
@@ -12,11 +13,11 @@ type Grid = Extract<MachineView, { kind: "grid" }>;
 type Picker = Extract<MachineView, { kind: "picker" }>;
 
 /** Draws a block of a machine from the data Swift worked out. It adds, counts and fetches nothing. */
-export function renderMachine(view: MachineView, standing: Standing, actions: MachineActions): HTMLElement {
+export function renderMachine(view: MachineView, standing: Standing, block: string, actions: MachineActions): HTMLElement {
   const root = el("section", `machine machine-${view.kind}`, undefined, { "data-standing": standing });
   const words = STANDING_WORDS[standing];
   if (words) root.append(el("p", "standing", words));
-  root.append(...partsOf(view, actions));
+  root.append(...partsOf(view, block, actions));
   return root;
 }
 
@@ -29,14 +30,14 @@ const STANDING_WORDS: Record<Standing, string | undefined> = {
   removed: "Will be removed",
 };
 
-function partsOf(view: MachineView, actions: MachineActions): HTMLElement[] {
+function partsOf(view: MachineView, block: string, actions: MachineActions): HTMLElement[] {
   switch (view.kind) {
     case "heading":
       return [el("h3", "machine-heading", view.text)];
     case "text":
       return [el("p", "machine-text", view.text), chips(view.cites, actions)];
     case "facts":
-      return factsParts(view, actions);
+      return factsParts(view, block, actions);
     case "grid":
       return [el("h4", "machine-title", view.title), gridTable(view), chips(view.cites, actions)];
     case "picker":
@@ -82,15 +83,44 @@ function gridRow(cells: GridCell[]): HTMLElement {
   return row;
 }
 
-function factsParts(view: Facts, actions: MachineActions): HTMLElement[] {
+function factsParts(view: Facts, block: string, actions: MachineActions): HTMLElement[] {
   const head = el("div", "machine-head");
   head.append(el("h4", "machine-title", view.title), el("span", "supporting", view.countText));
   if (view.needsText !== "") head.append(el("span", "needs-pill", view.needsText));
+  head.append(viewBar(view, block, actions));
   const folded = view.tallyColumns.length > 0;
   const body = el("div", `facts facts-${view.layout}${folded ? " facts-folded" : ""}`);
-  if (folded && view.layout === "table") body.append(groupTable(view, actions));
+  if (folded && view.layout === "table") body.append(groupTableOrList(view, actions));
   else for (const section of view.sections) body.append(sectionOf(view, section, actions, folded));
   return [head, body];
+}
+
+const FORM_WORDS: Record<Facts["viewBar"]["form"], string> = {
+  foldedList: "Folded list",
+  list: "List",
+  table: "Table",
+  board: "Board",
+  counts: "Counts",
+};
+
+/** Two choices Swift offers, each one the gate allows. A choice is sent as one op; Swift draws the result. */
+function viewBar(view: Facts, block: string, actions: MachineActions): HTMLElement {
+  const bar = el("span", "view-bar");
+  const { form, forms, groupBy, groups } = view.viewBar;
+  const choose = (label: string, values: string[], current: string, words: (value: string) => string, send: (value: string) => void) => {
+    const select = el("select", "view-select", undefined, { "aria-label": label });
+    for (const value of values) select.append(el("option", undefined, words(value), { value }));
+    select.value = current;
+    select.addEventListener("change", () => send(select.value));
+    return select;
+  };
+  if (forms.length > 1) {
+    bar.append(choose("Layout", forms, form, (value) => FORM_WORDS[value as typeof form], (value) => actions.changeView(block, value as typeof form, groupBy)));
+  }
+  if (groups.length > 1 && groupBy !== "") {
+    bar.append(choose("Group by", groups, groupBy, (value) => value, (value) => actions.changeView(block, form, value)));
+  }
+  return bar;
 }
 
 function sectionOf(view: Facts, section: FactSection, actions: MachineActions, folded: boolean): HTMLElement {
@@ -159,6 +189,29 @@ function numberChips(cites: Chip[], actions: MachineActions): HTMLElement {
     row.append(chip);
   });
   return row;
+}
+
+/**
+ * A folded table, or the folded list when the table does not fit. The rule: the table needs its natural width; when
+ * that is more than the block has, the Newest column goes first, and when that is still too much the same sections
+ * show as folded rows of a list. It is decided again whenever the block changes width.
+ */
+function groupTableOrList(view: Facts, actions: MachineActions): HTMLElement {
+  const wrap = el("div", "group-fit");
+  const table = groupTable(view, actions);
+  const list = el("div", "group-list-fallback");
+  for (const section of view.sections) list.append(groupOf(section, actions));
+  wrap.append(table, list);
+  const scroller = table;
+  const fit = () => {
+    wrap.classList.remove("no-newest", "as-list");
+    if (scroller.scrollWidth <= scroller.clientWidth + 1) return;
+    wrap.classList.add("no-newest");
+    if (scroller.scrollWidth <= scroller.clientWidth + 1) return;
+    wrap.classList.add("as-list");
+  };
+  new ResizeObserver(fit).observe(wrap);
+  return wrap;
 }
 
 /** The sections as the rows of one table: a count for each value, what needs the person, the newest fact. */

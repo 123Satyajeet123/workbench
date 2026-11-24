@@ -177,8 +177,23 @@ final class PageEditorController {
         model.apply(ops)
         for case .mark(let fact, let mark) in ops { onMark(fact, mark) }
         let renames = await persist()
+        for case .view(let block, let form, let groupBy) in ops { changeView(of: block, to: form, groupBy: groupBy) }
         host.send(.ack(seq: seq, renames: renames))
         problem = capture { try refresh() } ?? problem
+    }
+
+    /// The person chose another form or group field for a facts view. The gate decides; a choice it refuses changes
+    /// nothing. The changed block is the person's own edit: a new live row in the old one's place.
+    private func changeView(of id: String, to form: String, groupBy: String) {
+        guard let block = MachineBlockID(id), let form = FactsView.Form(rawValue: form) else { return }
+        problem =
+            capture {
+                let contents = try store.queries.page(of: page, for: viewer)
+                guard case .facts(let view)? = contents.page.blocks[block],
+                    let changed = try views().changed(view, to: form, groupBy: groupBy)
+                else { return }
+                try store.replaceBlock(block, with: .facts(changed))
+            } ?? problem
     }
 
     /// Saves until the store holds the page. A write that fails leaves nothing in the store, so it is tried again.

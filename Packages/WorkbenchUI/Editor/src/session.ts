@@ -30,6 +30,10 @@ export function start(host: HTMLElement): void {
       marks.push({ op: "mark", fact, mark });
       flush();
     },
+    changeView: (id, form, groupBy) => {
+      marks.push({ op: "view", id, form, groupBy });
+      flush();
+    },
   };
   const editor: BlockNoteEditor<any, any, any> = BlockNoteEditor.create({
     schema: createSchema(actions),

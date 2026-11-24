@@ -176,8 +176,8 @@ let package = Package(
         .executableTarget(
             name: "DocEditorDemo",
             dependencies: [
-                "EditorHarness", "PageSnapshot", "WorkbenchCore", "WorkbenchUI", .product(name: "Kernel", package: "Kernel"),
-                .product(name: "Lines", package: "Kernel"),
+                "EditorHarness", "PageSnapshot", "WorkbenchCore", "WorkbenchUI",
+                .product(name: "Kernel", package: "Kernel"), .product(name: "Lines", package: "Kernel"),
             ],
             swiftSettings: [.defaultIsolation(MainActor.self)]),
         .executableTarget(

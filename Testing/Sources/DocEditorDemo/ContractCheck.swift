@@ -13,7 +13,8 @@ enum ContractSamples {
             ops: [
                 .insert(id: "n1", after: nil, text: "# A heading"), .insert(id: "n2", after: "n1", text: "Words"),
                 .update(id: "n2", text: "Words, *marked*"), .move(id: "n2", after: nil), .delete(id: "n3"),
-                .merge(id: "n4", into: "n2"), .mark(fact: 12, .wrong), .mark(fact: 12, .done),
+                .merge(id: "n4", into: "n2"), .mark(fact: 12, .wrong),
+                .view(block: "m1", form: "board", groupBy: "project"), .mark(fact: 12, .done),
             ]),
         "openCite": .open(.cite(ref: "fact:12")),
         "openLink": .open(.link(url: "https://example.com/a")),
@@ -54,6 +55,9 @@ enum ContractSamples {
         .facts(
             FactsRendering(
                 title: "Open follow-ups", layout: "list", countText: "1 fact", needsText: "1 needs you", limit: 0,
+                viewBar: FactsRendering.ViewBar(
+                    form: "foldedList", forms: ["foldedList", "list", "table"], groupBy: "person",
+                    groups: ["person", "kind"]),
                 columns: ["quote", "kind"], tallyColumns: ["ask"],
                 sections: [
                     FactsRendering.Section(
