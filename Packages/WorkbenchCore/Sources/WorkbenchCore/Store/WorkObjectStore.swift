@@ -148,20 +148,26 @@ extension Queries {
         }
     }
 
-    /// The live objects of some types, not archived, in the order of the tree, the first `limit`.
-    func liveObjects(of types: [TypeID], limit: Int) throws -> [WorkObject] {
+    /// The live objects of some types, not archived, in the order of the tree; the first `limit` when one is given.
+    func liveObjects(of types: [TypeID], limit: Int?) throws -> [WorkObject] {
         try reader.read { db in
             try Self.workObjects(
                 db, where: "archived_at IS NULL AND type IN (SELECT value FROM json_each(?))",
-                [try Coding.json(types)], order: "parent_id IS NOT NULL, position, rowid LIMIT \(limit)")
+                [try Coding.json(types)], order: "parent_id IS NOT NULL, position, rowid LIMIT \(limit ?? -1)")
         }
+    }
+
+    /// The places a fact may be filed under: the live objects of every kind that holds facts, in the order of the
+    /// tree; the first `limit` when one is given. A model is shown these places, and a person moves a fact among them.
+    public func filingPlaces(limit: Int? = nil) throws -> [WorkObject] {
+        try liveObjects(of: ObjectHandles.placeTypes, limit: limit)
     }
 
     /// The objects a model may be shown for a reading of `spec`: the places a fact may be filed under, every kind that
     /// holds facts, the first `limit` of them; then the first `limit` objects of the type of each field of the spec
     /// that refers to an object. An object that is in both lists comes once.
     public func objectsToShow(for spec: HelperSpec, limit: Int = 40) throws -> [WorkObject] {
-        let places = try liveObjects(of: ObjectHandles.placeTypes, limit: limit)
+        let places = try filingPlaces(limit: limit)
         let referred = try spec.objectRefs.compactMap(\.kind.objectType).flatMap {
             try liveObjects(of: [$0], limit: limit)
         }

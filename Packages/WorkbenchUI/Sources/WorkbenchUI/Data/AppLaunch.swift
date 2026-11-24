@@ -27,6 +27,7 @@ struct AppSession {
     let catalog: TeamCatalogModel
     let actions: ActionsModel
     let deals: DealsModel
+    let homes: FactHomes
     let workspace: WorkspaceModel
     let memory: MemoryModel
     let web: WebResearchSettings
@@ -89,6 +90,9 @@ enum AppLaunch {
                 store: store, crew: crew, author: { identity.identity.name }, secrets: secrets)
             let deals = DealsModel(store: store, catalog: catalog)
             crew.onItemsChanged { deals.refresh() }
+            let workspace = WorkspaceModel(store: store)
+            let homes = FactHomes(store: store, homesChanged: workspace.refresh)
+            crew.onItemsChanged { homes.refresh() }
             let today = TodayModel(
                 store: store, crew: crew, calendar: profile.calendar, deals: { deals.deals },
                 me: { identity.identity.name })
@@ -129,7 +133,7 @@ enum AppLaunch {
                 actions: ActionsModel(
                     store: store, founder: { identity.identity.name }, makeModel: makeModel,
                     reminders: profile.reminders),
-                deals: deals, workspace: WorkspaceModel(store: store),
+                deals: deals, homes: homes, workspace: workspace,
                 memory: MemoryModel(store: store, crew: crew, deals: deals, makeModel: makeModel),
                 web: web,
                 claims: ClaimsModel(

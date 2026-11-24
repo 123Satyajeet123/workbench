@@ -7,6 +7,8 @@ struct InspectorView<Actions: View>: View {
     static var widths: ClosedRange<CGFloat> { 320...420 }
 
     let item: Item?
+    /// Where the inspector shows, kept with what the person does in it.
+    let surface: MarkSurface
     var isHistoryOpen = false
     @ViewBuilder let actions: Actions
     @Environment(ProofModel.self) private var proof
@@ -16,7 +18,7 @@ struct InspectorView<Actions: View>: View {
         ScrollView {
             if let item {
                 InspectorContent(
-                    item: item, card: proof.card(for: item), helper: proof.helper(of: item),
+                    item: item, card: proof.card(for: item), helper: proof.helper(of: item), surface: surface,
                     offersDeals: team.template.map(InspectorMore.offersDeals) ?? false, isHistoryOpen: isHistoryOpen,
                     actions: { actions }
                 )
@@ -38,6 +40,7 @@ struct InspectorContent<Actions: View>: View {
     let item: Item
     let card: InspectorCard
     let helper: HelperModel?
+    let surface: MarkSurface
     var offersDeals = false
     var isHistoryOpen = false
     @ViewBuilder let actions: Actions
@@ -63,10 +66,13 @@ struct InspectorContent<Actions: View>: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: Space.s) {
-            card.headline.text.textStyle(.body).foregroundStyle(.bodyText).lineLimit(3)
-            if !card.meta.isEmpty { Text(card.meta).text(.meta) }
+            VStack(alignment: .leading, spacing: Space.s) {
+                card.headline.text.textStyle(.body).foregroundStyle(.bodyText).lineLimit(3)
+                if !card.meta.isEmpty { Text(card.meta).text(.meta) }
+            }
+            .accessibilityElement(children: .combine)
+            FactHomeLine(item: item, surface: surface, offersMove: true)
         }
-        .accessibilityElement(children: .combine)
     }
 
     private var history: some View {

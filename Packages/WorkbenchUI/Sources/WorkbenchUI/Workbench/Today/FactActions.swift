@@ -32,6 +32,7 @@ struct FactActions: View {
                         }
                     }
                 }
+                MoveToMenu(items: items, surface: .today)
                 Button("Not relevant", systemImage: "eye.slash") { act(.notRelevant, "Hidden as not relevant") }
                 Button("Wrong", systemImage: "xmark.circle") { act(.wrong, "Hidden as wrong") }
             }

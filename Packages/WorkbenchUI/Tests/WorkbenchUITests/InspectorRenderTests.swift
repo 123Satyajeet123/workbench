@@ -109,7 +109,7 @@ import WorkbenchCore
                     source: InspectorWords.source(of: item, chat: "Founders group", DateWords(now: at)),
                     proof: shot.proof, history: shot.history)
                 let view = InspectorContent(
-                    item: item, card: card, helper: helper, offersDeals: shot.offersDeals,
+                    item: item, card: card, helper: helper, surface: .machinePage, offersDeals: shot.offersDeals,
                     isHistoryOpen: shot.isHistoryOpen
                 ) {
                     MarkBar(actions: [.done, .snooze(days: 1), .notRelevant, .wrong], act: { _ in })

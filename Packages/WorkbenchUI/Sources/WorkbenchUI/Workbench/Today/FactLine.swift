@@ -15,22 +15,25 @@ struct FactLine: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Space.s) {
             HStack(alignment: .firstTextBaseline, spacing: Space.m) {
-                Button(action: toggle) {
-                    VStack(alignment: .leading, spacing: Space.xs) {
-                        HStack(spacing: Space.s) {
-                            if let flag {
-                                Text(flag).textStyle(.caption, weight: .semibold).foregroundStyle(flagTone.color)
+                VStack(alignment: .leading, spacing: Space.xs) {
+                    Button(action: toggle) {
+                        VStack(alignment: .leading, spacing: Space.xs) {
+                            HStack(spacing: Space.s) {
+                                if let flag {
+                                    Text(flag).textStyle(.caption, weight: .semibold).foregroundStyle(flagTone.color)
+                                }
+                                Text(model.title(of: item)).multilineTextAlignment(.leading)
+                                    .strikethrough(isDone, color: .secondary)
+                                    .foregroundStyle(isDone ? Color.supporting : .bodyText)
                             }
-                            Text(model.title(of: item)).multilineTextAlignment(.leading)
-                                .strikethrough(isDone, color: .secondary)
-                                .foregroundStyle(isDone ? Color.supporting : .bodyText)
+                            if !meta.isEmpty { Text(meta).textStyle(.callout).foregroundStyle(.supporting) }
                         }
-                        if !meta.isEmpty { Text(meta).textStyle(.callout).foregroundStyle(.supporting) }
+                        .contentShape(.rect)
                     }
-                    .contentShape(.rect)
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Shows the message it came from")
+                    FactHomeLine(item: item, surface: .today)
                 }
-                .buttonStyle(.plain)
-                .accessibilityHint("Shows the message it came from")
                 Spacer(minLength: Space.m)
                 FactActions(items: [item], summary: model.title(of: item), model: model)
             }

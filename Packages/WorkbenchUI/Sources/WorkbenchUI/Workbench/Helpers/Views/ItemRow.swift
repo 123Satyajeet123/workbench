@@ -31,6 +31,7 @@ struct ItemRow: View {
                 }
                 Text(showsSpan ? item.quotedWords : "\(item.quotedWords) · \(time(item.start))")
                     .textStyle(.callout).foregroundStyle(.supporting).textSelection(.enabled)
+                FactHomeLine(item: item, surface: .machinePage)
                 if let triage = model.spec.triage(of: item) { WhyDisclosure(triage: triage) }
                 if let note = hiddenNote {
                     Label(note, systemImage: "eye.slash").textStyle(.caption).foregroundStyle(.supporting)

@@ -106,7 +106,7 @@ extension Queries {
     /// The home of a fact: the work object of its latest filing. Nil when it has none.
     public func home(of item: ItemID) throws -> WorkObject? { try filing(of: item)?.object }
 
-    /// The home of a fact and how it came there. The inspector says "Filed to X?" for a proposal.
+    /// The home of a fact and how it came there.
     public func filing(of item: ItemID) throws -> Filing? {
         try reader.read { db in try Self.filing(db, of: item) }
     }
@@ -121,7 +121,7 @@ extension Queries {
     }
 
     /// The place a model proposed for a fact that no person has acted on: its latest proposal, when that is newer than
-    /// the home. Nil otherwise. The inspector says "Filed to X?".
+    /// the home. Nil otherwise. A fact's home line asks "Filed to X?" for it.
     public func proposedHome(of item: ItemID) throws -> WorkObject? {
         try reader.read { db in try Self.proposedHome(db, of: item) }
     }
