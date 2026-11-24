@@ -22,6 +22,6 @@ test("the bundle stays small", () => {
 });
 
 test("the editor's own code has no way to reach the network", () => {
-  const source = ["session", "machine", "bridge", "schema", "dom", "environment"].map((name) => readFileSync(new URL(`../src/${name}.ts`, import.meta.url), "utf8")).join("\n");
+  const source = ["session", "machine", "bridge", "schema", "dom", "environment", "hint", "layout"].map((name) => readFileSync(new URL(`../src/${name}.ts`, import.meta.url), "utf8")).join("\n");
   assert.ok(!/fetch\(|XMLHttpRequest|WebSocket|innerHTML|insertAdjacentHTML|eval\(|new Function/.test(source));
 });

@@ -4,19 +4,30 @@ import GRDB
 import Kernel
 import Lines
 import LocalSources
-import PageSnapshot
 
 @testable import WorkbenchCore
 @testable import WorkbenchUI
 
-/// A machine and its page in a new store in a temporary folder: three paragraphs are not needed, two are, and two
-/// facts quote two stored lines. Nothing here reads the person's store, the network or the Keychain.
+/// A machine and its page in a new store in a temporary folder: two paragraphs, and nine facts from nine people with
+/// long invented names, each quoting a line. Nothing here reads the person's store, the network or the Keychain.
 @MainActor
-final class Desk {
+final class PageDesk {
     static let scope = "render"
     static let paragraphTexts = ["Budget talk with Asha.", "Next steps are unclear."]
-    static let sourceTexts = ["Asha: please send me the deck by Friday", "Ravi: I will send the numbers on Monday"]
-    static let quotes = ["send me the deck by Friday", "send the numbers on Monday"]
+    static let people = [
+        "Alexandria Montgomery-Fitzgerald Example", "Bartholomew Featherstonehaugh Example",
+        "Cassandra Papadopoulos-Whitfield Example", "Dmitri Alexandrovich Rostropovich Example",
+        "Eleanor Vanderbilt-Hargreaves Example", "Fitzwilliam Oyelaran-Nakamura Example",
+        "Genevieve Abernathy-Castellanos Example", "Hildegard Zimmermann-Kowalczyk Example",
+        "Ignatius Balasubramanian-Thorne Example",
+    ]
+    static let quotes = [
+        "send me the deck by Friday", "send the numbers on Monday", "share the plan before the Tuesday call",
+        "book the room for the Wednesday review", "confirm the budget with the finance team",
+        "send the revised draft after lunch", "bring the printed copies to the meeting",
+        "reply to the supplier before the weekend", "update the shared sheet with the new dates",
+    ]
+    static let sourceTexts = zip(people, quotes).map { "\($0): please \($1)" }
 
     let folder = FileManager.default.temporaryDirectory.appending(path: "machine-page-render-\(UUID().uuidString)")
     let store: Store
@@ -58,10 +69,12 @@ final class Desk {
     private static func makeFacts(in store: Store, of machine: Machine, owner: PersonID) throws -> [Item] {
         try saveSyntheticFacts(
             in: store, of: machine, owner: owner, scope: scope, sources: sourceTexts, quotes: quotes,
-            fields: [
-                ["who": "Asha", "owes": "you", "kind": "ask", "text": "Send Asha the deck by Friday"],
-                ["who": "Ravi", "owes": "them", "kind": "promise", "text": "Ravi sends the numbers on Monday"],
-            ])
+            fields: zip(people, quotes).enumerated().map { index, pair in
+                [
+                    "who": pair.0, "person": pair.0, "owes": index.isMultiple(of: 2) ? "you" : "them",
+                    "kind": index.isMultiple(of: 2) ? "ask" : "promise", "text": "\(pair.0): \(pair.1)",
+                ]
+            })
     }
 }
 

@@ -137,7 +137,8 @@ let package = Package(
         .target(
             name: "PageSnapshot",
             dependencies: [
-                "WorkbenchCore", "WorkbenchUI", .product(name: "Kernel", package: "Kernel"),
+                "WorkbenchCore", "WorkbenchUI", .product(name: "CaptureService", package: "BaseKit"),
+                .product(name: "LocalSources", package: "BaseKit"), .product(name: "Kernel", package: "Kernel"),
                 .product(name: "Lines", package: "Kernel"),
             ],
             swiftSettings: [.defaultIsolation(MainActor.self)]),
@@ -158,7 +159,7 @@ let package = Package(
         .executableTarget(
             name: "DocEditorDemo",
             dependencies: [
-                "WorkbenchCore", "WorkbenchUI", .product(name: "Kernel", package: "Kernel"),
+                "PageSnapshot", "WorkbenchCore", "WorkbenchUI", .product(name: "Kernel", package: "Kernel"),
                 .product(name: "Lines", package: "Kernel"),
             ],
             swiftSettings: [.defaultIsolation(MainActor.self)]),

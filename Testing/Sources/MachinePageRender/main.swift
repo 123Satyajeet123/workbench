@@ -1,43 +1,41 @@
 import AppKit
 import Foundation
-import PageSnapshot
 import SwiftUI
 
+@testable import PageSnapshot
 @testable import WorkbenchCore
 @testable import WorkbenchUI
 
-// Draws the machine's page to PNGs in four states and two appearances, on synthetic data in a temporary folder, with no
-// model call. Usage: machine-page-render [png-folder]
+// Draws the machine's page, header and document, to PNGs off screen: nine people with long invented names, at two
+// widths in both appearances, then with the slash menu open and with a proposal that waits. It uses a temporary store,
+// synthetic words and no model call. Usage: machine-page-render [png-folder]
 setvbuf(stdout, nil, _IOLBF, 0)
 _ = NSApplication.shared
-let defaultFolder = "/Users/jeet/Projects/worktrace/plans/2026-11-24-machine-page/shots"
+let defaultFolder = "/Users/jeet/Projects/worktrace/plans/2026-11-25-machine-one-program/shots/editor-swap"
 let shots = URL(filePath: CommandLine.arguments.dropFirst().first ?? defaultFolder)
-let size = CGSize(width: 1000, height: 1400)
 
 do {
-    let desk = try await Desk()
+    let desk = try await PageDesk()
     defer { desk.close() }
+    let models = ModelSettings(store: desk.store, secrets: MemorySecrets())
 
-    func draw(_ name: String) async throws {
-        for dark in [false, true] {
-            let models = ModelSettings(store: desk.store, secrets: MemorySecrets())
-            print(
-                try await snapshot(
-                    pageOf: desk.page, subtitle: "Follow-ups", crew: desk.crew, models: models, named: name, dark: dark,
-                    size: size, in: shots
-                ).path)
-        }
+    func draw(_ name: String, width: CGFloat, dark: Bool, prepare: () async throws -> Void = {}) async throws {
+        print(
+            try await snapshot(
+                pageOf: desk.page, subtitle: "Follow-ups", crew: desk.crew, models: models, named: name, dark: dark,
+                size: CGSize(width: width, height: 1700), in: shots, prepare: prepare
+            ).path)
     }
 
     desk.page.refresh()
-    try await draw("a-new-page")
-    try await desk.acceptAnOldHeading()
     try desk.proposeTheFullPage()
-    try await draw("b-pending-proposal")
     await desk.page.accept()
-    try await draw("c-after-accept")
-    try await desk.eraseSecondParagraph()
-    try await draw("d-after-erase")
+    for width in [700.0, 1000.0] {
+        for dark in [false, true] { try await draw("page-\(Int(width))", width: width, dark: dark) }
+    }
+    try await draw("slash-menu", width: 1000, dark: false) { try await desk.openSlashMenu() }
+    try desk.proposeAChange()
+    for dark in [false, true] { try await draw("pending-proposal", width: 1000, dark: dark) }
 } catch {
     print("FAILED: \(error)")
     exit(1)

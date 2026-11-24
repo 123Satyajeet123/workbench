@@ -80,7 +80,8 @@ export function flatten(blocks: EditorBlock[], depth = 0): FlatBlock[] {
 
 export function blockOf(page: PageBlock): { block: EditorBlock; depth: number } {
   if (page.kind === "machine") {
-    return { block: { id: page.id, type: MACHINE, props: { view: JSON.stringify(page.view) }, children: [] }, depth: 0 };
+    const props = { view: JSON.stringify(page.view), standing: page.standing };
+    return { block: { id: page.id, type: MACHINE, props, children: [] }, depth: 0 };
   }
   const line = parseLine(page.text);
   const props: Record<string, unknown> = {};

@@ -1,10 +1,10 @@
-import type { Chip, FactRow, FactSection, GridCell, MachineView } from "./bridge.generated.ts";
+import type { Chip, FactRow, FactSection, GridCell, MachineView, OpMark, PageBlock } from "./bridge.generated.ts";
 import { el } from "./dom.ts";
 
 export interface MachineActions {
   openCite(ref: string): void;
   openPicker(source: string): void;
-  mark(fact: number, mark: "right" | "wrong"): void;
+  mark(fact: number, mark: OpMark["mark"]): void;
 }
 
 type Facts = Extract<MachineView, { kind: "facts" }>;
@@ -12,11 +12,22 @@ type Grid = Extract<MachineView, { kind: "grid" }>;
 type Picker = Extract<MachineView, { kind: "picker" }>;
 
 /** Draws a block of a machine from the data Swift worked out. It adds, counts and fetches nothing. */
-export function renderMachine(view: MachineView, actions: MachineActions): HTMLElement {
-  const root = el("section", `machine machine-${view.kind}`);
+export function renderMachine(view: MachineView, standing: Standing, actions: MachineActions): HTMLElement {
+  const root = el("section", `machine machine-${view.kind}`, undefined, { "data-standing": standing });
+  const words = STANDING_WORDS[standing];
+  if (words) root.append(el("p", "standing", words));
   root.append(...partsOf(view, actions));
   return root;
 }
+
+export type Standing = Extract<PageBlock, { kind: "machine" }>["standing"];
+
+const STANDING_WORDS: Record<Standing, string | undefined> = {
+  live: undefined,
+  added: "New",
+  replacement: "Replaces a block",
+  removed: "Will be removed",
+};
 
 function partsOf(view: MachineView, actions: MachineActions): HTMLElement[] {
   switch (view.kind) {
@@ -120,10 +131,12 @@ function factTable(view: Facts, section: FactSection, actions: MachineActions): 
   return table;
 }
 
+const MARK_WORDS: Record<OpMark["mark"], string> = { right: "Right", wrong: "Wrong", done: "Done" };
+
 function markButtons(row: FactRow, actions: MachineActions): HTMLElement {
   const marks = el("span", "marks");
-  for (const [mark, label] of [["right", "Right"], ["wrong", "Wrong"]] as const) {
-    const button = el("button", `mark mark-${mark}`, label, { type: "button", "aria-label": `Mark this fact ${mark}` });
+  for (const mark of row.marks) {
+    const button = el("button", `mark mark-${mark}`, MARK_WORDS[mark], { type: "button", "aria-label": `Mark this fact ${mark}` });
     button.addEventListener("click", () => actions.mark(row.fact, mark));
     marks.append(button);
   }

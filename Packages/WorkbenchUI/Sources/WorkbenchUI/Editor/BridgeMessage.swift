@@ -10,6 +10,13 @@ enum EditorMessage: Equatable, Sendable {
     case open(OpenTarget)
     case blocked(directive: String, uri: String)
     case idle
+    case layout(height: Int, caret: CaretBox?)
+}
+
+/// Where the caret is in the page, in points from its top.
+struct CaretBox: Codable, Equatable, Sendable {
+    var top: Int
+    var bottom: Int
 }
 
 /// One thing the person did on the page.
@@ -23,7 +30,7 @@ enum EditorOp: Equatable, Sendable {
 }
 
 enum FactMark: String, Codable, Equatable, Sendable {
-    case right, wrong
+    case right, wrong, done
 }
 
 enum OpenTarget: Equatable, Sendable {
@@ -57,11 +64,11 @@ struct BlockRename: Codable, Equatable, Sendable {
 /// One block of the page as the editor shows it.
 enum PageBlockData: Equatable, Sendable {
     case note(id: String, text: String)
-    case machine(id: String, view: MachineView)
+    case machine(id: String, view: MachineView, standing: BlockStanding)
 
     var id: String {
         switch self {
-        case .note(let id, _), .machine(let id, _): id
+        case .note(let id, _), .machine(let id, _, _): id
         }
     }
 }
@@ -109,6 +116,10 @@ extension EditorMessage: Codable {
                 directive: try values.decode(String.self, forKey: Key("directive")),
                 uri: try values.decode(String.self, forKey: Key("uri")))
         case "idle": self = .idle
+        case "layout":
+            self = .layout(
+                height: try values.decode(Int.self, forKey: Key("height")),
+                caret: try values.decode(CaretBox?.self, forKey: Key("caret")))
         default: throw unknown(type, in: values)
         }
     }
@@ -131,6 +142,10 @@ extension EditorMessage: Codable {
             try values.encode(directive, forKey: Key("directive"))
             try values.encode(uri, forKey: Key("uri"))
         case .idle: try values.encode("idle", forKey: Key("type"))
+        case .layout(let height, let caret):
+            try values.encode("layout", forKey: Key("type"))
+            try values.encode(height, forKey: Key("height"))
+            try values.encode(caret, forKey: Key("caret"))
         }
     }
 }
@@ -257,7 +272,10 @@ extension PageBlockData: Codable {
         let id = try values.decode(String.self, forKey: Key("id"))
         switch kind {
         case "note": self = .note(id: id, text: try values.decode(String.self, forKey: Key("text")))
-        case "machine": self = .machine(id: id, view: try values.decode(MachineView.self, forKey: Key("view")))
+        case "machine":
+            self = .machine(
+                id: id, view: try values.decode(MachineView.self, forKey: Key("view")),
+                standing: try values.decode(BlockStanding.self, forKey: Key("standing")))
         default: throw unknown(kind, in: values)
         }
     }
@@ -269,10 +287,11 @@ extension PageBlockData: Codable {
             try values.encode("note", forKey: Key("kind"))
             try values.encode(id, forKey: Key("id"))
             try values.encode(text, forKey: Key("text"))
-        case .machine(let id, let view):
+        case .machine(let id, let view, let standing):
             try values.encode("machine", forKey: Key("kind"))
             try values.encode(id, forKey: Key("id"))
             try values.encode(view, forKey: Key("view"))
+            try values.encode(standing, forKey: Key("standing"))
         }
     }
 }

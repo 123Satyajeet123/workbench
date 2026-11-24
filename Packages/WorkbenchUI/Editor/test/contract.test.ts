@@ -62,7 +62,7 @@ test("the editor reads every page Swift sends and every change it makes", () => 
   assert.deepEqual(flat.map((block) => block.id), load.blocks.map((block) => block.id));
   const apply = samples.toEditor["apply"] as { changes: Change[] };
   const after = apply.changes.reduce(applyToFlat, flat);
-  assert.deepEqual(after.map((block) => block.id), ["m9", "n1", "m0", "m1", "m2", "m3", "m4", "m5"]);
+  assert.deepEqual(after.map((block) => block.id), ["m9", "n1", "m0", "m1", "m2", "m3", "m4", "m5", "m10"]);
 });
 
 test("the ops the editor sends are valid for Swift", () => {

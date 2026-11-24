@@ -36,6 +36,7 @@ struct FactsRendering: Codable, Equatable, Sendable {
         var person: String
         var words: String
         var cells: [String]
+        var marks: [FactMark]
     }
 }
 

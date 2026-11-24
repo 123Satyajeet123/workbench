@@ -9,7 +9,9 @@
     "check": "tsc --noEmit && node --test test/"
   },
   "dependencies": {
-    "@blocknote/core": "0.57.0"
+    "@blocknote/core": "0.57.0",
+    "prosemirror-state": "1.4.4",
+    "prosemirror-view": "1.43.1"
   },
   "devDependencies": {
     "@types/node": "26.6.6",

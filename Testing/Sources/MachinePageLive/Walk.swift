@@ -47,7 +47,6 @@ final class Walk {
         }
         try await askForSentences(resumesAtSentences ? Self.plainSentences : Self.sentences)
         try await removeFirstBlock()
-        await page.editor.flush()
         session.stop()
         return page.lines
     }
@@ -76,9 +75,13 @@ final class Walk {
     }
 
     private func typeParagraph() async throws {
-        page.run(0).edit(0..<0, with: Self.paragraph)
-        await page.editor.flush()
-        page.reload()
+        let block = BlockID()
+        try await page.store.saveNote(
+            NoteChange(
+                note: try NoteID(object: page.page).orFail("the page is a note"),
+                blocks: [NoteBlock(id: block, text: Self.paragraph)], endings: [], order: [block]),
+            owner: page.owner)
+        page.refresh()
         try expect(
             page.paragraphs == [Self.paragraph], "the typed paragraph is on the page", expected: "[\(Self.paragraph)]",
             found: "\(page.paragraphs)")
@@ -130,7 +133,8 @@ final class Walk {
     private func removeFirstBlock() async throws {
         let paragraphs = page.paragraphs
         let block = try page.firstMachineBlock.orFail("the page has a machine block to remove")
-        page.remove(block)
+        try page.store.removeBlock(block, surface: .machinePage)
+        page.refresh()
         try await show("f-removed", "f. after removing the first machine block")
         try expect(
             page.paragraphs == paragraphs, "the paragraphs are unchanged", expected: "\(paragraphs)",

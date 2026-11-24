@@ -21,7 +21,7 @@ const STYLE_ORDER: Style[] = ["bold", "italic", "strike", "code"];
 const DELIMITER: Record<Style, string> = { bold: "*", italic: "_", strike: "~", code: "`" };
 const STYLE_OF: Record<string, Style> = { "*": "bold", _: "italic", "~": "strike", "`": "code" };
 const SPECIAL = new Set(["\\", "*", "_", "~", "`", "[", "]"]);
-const INDENT = "  ";
+const INDENT = "| ";
 
 const PREFIXES: { kind: LineKind; prefix: string; pattern: RegExp; level?: number; checked?: boolean }[] = [
   { kind: "heading", prefix: "### ", pattern: /^### /, level: 3 },
@@ -37,7 +37,7 @@ const PREFIXES: { kind: LineKind; prefix: string; pattern: RegExp; level?: numbe
 ];
 
 const DIVIDER = "---";
-const LOOKS_LIKE_A_PREFIX = /^(#{1,3} |[-+>] |\d+\. |---$| )/;
+const LOOKS_LIKE_A_PREFIX = /^(#{1,3} |[-+>|] |\d+\. |---$| )/;
 
 export function emptyLine(): Line {
   return { kind: "paragraph", depth: 0, level: 1, checked: false, runs: [] };

@@ -251,32 +251,24 @@ try pipStore.writer.write { db in
     try db.execute(sql: "DELETE FROM machine_block")
 }
 pipPage.reload()
+
+func machineBlockCount(_ page: MachinePageModel) -> Int {
+    try! pipStore.queries.page(of: page.page, for: PageViewer(owner: owner)).page.blocks.count
+}
 check(
     "before: Pip has \(pipFacts.count) facts and its page shows no block",
-    pipPage.facts.count == pipFacts.count && pipPage.shown.blocks.isEmpty)
+    pipPage.facts.count == pipFacts.count && machineBlockCount(pipPage) == 0)
 try await draw(pageView(pipPage), "1-pip-before")
 let loaded = try MachinePageModel(
     helper: pipHelper, page: try need(pipMachine.page), store: pipStore, owner: owner,
     makeModel: { throw Missing() })
-check("after: the page model that loads it gives it its facts view", loaded.shown.blocks.count == 1)
+check("after: the page model that loads it gives it its facts view", machineBlockCount(loaded) == 1)
 try await draw(pageView(loaded), "2-pip-after")
 loaded.setEditing(.name, true)
 try await draw(pageView(loaded), "3-pip-name-editing")
 loaded.setEditing(.name, false)
 loaded.setEditing(.job, true)
 try await draw(pageView(loaded), "4-pip-job-editing")
-
-let layouts = VStack(alignment: .leading, spacing: Space.l) {
-    ForEach([FactsView.Layout.list, .table, .board, .counts], id: \.self) { layout in
-        FactsBlockView(
-            model: loaded,
-            view: FactsView(
-                title: layout.rawValue.capitalized, groupBy: layout == .table ? nil : "person", layout: layout,
-                columns: ["person", "text", PageCatalog.quoteColumn]))
-    }
-}
-.padding(Space.page).environment(pipCrew).environment(models)
-try await draw(layouts, "7-layouts")
 
 let mochiStore = try freshStore("mochi")
 let mochiCrew = try makeCrew(mochiStore)

@@ -4,16 +4,25 @@ import WorkbenchCore
 
 /// The page as short lines, one per block in the page's order: what the person reads, in words a log can hold.
 extension MachinePageModel {
+    /// The page as the person sees it: the stored page with the proposal that waits worked in, and the paragraphs.
+    private var contents: (shown: ShownPage, notes: [NoteBlock]) {
+        let stored = try! store.queries.page(of: page, for: PageViewer(owner: owner))
+        return (ShownPage(contents: stored, proposal: proposal), stored.notes)
+    }
+
+    private var shown: ShownPage { contents.shown }
+
     var lines: [String] {
-        shown.order.map { place in
+        let (shown, notes) = contents
+        return shown.order.map { place in
             switch place {
-            case .note(let id): "paragraph: \(paragraphText(id))"
+            case .note(let id): "paragraph: \(notes.first { $0.id == id }?.text ?? "(unknown paragraph)")"
             case .machine(let id): shown.blocks[id].map(Self.describe) ?? "missing block"
             }
         }
     }
 
-    var paragraphs: [String] { editor.document.blocks.map(\.text).filter { !$0.isEmpty } }
+    var paragraphs: [String] { contents.notes.map(\.text).filter { !$0.isEmpty } }
 
     var textBlocks: [CitedText] {
         shown.blocks.values.compactMap { shownBlock in
@@ -33,10 +42,6 @@ extension MachinePageModel {
         case .replace(let old, let new): "replace \(block(old)) with \(block(new))"
         case .remove(let id): "remove \(block(id))"
         }
-    }
-
-    private func paragraphText(_ id: BlockID) -> String {
-        editor.document.blocks.first { $0.id == id }?.text ?? "(unknown paragraph)"
     }
 
     private static func describe(_ shownBlock: ShownBlock) -> String {

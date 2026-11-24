@@ -41,8 +41,10 @@ private struct FolderPage: View {
     var body: some View {
         Page(title: object.name, subtitle: object.noun) {
             ProblemSlotBanner(slot: workspace.problems)
+            let isDocument = object.kind == ObjectTypes.page.id
+            if isDocument { PlainPageDocument(page: object.id) }
             let live = contents.filter { !$0.archived }
-            if live.isEmpty && facts.isEmpty {
+            if live.isEmpty && facts.isEmpty && !isDocument {
                 Text("Nothing here yet. Add a folder or a page from this row's menu in the sidebar.")
                     .foregroundStyle(.supporting)
             }

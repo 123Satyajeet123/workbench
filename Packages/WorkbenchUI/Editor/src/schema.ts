@@ -14,7 +14,7 @@ import {
 } from "@blocknote/core";
 import type { MachineView } from "./bridge.generated.ts";
 import { el } from "./dom.ts";
-import { renderMachine, type MachineActions } from "./machine.ts";
+import { renderMachine, type MachineActions, type Standing } from "./machine.ts";
 
 const callout = createBlockSpec(
   { type: "callout", propSchema: {}, content: "inline" },
@@ -33,11 +33,15 @@ export const NO_VIEW: MachineView = { kind: "erased", note: "" };
 
 export function machineSpec(actions: MachineActions) {
   return createBlockSpec(
-    { type: "machine", propSchema: { view: { default: JSON.stringify(NO_VIEW) } }, content: "none" },
+    {
+      type: "machine",
+      propSchema: { view: { default: JSON.stringify(NO_VIEW) }, standing: { default: "live" } },
+      content: "none",
+    },
     {
       render(block) {
         const view = JSON.parse(block.props.view) as MachineView;
-        return { dom: renderMachine(view, actions) };
+        return { dom: renderMachine(view, block.props.standing as Standing, actions) };
       },
     },
   );

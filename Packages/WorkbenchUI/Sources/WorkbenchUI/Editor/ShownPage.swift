@@ -2,7 +2,7 @@ import Foundation
 import WorkbenchCore
 
 /// How a machine block stands on the page the person looks at.
-enum BlockStanding: Equatable {
+enum BlockStanding: String, Codable, Equatable, Sendable {
     case live
     /// A block a pending proposal brings in.
     case added

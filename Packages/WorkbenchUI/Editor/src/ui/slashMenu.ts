@@ -26,6 +26,7 @@ function items(editor: BlockNoteEditor<any, any, any>): Item[] {
 export function mountSlashMenu(editor: BlockNoteEditor<any, any, any>): void {
   const menu = editor.getExtension(SuggestionMenu);
   if (!menu) return;
+  menu.addSuggestionMenu({ triggerCharacter: "/" });
   const panel = floatingPanel("slash-menu");
   let shown: Item[] = [];
   let selected = 0;
@@ -33,6 +34,7 @@ export function mountSlashMenu(editor: BlockNoteEditor<any, any, any>): void {
   const choose = (item: Item) => {
     menu.closeMenu();
     menu.clearQuery();
+    panel.hidden = true;
     item.onItemClick();
   };
 

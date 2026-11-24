@@ -17,7 +17,7 @@ final class Crew {
     @ObservationIgnored private let capture: CaptureService
     @ObservationIgnored private let founder: () -> String
     @ObservationIgnored private let makeModel: ((ModelChoice) -> RecordedModel)?
-    @ObservationIgnored private let owner: Result<PersonID, any Error>
+    @ObservationIgnored let owner: Result<PersonID, any Error>
     @ObservationIgnored let whatsAppContainer: URL
     @ObservationIgnored private let alarm: VersionAlarm
     @ObservationIgnored private let openWebSession: () throws -> WebSession

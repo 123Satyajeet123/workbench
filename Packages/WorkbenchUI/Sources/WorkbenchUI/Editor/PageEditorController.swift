@@ -7,17 +7,18 @@ import WorkbenchCore
 /// the committed page and the person's own typing.
 ///
 /// A paragraph of the person is one line of the note, kept under the id the editor gives it; its machine blocks stay
-/// where the person put them. A block the person deletes is erased with its lines.
+/// where the person put them. A block the person deletes is erased with its lines. A proposal that waits shows in the
+/// page as blocks that say how they stand; it is stored only when the person accepts it.
 final class PageEditorController {
     private let store: Store
     private let note: NoteID
     private let page: WorkObjectID
     private let owner: PersonID
     private let viewer: PageViewer
-    private let host: EditorHost
+    let host: EditorHost
     private let views: () throws -> MachineViewBuilder
     private(set) var model: PageModel
-    private var machineViews: [String: MachineView] = [:]
+    private var machineViews: [String: ShownMachine] = [:]
     private var environment: EditorEnvironment
     private var processing: Task<Void, Never>?
     private var idles = 0
@@ -32,7 +33,7 @@ final class PageEditorController {
 
     init(
         store: Store, page: WorkObjectID, owner: PersonID, host: EditorHost, appearance: EditorEnvironment.Appearance,
-        reduceMotion: Bool, views: @escaping () throws -> MachineViewBuilder
+        reduceMotion: Bool, scale: Double = 1, views: @escaping () throws -> MachineViewBuilder
     ) throws {
         guard let note = NoteID(object: page) else { throw WorkObjectError.unknown(page) }
         self.store = store
@@ -42,18 +43,35 @@ final class PageEditorController {
         self.host = host
         self.views = views
         viewer = try PageViewer(owner: owner)
-        model = PageModel(contents: try store.queries.page(of: page, for: viewer))
-        environment = EditorEnvironment(
-            appearance: appearance, reduceMotion: reduceMotion, tokens: EditorTokens.resolved(for: appearance))
+        let (contents, shown) = try Self.read(store, page, viewer)
+        model = PageModel(contents: contents, shown: shown)
+        environment = Self.environment(appearance, reduceMotion, scale)
         host.onMessage = { [weak self] message in self?.receive(message) }
     }
 
     func start() { host.load() }
 
-    func setAppearance(_ appearance: EditorEnvironment.Appearance, reduceMotion: Bool) {
-        environment = EditorEnvironment(
-            appearance: appearance, reduceMotion: reduceMotion, tokens: EditorTokens.resolved(for: appearance))
+    func setAppearance(_ appearance: EditorEnvironment.Appearance, reduceMotion: Bool, scale: Double) {
+        environment = Self.environment(appearance, reduceMotion, scale)
         host.send(.environment(environment))
+    }
+
+    private static func environment(
+        _ appearance: EditorEnvironment.Appearance, _ reduceMotion: Bool, _ scale: Double
+    ) -> EditorEnvironment {
+        EditorEnvironment(
+            appearance: appearance, reduceMotion: reduceMotion,
+            tokens: EditorTokens.resolved(for: appearance, scale: scale))
+    }
+
+    /// The page as stored, and as shown: the stored page with the pending proposal worked in.
+    private static func read(_ store: Store, _ page: WorkObjectID, _ viewer: PageViewer) throws -> (
+        PageContents, ShownPage
+    ) {
+        let contents = try store.queries.page(of: page, for: viewer)
+        return (
+            contents, ShownPage(contents: contents, proposal: try store.queries.pendingProposal(of: page, for: viewer))
+        )
     }
 
     /// Asks the editor for the ops that wait, and waits until they are saved. False when the editor did not answer in
@@ -67,13 +85,23 @@ final class PageEditorController {
         return idles >= answered
     }
 
+    /// The same, for the app that quits: it waits for the answer here, at most `timeout`, while the main loop runs.
+    func flushBeforeQuit(timeout: Duration = .seconds(2)) {
+        let answered = idles + 1
+        host.send(.flush)
+        let deadline = ContinuousClock.now + timeout
+        while idles < answered, ContinuousClock.now < deadline {
+            RunLoop.current.run(mode: .default, before: Date(timeIntervalSinceNow: 0.01))
+        }
+    }
+
     /// Shows what the store holds now: blocks of machines that came, changed or left, and paragraphs that were erased
     /// elsewhere. What the person is typing stays.
     func refresh() throws {
-        let contents = try store.queries.page(of: page, for: viewer)
+        let (_, shown) = try Self.read(store, page, viewer)
         let builder = try views()
         var changes: [PageChange] = []
-        let held = Set(contents.page.order.map(\.rawValue))
+        let held = Set(shown.order.map(\.rawValue))
         for id in model.order where !held.contains(id) {
             let before = model.order.count
             model.forget(id)
@@ -83,17 +111,19 @@ final class PageEditorController {
             }
         }
         var previous: String?
-        for place in contents.page.order {
-            if case .machine(let block) = place, let stored = contents.page.blocks[block] {
+        for place in shown.order {
+            if case .machine(let block) = place, let entry = shown.blocks[block] {
                 let id = block.rawValue
-                let view = builder.view(of: stored, erased: contents.erased.contains(block))
+                let now = ShownMachine(
+                    view: builder.view(of: entry.block, erased: entry.isErased), standing: entry.standing)
+                model.stand(id, for: shown.liveBlock(at: block))
                 if model.machines.contains(id) {
-                    if machineViews[id] != view { changes.append(.update(block: .machine(id: id, view: view))) }
+                    if machineViews[id] != now { changes.append(.update(block: now.block(id))) }
                 } else {
-                    changes.append(.insert(after: previous, block: .machine(id: id, view: view)))
+                    changes.append(.insert(after: previous, block: now.block(id)))
                     model.show(machine: id, after: previous)
                 }
-                machineViews[id] = view
+                machineViews[id] = now
             }
             if model.order.contains(place.rawValue) { previous = place.rawValue }
         }
@@ -111,23 +141,25 @@ final class PageEditorController {
         case .open(let target): onOpen(target)
         case .blocked: blockedLoads.append(message)
         case .idle: idles += 1
+        case .layout(let height, let caret): host.fit(height: height, caret: caret)
         }
     }
 
     private func load() throws {
-        let contents = try store.queries.page(of: page, for: viewer)
+        let (contents, shown) = try Self.read(store, page, viewer)
         let builder = try views()
-        model = PageModel(contents: contents)
+        model = PageModel(contents: contents, shown: shown)
         machineViews = [:]
         let notes = Dictionary(uniqueKeysWithValues: contents.notes.map { ($0.id, $0.text) })
-        let blocks = contents.page.order.compactMap { place -> PageBlockData? in
+        let blocks = shown.order.compactMap { place -> PageBlockData? in
             switch place {
             case .note(let block): return notes[block].map { .note(id: block.rawValue, text: $0) }
             case .machine(let block):
-                guard let stored = contents.page.blocks[block] else { return nil }
-                let view = builder.view(of: stored, erased: contents.erased.contains(block))
-                machineViews[block.rawValue] = view
-                return .machine(id: block.rawValue, view: view)
+                guard let entry = shown.blocks[block] else { return nil }
+                let now = ShownMachine(
+                    view: builder.view(of: entry.block, erased: entry.isErased), standing: entry.standing)
+                machineViews[block.rawValue] = now
+                return now.block(block.rawValue)
             }
         }
         host.send(.load(blocks))
@@ -200,11 +232,9 @@ final class PageEditorController {
     }
 }
 
-extension PageBlockRef {
-    fileprivate var rawValue: String {
-        switch self {
-        case .note(let block): block.rawValue
-        case .machine(let block): block.rawValue
-        }
-    }
+private struct ShownMachine: Equatable {
+    var view: MachineView
+    var standing: BlockStanding
+
+    func block(_ id: String) -> PageBlockData { .machine(id: id, view: view, standing: standing) }
 }

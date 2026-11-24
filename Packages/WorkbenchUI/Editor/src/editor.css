@@ -2,8 +2,8 @@
 
 /* Colours come from the app's palette, sent by Swift as --wb-* tokens. Nothing here picks a colour of its own. */
 :root {
-  --wb-column: 700px;
-  --wb-gutter: 56px;
+  --wb-gutter: 40px;
+  --wb-body: 15px;
   --wb-font: -apple-system, "SF Pro Text", system-ui, sans-serif;
   --wb-mono: ui-monospace, "SF Mono", Menlo, monospace;
   --wb-quick: 120ms;
@@ -14,18 +14,14 @@
 
 html, body {
   margin: 0;
+  overflow: hidden;
   background: var(--wb-page);
   color: var(--wb-text);
-  font: 16px/1.5 var(--wb-font);
+  font: var(--wb-body)/1.5 var(--wb-font);
   -webkit-font-smoothing: antialiased;
 }
 
-#page {
-  box-sizing: border-box;
-  width: min(100%, calc(var(--wb-column) + 2 * var(--wb-gutter)));
-  margin: 0 auto;
-  padding: 40px var(--wb-gutter) 160px;
-}
+#page { box-sizing: border-box; width: 100%; padding: 0 var(--wb-gutter); }
 
 /* BlockNote reads its own variables; they point at the app's tokens. */
 .bn-container, .bn-editor, .bn-root {
@@ -55,9 +51,9 @@ img.ProseMirror-separator { display: inline !important; border: none !important;
 .bn-block-outer { line-height: 1.5; }
 [data-content-type="heading"] { padding-top: 24px; padding-bottom: 4px; }
 .bn-block-outer:first-child [data-content-type="heading"] { padding-top: 0; }
-[data-content-type="heading"] { --level: 1.875em; font-weight: 700; line-height: 1.25; }
-[data-content-type="heading"][data-level="2"] { --level: 1.5em; font-weight: 650; }
-[data-content-type="heading"][data-level="3"] { --level: 1.25em; font-weight: 600; }
+[data-content-type="heading"] { --level: 1.5em; font-weight: 700; line-height: 1.25; }
+[data-content-type="heading"][data-level="2"] { --level: 1.25em; font-weight: 650; }
+[data-content-type="heading"][data-level="3"] { --level: 1.1em; font-weight: 600; }
 .bn-block-outer[data-prev-type=heading] > .bn-block > .bn-block-content,
 .bn-block-outer:not([data-prev-type]) > .bn-block > .bn-block-content[data-content-type=heading] { font-size: var(--level); }
 
@@ -71,13 +67,16 @@ img.ProseMirror-separator { display: inline !important; border: none !important;
 .callout-mark { flex: none; width: 20px; height: 20px; line-height: 20px; margin-top: 2px; text-align: center; font: italic 700 13px var(--wb-font); color: var(--wb-icon); border: 1.5px solid var(--wb-icon); border-radius: 50%; box-sizing: border-box; line-height: 17px; }
 .callout-text { flex: 1; min-width: 0; }
 
-.bn-block-content:has(.ProseMirror-trailingBreak:only-child)::after { color: var(--wb-supporting); }
+.bn-block-content[data-hint]:has(.ProseMirror-trailingBreak:only-child)::after { content: attr(data-hint); color: var(--wb-supporting); font-style: normal; pointer-events: none; }
 .bn-block-content[data-content-type="checkListItem"] > div > input { accent-color: var(--wb-accent); }
 
 /* Blocks of a machine: no card and no box. A thin mark in the left gutter says who wrote them. */
 .machine { position: relative; width: 100%; box-sizing: border-box; padding: 6px 0; border-radius: 4px; transition: background var(--wb-quick) ease-out; }
 .machine::before { content: ""; position: absolute; left: calc(-1 * var(--wb-gutter) / 2 - 1px); top: 4px; bottom: 4px; width: 2px; border-radius: 1px; background: var(--wb-accent); opacity: 0.55; }
 .machine:hover { background: var(--wb-hover); }
+.machine[data-standing="added"], .machine[data-standing="replacement"] { background: color-mix(in srgb, var(--wb-accent) 12%, transparent); }
+.machine[data-standing="removed"] > :not(.standing) { opacity: 0.6; text-decoration: line-through; }
+.standing { margin: 0 0 2px; font-size: 0.8em; color: var(--wb-supporting); }
 .machine-heading { margin: 12px 0 0; font-size: 1.25em; line-height: 1.3; font-weight: 600; }
 .machine-title { margin: 0; font-size: 1em; font-weight: 600; }
 .machine-head { display: flex; gap: 8px; align-items: baseline; margin-bottom: 4px; }
@@ -89,8 +88,8 @@ img.ProseMirror-separator { display: inline !important; border: none !important;
 .chip-open { cursor: pointer; }
 .chip-open:hover, .chip-open:focus-visible { color: var(--wb-text); background: var(--wb-hover); outline: 1px solid var(--wb-divider); }
 .facts-name { margin: 8px 0 2px; font-size: 1em; font-weight: 600; }
-.facts-board { display: flex; gap: 16px; align-items: flex-start; }
-.facts-board .facts-section { flex: 1; min-width: 0; }
+.facts-board { display: flex; gap: 16px; align-items: flex-start; overflow-x: auto; padding-bottom: 8px; }
+.facts-board .facts-section { flex: 0 0 260px; min-width: 0; }
 .facts-counts .facts-section { display: flex; justify-content: space-between; padding: 2px 0; }
 .count { font-variant-numeric: tabular-nums; }
 .fact { display: flex; gap: 8px; align-items: baseline; justify-content: space-between; padding: 2px 0; }
@@ -109,7 +108,7 @@ img.ProseMirror-separator { display: inline !important; border: none !important;
 /* Chrome shows on hover or focus only. */
 .side-menu[hidden] { display: none; }
 .side-menu { position: fixed; z-index: 20; display: flex; gap: 0; height: 28px; align-items: center; }
-.side-button { font: inherit; font-size: 13px; line-height: 1; color: var(--wb-icon); background: none; border: 0; border-radius: 4px; width: 22px; height: 24px; padding: 0; cursor: pointer; }
+.side-button { font: inherit; font-size: 13px; line-height: 1; color: var(--wb-icon); background: none; border: 0; border-radius: 4px; width: 18px; height: 24px; padding: 0; cursor: pointer; }
 .side-button:hover, .side-button:focus-visible { background: var(--wb-hover); color: var(--wb-text); }
 .side-handle { cursor: grab; letter-spacing: -3px; }
 .panel { position: fixed; z-index: 30; min-width: 220px; max-width: 320px; max-height: 340px; overflow: auto; background: var(--wb-page); color: var(--wb-text); border: 1px solid var(--wb-divider); border-radius: 8px; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18); padding: 4px; font-size: 14px; }
@@ -132,4 +131,5 @@ img.ProseMirror-separator { display: inline !important; border: none !important;
 :root[data-motion="reduce"] *, :root[data-motion="reduce"] *::before, :root[data-motion="reduce"] *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
 
 /* A machine block the person selected: a tint from the palette, no ring. */
-.bn-block-content.ProseMirror-selectednode > :after, .ProseMirror-selectednode > .bn-block-content > :after { background: var(--wb-selected); box-shadow: none; }
+.bn-block-content.ProseMirror-selectednode > :after, .ProseMirror-selectednode > .bn-block-content > :after { background: transparent; box-shadow: none; }
+.ProseMirror-focused .bn-block-content.ProseMirror-selectednode > :after, .ProseMirror-focused .ProseMirror-selectednode > .bn-block-content > :after { background: var(--wb-selected); }

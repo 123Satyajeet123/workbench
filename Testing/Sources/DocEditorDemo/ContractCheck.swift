@@ -12,13 +12,15 @@ enum ContractSamples {
             ops: [
                 .insert(id: "n1", after: nil, text: "# A heading"), .insert(id: "n2", after: "n1", text: "Words"),
                 .update(id: "n2", text: "Words, *marked*"), .move(id: "n2", after: nil), .delete(id: "n3"),
-                .merge(id: "n4", into: "n2"), .mark(fact: 12, .wrong),
+                .merge(id: "n4", into: "n2"), .mark(fact: 12, .wrong), .mark(fact: 12, .done),
             ]),
         "openCite": .open(.cite(ref: "fact:12")),
         "openLink": .open(.link(url: "https://example.com/a")),
         "openPicker": .open(.picker(source: "whatsapp_chats")),
         "blocked": .blocked(directive: "img-src", uri: "https://example.com/x.png"),
         "idle": .idle,
+        "layout": .layout(height: 640, caret: CaretBox(top: 120, bottom: 144)),
+        "layoutWithoutCaret": .layout(height: 640, caret: nil),
     ]
 
     static let toEditor: [String: HostMessage] = [
@@ -26,11 +28,14 @@ enum ContractSamples {
             EditorEnvironment(appearance: .dark, reduceMotion: true, tokens: ["page": "rgba(25, 25, 25, 1.000)"])),
         "load": .load(
             [.note(id: "n1", text: "Plain words")]
-                + views.enumerated().map { .machine(id: "m\($0.offset)", view: $0.element) }),
+                + views.enumerated().map { .machine(id: "m\($0.offset)", view: $0.element, standing: .live) }
+                + [.machine(id: "m10", view: .heading(text: "Proposed"), standing: .added)]),
         "apply": .apply([
-            .insert(after: nil, block: .machine(id: "m9", view: .heading(text: "New"))),
+            .insert(after: nil, block: .machine(id: "m9", view: .heading(text: "New"), standing: .replacement)),
             .insert(after: "n1", block: .note(id: "n5", text: "- item")),
-            .update(block: .machine(id: "m9", view: .erased(note: "The message this came from was deleted"))),
+            .update(
+                block: .machine(
+                    id: "m9", view: .erased(note: "The message this came from was deleted"), standing: .removed)),
             .move(id: "n5", after: "m9"), .remove(id: "n5"),
         ]),
         "ack": .ack(seq: 3, renames: [BlockRename(from: "n2", to: "n6")]),
@@ -54,7 +59,7 @@ enum ContractSamples {
                         rows: [
                             FactsRendering.Row(
                                 fact: 12, person: "Asha", words: "\u{201C}send the deck\u{201D}",
-                                cells: ["\u{201C}send the deck\u{201D}", "ask"])
+                                cells: ["\u{201C}send the deck\u{201D}", "ask"], marks: [.right, .wrong, .done])
                         ])
                 ])),
         .grid(

@@ -12,7 +12,10 @@ struct Session {
     let editor: OffscreenEditor
     let controller: PageEditorController
 
-    init(desk: Desk, dark: Bool = false, facts: [Item] = []) async throws {
+    static let machineReady =
+        "return window.wbEditor && window.wbEditor.document.length > 1 && document.querySelector('.machine') !== null"
+
+    init(desk: Desk, dark: Bool = false, facts: [Item] = [], ready: String = Session.machineReady) async throws {
         self.desk = desk
         editor = OffscreenEditor(dark: dark)
         controller = try PageEditorController(
@@ -20,11 +23,7 @@ struct Session {
             appearance: dark ? .dark : .light, reduceMotion: false,
             views: { MachineViewBuilder(facts: facts, titleOf: { _ in "" }, pickerNote: { _ in nil }) })
         controller.start()
-        guard
-            try await editor.waitUntil(
-                "return window.wbEditor && window.wbEditor.document.length > 1 && document.querySelector('.machine') !== null"
-            )
-        else {
+        guard try await editor.waitUntil(ready) else {
             throw DemoFailure("the editor did not load the page")
         }
     }

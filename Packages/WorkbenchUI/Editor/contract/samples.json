@@ -17,6 +17,7 @@
           "block" : {
             "id" : "m9",
             "kind" : "machine",
+            "standing" : "replacement",
             "view" : {
               "kind" : "heading",
               "text" : "New"
@@ -37,6 +38,7 @@
           "block" : {
             "id" : "m9",
             "kind" : "machine",
+            "standing" : "removed",
             "view" : {
               "kind" : "erased",
               "note" : "The message this came from was deleted"
@@ -77,6 +79,7 @@
         {
           "id" : "m0",
           "kind" : "machine",
+          "standing" : "live",
           "view" : {
             "kind" : "heading",
             "text" : "Open follow-ups"
@@ -85,6 +88,7 @@
         {
           "id" : "m1",
           "kind" : "machine",
+          "standing" : "live",
           "view" : {
             "cites" : [
               {
@@ -105,6 +109,7 @@
         {
           "id" : "m2",
           "kind" : "machine",
+          "standing" : "live",
           "view" : {
             "columns" : [
               "quote",
@@ -125,6 +130,11 @@
                       "ask"
                     ],
                     "fact" : 12,
+                    "marks" : [
+                      "right",
+                      "wrong",
+                      "done"
+                    ],
                     "person" : "Asha",
                     "words" : "“send the deck”"
                   }
@@ -137,6 +147,7 @@
         {
           "id" : "m3",
           "kind" : "machine",
+          "standing" : "live",
           "view" : {
             "cites" : [
 
@@ -178,6 +189,7 @@
         {
           "id" : "m4",
           "kind" : "machine",
+          "standing" : "live",
           "view" : {
             "available" : true,
             "kind" : "picker",
@@ -189,9 +201,19 @@
         {
           "id" : "m5",
           "kind" : "machine",
+          "standing" : "live",
           "view" : {
             "kind" : "erased",
             "note" : "The message this came from was deleted"
+          }
+        },
+        {
+          "id" : "m10",
+          "kind" : "machine",
+          "standing" : "added",
+          "view" : {
+            "kind" : "heading",
+            "text" : "Proposed"
           }
         }
       ],
@@ -206,6 +228,19 @@
     },
     "idle" : {
       "type" : "idle"
+    },
+    "layout" : {
+      "caret" : {
+        "bottom" : 144,
+        "top" : 120
+      },
+      "height" : 640,
+      "type" : "layout"
+    },
+    "layoutWithoutCaret" : {
+      "caret" : null,
+      "height" : 640,
+      "type" : "layout"
     },
     "openCite" : {
       "target" : {
@@ -264,6 +299,11 @@
         {
           "fact" : 12,
           "mark" : "wrong",
+          "op" : "mark"
+        },
+        {
+          "fact" : 12,
+          "mark" : "done",
           "op" : "mark"
         }
       ],

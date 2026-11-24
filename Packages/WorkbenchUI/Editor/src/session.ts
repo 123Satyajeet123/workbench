@@ -5,6 +5,8 @@ import { applyEnvironment } from "./environment.ts";
 import { applyToFlat, blockOf, flatten, MACHINE, treeOf, type EditorBlock } from "./flat.ts";
 import { diff, type FlatBlock } from "./diff.ts";
 import type { MachineActions } from "./machine.ts";
+import { registerHint } from "./hint.ts";
+import { reportLayout } from "./layout.ts";
 import { createSchema } from "./schema.ts";
 import { mountBlockMenu } from "./ui/blockMenu.ts";
 import { mountFormattingToolbar } from "./ui/formattingToolbar.ts";
@@ -35,6 +37,7 @@ export function start(host: HTMLElement): void {
     _tiptapOptions: { injectCSS: false },
   });
   editor.unregisterExtension("placeholder");
+  registerHint(editor);
   window.wbEditor = editor;
   editor.mount(host);
 
@@ -47,6 +50,16 @@ export function start(host: HTMLElement): void {
 
   const blocks = () => editor.document as unknown as EditorBlock[];
   const snapshot = () => flatten(blocks());
+
+  /** A page that ends with a machine block still ends with an empty paragraph, so there is a line to write on. */
+  function keepAParagraphAtTheEnd(): void {
+    const last = editor.document.at(-1);
+    if (!last || last.type !== MACHINE) return;
+    editor.transact((tr) => {
+      tr.setMeta("addToHistory", false);
+      editor.insertBlocks([{ type: "paragraph" }], last, "after");
+    });
+  }
 
   function schedule(delay = QUIET): void {
     clearTimeout(timer);
@@ -81,6 +94,7 @@ export function start(host: HTMLElement): void {
       tr.setMeta("addToHistory", false);
       editor.replaceBlocks(editor.document, tree.length > 0 ? tree : [{ type: "paragraph" }]);
     });
+    keepAParagraphAtTheEnd();
     committed = snapshot();
   }
 
@@ -127,6 +141,7 @@ export function start(host: HTMLElement): void {
       tr.setMeta("addToHistory", false);
       for (const change of message.changes) applyChange(change);
     });
+    keepAParagraphAtTheEnd();
   }
 
   function rename(from: string, to: string): void {
@@ -166,7 +181,10 @@ export function start(host: HTMLElement): void {
     }
   });
 
-  editor.onChange(() => schedule());
+  editor.onChange(() => {
+    keepAParagraphAtTheEnd();
+    schedule();
+  });
   host.addEventListener("compositionstart", () => (composing = true), true);
   host.addEventListener("compositionend", () => {
     composing = false;
@@ -184,5 +202,6 @@ export function start(host: HTMLElement): void {
   mountBlockMenu(editor);
   mountFormattingToolbar(editor);
   reportBlockedLoads();
+  reportLayout(host);
   send({ type: "ready", contract: 1 });
 }

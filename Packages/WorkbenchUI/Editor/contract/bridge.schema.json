@@ -30,6 +30,9 @@
         },
         {
           "$ref": "#/$defs/Idle"
+        },
+        {
+          "$ref": "#/$defs/Layout"
         }
       ]
     },
@@ -226,7 +229,7 @@
     },
     "OpMark": {
       "type": "object",
-      "description": "The person marked a fact in a facts view.",
+      "description": "The person marked a fact in a facts view. Swift decides what the mark does.",
       "properties": {
         "op": {
           "const": "mark"
@@ -237,7 +240,8 @@
         "mark": {
           "enum": [
             "right",
-            "wrong"
+            "wrong",
+            "done"
           ]
         }
       },
@@ -574,12 +578,22 @@
             },
             "view": {
               "$ref": "#/$defs/MachineView"
+            },
+            "standing": {
+              "description": "How the block stands: live, or part of a pending proposal as new, a replacement or one that will be removed.",
+              "enum": [
+                "live",
+                "added",
+                "replacement",
+                "removed"
+              ]
             }
           },
           "required": [
             "kind",
             "id",
-            "view"
+            "view",
+            "standing"
           ],
           "additionalProperties": false
         }
@@ -823,13 +837,25 @@
           "items": {
             "type": "string"
           }
+        },
+        "marks": {
+          "description": "The marks Swift offers for this fact now, in order.",
+          "type": "array",
+          "items": {
+            "enum": [
+              "right",
+              "wrong",
+              "done"
+            ]
+          }
         }
       },
       "required": [
         "fact",
         "person",
         "words",
-        "cells"
+        "cells",
+        "marks"
       ],
       "additionalProperties": false
     },
@@ -881,6 +907,48 @@
       },
       "required": [
         "type"
+      ],
+      "additionalProperties": false
+    },
+    "Layout": {
+      "type": "object",
+      "description": "The size of the page in the web view, so the host can size the view to it: the height of the content in points and, while the person has a caret, where it is in the page.",
+      "properties": {
+        "type": {
+          "const": "layout"
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "caret": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "top": {
+                  "type": "integer"
+                },
+                "bottom": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "top",
+                "bottom"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "required": [
+        "type",
+        "height",
+        "caret"
       ],
       "additionalProperties": false
     }

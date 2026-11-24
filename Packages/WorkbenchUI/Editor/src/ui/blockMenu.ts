@@ -60,7 +60,8 @@ export function mountBlockMenu(editor: AnyEditor): void {
     side.freezeMenu();
     panel.replaceChildren();
     if (block.type === MACHINE) {
-      panel.append(row("Remove from page", () => editor.removeBlocks([block])));
+      if (block.props["standing"] === "live") panel.append(row("Remove from page", () => editor.removeBlocks([block])));
+      else panel.append(el("div", "menu-empty", "Accept or discard the change first"));
     } else {
       panel.append(el("div", "menu-heading", "Turn into"));
       for (const choice of TURN_INTO) panel.append(row(choice.title, () => editor.updateBlock(block, choice.block as never)));

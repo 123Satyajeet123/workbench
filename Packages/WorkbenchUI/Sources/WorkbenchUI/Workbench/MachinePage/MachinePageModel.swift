@@ -7,28 +7,30 @@ import WorkbenchCore
 /// A text of the page that is edited in place.
 enum PageField { case name, job }
 
-/// The page of one machine as the person works on it: the live blocks, the proposal that waits, the machine's facts,
-/// and the note the person writes in. The store is the truth; every action writes to it and reads the page again.
+/// The page of one machine as the person works on it: the page in its editor, the proposal that waits, and the
+/// machine's facts. The store is the truth; every action writes to it and shows the page again.
 @Observable
 final class MachinePageModel {
-    private(set) var shown: ShownPage
     private(set) var proposal: PendingProposal?
     private(set) var facts: [Item] = []
-    private(set) var runs: PageRuns
     /// What the gate refused in the last request, in the words the person reads. The store keeps no refusal, so these
     /// last until the person decides on the proposal.
     private(set) var refusals: [PageRefusal] = []
     private(set) var isAsking = false
     /// The words of the page the person is editing where they stand.
     private(set) var editing: PageField?
+    /// The page in its editor; nil until the page is shown for the first time.
+    private(set) var editor: PageEditorController?
+    /// The fact whose proof the person opened, and the kind of source they are choosing for.
+    var inspected: Item?
+    var choosing: PickerKind?
 
-    let editor: NoteEditorModel
     let problems = ProblemSlot()
     let toast = ToastCenter()
 
     @ObservationIgnored let store: Store
-    @ObservationIgnored private let page: WorkObjectID
-    @ObservationIgnored private let owner: PersonID
+    @ObservationIgnored let page: WorkObjectID
+    @ObservationIgnored let owner: PersonID
     @ObservationIgnored private let viewer: PageViewer
     @ObservationIgnored private let makeModel: () throws -> RecordedModel
     @ObservationIgnored unowned let helper: HelperModel
@@ -40,7 +42,7 @@ final class MachinePageModel {
         status: @escaping (Date) -> Result<MachineStatus, any Error>? = { _ in nil },
         makeModel: @escaping () throws -> RecordedModel
     ) throws {
-        guard let note = NoteID(object: page) else { throw WorkObjectError.unknown(page) }
+        guard NoteID(object: page) != nil else { throw WorkObjectError.unknown(page) }
         self.helper = helper
         self.page = page
         self.store = store
@@ -48,10 +50,6 @@ final class MachinePageModel {
         self.makeModel = makeModel
         self.status = status
         viewer = try PageViewer(owner: owner)
-        editor = NoteEditorModel(note: note, store: store, owner: owner)
-        shown = ShownPage(contents: PageContents(page: MachinePage(), notes: [], erased: []), proposal: nil)
-        runs = PageRuns(order: [], documentBlocks: [])
-        editor.pageOrder = { [weak self] saving in self?.pageOrder(saving: saving) ?? saving.map(PageBlockRef.note) }
         problems.attempt("start the page") { try store.startPage(of: helper.machine) }
         reload()
     }
@@ -61,7 +59,6 @@ final class MachinePageModel {
     var reads: String { helper.reads }
     /// The job in one sentence, in the person's words: the machine's own, else its template's.
     var job: String? { helper.machine.job }
-    var slots: [PageSlot] { runs.slots(order: shown.order) }
 
     /// The title of the page as a text that is edited in place; `commit` gets the new name.
     func renaming(commit: @escaping (String) -> Void) -> PageRename {
@@ -79,19 +76,52 @@ final class MachinePageModel {
 
     func reload() {
         problems.attempt("read the page") {
-            let contents = try store.queries.page(of: page, for: viewer)
             proposal = try store.queries.pendingProposal(of: page, for: viewer)
-            shown = ShownPage(contents: contents, proposal: proposal)
             facts = helper.shown(
                 try store.queries.parent(of: page).map { try store.queries.facts(in: $0, includeChildren: true) } ?? [])
-            placeParagraphs()
         }
     }
 
-    /// Draws the note again from the store, then the page: the person may have changed either in another place.
+    /// Reads the store again and shows the page again: the person may have changed it in another place.
     func refresh() {
-        editor.reconcile()
         reload()
+        problems.attempt("show the page") { try editor?.refresh() }
+    }
+
+    /// Opens the page in its editor, once. The look is the app's, as the editor takes it.
+    func openEditor(appearance: EditorEnvironment.Appearance, reduceMotion: Bool, scale: Double) {
+        guard editor == nil else { return }
+        problems.attempt("open the page") {
+            let controller = try PageEditorController(
+                store: store, page: page, owner: owner, host: EditorHost(), appearance: appearance,
+                reduceMotion: reduceMotion, scale: scale, views: { [unowned self] in viewBuilder })
+            controller.onMark = { [unowned self] fact, mark in markFact(fact, mark) }
+            controller.onOpen = { [unowned self] target in open(target) }
+            controller.start()
+            editor = controller
+        }
+    }
+
+    /// What the machine's blocks show: its facts with the marks it offers for each, and what each picker can do.
+    private var viewBuilder: MachineViewBuilder {
+        MachineViewBuilder(
+            facts: facts, titleOf: { [spec] item in item[spec.title] },
+            pickerNote: { [helper] kind in PickerChoice.unavailableNote(kind, for: helper) },
+            marks: { [unowned self] item in actions(for: item).compactMap(FactMark.init(action:)) })
+    }
+
+    private func markFact(_ fact: Int64, _ mark: FactMark) {
+        guard let item = facts.first(where: { $0.id == fact }) else { return }
+        act(mark.action, on: item)
+    }
+
+    private func open(_ target: OpenTarget) {
+        switch target {
+        case .cite(let reference):
+            if case .fact(let id) = PageCite(reference: reference) { inspected = facts.first { $0.id == id } }
+        case .link(let address): EditorHost.openLink(address)
+        case .picker(let source): choosing = PickerKind(rawValue: source)
+        }
     }
 
     /// Sends a request to the machine. Nothing changes on the page until the person accepts what comes back. Answers
@@ -102,7 +132,7 @@ final class MachinePageModel {
         defer { isAsking = false }
         var isProposed = false
         await problems.attempt("ask \(name) to change the page", clearing: true) {
-            await editor.flush()
+            await editor?.flush()
             let current = try store.queries.page(of: page, for: viewer)
             let composer = PageComposer(model: try makeModel())
             let proposal = try await composer.compose(
@@ -119,12 +149,12 @@ final class MachinePageModel {
     func submit(_ proposal: PageProposal, asked request: String) throws {
         try store.propose(proposal, on: page, by: helper.machine.id, request: request, owner: owner)
         refusals = proposal.verdicts.compactMap(\.refusal)
-        reload()
+        refresh()
     }
 
     func accept() async {
         guard let proposal else { return }
-        await editor.flush()
+        await editor?.flush()
         decide("accept the change") { try store.accept(proposal: proposal.id, surface: .machinePage) }
     }
 
@@ -133,20 +163,15 @@ final class MachinePageModel {
         decide("throw the change away") { try store.discard(proposal: proposal.id, surface: .machinePage) }
     }
 
-    func remove(_ block: MachineBlockID) {
-        problems.attempt("remove the block") { try store.removeBlock(block, surface: .machinePage) }
-        reload()
-    }
-
     private func decide(_ step: String, _ work: () throws -> Void) {
         problems.attempt(step, work)
         refusals = []
-        reload()
+        refresh()
     }
 
     /// Marks or closes a fact the way every page does, and says so in a toast that can take it back.
     func act(_ action: FactAction, on item: Item) {
-        let acting = PageFactActing(acting: MachineActing(helper: helper), changed: reload)
+        let acting = PageFactActing(acting: MachineActing(helper: helper), changed: refresh)
         do {
             guard let undo = try acting.perform(action, on: [item], surface: .machinePage) else { return }
             toast.show(action.toastText(for: FactHeadline(item: item, title: item[spec.title]).words), undo: undo)
@@ -156,65 +181,6 @@ final class MachinePageModel {
     }
 
     func actions(for item: Item) -> [FactAction] { MachineActing(helper: helper).offered(for: item) }
-}
-
-extension MachinePageModel {
-    /// The run of paragraphs at `index` as a text view edits it.
-    func run(_ index: Int) -> PageRun { PageRun(page: self, index: index) }
-
-    fileprivate func pageOrder(saving: [BlockID]) -> [PageBlockRef] {
-        runs.pageOrder(
-            order: shown.order, documentBlocks: editor.document.blocks.map(\.id), saving: saving,
-            liveBlock: shown.liveBlock(at:))
-    }
-
-    fileprivate func placeParagraphs() {
-        runs = PageRuns(order: shown.order, documentBlocks: editor.document.blocks.map(\.id))
-        if runs.sizes[runs.lastRun] == 0 { addParagraphAtEnd() }
-    }
-
-    /// A last run with no paragraph has nowhere to write. A new empty paragraph is not saved until it has words.
-    private func addParagraphAtEnd() {
-        let end = editor.text.utf16.count
-        editor.edit(end..<end, with: "\n")
-        runs.resize(runs.lastRun, by: 1)
-    }
-
-    fileprivate func text(ofRun index: Int) -> String { editor.document.text(of: runs.blocks(of: index)).text }
-
-    fileprivate func edit(run index: Int, _ range: Range<Int>, with replacement: String) {
-        let start = editor.document.text(of: runs.blocks(of: index)).start
-        let before = editor.document.blocks.count
-        editor.edit((start + range.lowerBound)..<(start + range.upperBound), with: replacement)
-        runs.resize(index, by: editor.document.blocks.count - before)
-    }
-
-    /// A paragraph moves inside its run only: it never crosses a machine block.
-    fileprivate func moveBlock(inRun index: Int, atOffset offset: Int, by distance: Int) -> Int {
-        let range = runs.blocks(of: index)
-        let start = editor.document.text(of: range).start
-        let current = editor.document.blocks.firstIndex { $0.id == editor.document.blockID(at: start + offset) }
-        let target = min(max((current ?? range.lowerBound) + distance, range.lowerBound), range.upperBound - 1)
-        let moved = editor.moveBlock(atOffset: start + offset, by: target - (current ?? target))
-        return moved - start
-    }
-
-    fileprivate var editorRevision: Int { editor.revision }
-    fileprivate func setComposing(_ isComposing: Bool) { editor.isComposing = isComposing }
-}
-
-/// One run of paragraphs, edited as a text of its own over the page's one note.
-struct PageRun: NoteRunEditing {
-    let page: MachinePageModel
-    let index: Int
-
-    var text: String { page.text(ofRun: index) }
-    var revision: Int { page.editorRevision }
-    func edit(_ range: Range<Int>, with replacement: String) { page.edit(run: index, range, with: replacement) }
-    func moveBlock(atOffset offset: Int, by distance: Int) -> Int {
-        page.moveBlock(inRun: index, atOffset: offset, by: distance)
-    }
-    func setComposing(_ isComposing: Bool) { page.setComposing(isComposing) }
 }
 
 /// Marks and closes a fact the way every page does, then asks the page to read its facts again.
@@ -237,6 +203,25 @@ final class PageFactActing: FactActing {
                 undo()
                 changed()
             }
+        }
+    }
+}
+
+extension FactMark {
+    init?(action: FactAction) {
+        switch action {
+        case .right: self = .right
+        case .wrong: self = .wrong
+        case .done: self = .done
+        case .snooze, .notRelevant: return nil
+        }
+    }
+
+    var action: FactAction {
+        switch self {
+        case .right: .right
+        case .wrong: .wrong
+        case .done: .done
         }
     }
 }

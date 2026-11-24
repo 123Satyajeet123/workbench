@@ -69,7 +69,8 @@ test("a stored line is read as the person wrote it", () => {
   assert.equal(formatLine(parseLine("## Plan for *Friday*")), "## Plan for *Friday*");
   assert.deepEqual(parseLine("- [x] done").checked, true);
   assert.equal(parseLine("---").kind, "divider");
-  assert.equal(parseLine("    - nested").depth, 2);
+  assert.equal(parseLine("| | - nested").depth, 2);
+  assert.equal(parseLine("    - spaces are not depth").depth, 0);
   assert.equal(formatLine(parseLine("3. third")), "1. third");
   assert.equal(parseLine("plain words").kind, "paragraph");
   assert.equal(parseLine("").runs.length, 0);
@@ -79,6 +80,12 @@ test("a typed marker stays words", () => {
   const stored = formatLine({ kind: "paragraph", depth: 0, level: 1, checked: false, runs: [{ text: "# not a heading", styles: [] }] });
   assert.equal(parseLine(stored).kind, "paragraph");
   assert.equal(parseLine(stored).runs[0]!.text, "# not a heading");
+});
+
+test("a paragraph that starts with a bar stays words", () => {
+  const stored = formatLine({ kind: "paragraph", depth: 0, level: 1, checked: false, runs: [{ text: "| a | b |", styles: [] }] });
+  assert.equal(parseLine(stored).depth, 0);
+  assert.equal(parseLine(stored).runs[0]!.text, "| a | b |");
 });
 
 test("a mark with no partner stays words", () => {

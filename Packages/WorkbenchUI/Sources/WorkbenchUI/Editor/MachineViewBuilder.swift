@@ -8,6 +8,8 @@ struct MachineViewBuilder {
     var titleOf: (Item) -> String
     /// Why a picker cannot choose for this machine, in words for the person; nil when it can.
     var pickerNote: (PickerKind) -> String?
+    /// The marks the machine offers for a fact now.
+    var marks: (Item) -> [FactMark] = { _ in [] }
 
     static let erasedNote = "The message this came from was deleted"
 
@@ -59,7 +61,7 @@ struct MachineViewBuilder {
             cells: columns.map { column in
                 let value = PageCatalog.value(of: column, in: item)
                 return column == PageCatalog.quoteColumn ? "\u{201C}\(value)\u{201D}" : value
-            })
+            }, marks: marks(item))
     }
 
     private func rendering(of grid: WorkbenchCore.Grid) -> GridRendering {
@@ -85,7 +87,7 @@ struct MachineViewBuilder {
     private func rendering(of kind: PickerKind) -> PickerRendering {
         let note = pickerNote(kind)
         return PickerRendering(
-            source: kind.rawValue, title: PickerBlockView.title(of: kind), note: note ?? "", available: note == nil)
+            source: kind.rawValue, title: PickerChoice.title(of: kind), note: note ?? "", available: note == nil)
     }
 
     static func countText(_ number: Int) -> String { number == 1 ? "1 fact" : "\(number) facts" }

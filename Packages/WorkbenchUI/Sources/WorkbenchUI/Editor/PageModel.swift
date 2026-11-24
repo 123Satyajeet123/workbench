@@ -3,23 +3,25 @@ import WorkbenchCore
 
 /// The page as the editor holds it: every block in order, the words of the person's paragraphs, and what the store
 /// already has. The editor's ops change it; `pendingChange` is what the store must still be told. It touches no store.
+/// A block that only a pending proposal shows is not on the stored page, and a block that replaces another stands in
+/// the place of the stored one.
 struct PageModel: Equatable {
     private(set) var order: [String] = []
     private(set) var texts: [String: String] = [:]
     private(set) var machines: Set<String> = []
+    private var storedBlock: [String: MachineBlockID] = [:]
     private var saved: [String: String] = [:]
     private var savedOrder: [PageBlockRef] = []
     private var endings: [BlockEnding] = []
     private(set) var removedMachines: [MachineBlockID] = []
 
-    /// The page as the store holds it.
-    init(contents: PageContents) {
-        for place in contents.page.order {
-            switch place {
-            case .note(let block): order.append(block.rawValue)
-            case .machine(let block):
-                order.append(block.rawValue)
+    /// The page as the store holds it, with the pending proposal worked in.
+    init(contents: PageContents, shown: ShownPage) {
+        for place in shown.order {
+            order.append(place.rawValue)
+            if case .machine(let block) = place {
                 machines.insert(block.rawValue)
+                storedBlock[block.rawValue] = shown.liveBlock(at: block)
             }
         }
         for note in contents.notes {
@@ -54,7 +56,9 @@ struct PageModel: Equatable {
     private mutating func end(_ id: String, _ ending: (BlockID) -> BlockEnding) {
         order.removeAll { $0 == id }
         if machines.remove(id) != nil {
-            if let block = MachineBlockID(id) { removedMachines.append(block) }
+            if let block = MachineBlockID(id), storedBlock.removeValue(forKey: id) == block {
+                removedMachines.append(block)
+            }
             return
         }
         texts[id] = nil
@@ -67,18 +71,22 @@ struct PageModel: Equatable {
 
     // MARK: What Swift committed
 
-    /// A block of a machine the store holds shows after `after`.
+    /// A block of a machine shows after `after`.
     mutating func show(machine id: String, after: String?) {
         guard !machines.contains(id) else { return }
         machines.insert(id)
         place(id, after: after)
     }
 
+    /// The stored block a shown block of a machine stands for: itself, the block it replaces, or none.
+    mutating func stand(_ id: String, for stored: MachineBlockID?) { storedBlock[id] = stored }
+
     /// A block the store no longer holds leaves the page. What the person wrote since the last save stays.
     mutating func forget(_ id: String) {
         let place = blockRef(id)
         guard machines.contains(id) || saved[id] == texts[id] else { return }
         machines.remove(id)
+        storedBlock[id] = nil
         order.removeAll { $0 == id }
         texts[id] = nil
         saved[id] = nil
@@ -118,7 +126,7 @@ struct PageModel: Equatable {
     mutating func didRemoveMachines() { removedMachines.removeAll() }
 
     private func blockRef(_ id: String) -> PageBlockRef? {
-        if machines.contains(id) { return MachineBlockID(id).map(PageBlockRef.machine) }
+        if machines.contains(id) { return storedBlock[id].map(PageBlockRef.machine) }
         return texts[id] == nil ? nil : BlockID(id).map(PageBlockRef.note)
     }
 
@@ -145,6 +153,15 @@ extension BlockEnding {
     fileprivate var endedBlock: BlockID {
         switch self {
         case .deleted(let block), .merged(let block, _): block
+        }
+    }
+}
+
+extension PageBlockRef {
+    var rawValue: String {
+        switch self {
+        case .note(let block): block.rawValue
+        case .machine(let block): block.rawValue
         }
     }
 }
