@@ -7,9 +7,9 @@ public struct Candidate: Sendable, Equatable {
     public var label: String
 }
 
-/// Finds which followed companies an article mentions. Code only: a normalised name or alias appearing as whole
-/// words, or the company's domain appearing as an address. No fuzzy matching. The model is asked only when two
-/// candidates share a name.
+/// Finds which followed companies an article may be about. Code only, and wide: the first words of a name or alias
+/// appearing as whole words, or the company's domain appearing as an address. No fuzzy matching. The reader's one
+/// call per article says which candidate the article is about, if any, and code checks the answer.
 public enum EntityMatcher {
     public static func candidates(in article: NewsArticle, among watched: [WatchedCompany]) -> [Candidate] {
         let words = CompanyName.words(article.body)
@@ -17,7 +17,7 @@ public enum EntityMatcher {
             watched.filter { company in company.domain.map { CompanyName.mentions(article.body, domain: $0) } ?? false }
                 .map(\.id))
         let named = watched.filter { company in
-            domainHit.contains(company.id) || company.terms.contains { CompanyName.contains(words, term: $0) }
+            domainHit.contains(company.id) || company.offerTerms.contains { CompanyName.contains(words, term: $0) }
         }
         let kept = named.filter { company in
             domainHit.contains(company.id)

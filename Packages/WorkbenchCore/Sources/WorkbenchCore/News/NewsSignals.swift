@@ -17,7 +17,9 @@ extension HelperSpec {
         fields: [
             Field(
                 "company", .member(of: NewsSignals.companies),
-                meaning: "The company the event is about. Two companies can share a name: choose the one meant."),
+                meaning:
+                    "The company the event is about. The article may name it in a shorter or longer form. Two companies can share a name or a first word: choose the one meant, and give no item for another company."
+            ),
             Field(
                 "event", .choice(NewsSignals.events),
                 meaning:

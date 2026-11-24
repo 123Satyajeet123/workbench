@@ -25,10 +25,24 @@ enum Behaviour {
         ("zoom.us", "us.zoom.xos", "Zoom Workplace", ""),
     ]
 
-    static func callLines() -> [String] {
+    /// Calendar events whose join links are the addresses of some of the call rows above.
+    static let events: [Meeting] = {
+        let at = Date(timeIntervalSince1970: 1_700_000_000)
+        func event(_ title: String, _ link: String) -> Meeting {
+            Meeting(id: link, calendar: "Work", title: title, start: at, end: at, joinURL: URL(string: link))
+        }
+        return [
+            event("Acme intro", "https://meet.google.com/abc-defg-hij"),
+            event("Board prep", "https://meet.google.com/x"),
+            event("Team standup", "https://app.slack.com/huddle/T1/C2"),
+        ]
+    }()
+
+    static func callLines(meetings: [Meeting] = []) -> [String] {
         calls.map { row in
             let source = CallSource.identify(
-                app: row.app, bundleID: row.bundleID, windowTitle: row.title, address: row.address)
+                app: row.app, bundleID: row.bundleID, windowTitle: row.title, address: row.address,
+                meetings: meetings)
             return "\(row.title) -> \(source.label) (call: \(source.isCall))"
         }
     }
@@ -42,13 +56,13 @@ enum Behaviour {
         names.map { "\($0) -> normal [\(CompanyName.normal($0))] terms \(CompanyName.terms(name: $0, aliases: []))" }
     }
 
-    private static func company(_ name: String, aliases: [String] = [], status: WatchedCompany.Status = .portfolio)
+    static func company(_ name: String, aliases: [String] = [], status: WatchedCompany.Status = .portfolio)
         -> WatchedCompany
     {
         WatchedCompany(id: name, name: name, aliases: aliases, domain: nil, status: status, isDeal: false)
     }
 
-    private static func article(_ title: String, _ text: String = "x") -> NewsArticle {
+    static func article(_ title: String, _ text: String = "x") -> NewsArticle {
         NewsArticle(
             id: 1, feed: "Inc42", url: URL(string: "https://inc42.com/a/1")!, title: title,
             published: Date(timeIntervalSince1970: 1_700_000_000), text: text)

@@ -32,6 +32,21 @@ final class Recorder: StructuredModel, Sendable {
     }
 }
 
+/// A model that answers every call with one fixed reply, as a model that decided in a known way.
+final class Scripted: StructuredModel, Sendable {
+    let name = "scripted"
+    let reply: String
+
+    init(_ reply: String) { self.reply = reply }
+
+    func generate<T: Decodable & Sendable>(_ type: T.Type, schema: JSONSchema, instructions: String, input: String)
+        async throws -> ModelAnswer<T>
+    {
+        ModelAnswer(
+            value: try JSONDecoder().decode(T.self, from: Data(reply.utf8)), model: "s", usage: Usage(), reply: reply)
+    }
+}
+
 let scratch = FileManager.default.temporaryDirectory.appending(path: "text-rules-\(UUID().uuidString)")
 defer { try? FileManager.default.removeItem(at: scratch) }
 
@@ -95,6 +110,7 @@ same("mochi", Mochi.instructions(for: continuity))
 same("summarizer", Summarizer.instructions(for: continuity))
 same("improver", Improver.instructions(for: continuity))
 same("drafter", Drafter.instructions(for: continuity))
+same("outboundQueries", OutboundQueries.instructions(for: continuity))
 same("callNotes", CallSummarizer.instructions(for: continuity))
 for descriptor in SourceRegistry.all {
     same("grammar.\(descriptor.key)", continuity.render(descriptor.grammar))
@@ -103,9 +119,17 @@ var specs = MachineTemplate.all.map { ($0.id, $0.spec) } + HelperSpec.withoutMac
 var withExamples = HelperSpec.timeline
 withExamples.examples = 3
 specs.append(("timeline+examples3", withExamples))
-for (id, spec) in specs {
+for (id, spec) in specs where id != MachineTemplate.newsSignals.id {
     same("reader.\(id)", HelperReader(spec: spec, model: migratedModel).instructions)
 }
+let oldCompanyMeaning = "Two companies can share a name: choose the one meant."
+let newCompanyMeaning =
+    "The article may name it in a shorter or longer form. Two companies can share a name or a first word: choose the one meant, and give no item for another company."
+let newsNow = HelperReader(spec: .newsSignals, model: migratedModel).instructions
+check(
+    "reader.vc.news-signals differs from the old text in the company field only (its hash changes on purpose)",
+    old["reader.vc.news-signals"]?.replacingOccurrences(of: oldCompanyMeaning, with: newCompanyMeaning) == newsNow
+        && old["reader.vc.news-signals"] != newsNow)
 let day = WorkDay(containing: Date(timeIntervalSince1970: 1_700_000_000))
 var sample = Item(
     task: "t", day: day, scope: "", source: .whatsapp, citeFirst: 1, citeLast: 1, start: day.start, end: day.start,
@@ -141,12 +165,13 @@ for (name, now, before) in pinned { check("\(name) \(now.prefix(12))", now == be
 
 heading("3. A new workspace: the prompts say \"the person\" and name no language")
 let newModel = RecordedModel(Recorder(), store: fresh)
-let banned = #/(?i)founder|investor|Hindi|Hinglish/#
+let banned = #/(?i)founder|investor|Hindi|Hinglish|venture/#
 let tasks: [(String, String)] = [
     ("briefer", Briefer.instructions(for: WorkspaceProfile())), ("mochi", Mochi.instructions(for: WorkspaceProfile())),
     ("summarizer", Summarizer.instructions(for: WorkspaceProfile())),
     ("improver", Improver.instructions(for: WorkspaceProfile())),
     ("drafter", Drafter.instructions(for: WorkspaceProfile())),
+    ("outboundQueries", OutboundQueries.instructions(for: WorkspaceProfile())),
     ("callNotes", CallSummarizer.instructions(for: WorkspaceProfile())),
 ]
 for (name, text) in tasks { check("\(name) has no persona or language word", text.firstMatch(of: banned) == nil) }
@@ -204,6 +229,33 @@ func serviceAndFlag(_ line: String) -> String {
 check(
     "service and the call flag are the same in every row",
     zip(OldBehaviour.calls, newCalls).allSatisfy { serviceAndFlag($0.0) == serviceAndFlag($0.1) })
+heading("   B43 with calendar events: the title of the event whose join link is the call's address")
+let withEvents = Behaviour.callLines(meetings: Behaviour.events)
+for (before, after) in zip(newCalls, withEvents) where before != after { print("  event  \(after)") }
+func title(_ line: String) -> String {
+    let label = line.components(separatedBy: " -> ")[1].components(separatedBy: " (call")[0]
+    return label.components(separatedBy: " · ").dropFirst().joined(separator: " · ")
+}
+let oldTitles = OldBehaviour.calls.map(title)
+let eventTitles = Set(Behaviour.events.map(\.title))
+let rawClean = zip(oldTitles, newCalls.map(title)).filter { $0 == $1 }.count
+let withEventsClean = zip(oldTitles, withEvents.map(title)).filter { $0 == $1 || eventTitles.contains($1) }.count
+print("  titles clean (the old cleaned title, or none): \(rawClean) of 13 without events")
+print("  titles clean (the old cleaned title, none, or an event's own title): \(withEventsClean) of 13 with events")
+print("  event titles used: \(withEvents.map(title).filter { eventTitles.contains($0) }.count) of 13")
+check(
+    "a link with another path is not the event",
+    !MeetingLink.joins(
+        URL(string: "https://meet.google.com/abc-defg-hij")!, address: "https://meet.google.com/zzz-zzzz-zzz"))
+check(
+    "scheme, query and a closing slash do not matter",
+    MeetingLink.joins(URL(string: "https://zoom.us/j/123")!, address: "zoom.us/j/123/?pwd=x"))
+check(
+    "a call at another address keeps the raw window title",
+    CallSource.identify(
+        app: "zoom.us", bundleID: "us.zoom.xos", windowTitle: "Zoom Meeting - Q3", address: "https://zoom.us/j/9",
+        meetings: Behaviour.events
+    ).title == "Zoom Meeting - Q3")
 print(
     "  no model call was added. No call exists when the window is seen, and the notes call has its own schema and hash."
 )
@@ -307,6 +359,53 @@ func compare(_ before: [String], _ after: [String]) {
 compare(OldBehaviour.names, Behaviour.nameLines())
 heading("   B47, news matching on the test fixtures")
 compare(OldBehaviour.news, Behaviour.newsLines())
+
+heading("   B47: the news reader names which offered company the article is about; code checks the answer")
+let newsStore = try Store(directory: scratch.appending(path: "news"))
+try newsStore.savePolicy(CapturePolicy(switches: [.web: true]))
+func read(_ article: NewsArticle, among watched: [WatchedCompany], reply: String) async throws -> (
+    offered: [String], kept: [String], dropped: Int
+) {
+    let offered = EntityMatcher.candidates(in: article, among: watched)
+    let result = try await SignalReader(model: RecordedModel(Scripted(reply), store: newsStore)).read(
+        article, candidates: offered)
+    return (offered.map(\.label), result.items.map { $0[NewsSignals.idField] }, result.dropped)
+}
+func answer(_ company: String, quote: String) -> String {
+    #"{"items":[{"company":"\#(company)","event":"layoff","polarity":"negative","date":"2026-09-19","cite":1,"quote":"\#(quote)"}]}"#
+}
+let layoff = Behaviour.article("Bolt Pay lays off 40", "The fintech Bolt Pay cut staff.")
+let legal = Behaviour.company("Bolt Pay Private Limited")
+let labs = Behaviour.company("Bolt Labs")
+let one = try await read(
+    layoff, among: [legal], reply: answer("Bolt Pay Private Limited", quote: "The fintech Bolt Pay cut staff."))
+check("a legal name now matches its brand article: offered \(one.offered), kept \(one.kept)", one.kept == [legal.id])
+let other = Behaviour.article("Bolt, the Estonian ride app, expands", "Bolt opened in Lagos.")
+let none = try await read(other, among: [legal], reply: #"{"items":[]}"#)
+check(
+    "another Bolt: offered \(none.offered); a model that gives no item keeps nothing",
+    none.offered == [legal.name] && none.kept.isEmpty)
+let notOffered = try await read(other, among: [legal], reply: answer("Bolt Mobility", quote: "Bolt opened in Lagos."))
+check(
+    "  a company the prefilter did not offer is refused (dropped \(notOffered.dropped))",
+    notOffered.kept.isEmpty && notOffered.dropped == 1)
+let madeUp = try await read(
+    other, among: [legal], reply: answer("Bolt Pay Private Limited", quote: "Bolt Pay fired 400 people."))
+check(
+    "  a quote that is not in the article is refused (dropped \(madeUp.dropped))",
+    madeUp.kept.isEmpty && madeUp.dropped == 1)
+let both = try await read(
+    layoff, among: [legal, labs], reply: answer("Bolt Pay Private Limited", quote: "The fintech Bolt Pay cut staff."))
+check(
+    "two companies with the word Bolt: both offered \(both.offered); only the one named is kept",
+    Set(both.offered) == [legal.name, labs.name] && both.kept == [legal.id])
+let labsNews = Behaviour.article("Bolt Labs raises seed", "Bolt Labs closed a seed round.")
+let labsOnly = try await read(
+    labsNews, among: [legal, labs], reply: answer("Bolt Labs", quote: "Bolt Labs closed a seed round."))
+check("  and the other article keeps the other company", labsOnly.kept == [labs.id])
+print(
+    "  not covered: a model that names an offered company with a real quote about another company. The gates cannot catch it; only a live model measures it."
+)
 
 // MARK: 8. B48
 

@@ -24,7 +24,7 @@ final class OutboundModel: StructuredModel, Sendable {
     {
         inputs.withLock { $0.append(input) }
         let reply =
-            instructions == OutboundQueries.instructions
+            instructions == OutboundQueries.instructions(for: WorkspaceProfile())
             ? queries : pages.first { input.contains($0.key) }?.value ?? #"{"items":[]}"#
         return ModelAnswer(
             value: try JSONDecoder().decode(T.self, from: Data(reply.utf8)), model: "m", usage: Usage(costUSD: 0.01),

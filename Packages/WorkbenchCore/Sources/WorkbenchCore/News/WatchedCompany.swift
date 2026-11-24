@@ -41,6 +41,9 @@ public struct WatchedCompany: Sendable, Equatable, Identifiable {
     /// The words that name the company in news, normalised (see `CompanyName.terms`).
     public var terms: [String] { CompanyName.terms(name: name, aliases: aliases) }
 
+    /// The words that offer the company to the news reader (see `CompanyName.offerTerms`).
+    var offerTerms: [String] { CompanyName.offerTerms(name: name, aliases: aliases) }
+
     /// The companies to follow: deals in a won stage (portfolio) and in a watch stage (passed), then those added by hand. A
     /// company whose domain is already followed is not listed twice. Two companies with the same name and no shared
     /// domain stay two: the model chooses between them for an article that names both.

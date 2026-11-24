@@ -24,6 +24,19 @@ public enum CompanyName {
         return ([name] + aliases).map(normal).filter { $0.count >= shortest && seen.insert($0).inserted }
     }
 
+    /// The words that may offer a company to the news reader: the name and each alias, and every run of their first
+    /// words, so "Bolt Pay Private Limited" is offered by an article that says "Bolt Pay" or "Bolt". The offer is wide
+    /// on purpose: the reader names which company the article is about, and code checks its answer. Runs shorter than
+    /// `shortest` are left out.
+    public static func offerTerms(name: String, aliases: [String]) -> [String] {
+        var seen: Set<String> = []
+        let runs = ([name] + aliases).flatMap { form -> [String] in
+            let words = words(form)
+            return words.indices.map { words[...$0].joined(separator: " ") }
+        }
+        return runs.filter { $0.count >= shortest && seen.insert($0).inserted }
+    }
+
     /// A domain as typed: no scheme, no "www.", no path. Nil when what is left has no dot.
     public static func domain(_ typed: String) -> String? {
         var host = typed.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()

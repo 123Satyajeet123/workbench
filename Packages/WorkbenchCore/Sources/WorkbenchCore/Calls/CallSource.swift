@@ -15,14 +15,18 @@ public struct CallSource: Equatable, Sendable {
 
     static let inPerson = CallSource(service: "In person")
 
-    /// The service comes from the address or the bundle id. The title is the window's own title, as it is, unless it
-    /// only repeats the name of the app or the service.
-    public static func identify(app: String, bundleID: String, windowTitle: String, address: String) -> CallSource {
+    /// The service comes from the address or the bundle id. The title is the title of the calendar event whose join
+    /// link is the address; else the window's own title, as it is, unless it only repeats the name of the app or the
+    /// service.
+    public static func identify(
+        app: String, bundleID: String, windowTitle: String, address: String, meetings: [Meeting] = []
+    ) -> CallSource {
         if bundleID == "in-person" { return inPerson }
         let services = SourceDescriptor.callTranscript.callServices
         let known = services.service(atAddress: address) ?? services.apps[bundleID]
         let service = known ?? app
-        let title = windowTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        let event = meetings.first { $0.joinURL.map { MeetingLink.joins($0, address: address) } ?? false }
+        let title = event?.title ?? windowTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         let repeatsName = [app, service].contains { $0.caseInsensitiveCompare(title) == .orderedSame }
         return CallSource(service: service, title: repeatsName ? "" : title, isCall: known != nil)
     }
