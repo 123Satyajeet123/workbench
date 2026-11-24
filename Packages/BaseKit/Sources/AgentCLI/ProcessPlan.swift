@@ -35,6 +35,9 @@ extension ProcessPlan {
     private static let forbiddenPrefixes = ["CLAUDE_CODE_", "CLAUDECODE", "ANTHROPIC_", "OPENAI_"]
     private static let killSwitches = ["DISABLE_AUTOUPDATER", "DISABLE_TELEMETRY", "DISABLE_ERROR_REPORTING"]
     private static let noServers = #"{"mcpServers":{}}"#
+    /// What every Claude call sets beside its flags. `--setting-sources ""` leaves auto memory on (the init event
+    /// still names a memory folder; measured on CLI 2.1.331), so the call turns it off, and hooks with it.
+    static let isolationSettings = #"{"autoMemoryEnabled":false,"disableAllHooks":true}"#
     private static let disabledCodexFeatures = ["shell_tool", "unified_exec", "view_image"]
     private static let codexSettings = ["web_search=\"disabled\""]
 
@@ -97,6 +100,7 @@ extension ProcessPlan {
             try refuse(flags: ["--resume"])
             try require(values: [
                 "--setting-sources": "", "--permission-mode": "dontAsk", "--mcp-config": Self.noServers,
+                "--settings": Self.isolationSettings,
             ])
             try requireToolSurface()
         case .codex:
@@ -150,7 +154,8 @@ extension ProcessPlan {
 
     private static func claudeArguments(_ call: AgentCall) -> [String] {
         ["-p", "--output-format", "stream-json", "--verbose", "--model", call.model]
-            + ["--effort", call.effort, "--setting-sources", "", "--disable-slash-commands"]
+            + ["--effort", call.effort, "--setting-sources", "", "--settings", isolationSettings]
+            + ["--disable-slash-commands"]
             + ["--no-session-persistence", "--strict-mcp-config", "--mcp-config", noServers]
             + ["--permission-mode", "dontAsk"] + toolArguments(call.tools)
             + ["--json-schema", call.schemaText]

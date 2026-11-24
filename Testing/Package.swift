@@ -13,6 +13,7 @@ let package = Package(
         .executable(name: "independent-flows", targets: ["IndependentFlowsDemo"]),
         .executable(name: "model-access", targets: ["ModelAccessDemo"]),
         .executable(name: "model-failures", targets: ["ModelFailuresDemo"]),
+        .executable(name: "model-call-check", targets: ["ModelCallCheck"]),
         .executable(name: "gallery", targets: ["GalleryDemo"]),
         .executable(name: "demo-builder", targets: ["DemoBuilder"]),
         .executable(name: "search-tools", targets: ["SearchToolsDemo"]),
@@ -61,6 +62,9 @@ let package = Package(
         .executableTarget(
             name: "ModelAccessDemo",
             dependencies: ["WorkbenchCore", "WorkbenchUI", .product(name: "AgentCLI", package: "BaseKit")],
+            swiftSettings: [.defaultIsolation(MainActor.self)]),
+        .executableTarget(
+            name: "ModelCallCheck", dependencies: [.product(name: "AgentCLI", package: "BaseKit")],
             swiftSettings: [.defaultIsolation(MainActor.self)]),
         .executableTarget(
             name: "ModelFailuresDemo",
