@@ -284,7 +284,7 @@ check(
 let failingFolder = scratch.appending(path: "migration-fails")
 do {
     let held = try openStore(failingFolder)
-    try held.writer.writeWithoutTransaction { db in try db.execute(sql: "PRAGMA user_version = \(Schema.version - 1)") }
+    try held.writer.writeWithoutTransaction { db in try db.execute(sql: "PRAGMA user_version = \(Schema.version - 2)") }
 }
 do {
     _ = try openStore(failingFolder)
