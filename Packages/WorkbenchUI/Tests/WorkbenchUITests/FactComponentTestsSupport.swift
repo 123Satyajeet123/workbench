@@ -77,23 +77,6 @@ enum FactFixture {
     }
 }
 
-/// A surface that holds a set of handled facts, so a flow test needs no store.
-final class FakeActing: FactActing {
-    private(set) var handled: [Int64] = []
-    var fails = false
-
-    func offered(for item: Item) -> [FactAction] {
-        FactAction.offered(for: item, isOpenFact: true).filter { _ in !handled.contains(item.id ?? 0) }
-    }
-
-    func perform(_ action: FactAction, on items: [Item], surface: Surface) throws -> (() -> Void)? {
-        if fails { throw FactActionError(reason: "The disk is full.") }
-        let ids = items.compactMap(\.id)
-        handled += ids
-        return { [self] in handled.removeAll { ids.contains($0) } }
-    }
-}
-
 /// A view drawn through AppKit, which also draws menus and other native controls that `ImageRenderer` leaves blank.
 @MainActor func renderedPNG(of view: some View, mode: String) throws -> Data {
     let host = NSHostingView(rootView: view)

@@ -85,35 +85,6 @@ import WorkbenchCore
         }
     }
 
-    private struct Lists: View {
-        let rows = [
-            FactFixture.row(1, chat: "Founders group", due: 0, quote: "login API aaj raat tak bhej dunga"),
-            FactFixture.row(
-                2, person: "Meera", chat: "Hiring", due: -2, quote: "I will share the offer letter by Friday"),
-            FactFixture.row(3, person: "Raj", chat: "Raj", quote: "USD mein pay karun ya INR mein?"),
-            FactFixture.row(4, person: "Priya", chat: "Design", due: 3, quote: "shortlist Friday ko call karte hain"),
-            FactFixture.row(5, person: "Raj", askedWith: 0.2, quote: "webhook review kal kar dunga"),
-        ]
-
-        private func list(_ rows: [FactRow], limit: Int = 8) -> some View {
-            let selection = FactSelection()
-            selection.selected = 2
-            return FactList(
-                rows: rows, acting: FakeActing(), surface: .today, selection: selection, toast: ToastCenter(),
-                limit: limit, now: FactFixture.now,
-                empty: { Text("Nothing needs you.").text(.meta).padding(Space.m) },
-                closing: { Text("That's all for today.").text(.meta).padding(Space.m) })
-        }
-
-        var body: some View {
-            VStack(alignment: .leading, spacing: Space.l) {
-                Labelled(label: "Five facts, the second selected") { list(rows) }
-                Labelled(label: "Capped at three") { list(rows, limit: 3) }
-                Labelled(label: "Empty") { list([]) }
-            }
-        }
-    }
-
     private func draw(_ name: String, mode: String, zoom: Double, view: some View) throws {
         let framed = view.padding(Space.l).frame(width: 720, alignment: .topLeading)
             .zoomed(Zoom(zoom)).background(.pageFill)
@@ -130,6 +101,5 @@ import WorkbenchCore
     func everyFactPartIsDrawn(mode: String, zoom: Double) throws {
         try draw("fact-card", mode: mode, zoom: zoom, view: CardStates())
         try draw("fact-markbar", mode: mode, zoom: zoom, view: MarkBars())
-        try draw("fact-list", mode: mode, zoom: zoom, view: Lists())
     }
 }

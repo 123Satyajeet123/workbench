@@ -60,25 +60,3 @@ extension FactRow {
         return formatter.localizedString(for: date, relativeTo: now)
     }
 }
-
-extension [FactRow] {
-    /// The rows a list draws while some rows confirm an action. A confirming row that the new rows no longer hold stays
-    /// where it was, until its confirmation ends.
-    func displayed(replacing incoming: [FactRow], keeping confirming: Set<Int64>) -> [FactRow] {
-        var result = incoming
-        let present = Set(incoming.map(\.id))
-        for (index, row) in enumerated() where confirming.contains(row.id) && !present.contains(row.id) {
-            let before = self[..<index].reversed().compactMap { earlier in result.firstIndex { $0.id == earlier.id } }
-            result.insert(row, at: before.first.map { $0 + 1 } ?? 0)
-        }
-        return result
-    }
-}
-
-extension [FactRow] {
-    /// The rows a list shows when it keeps `limit` rows, and how many it holds back.
-    func capped(at limit: Int, showingAll: Bool) -> (shown: [FactRow], hidden: Int) {
-        let shown = showingAll ? self : Array(prefix(limit))
-        return (shown, count - shown.count)
-    }
-}

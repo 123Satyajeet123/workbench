@@ -4,9 +4,6 @@ import WorkbenchCore
 struct FactLine: View {
     let item: Item
     let model: TodayModel
-    /// Why the line is here, in a word: "Overdue", "Asks you". Nil on a list that needs no reason.
-    var flag: String?
-    var flagTone: Tone = .attention
 
     @State private var isOpen = false
     @State private var chat: [ChatLine]?
@@ -17,14 +14,9 @@ struct FactLine: View {
             HStack(alignment: .firstTextBaseline, spacing: Space.m) {
                 Button(action: toggle) {
                     VStack(alignment: .leading, spacing: Space.xs) {
-                        HStack(spacing: Space.s) {
-                            if let flag {
-                                Text(flag).textStyle(.caption, weight: .semibold).foregroundStyle(flagTone.color)
-                            }
-                            Text(model.title(of: item)).multilineTextAlignment(.leading)
-                                .strikethrough(isDone, color: .secondary)
-                                .foregroundStyle(isDone ? Color.supporting : .bodyText)
-                        }
+                        Text(model.title(of: item)).multilineTextAlignment(.leading)
+                            .strikethrough(isDone, color: .secondary)
+                            .foregroundStyle(isDone ? Color.supporting : .bodyText)
                         if !meta.isEmpty { Text(meta).textStyle(.callout).foregroundStyle(.supporting) }
                     }
                     .contentShape(.rect)
