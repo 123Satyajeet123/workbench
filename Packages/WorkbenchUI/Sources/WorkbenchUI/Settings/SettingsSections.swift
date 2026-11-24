@@ -54,8 +54,9 @@ struct SettingsSectionView: View {
                 TextField("Name", text: $identityModel.identity.name, prompt: Text("Your name"))
                     .textFieldStyle(.roundedBorder).labelsHidden().frame(maxWidth: 220)
             }
+            WorkspaceProfileRows()
             if let error = identityModel.saveError {
-                FormNote("Your name was not saved: \(error.localizedDescription)")
+                FormNote("Not saved: \(error.localizedDescription)")
             }
         }
     }
