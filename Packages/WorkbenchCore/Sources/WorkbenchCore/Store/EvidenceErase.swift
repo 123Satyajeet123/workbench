@@ -66,18 +66,18 @@ extension Store {
     }
 
     /// The one erase path of evidence, also run by `delete`: the lines and every row that points at them go, and the
-    /// log is truncated. Returns what was removed, the same counts the preview gave.
+    /// log and the backups go (`finishErase`). Returns what was removed, the same counts the preview gave.
     @discardableResult
     public func eraseEvidence(_ erasure: EvidenceErasure) throws -> EraseCounts {
-        let counts = try writer.write { db in try Self.eraseEvidence(erasure, in: db) }
-        try truncateLog()
+        let (counts, changed) = try writeCountingChanges { db in try Self.eraseEvidence(erasure, in: db) }
+        try finishErase(removedRows: changed)
         return counts
     }
 
     /// Erases the copies of the lines' words, deletes the lines, their dependents and (unless the erasure has an age)
     /// their cursors, then optimizes the
     /// search index so no old segment keeps a word. With `secure_delete` on every connection, the caller's
-    /// `truncateLog` after the transaction leaves no copy in the file or its log.
+    /// `finishErase` after the transaction leaves no copy in the file or its log.
     static func eraseEvidence(_ erasure: EvidenceErasure, in db: Database) throws -> EraseCounts {
         let counts = try counts(of: erasure, in: db)
         let condition = try condition(of: erasure)

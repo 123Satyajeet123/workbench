@@ -71,10 +71,10 @@ public struct ActivityFilter: Sendable {
 extension Store {
     static let checkpointAttempts = 3
 
-    /// The one way captured data leaves the store: rows in one transaction, then their files, then the log. The
-    /// delete succeeds only when the write-ahead log no longer holds the deleted text.
+    /// The one way captured data leaves the store: rows in one transaction, then their files, then the log and the
+    /// backups (`finishErase`). The delete succeeds only when the write-ahead log no longer holds the deleted text.
     public func delete(_ selector: DeleteSelector) throws {
-        let folders = try writer.write { db in
+        let (folders, changed) = try writeCountingChanges { db in
             switch selector {
             case .activities(let filter):
                 let clause = filter.clause
@@ -122,7 +122,7 @@ extension Store {
         }
         for folder in folders { try removeFile(folder) }
         try writer.write { db in try EvidenceStamp.optimizeSearch(in: db) }
-        try truncateLog()
+        try finishErase(removedRows: changed)
     }
 
     /// The screen text read from the windows these rows opened. A window row opens a stretch that ends at the next row

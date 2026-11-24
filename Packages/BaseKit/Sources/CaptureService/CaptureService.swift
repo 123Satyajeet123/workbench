@@ -186,11 +186,14 @@ public final class CaptureService {
             app: app.name, bundleID: app.bundleID, windowTitle: window.title, address: window.document)
     }
 
-    /// Deletes every kind of captured data older than the retention, at most once an hour.
+    /// The hourly hook: deletes every kind of captured data older than the retention, then keeps the store safe (the
+    /// check after launch and the daily snapshot). The first problem found is shown.
     func pruneIfDue(at now: Date) async {
         guard now.timeIntervalSince(lastPrune) >= 3600 else { return }
         lastPrune = now
-        report(await loop.forget(before: now.addingTimeInterval(-CapturePolicy.retention)))
+        let pruned = await loop.forget(before: now.addingTimeInterval(-CapturePolicy.retention))
+        let kept = await loop.keepStoreSafe()
+        report(pruned ?? kept)
     }
 
     private func tick() {
@@ -281,6 +284,7 @@ actor CaptureLoop {
     private let owner: PersonID?
     private var engine = CaptureEngine()
     private var screen = ScreenKeeper()
+    private var storeIsChecked = false
 
     /// `owner` is the person who uses this Mac. Without one the screen lines are not kept: the rows of the capture log
     /// still are.
@@ -319,6 +323,18 @@ actor CaptureLoop {
 
     func forget(before cutoff: Date) -> String? {
         failure("delete old data") { try store.delete(.everything(before: cutoff)) }
+    }
+
+    /// Checks the store once after launch, then makes the daily snapshot when it is due. A store that fails its check
+    /// is checked again each hour and gets no snapshot, so a damaged file never replaces a good backup.
+    func keepStoreSafe() -> String? {
+        failure("keep your data safe") {
+            if !storeIsChecked {
+                try store.checkIntegrity()
+                storeIsChecked = true
+            }
+            try store.snapshotIfDue()
+        }
     }
 
     /// Ends the open stretch now, as when capture pauses or stops or the app quits. It is kept only if the app's consent

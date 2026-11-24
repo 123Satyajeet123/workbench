@@ -27,6 +27,7 @@ let package = Package(
         .executable(name: "machine-roles", targets: ["MachineRolesDemo"]),
         .executable(name: "inject-corpus", targets: ["InjectCorpusCheck"]),
         .executable(name: "objectref", targets: ["ObjectRefDemo"]),
+        .executable(name: "store-safety-probe", targets: ["StoreSafetyProbe"]),
     ],
     dependencies: [
         .package(path: "../Packages/WorkbenchCore"), .package(path: "../Packages/WorkbenchUI"),
@@ -118,6 +119,12 @@ let package = Package(
         .executableTarget(
             name: "ObjectRefDemo", dependencies: ["WorkbenchCore"],
             swiftSettings: [.defaultIsolation(MainActor.self)]),
+        .executableTarget(
+            name: "StoreSafetyProbe",
+            dependencies: [
+                "WorkbenchCore", .product(name: "Kernel", package: "Kernel"),
+                .product(name: "Lines", package: "Kernel"),
+            ]),
         .testTarget(name: "EvalsTests", dependencies: ["Evals", "WorkbenchCore"]),
     ]
 )

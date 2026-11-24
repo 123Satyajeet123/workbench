@@ -174,7 +174,7 @@ extension Store {
             report.undated = reading.undated
             return (report, try then(db))
         }
-        if report.erasedLines > 0 || report.flaggedItems > 0 { try truncateLog() }
+        if report.erasedLines > 0 || report.flaggedItems > 0 { try finishErase(removedRows: true) }
         return (report, value)
     }
 

@@ -25,6 +25,9 @@ public final class Store: Sendable {
     /// Whether the new item at an index of a reading is picked to ask about, unless a reading says otherwise.
     let isAudited: @Sendable (Int) -> Bool
     let ingestGate = SerialGate()
+    let backups: BackupFolder
+    /// Held while a snapshot is made and while an erase deletes the backups, so a snapshot cannot outlive an erase.
+    let backupLock = NSLock()
 
     public init(
         directory: URL, clock: @escaping @Sendable () -> Date = { Date() }, ownerZone: TimeZone = .current,
@@ -35,11 +38,14 @@ public final class Store: Sendable {
         self.isAudited = isAudited
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         try Self.restrict(directory, to: 0o700)
+        try BackupFolder.excludeFromTimeMachine(directory)
+        backups = BackupFolder(storeDirectory: directory)
+        try backups.prepare()
         let databaseFile = directory.appending(path: "workbench.sqlite")
         try Self.createPrivateFile(databaseFile)
         try Self.restrict(databaseFile, to: 0o600)
         writer = try StoreDatabase.open(at: databaseFile, busyTimeout: busyTimeout)
-        try Schema.open(writer, ownerZone: ownerZone)
+        try Self.migrate(writer, ownerZone: ownerZone, backups: backups)
         queries = Queries(reader: writer, directory: directory)
     }
 

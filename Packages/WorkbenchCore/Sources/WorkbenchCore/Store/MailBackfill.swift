@@ -181,7 +181,7 @@ extension Store {
                 sql: "DELETE FROM mail_part WHERE id IN (SELECT value FROM json_each(?))",
                 arguments: [try Coding.json(moved)])
         }
-        if !moved.isEmpty { try truncateLog() }
+        if !moved.isEmpty { try finishErase(removedRows: true) }
         return MailBackfill.counts(of: parts, allowed: labels)
     }
 }

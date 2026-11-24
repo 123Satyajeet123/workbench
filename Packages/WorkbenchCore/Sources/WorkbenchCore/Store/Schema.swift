@@ -9,26 +9,34 @@ import GRDB
 enum Schema {
     static var version: Int32 { Int32(steps.count) }
 
+    static func storedVersion(_ reader: some DatabaseReader) throws -> Int32 {
+        try reader.read { db in try Int32.fetchOne(db, sql: "PRAGMA user_version") ?? 0 }
+    }
+
     /// Reads the version and runs the missing steps in one write transaction, so a second process that opens the same
     /// file waits, then finds the steps done. Foreign keys are off while the steps run, because a step may rebuild a
     /// table that others reference (a drop with foreign keys on would cascade into them). They are checked before the
-    /// transaction commits and switched on again after it.
-    static func open(_ writer: some DatabaseWriter, ownerZone: TimeZone = .current) throws {
+    /// transaction commits and switched on again after it. With `lastStep` the steps after it are left out, which makes
+    /// a store as an older Workbench left it.
+    static func open(
+        _ writer: some DatabaseWriter, through lastStep: Int = steps.count, ownerZone: TimeZone = .current
+    ) throws {
         try writer.writeWithoutTransaction { db in
             try db.execute(sql: "PRAGMA foreign_keys = OFF")
             defer { try? db.execute(sql: "PRAGMA foreign_keys = ON") }
             try db.inTransaction(.immediate) {
                 let found = try Int.fetchOne(db, sql: "PRAGMA user_version") ?? 0
                 guard found <= steps.count else { throw SchemaError.newerVersion }
-                guard found < steps.count else { return .commit }
-                for statement in steps[found...].joined() { try db.execute(sql: statement) }
-                if let index = steps.firstIndex(of: timers), found <= index {
-                    try moveLegacyDueDays(db, zone: ownerZone)
+                guard found < lastStep else { return .commit }
+                for statement in steps[found..<lastStep].joined() { try db.execute(sql: statement) }
+                func runs(_ step: [String]) -> Bool {
+                    steps.firstIndex(of: step).map { found <= $0 && $0 < lastStep } == true
                 }
-                if let index = steps.firstIndex(of: filing), found <= index { try WorkObjectsMove.run(db) }
-                if let index = steps.firstIndex(of: folderHolds), found <= index { try giveFoldersTheirTypes(db) }
+                if runs(timers) { try moveLegacyDueDays(db, zone: ownerZone) }
+                if runs(filing) { try WorkObjectsMove.run(db) }
+                if runs(folderHolds) { try giveFoldersTheirTypes(db) }
                 try db.checkForeignKeys()
-                try db.execute(sql: "PRAGMA user_version = \(version)")
+                try db.execute(sql: "PRAGMA user_version = \(lastStep)")
                 return .commit
             }
         }

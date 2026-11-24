@@ -55,7 +55,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        if case .ready(let session) = launch { session.capture.endForQuit() }
+        if case .ready(let session) = launch {
+            session.capture.endForQuit()
+            try? session.store.optimize()
+        }
         RunningChildren.terminateAll(grace: .seconds(2))
     }
 }
