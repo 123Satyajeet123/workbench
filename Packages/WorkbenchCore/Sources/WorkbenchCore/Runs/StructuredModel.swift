@@ -20,6 +20,9 @@ public indirect enum JSONSchema: Sendable, Equatable {
     case integer
     case number
     case enumeration([String])
+    /// One of several shapes. A reply that fits no shape is refused, so a pair of values that no shape allows cannot be
+    /// written. The CLIs take `anyOf`, not `oneOf` or `if`/`then`.
+    case anyOf([JSONSchema])
 
     public static func choice<E: CaseIterable & RawRepresentable>(_ type: E.Type) -> JSONSchema
     where E.RawValue == String {
@@ -49,6 +52,7 @@ public indirect enum JSONSchema: Sendable, Equatable {
             return number.doubleValue == number.doubleValue.rounded()
         case .number: return (value as? NSNumber).map { !isBool($0) } ?? false
         case .enumeration(let values): return (value as? String).map(values.contains) ?? false
+        case .anyOf(let shapes): return shapes.contains { $0.accepts(value) }
         }
     }
 
@@ -76,6 +80,7 @@ public indirect enum JSONSchema: Sendable, Equatable {
         case .integer: ["type": "integer"]
         case .number: ["type": "number"]
         case .enumeration(let values): ["type": "string", "enum": values]
+        case .anyOf(let shapes): ["anyOf": shapes.map(\.jsonObject)]
         }
     }
 }

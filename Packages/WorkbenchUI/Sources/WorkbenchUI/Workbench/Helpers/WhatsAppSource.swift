@@ -68,7 +68,9 @@ final class WhatsAppSource: MachineSource {
         return members.filter { $0.chats?.contains(first.jid) == true }
     }
 
-    var context: [String: [String]] { ["members": expectedPeople.map(\.name)] }
+    var context: [String: [String]] {
+        ["members": expectedPeople.map(\.name), MemberRoster.founderEntry: [founderName(founder())]]
+    }
 
     var chosenSummary: String? {
         if readsEveryChat { return "Every WhatsApp chat" }
@@ -232,7 +234,7 @@ final class WhatsAppSource: MachineSource {
         let lines = stored.filter { !$0.isTombstone }.map { evidence($0, start: day.start) }
         return EvidenceSet(
             lines: lines,
-            context: ["members": members.map(\.name) + [founderLabel(founder())], "founder": [founderLabel(founder())]])
+            context: chatContext(members: members.map(\.name), founder: founder()))
     }
 
     /// The lines that prove a fact, as the run that made it saw them, with a deleted message shown as deleted. Reading
@@ -256,7 +258,7 @@ final class WhatsAppSource: MachineSource {
 
     private func reader(chatJIDs: [String]) -> WhatsAppChatReader {
         WhatsAppChatReader(
-            container: container, chatJIDs: chatJIDs, policy: store, me: founderLabel(founder()), hear: hear)
+            container: container, chatJIDs: chatJIDs, policy: store, me: founderName(founder()), hear: hear)
     }
 
     private func evidence(_ stored: StoredLine, start: Date) -> Evidence {
@@ -281,9 +283,17 @@ final class WhatsAppSource: MachineSource {
 
     private func sender(of stored: StoredLine) -> String {
         guard let actor = stored.actor else { return "Unknown" }
-        if actor == WhatsAppChatReader.audienceOwner { return founderLabel(founder()) }
+        if actor == WhatsAppChatReader.audienceOwner { return founderName(founder()) }
         return names[actor] ?? MemberNames.fallback(for: actor)
     }
 }
 
 func founderLabel(_ name: String) -> String { name.isEmpty ? "You" : "\(name) (You)" }
+
+/// The owner in the lines and in the members list of a chat: the plain name, so a member of a set is one string.
+func founderName(_ name: String) -> String { name.isEmpty ? "You" : name }
+
+/// What a chat reading shows its model next to the lines: the members and the founder, each by plain name.
+func chatContext(members: [String], founder: String) -> [String: [String]] {
+    ["members": members + [founderName(founder)], MemberRoster.founderEntry: [founderName(founder)]]
+}

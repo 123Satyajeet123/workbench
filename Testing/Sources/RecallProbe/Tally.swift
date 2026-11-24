@@ -25,14 +25,11 @@ struct Kept: Codable {
     }
 }
 
-/// The arms: today's read (A), A plus one gleaning pass (B, which saves only what the pass adds), the read with the
-/// founder sentence in the brief (C), and today's read with the founder named by plain name in the lines and the
-/// members list (D, added after the drops showed the "(You)" label at work).
+/// The arms: today's read before the member-identity fix (A, saved by probe 2, when the lines and the members list
+/// showed the founder as "Meera Rao (You)") and the read of this branch (Fixed, the plain name).
 enum Arm: String, CaseIterable, Codable {
     case a = "A"
-    case b = "B"
-    case c = "C"
-    case d = "D"
+    case fixed = "Fixed"
 }
 
 /// One model pass of one arm on one day. Saved as JSON, so a pass that finished is never asked again.
@@ -55,13 +52,18 @@ struct Outcome {
     /// The kinds the reading gave on the needle's line.
     let kinds: [String]
 
+    /// Stored values name a member by plain name or by the older label of the founder: one lookup reads both.
+    static let roster = MemberRoster(names: Member.allCases.map(\.rawValue), founder: Member.meera.rawValue)
+
     init(_ needle: Needle, line number: Int64, items: [Kept]) {
         self.needle = needle
         let onLine = items.filter { $0.line == number }
         kinds = onLine.map(\.kind)
         line = !onLine.isEmpty
         strict = kinds.contains(needle.kind.rawValue)
-        personRight = onLine.contains { $0.kind == needle.kind.rawValue && $0.person == needle.person.rawValue }
+        personRight = onLine.contains {
+            $0.kind == needle.kind.rawValue && Outcome.roster.canonical($0.person) == needle.person.rawValue
+        }
     }
 }
 

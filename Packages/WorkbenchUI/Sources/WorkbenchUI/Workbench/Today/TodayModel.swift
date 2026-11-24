@@ -29,9 +29,10 @@ struct SummaryRow: Identifiable {
     var line: Summary.Line
     var facts: [Item]
     var openCount: Int
+    /// The value the summary groups by, as the roster names it: a member by plain name.
+    var subject: String
 
     var id: String { summary.scope }
-    var subject: String { summary.subject }
 }
 
 /// What Today, People and Projects show: the facts of the last seven days, the day's summaries, and the morning list:
@@ -169,16 +170,21 @@ final class TodayModel {
         let lifecycle = { (fact: Item) in lifecycles[fact.task] }
         let member = { (fact: Item) in specs[fact.task]?.memberField }
         let label = { (fact: Item) in specs[fact.task]?.labelField }
-        people = FactGroups.make(facts, by: member, lifecycle: lifecycle, now: now)
+        let roster = MemberRoster(names: [me()], founder: me())
+        people = FactGroups.make(facts, by: member, roster: roster, lifecycle: lifecycle, now: now)
         projectGroups = FactGroups.make(facts, by: label, lifecycle: lifecycle, now: now)
         team = try keepers.flatMap {
-            try rows($0.spec.memberField, of: $0, day: today, listed: listed, groups: people, countsOpen: false)
+            try rows(
+                $0.spec.memberField, of: $0, day: today, listed: listed, groups: people, roster: roster,
+                countsOpen: false)
         }
         unsummarized = FactGroups.unsummarized(
-            facts.filter { $0.day == today }, by: member, lifecycle: lifecycle, summarized: Set(team.map(\.subject)),
-            now: now)
+            facts.filter { $0.day == today }, by: member, roster: roster, lifecycle: lifecycle,
+            summarized: Set(team.map(\.subject)), now: now)
         projects = try keepers.flatMap {
-            try rows($0.spec.labelField, of: $0, day: today, listed: listed, groups: projectGroups, countsOpen: true)
+            try rows(
+                $0.spec.labelField, of: $0, day: today, listed: listed, groups: projectGroups, roster: .none,
+                countsOpen: true)
         }
         buildMeetingCards()
     }
@@ -217,14 +223,18 @@ final class TodayModel {
     }
 
     private func rows(
-        _ field: String?, of machine: Machine, day: WorkDay, listed: [Item], groups: [FactGroup], countsOpen: Bool
+        _ field: String?, of machine: Machine, day: WorkDay, listed: [Item], groups: [FactGroup], roster: MemberRoster,
+        countsOpen: Bool
     ) throws -> [SummaryRow] {
         guard let field else { return [] }
         let byID = Dictionary(listed.compactMap { item in item.id.map { ($0, item) } }, uniquingKeysWith: { a, _ in a })
         return try store.queries.summaries(day: day, task: machine.task, field: field).compactMap { summary in
             guard let line = summary.short, line.isShown(among: Set(byID.keys)) else { return nil }
-            let open = countsOpen ? groups.first { $0.name == summary.subject }?.open.count ?? 0 : 0
-            return SummaryRow(summary: summary, line: line, facts: line.cites.compactMap { byID[$0] }, openCount: open)
+            let subject = roster.canonical(summary.subject)
+            let open = countsOpen ? groups.first { $0.name == subject }?.open.count ?? 0 : 0
+            return SummaryRow(
+                summary: summary, line: line, facts: line.cites.compactMap { byID[$0] }, openCount: open,
+                subject: subject)
         }
     }
 

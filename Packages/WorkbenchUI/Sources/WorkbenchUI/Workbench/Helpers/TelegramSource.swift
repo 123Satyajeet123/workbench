@@ -51,7 +51,9 @@ final class TelegramSource: MachineSource {
     var scope: String { chat?.label ?? "" }
     var isReady: Bool { chat != nil && consent?.chat == chat?.id }
     var picks: String? { "a chat" }
-    var context: [String: [String]] { ["members": members.map(\.name)] }
+    var context: [String: [String]] {
+        ["members": members.map(\.name), MemberRoster.founderEntry: [founderName(founder())]]
+    }
     var chosenSummary: String? { chat.map { "Telegram · \($0.title)" } }
     var chosenContainers: [Container] { chat.map { [Container(id: $0.label, kind: .group, title: $0.title)] } ?? [] }
 
@@ -129,14 +131,14 @@ final class TelegramSource: MachineSource {
         await account.applyDeletions()
         let reader = TelegramChatReader(
             service: account.service, chat: chat.id, agreed: Set(consent.people.map(\.id)), policy: store,
-            me: founderLabel(founder()), window: day.start..<day.end, hear: hear)
+            me: founderName(founder()), window: day.start..<day.end, hear: hear)
         let report = try await store.ingest(reader, owner: try capture.owner(), now: store.clock())
         if let failure = report.failures.first { throw failure.error }
         let lines = try store.queries.currentLines(in: [chat.label], from: day.start, to: day.end)
             .filter { !$0.isTombstone }.map { evidence($0, start: day.start) }
         return EvidenceSet(
             lines: lines,
-            context: ["members": members.map(\.name) + [founderLabel(founder())], "founder": [founderLabel(founder())]])
+            context: chatContext(members: members.map(\.name), founder: founder()))
     }
 
     private func evidence(_ stored: StoredLine, start: Date) -> Evidence {
@@ -147,7 +149,7 @@ final class TelegramSource: MachineSource {
 
     private func sender(of stored: StoredLine) -> String {
         guard let actor = stored.actor else { return "Unknown" }
-        if actor == WhatsAppAudience.owner { return founderLabel(founder()) }
+        if actor == WhatsAppAudience.owner { return founderName(founder()) }
         return members.first { TelegramChatReader.actor(of: $0.id) == actor }?.name ?? "Telegram user"
     }
 }

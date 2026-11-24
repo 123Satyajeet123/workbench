@@ -52,6 +52,16 @@ public struct TimeRecord: Codable, Sendable, Equatable {
         case month
         /// The line states no time that a date can be worked out from.
         case none
+
+        /// The parts of the day a record of this precision may carry. A part of the day belongs to the precisions
+        /// that use it: `part_of_day` needs one, a clock time may have one, and a day, a week or a month has none.
+        public var partsOfDay: [PartOfDay] {
+            switch self {
+            case .partOfDay: PartOfDay.allCases.filter { $0 != .none }
+            case .hour, .minute: PartOfDay.allCases
+            case .day, .week, .month, .none: [.none]
+            }
+        }
     }
 
     public static let noClockHour = -1
@@ -121,13 +131,13 @@ public struct TimeRecord: Codable, Sendable, Equatable {
     /// precision uses exactly the parts it needs. A record that fails is refused by the verifier, so every record that
     /// passes is one that code can resolve or knows it cannot.
     public var isCoherent: Bool {
-        guard isInBounds, signsFitDirection else { return false }
+        guard isInBounds, signsFitDirection, precision.partsOfDay.contains(partOfDay) else { return false }
         switch precision {
         case .none: return usesNothing
         case .week: return week != .none && onlyWeek
         case .month: return onlyMonth
-        case .day: return selectsOneDay && noClock && partOfDay == .none
-        case .partOfDay: return selectsOneDay && noClock && partOfDay != .none
+        case .day: return selectsOneDay && noClock
+        case .partOfDay: return selectsOneDay && noClock
         case .hour, .minute: return isClockPrecisionCoherent
         }
     }
@@ -225,16 +235,31 @@ public struct TimeMention: Decodable, Sendable, Equatable {
         self = mention
     }
 
-    /// The reply schema of a time field: every part is required, each from its closed set.
+    /// The reply schema of a time field: every part is required, each from its closed set. One shape for each set of
+    /// precisions that allow the same parts of the day, so `part_of_day` and a precision that does not use it cannot
+    /// both be written.
     public static var schema: JSONSchema {
+        let shapes = TimeRecord.Precision.allCases.reduce(
+            into: [(parts: [TimeRecord.PartOfDay], precisions: [TimeRecord.Precision])]()
+        ) { shapes, precision in
+            if let index = shapes.firstIndex(where: { $0.parts == precision.partsOfDay }) {
+                shapes[index].precisions.append(precision)
+            } else {
+                shapes.append((precision.partsOfDay, [precision]))
+            }
+        }
+        return .anyOf(shapes.map { shape(precisions: $0.precisions, partsOfDay: $0.parts) })
+    }
+
+    private static func shape(precisions: [TimeRecord.Precision], partsOfDay: [TimeRecord.PartOfDay]) -> JSONSchema {
         .object([
             .init("direction", .choice(TimeRecord.Direction.self)),
-            .init("precision", .choice(TimeRecord.Precision.self)),
+            .init("precision", .enumeration(precisions.map { $0.rawValue })),
             .init("offset_days", .integer), .init("offset_minutes", .integer),
             .init("weekday", .choice(TimeRecord.Weekday.self)), .init("week", .choice(TimeRecord.Period.self)),
             .init("day_of_month", .integer), .init("month", .integer),
             .init("month_which", .choice(TimeRecord.Period.self)), .init("year", .integer),
-            .init("part_of_day", .choice(TimeRecord.PartOfDay.self)), .init("clock_hour", .integer),
+            .init("part_of_day", .enumeration(partsOfDay.map { $0.rawValue })), .init("clock_hour", .integer),
             .init("clock_minute", .integer), .init("meridiem", .choice(TimeRecord.Meridiem.self)),
             .init("ambiguous", .boolean), .init("words", .string),
         ])

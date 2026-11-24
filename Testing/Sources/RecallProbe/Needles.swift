@@ -5,7 +5,7 @@ enum Member: String, CaseIterable {
     case rohan = "Rohan Kapoor"
     case kabir = "Kabir Shah"
     case nisha = "Nisha Iyer"
-    case meera = "Meera Rao (You)"
+    case meera = "Meera Rao"
 
     var isFounder: Bool { self == .meera }
 }

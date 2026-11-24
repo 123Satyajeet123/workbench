@@ -40,11 +40,12 @@ public struct FactGroup: Sendable, Equatable, Identifiable {
 public enum FactGroups {
     /// The listed facts grouped by the value of their `field`, groups with open facts first, then by name. Each fact
     /// is read with the field and lifecycle of its own machine. A fact with no field or no value in it belongs to no
-    /// group.
+    /// group. A value that names a member of `roster` groups under the member's plain name.
     public static func make(
-        _ facts: [Item], by field: (Item) -> String?, lifecycle: (Item) -> HelperSpec.Lifecycle?, now: Date
+        _ facts: [Item], by field: (Item) -> String?, roster: MemberRoster = .none,
+        lifecycle: (Item) -> HelperSpec.Lifecycle?, now: Date
     ) -> [FactGroup] {
-        let valued = facts.compactMap { fact in field(fact).map { (name: fact[$0], fact: fact) } }
+        let valued = facts.compactMap { fact in field(fact).map { (name: roster.canonical(fact[$0]), fact: fact) } }
         let named = Dictionary(grouping: valued.filter { $0.fact.isListed(at: now) && !$0.name.isEmpty }, by: \.name)
         let groups = named.map { name, valued in
             let items = valued.map { (fact: $0.fact, isOpen: $0.fact.isOpen(in: lifecycle($0.fact), at: now)) }
@@ -59,10 +60,12 @@ public enum FactGroups {
     /// without one. Facts with no value in their `field` come last, in a group with an empty name, so no fact is lost;
     /// a fact whose machine has no such field is left out.
     public static func unsummarized(
-        _ facts: [Item], by field: (Item) -> String?, lifecycle: (Item) -> HelperSpec.Lifecycle?,
-        summarized: Set<String>, now: Date
+        _ facts: [Item], by field: (Item) -> String?, roster: MemberRoster = .none,
+        lifecycle: (Item) -> HelperSpec.Lifecycle?, summarized: Set<String>, now: Date
     ) -> [FactGroup] {
-        let groups = make(facts, by: field, lifecycle: lifecycle, now: now).filter { !summarized.contains($0.name) }
+        let groups = make(facts, by: field, roster: roster, lifecycle: lifecycle, now: now).filter {
+            !summarized.contains($0.name)
+        }
         let unnamed = facts.filter { fact in fact.isListed(at: now) && field(fact).map { fact[$0].isEmpty } == true }
             .sorted(by: newest)
         return unnamed.isEmpty ? groups : groups + [FactGroup(name: "", open: [], rest: unnamed)]

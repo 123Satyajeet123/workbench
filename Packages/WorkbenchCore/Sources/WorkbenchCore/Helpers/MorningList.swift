@@ -79,7 +79,7 @@ public struct MorningInput: Sendable {
     public var news: [Item] = []
     /// The facts that have a fired timer nobody cancelled.
     public var firedTimers: Set<Int64> = []
-    /// The founder's name as the owner field of a fact writes it.
+    /// The founder's plain name, as the roster of a member field names the founder.
     public var me: String
     /// The field that names who owns a fact, from the lifecycle of the fact's own machine; nil when its facts name no
     /// owner, so none is the person's own and none waits on someone.
@@ -87,6 +87,9 @@ public struct MorningInput: Sendable {
     /// The field that names who asked for a fact, from the lifecycle of the fact's own machine; nil when it has none.
     public var askerField: @Sendable (Item) -> String? = { _ in nil }
     public var attention: HelperSpec.Attention = .builtIn
+
+    /// The owner's own members: the founder, by plain name and by the label older facts wrote.
+    var roster: MemberRoster { MemberRoster(names: [me], founder: me) }
 
     public init(facts: [Item], me: String) {
         self.facts = facts
@@ -147,7 +150,7 @@ public enum MorningList {
         if asksMe { return (.owe, Need(item: fact, reason: .asks)) }
         if isMine { return (.owe, Need(item: fact, reason: .owned)) }
         if let asker = input.askerField(fact), !input.me.isEmpty,
-            fact[asker].caseInsensitiveCompare(input.me) == .orderedSame
+            input.roster.canonical(fact[asker]).caseInsensitiveCompare(input.me) == .orderedSame
         {
             return (.owedToMe, Need(item: fact, reason: .owedToMe))
         }
@@ -176,7 +179,7 @@ public enum MorningList {
 
     /// Who owns the fact by its own machine's owner field; nil when that machine names no owner or the fact names none.
     private static func owner(of fact: Item, _ input: MorningInput) -> String? {
-        input.ownerField(fact).map(fact.owner(in:)).flatMap { $0.isEmpty ? nil : $0 }
+        input.ownerField(fact).map(fact.owner(in:)).flatMap { $0.isEmpty ? nil : input.roster.canonical($0) }
     }
 
     /// Facts with a due time first, the soonest first, then by store id.

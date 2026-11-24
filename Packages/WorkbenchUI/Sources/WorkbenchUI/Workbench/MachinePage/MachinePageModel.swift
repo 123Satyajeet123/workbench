@@ -59,8 +59,8 @@ final class MachinePageModel {
             let contents = try store.queries.page(of: page, for: viewer)
             proposal = try store.queries.pendingProposal(of: page, for: viewer)
             shown = ShownPage(contents: contents, proposal: proposal)
-            facts =
-                try store.queries.parent(of: page).map { try store.queries.facts(in: $0, includeChildren: true) } ?? []
+            facts = helper.shown(
+                try store.queries.parent(of: page).map { try store.queries.facts(in: $0, includeChildren: true) } ?? [])
             placeParagraphs()
         }
     }

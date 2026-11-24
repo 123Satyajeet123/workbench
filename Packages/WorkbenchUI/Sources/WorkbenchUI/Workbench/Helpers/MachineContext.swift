@@ -44,10 +44,13 @@ final class MachineContext {
     func items(on day: WorkDay) -> [Item] {
         var found: [Item] = []
         problems.attempt("read the items") {
-            found = try store.queries.items(of: spec.task, day: day, scope: source.scope)
+            found = shown(try store.queries.items(of: spec.task, day: day, scope: source.scope))
         }
         return found
     }
+
+    /// The machine's stored items as the person reads them: each member by plain name, whichever label was stored.
+    func shown(_ items: [Item]) -> [Item] { items.map { spec.resolvingMembers(of: $0, in: source.context) } }
 
     func missing(on day: WorkDay) -> [String] {
         guard let nudge = spec.nudge else { return [] }

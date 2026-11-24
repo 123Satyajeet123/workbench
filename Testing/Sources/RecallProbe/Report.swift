@@ -13,14 +13,7 @@ struct Report {
         readings.first { $0.arm == arm && $0.day == day && $0.run == run }
     }
 
-    /// The items an arm kept on a day: arm B is arm A's items and what its gleaning pass added.
-    private func items(_ arm: Arm, day: Int, run: Int) -> [Kept]? {
-        guard arm == .b else { return reading(arm, day: day, run: run)?.kept }
-        guard let first = reading(.a, day: day, run: run), let added = reading(.b, day: day, run: run) else {
-            return nil
-        }
-        return first.kept + added.kept
-    }
+    private func items(_ arm: Arm, day: Int, run: Int) -> [Kept]? { reading(arm, day: day, run: run)?.kept }
 
     /// The (day, run) cells an arm has, in day order.
     private func cells(_ arm: Arm, run: Int? = nil) -> [(day: Int, run: Int)] {
@@ -48,7 +41,7 @@ struct Report {
             "Days \(days.count); lines \(days.map(\.evidence.lines.count)); characters \(days.map(\.characters));"
                 + " needles \(days.flatMap(\.needles).count); fact lines \(days.map(\.factLines.count).reduce(0, +)).",
         ]
-        lines += recall() + shapes() + paired() + noise() + factLines() + misses() + audit() + gleaning() + cost()
+        lines += recall() + shapes() + paired() + noise() + factLines() + misses() + audit() + cost()
         return (lines + failures.map { "FAILED: \($0)" }).joined(separator: "\n")
     }
 
@@ -86,24 +79,24 @@ struct Report {
             + [row("reply, member") { $0.shape == .reply && !$0.from.isFounder }]
     }
 
-    /// Arms C and D against arm A on the same days and run.
+    /// Arm Fixed against arm A on the same days and run.
     private func paired() -> [String] {
-        ["", "Arms C and D against arm A, paired by day and run (synthetic):"]
-            + [Arm.c, .d].flatMap { arm in (1...2).map { (arm, $0) } }.compactMap { arm, run in
-                let both = cells(.a, run: run).filter { cell in cells(arm, run: run).contains { $0 == cell } }
+        ["", "Arm Fixed against arm A, paired by day and run (synthetic):"]
+            + (1...2).compactMap { run -> String? in
+                let both = cells(.a, run: run).filter { cell in cells(.fixed, run: run).contains { $0 == cell } }
                 guard !both.isEmpty else { return nil }
-                let pairs = zip(outcomes(.a, in: both), outcomes(arm, in: both))
+                let pairs = zip(outcomes(.a, in: both), outcomes(.fixed, in: both))
                 let gained = pairs.filter { !$0.strict && $1.strict }.map(\.0.needle)
                 let lost = pairs.filter { $0.strict && !$1.strict }.map(\.0.needle)
                 let ids = { (needles: [Needle]) in needles.map { "n\($0.id)\($0.from.isFounder ? "F" : "M")" } }
-                return "  \(arm.rawValue) run \(run) (\(both.count) days): gains \(gained.count) \(ids(gained)), loses"
+                return "  Fixed run \(run) (\(both.count) days): gains \(gained.count) \(ids(gained)), loses"
                     + " \(lost.count) \(ids(lost))"
             }
     }
 
     private func noise() -> [String] {
         ["", "Run-to-run noise (synthetic), needles whose strict result differs between run 1 and run 2:"]
-            + [Arm.a, .c].compactMap { arm in
+            + Arm.allCases.compactMap { arm in
                 let both = cells(arm, run: 1).filter { cell in cells(arm, run: 2).contains { $0.day == cell.day } }
                 guard !both.isEmpty else { return nil }
                 let second = both.map { ($0.day, 2) }
@@ -143,7 +136,7 @@ struct Report {
     /// Every fact line an arm's run 1 did not cite, for reading by hand.
     private func misses() -> [String] {
         ["", "Fact lines not cited in run 1 (synthetic):"]
-            + [Arm.a, .c, .d].flatMap { arm in
+            + Arm.allCases.flatMap { arm in
                 cells(arm, run: 1).flatMap { cell in
                     let cited = Set((items(arm, day: cell.day, run: 1) ?? []).map(\.line))
                     return days[cell.day].evidence.lines.filter { line in
@@ -168,18 +161,6 @@ struct Report {
                     + "\(String(format: "%.1f", summary.high)); estimate 0 in"
                     + " \(String(format: "%.0f", 100 * summary.zeroShare))% of draws; \(summary.cardsPerDraw) cards a draw"
             }
-    }
-
-    private func gleaning() -> [String] {
-        let passes = readings.filter { $0.arm == .b }
-        guard !passes.isEmpty else { return ["", "Gleaning (arm B): not run."] }
-        let added = passes.flatMap { pass in pass.kept.map { (pass.day, $0) } }
-        let onFacts = added.filter { days[$0.0].labels[$0.1.line]?.isFact == true }.count
-        return [
-            "", "Gleaning pass on arm A run 1 (synthetic, \(passes.count) days):",
-            "  kept \(added.count): on fact lines \(onFacts), on no-fact lines \(added.count - onFacts); drops"
-                + " \(passes.flatMap(\.drops).count)",
-        ]
     }
 
     private func cost() -> [String] {

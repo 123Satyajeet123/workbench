@@ -34,6 +34,7 @@ let package = Package(
         .executable(name: "text-rules", targets: ["TextRulesDemo"]),
         .executable(name: "run-settings", targets: ["RunSettingsDemo"]),
         .executable(name: "recall-probe", targets: ["RecallProbe"]),
+        .executable(name: "member-identity", targets: ["MemberIdentityDemo"]),
         .executable(name: "bugfix-check", targets: ["BugfixCheck"]),
         .executable(name: "provenance-check", targets: ["ProvenanceCheck"]),
         .executable(name: "provenance-probe", targets: ["ProvenanceProbe"]),
@@ -120,6 +121,9 @@ let package = Package(
             swiftSettings: [.defaultIsolation(MainActor.self)]),
         .executableTarget(
             name: "RunSettingsDemo", dependencies: ["WorkbenchCore", .product(name: "AgentCLI", package: "BaseKit")],
+            swiftSettings: [.defaultIsolation(MainActor.self)]),
+        .executableTarget(
+            name: "MemberIdentityDemo", dependencies: ["WorkbenchCore"],
             swiftSettings: [.defaultIsolation(MainActor.self)]),
         .executableTarget(name: "InjectCorpusCheck", dependencies: ["Evals"]),
         .executableTarget(

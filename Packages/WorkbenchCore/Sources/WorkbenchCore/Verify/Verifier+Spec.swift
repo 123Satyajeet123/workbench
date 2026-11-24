@@ -35,8 +35,7 @@ extension Verifier {
                 fields[field.name] = try Self.id(of: objects.resolve(handle, among: [type]))
             } else {
                 guard let value = given.string else { throw Refusal(.malformed) }
-                try Self.require(value, fitsInto: field.kind, context: window.context)
-                fields[field.name] = value
+                fields[field.name] = try Self.stored(value, fitsInto: field.kind, context: window.context)
             }
         }
         fields.merge(spec.criteria?.readings(raw, evidence: window) ?? [:]) { _, reading in reading }
@@ -117,7 +116,9 @@ extension Verifier {
         case "same_as":
             guard outcome.isEmpty else { throw Refusal(.malformed) }
             let target = try fact(handle, open: open)
-            if let owner = lifecycle.owner, item[owner] != target[owner] { throw Refusal(.identityMismatch) }
+            if let owner = lifecycle.owner, !sameOwner(item, target, field: owner, spec: spec) {
+                throw Refusal(.identityMismatch)
+            }
             return .sameAs(try id(of: target))
         case "supersedes":
             guard outcome.isEmpty else { throw Refusal(.malformed) }
@@ -195,21 +196,35 @@ extension Verifier {
         }
     }
 
-    /// A value fits its field when it is of the field's kind: a choice is one of its values, a member is in the
-    /// context set, a date is a work day written yyyy-MM-dd, or empty when the field does not require one. Code sets a
-    /// computed field, so a value for it never fits.
-    private static func require(_ value: String, fitsInto kind: HelperSpec.Field.Kind, context: [String: [String]])
-        throws
+    /// Whether two items have the same owner: for a member field, the same member, however the stored value spells it.
+    private func sameOwner(_ first: Item, _ second: Item, field: String, spec: HelperSpec) -> Bool {
+        guard case .member(let set)? = spec.fields.first(where: { $0.name == field })?.kind else {
+            return first[field] == second[field]
+        }
+        let roster = MemberRoster(set: set, in: window.context)
+        return roster.canonical(first[field]) == roster.canonical(second[field])
+    }
+
+    /// The value to store for a field of `kind`, when the value fits it: a choice is one of its values, a member is
+    /// in the context set (stored by its plain name), a date is a work day written yyyy-MM-dd, or empty when the field
+    /// does not require one. Code sets a computed field, so a value for it never fits.
+    private static func stored(_ value: String, fitsInto kind: HelperSpec.Field.Kind, context: [String: [String]])
+        throws -> String
     {
-        let fits =
-            switch kind {
-            case .text(let required): !required || value.cleaned != nil
-            case .choice(let values): values.contains(value)
-            case .member(let set): context[set]?.contains(value) == true
-            case .label: value.cleaned != nil
-            case .date(let required): value.isEmpty ? !required : WorkDay(value) != nil
-            case .computed, .time, .objectRef: false
+        let fits: Bool
+        switch kind {
+        case .member(let set):
+            guard let member = MemberRoster(set: set, in: context).member(for: value) else {
+                throw Refusal(.fieldKind)
             }
+            return member
+        case .text(let required): fits = !required || value.cleaned != nil
+        case .choice(let values): fits = values.contains(value)
+        case .label: fits = value.cleaned != nil
+        case .date(let required): fits = value.isEmpty ? !required : WorkDay(value) != nil
+        case .computed, .time, .objectRef: fits = false
+        }
         guard fits else { throw Refusal(.fieldKind) }
+        return value
     }
 }

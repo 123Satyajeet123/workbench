@@ -106,11 +106,13 @@ final class HelperModel {
 
     func items(on day: WorkDay) -> [Item] { shared.items(on: day) }
 
+    func shown(_ items: [Item]) -> [Item] { shared.shown(items) }
+
     /// The machine's items of the last `days` days, as read: no call is set from the criteria.
     func items(since days: Int) -> [Item] {
         var found: [Item] = []
         attempt("read the deals") {
-            found = try shared.store.queries.items(of: spec.task, since: today.adding(days: -days))
+            found = shown(try shared.store.queries.items(of: spec.task, since: today.adding(days: -days)))
         }
         return found
     }
@@ -140,10 +142,10 @@ final class HelperModel {
 
     func reload() {
         attempt("read the day") {
-            items = try shared.store.queries.items(of: spec.task, day: day, scope: scope).map(spec.scored)
+            items = shown(try shared.store.queries.items(of: spec.task, day: day, scope: scope)).map(spec.scored)
             if let lifecycle = spec.lifecycle {
-                open = try shared.store.queries.openItems(of: spec.task, lifecycle: lifecycle).items
-                closed = try shared.store.queries.closedItems(of: spec.task, from: day.start, to: day.end)
+                open = shown(try shared.store.queries.openItems(of: spec.task, lifecycle: lifecycle).items)
+                closed = shown(try shared.store.queries.closedItems(of: spec.task, from: day.start, to: day.end))
             }
             trust = try shared.store.queries.quality().first { $0.task == spec.task }?.heldOutAudit.status
             try source.refresh(on: day)
