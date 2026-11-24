@@ -38,6 +38,7 @@ let package = Package(
         .executable(name: "bugfix-check", targets: ["BugfixCheck"]),
         .executable(name: "provenance-check", targets: ["ProvenanceCheck"]),
         .executable(name: "provenance-probe", targets: ["ProvenanceProbe"]),
+        .executable(name: "run-journal", targets: ["RunJournalDemo"]),
     ],
     dependencies: [
         .package(path: "../Packages/WorkbenchCore"), .package(path: "../Packages/WorkbenchUI"),
@@ -174,6 +175,7 @@ let package = Package(
                 "WorkbenchCore", .product(name: "Kernel", package: "Kernel"),
                 .product(name: "Lines", package: "Kernel"),
             ]),
+        .executableTarget(name: "RunJournalDemo", dependencies: ["WorkbenchCore"]),
         .testTarget(name: "EvalsTests", dependencies: ["Evals", "WorkbenchCore"]),
     ]
 )

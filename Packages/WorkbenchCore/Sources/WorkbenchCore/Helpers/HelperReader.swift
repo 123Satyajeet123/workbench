@@ -19,13 +19,22 @@ public struct HelperReader: ModelTask {
         public var dropped: Int
         /// Nil when the day had no evidence, so no model ran.
         public var run: RunID?
+        /// How many proposals the model made.
+        public var proposed: Int
+        /// `dropped`, counted by the rule each refused proposal broke.
+        public var droppedByRule: [DropRule: Int]
 
-        public init(items: [Item], links: [Link] = [], homes: [HomeProposal] = [], dropped: Int, run: RunID?) {
+        public init(
+            items: [Item], links: [Link] = [], homes: [HomeProposal] = [], dropped: Int, run: RunID?,
+            proposed: Int = 0, droppedByRule: [DropRule: Int] = [:]
+        ) {
             self.items = items
             self.links = links
             self.homes = homes
             self.dropped = dropped
             self.run = run
+            self.proposed = proposed
+            self.droppedByRule = droppedByRule
         }
 
         /// The proposals kept: the facts opened and the open facts restated.
@@ -97,7 +106,9 @@ public struct HelperReader: ModelTask {
             [LeftOut(.openFacts, count: open.leftOut), LeftOut(.objects, count: objectsLeftOut)], of: run)
         let applied = Self.apply(settled.kept, spec: spec, open: open.items)
         return Result(
-            items: applied.items, links: applied.links, homes: applied.homes, dropped: settled.drops.count, run: run)
+            items: applied.items, links: applied.links, homes: applied.homes, dropped: settled.drops.count, run: run,
+            proposed: reply.items.count,
+            droppedByRule: Dictionary(settled.drops.map { ($0.rule, 1) }, uniquingKeysWith: +))
     }
 
     /// Reads a day part by part. Each part is saved, with its own run's yield, before the next is read, so a part
@@ -115,10 +126,26 @@ public struct HelperReader: ModelTask {
                 day: day, scope: scope, evidence: pending, marked: marked, open: try open(), budget: budget)
             try await save(result)
             results.append(result)
-            let sent = Self.firstPart(of: pending, budget: budget).newLines.map(\.id)
-            pending = pending.marking(read: pending.read.union(sent))
+            pending = Self.afterFirstPart(of: pending, budget: budget)
         } while !pending.newLines.isEmpty
         return results
+    }
+
+    /// The number of new lines in each part `readDay` reads `evidence` in, in order. A day with no new lines is one
+    /// part of none.
+    public static func partSizes(of evidence: EvidenceSet, budget: Int = charactersPerRequest) -> [Int] {
+        var pending = evidence
+        var sizes: [Int] = []
+        repeat {
+            sizes.append(firstPart(of: pending, budget: budget).newLines.count)
+            pending = afterFirstPart(of: pending, budget: budget)
+        } while !pending.newLines.isEmpty
+        return sizes
+    }
+
+    private static func afterFirstPart(of pending: EvidenceSet, budget: Int) -> EvidenceSet {
+        let sent = firstPart(of: pending, budget: budget).newLines.map(\.id)
+        return pending.marking(read: pending.read.union(sent))
     }
 
     /// `evidence` cut to its first part: up to `budget` characters of new lines, and up to `context` lines read before
