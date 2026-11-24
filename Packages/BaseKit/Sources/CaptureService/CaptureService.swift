@@ -349,6 +349,7 @@ actor CaptureLoop {
                 try store.checkIntegrity()
                 storeIsChecked = true
             }
+            try store.settleErase()
             try store.snapshotIfDue()
             try store.advanceProvenanceBackfill(budget: 20)
             try store.optimize()

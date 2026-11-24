@@ -48,6 +48,7 @@ public final class Store: Sendable {
         try Self.migrate(writer, ownerZone: ownerZone, backups: backups)
         try Self.startProfile(writer, at: clock())
         queries = Queries(reader: writer, directory: directory)
+        try? settleErase()
     }
 
     /// Creates the file at mode 0600 unless it exists. A file another process already made is never truncated.

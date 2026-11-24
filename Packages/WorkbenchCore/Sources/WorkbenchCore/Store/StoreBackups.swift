@@ -41,12 +41,32 @@ extension Store {
 
     /// The last step of every erase. Rows were removed when `removedRows` is true; then every backup goes (each holds
     /// the old words) and the log is truncated. The backups go first: if the log cannot be truncated, the erase still
-    /// holds. No snapshot is made here: the hourly hook makes one when none exists, so many erases cost one copy.
+    /// holds. No snapshot is made here: the hourly hook makes one when none exists, so many erases cost one copy. A log
+    /// that a reader holds cannot be truncated: the store notes that it owes the truncation, `settleErase` pays it later,
+    /// and this call throws `logNotTruncated`.
     func finishErase(removedRows: Bool) throws {
         try backupLock.withLock {
-            guard removedRows else { return try truncateLog() }
-            try backups.removeEverything()
+            if removedRows { try backups.removeEverything() }
+            do {
+                try truncateLog()
+            } catch StoreError.logNotTruncated {
+                try saveState(clock().stored, forKey: Self.logOwedKey)
+                throw StoreError.logNotTruncated
+            }
+        }
+    }
+
+    static let logOwedKey = "erase.log_owed"
+
+    /// Truncates the log if an earlier erase could not, and clears the note. The hourly hook and the open of the store call
+    /// it. Throws `logNotTruncated` while a reader still holds the log.
+    public func settleErase() throws {
+        try backupLock.withLock {
+            guard try queries.state(forKey: Self.logOwedKey) != nil else { return }
             try truncateLog()
+            try writer.write { db in
+                try db.execute(sql: "DELETE FROM state WHERE key = ?", arguments: [Self.logOwedKey])
+            }
         }
     }
 

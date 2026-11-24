@@ -20,9 +20,15 @@ let findings = Findings()
 let root = FileManager.default.temporaryDirectory.appending(path: "erase-canary-\(UUID().uuidString)")
 defer { try? FileManager.default.removeItem(at: root) }
 
+if CommandLine.arguments.dropFirst().first == "scale" {
+    let lines = CommandLine.arguments.dropFirst(2).first.flatMap(Int.init) ?? 100_000
+    try await Scale.run(lines: lines, in: root.appending(path: "scale"), findings: findings)
+    exit(findings.isClean ? 0 : 1)
+}
 try SqliteInfo.print(into: findings)
 try ScannerSelfTest.run(in: root.appending(path: "self-test"), findings: findings)
 try await Control.run(in: root.appending(path: "control"), findings: findings)
+try await OldShape.run(in: root.appending(path: "old-shape"), findings: findings)
 try await HeldLog.run(in: root.appending(path: "held-log"), findings: findings)
 for trigger in Trigger.allCases {
     print("\n== \(trigger.rawValue)")

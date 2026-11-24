@@ -19,7 +19,7 @@ enum HeldLog {
         findings.expect(
             failure != nil, "the erase reports that the log could not be truncated (\(String(describing: failure)))")
         reader.release()
-        try scene.store.truncateLog()
+        try scene.store.settleErase()
         for hit in ByteScan.hits(of: scene.words.canary, under: scene.directory) {
             findings.leak(
                 "held log, after the reader let go: canary in \(hit.file) at byte \(hit.offset) (\(hit.encoding)), \(hit.place)"

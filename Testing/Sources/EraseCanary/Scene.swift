@@ -41,7 +41,7 @@ final class Scene {
     static let site = "pages.example.test"
     static let day = 86_400.0
 
-    let store: Store
+    private(set) var store: Store
     let words: Words
     let clock: MovingClock
     let now: Date
@@ -54,11 +54,12 @@ final class Scene {
         switches: [.whatsapp: true, .mail: true, .call: true, .screen: true, .screenText: true],
         allowList: [.whatsapp: [chatA, chatB], .mail: [mailLabel]], browsers: [browser: "Example Browser"])
 
-    var directory: URL { store.directory }
+    let directory: URL
 
     /// Builds the scene. The old lines are written 40 days before `now`, the new ones at `now`.
     init(in directory: URL, words: Words, busyTimeout: TimeInterval = 10) throws {
         self.words = words
+        self.directory = directory
         now = Date()
         old = now.addingTimeInterval(-40 * Self.day)
         clock = MovingClock(old)
@@ -67,6 +68,14 @@ final class Scene {
             directory: directory, clock: { moving.now }, busyTimeout: busyTimeout, isAudited: { _ in false })
         owner = try PersonID("owner")
         try store.savePolicy(policy)
+    }
+
+    /// Closes the store and opens the folder again, as a new start of the app does.
+    func reopen(busyTimeout: TimeInterval = 10) throws {
+        try store.writer.close()
+        let moving = clock
+        store = try Store(
+            directory: directory, clock: { moving.now }, busyTimeout: busyTimeout, isAudited: { _ in false })
     }
 
     func build() async throws {
