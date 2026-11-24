@@ -250,8 +250,6 @@ do {
         (1...200).contains {
             AuditPolicy.pick(design: design, item: Int64($0)) != AuditPolicy.pick(design: other, item: Int64($0))
         })
-} catch {
-    expect("Seeded audit pick (D6): ran without an error: \(error)", false)
 }
 
 // MARK: Home of a fact
