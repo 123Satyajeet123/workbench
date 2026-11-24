@@ -8,12 +8,13 @@ public struct PastDeal: Codable, Sendable, Equatable, Identifiable {
     public var text: String
     /// Where the deck was, kept for the investor's reference; Workbench does not fetch it.
     public var url: String?
-    public var call: Rating
+    /// The name of one of the criteria's levels.
+    public var call: String
     /// The rule readings of the latest model reading; nil until the deal is read.
     public var reading: [String: String]?
 
     public init(
-        id: String = UUID().uuidString, company: String, text: String, url: String? = nil, call: Rating,
+        id: String = UUID().uuidString, company: String, text: String, url: String? = nil, call: String,
         reading: [String: String]? = nil
     ) {
         self.id = id
@@ -40,6 +41,7 @@ public struct AgreementReport: Sendable, Equatable {
     /// Always the held-out set: past deals are never used to tune.
     public let split = EvalSplit.heldOut
     public var rows: [Row]
+    public let levels: [Level]
     /// Deals not read yet: left out of every number.
     public var unread: Int
 
@@ -47,6 +49,7 @@ public struct AgreementReport: Sendable, Equatable {
         rows = deals.compactMap { deal in
             deal.reading.map { Row(deal: deal, triage: criteria.triage($0)) }
         }
+        levels = criteria.levels
         unread = deals.count - rows.count
     }
 
@@ -54,13 +57,16 @@ public struct AgreementReport: Sendable, Equatable {
     public var agreed: Int { rows.filter(\.agrees).count }
     public var rate: Double? { total == 0 ? nil : Double(agreed) / Double(total) }
 
-    /// Deals the investor called hot that the criteria rated cold: the miss that costs most.
-    public var hotMissed: Int { count(called: .hot, rated: .cold) }
-    public var calledHot: Int { rows.filter { $0.deal.call == .hot }.count }
+    /// Deals the investor called the best level that the criteria rated the lowest: the miss that costs most.
+    public var topMissed: Int {
+        guard let best = levels.first, let lowest = levels.last, best != lowest else { return 0 }
+        return count(called: best.name, rated: lowest.name)
+    }
+    public var calledTop: Int { rows.filter { $0.deal.call == levels.first?.name }.count }
     public var needingReading: Int { rows.filter(\.needsReading).count }
     public var needingReview: Int { rows.filter(\.triage.needsReview).count }
 
-    public func count(called call: Rating, rated rating: Rating) -> Int {
+    public func count(called call: String, rated rating: String) -> Int {
         rows.filter { $0.deal.call == call && $0.triage.rating == rating }.count
     }
 
@@ -70,8 +76,8 @@ public struct AgreementReport: Sendable, Equatable {
         total == 0 ? nil : 1 - ClopperPearson.upperBound(wrong: total - agreed, of: total)
     }
 
-    /// The most hot-missed deals the held-out calls support among deals the investor calls hot, at 90 percent.
-    public var hotMissedCeiling: Double? {
-        calledHot == 0 ? nil : ClopperPearson.upperBound(wrong: hotMissed, of: calledHot)
+    /// The most top-missed deals the held-out calls support among deals the investor calls the best level, at 90 percent.
+    public var topMissedCeiling: Double? {
+        calledTop == 0 ? nil : ClopperPearson.upperBound(wrong: topMissed, of: calledTop)
     }
 }

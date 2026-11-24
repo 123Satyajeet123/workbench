@@ -15,14 +15,13 @@ public struct OutboundCandidate: Sendable, Equatable, Identifiable {
 }
 
 public enum OutboundReview {
-    /// Candidates ranked by class (hot, warm, cold), then points, then name. The order is a pure function of the
+    /// Candidates ranked by level, best first, then points, then name. The order is a pure function of the
     /// rule results, so the same readings always give the same list.
     public static func rank(_ items: [Item], criteria: Criteria) -> [OutboundCandidate] {
-        let order: [Rating: Int] = [.hot: 0, .warm: 1, .cold: 2]
         return items.map { OutboundCandidate(item: $0, triage: criteria.triage($0.fields)) }
             .sorted { first, second in
                 let (a, b) = (first.triage, second.triage)
-                if a.rating != b.rating { return order[a.rating, default: 3] < order[b.rating, default: 3] }
+                if a.place != b.place { return a.place < b.place }
                 if a.points != b.points { return a.points > b.points }
                 return first.company.comparable < second.company.comparable
             }

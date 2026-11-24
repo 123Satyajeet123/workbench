@@ -70,7 +70,6 @@ public struct GalleryTemplate: Sendable, Identifiable, Equatable {
 
     /// A first block of the page, from the page's block catalog.
     public enum StartBlock: Sendable, Equatable {
-        case heading(String)
         /// The person chooses what the machine may read. The person's click is the grant; the block holds only the
         /// kind of source.
         case picker(SourceKind)
@@ -79,6 +78,14 @@ public struct GalleryTemplate: Sendable, Identifiable, Equatable {
         /// The facts of one task, in one of the views its spec can fill (`HelperSpec.views`).
         case facts(task: String, view: String)
 
+        /// Whether the block waits for the person's act.
+        public var isPrompt: Bool {
+            switch self {
+            case .picker, .input: true
+            case .facts: false
+            }
+        }
+
         /// The kinds of source a person can choose on a page: a chat or group, a mail label, sites, files.
         public static let pickable: Set<SourceKind> = [.whatsapp, .mail, .screenText, .dropped]
     }
@@ -86,6 +93,25 @@ public struct GalleryTemplate: Sendable, Identifiable, Equatable {
     public enum Need: String, Sendable, Hashable {
         /// A model with tools that looks things up for the person (I1).
         case taskRunner
+
+        public var words: String {
+            switch self {
+            case .taskRunner: "a model with tools"
+            }
+        }
+    }
+
+    /// The blocks that wait for the person: the pickers and the inputs.
+    public var prompts: [StartBlock] { blocks.filter(\.isPrompt) }
+
+    /// The machine's spec showing its facts in the view the template names. A view the spec cannot fill leaves it as it
+    /// is; `problems` reports that.
+    func defaultView(of spec: HelperSpec) -> HelperSpec {
+        var spec = spec
+        for case .facts(let task, let view) in blocks where task == spec.task {
+            spec.view = spec.views[view] ?? spec.view
+        }
+        return spec
     }
 
     /// Why this template's data does not hold together, or an empty list. A picker must ask for the source its machine
@@ -95,7 +121,6 @@ public struct GalleryTemplate: Sendable, Identifiable, Equatable {
         let spec = machine?.spec
         for block in blocks {
             switch block {
-            case .heading: break
             case .picker(let kind):
                 if let spec, spec.source.kind != kind {
                     problems.append("picker asks for \(kind.rawValue), the machine reads \(spec.source.kind.rawValue)")

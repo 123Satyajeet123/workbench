@@ -14,7 +14,7 @@ private func reading(india inIndia: String, traction hasTraction: String) -> [St
     ]
 }
 
-private func deal(_ company: String, call: Rating, india: String? = nil, traction: String = "yes") -> PastDeal {
+private func deal(_ company: String, call: String, india: String? = nil, traction: String = "yes") -> PastDeal {
     PastDeal(
         company: company, text: "\(company) pitch", call: call,
         reading: india.map { reading(india: $0, traction: traction) })
@@ -22,10 +22,10 @@ private func deal(_ company: String, call: Rating, india: String? = nil, tractio
 
 /// Eight read deals and one not read. The criteria rate them hot, hot, cold, warm, hot, cold, warm, cold.
 private let fixture = [
-    deal("A", call: .hot, india: "yes"), deal("B", call: .hot, india: "yes"), deal("C", call: .hot, india: "no"),
-    deal("D", call: .warm, india: "yes", traction: "no"), deal("E", call: .warm, india: "yes"),
-    deal("F", call: .cold, india: "no"), deal("G", call: .cold, india: "yes", traction: "no"),
-    deal("H", call: .cold, india: "no"), deal("I", call: .hot),
+    deal("A", call: "hot", india: "yes"), deal("B", call: "hot", india: "yes"), deal("C", call: "hot", india: "no"),
+    deal("D", call: "warm", india: "yes", traction: "no"), deal("E", call: "warm", india: "yes"),
+    deal("F", call: "cold", india: "no"), deal("G", call: "cold", india: "yes", traction: "no"),
+    deal("H", call: "cold", india: "no"), deal("I", call: "hot"),
 ]
 
 @Suite struct AgreementReportTests {
@@ -34,13 +34,13 @@ private let fixture = [
     @Test func theNumbersOnTheFixtureAreExact() {
         #expect(report.total == 8 && report.unread == 1)
         #expect(report.agreed == 5 && report.rate == 0.625)
-        #expect(report.hotMissed == 1 && report.calledHot == 3)
+        #expect(report.topMissed == 1 && report.calledTop == 3)
     }
 
     @Test func theConfusionTableCountsEachPairOfCalls() {
-        let pairs: [(Rating, Rating, Int)] = [
-            (.hot, .hot, 2), (.hot, .warm, 0), (.hot, .cold, 1), (.warm, .hot, 1), (.warm, .warm, 1),
-            (.warm, .cold, 0), (.cold, .hot, 0), (.cold, .warm, 1), (.cold, .cold, 2),
+        let pairs: [(String, String, Int)] = [
+            ("hot", "hot", 2), ("hot", "warm", 0), ("hot", "cold", 1), ("warm", "hot", 1), ("warm", "warm", 1),
+            ("warm", "cold", 0), ("cold", "hot", 0), ("cold", "warm", 1), ("cold", "cold", 2),
         ]
         for (called, rated, count) in pairs {
             #expect(report.count(called: called, rated: rated) == count, "\(called) called, \(rated) rated")
@@ -50,7 +50,7 @@ private let fixture = [
 
     @Test func theExactBinomialBoundsMatchAnIndependentCalculation() throws {
         #expect(abs(try #require(report.agreementFloor) - 0.3446231868540187) < 1e-9, "3 wrong of 8, 90 percent")
-        #expect(abs(try #require(report.hotMissedCeiling) - 0.8041998943409083) < 1e-9, "1 missed of 3 hot")
+        #expect(abs(try #require(report.topMissedCeiling) - 0.8041998943409083) < 1e-9, "1 missed of 3 hot")
     }
 
     @Test func everyNumberIsOnTheHeldOutSet() {
@@ -58,20 +58,20 @@ private let fixture = [
     }
 
     @Test func anEmptyReportHasNoRateAndNoBound() {
-        let empty = AgreementReport(deals: [deal("I", call: .hot)], criteria: thesis)
-        #expect(empty.rate == nil && empty.agreementFloor == nil && empty.hotMissedCeiling == nil)
+        let empty = AgreementReport(deals: [deal("I", call: "hot")], criteria: thesis)
+        #expect(empty.rate == nil && empty.agreementFloor == nil && empty.topMissedCeiling == nil)
     }
 
     @Test func theReportFollowsTheCriteriaWithoutAnotherReading() {
         var strict = thesis
-        strict.hotAt = 2
+        strict.bestCut = 2
         let stricter = AgreementReport(deals: fixture, criteria: strict)
-        #expect(stricter.count(called: .hot, rated: .hot) == 0, "one plus rule cannot reach 2 points")
+        #expect(stricter.count(called: "hot", rated: "hot") == 0, "one plus rule cannot reach 2 points")
         #expect(stricter.agreed != report.agreed)
     }
 
     @Test func dealsNeedingReviewAreCounted() {
-        let gap = PastDeal(company: "J", text: "t", call: .warm, reading: ["r_trac": "yes", "r_trac_quote": "q"])
+        let gap = PastDeal(company: "J", text: "t", call: "warm", reading: ["r_trac": "yes", "r_trac_quote": "q"])
         let withGap = AgreementReport(deals: fixture + [gap], criteria: thesis)
         #expect(report.needingReview == 3, "C, F and H: a plus passes while the must fails")
         #expect(withGap.needingReview == 4, "the must rule has no reading")
@@ -102,8 +102,8 @@ private let fixture = [
         let store = try makeStore()
         let reader = AgreementReader(
             spec: spec(), model: RecordedModel(ScriptedModel(try reply(quote: "4M seed")), store: store))
-        let read = try await reader.read(PastDeal(company: "Zed Labs", text: pitch, call: .hot), on: day)
-        #expect(thesis.triage(try #require(read.reading)).rating == .hot)
+        let read = try await reader.read(PastDeal(company: "Zed Labs", text: pitch, call: "hot"), on: day)
+        #expect(thesis.triage(try #require(read.reading)).rating == "hot")
         #expect(try store.queries.items(of: spec().task, day: day, scope: "agreement").isEmpty)
         #expect(try store.queries.items(of: spec().task, since: day.adding(days: -400)).isEmpty, "no item, so no mark")
     }
@@ -112,7 +112,7 @@ private let fixture = [
         let store = try makeStore()
         let first = ScriptedModel(try reply(quote: "4M seed"))
         _ = try await AgreementReader(spec: spec(), model: RecordedModel(first, store: store))
-            .read(PastDeal(company: "Zed Labs", text: pitch, call: .hot), on: day)
+            .read(PastDeal(company: "Zed Labs", text: pitch, call: "hot"), on: day)
         let live = ScriptedModel(#"{"items":[]}"#)
         let line = Evidence(id: 1, start: day.start, line: "mail — Inbox: other deal", quotable: ["other deal"])
         _ = try await HelperReader(spec: spec(), model: RecordedModel(live, store: store))

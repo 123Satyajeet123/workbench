@@ -6,8 +6,8 @@ public struct CriteriaPreview: Sendable, Equatable {
     public struct Row: Sendable, Equatable, Identifiable {
         public var id: Int64?
         public var title: String
-        public var was: Rating
-        public var now: Rating
+        public var was: String
+        public var now: String
         public var needsReview: Bool
         /// Rules with no reading under the edited criteria: they count as unknown until the deal is read again.
         public var unread: Int

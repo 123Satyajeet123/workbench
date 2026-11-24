@@ -76,11 +76,11 @@ public struct TeamTemplate: Sendable, Equatable, Identifiable {
     public var watchesCompanies: Bool { seeds.contains { $0.spec.source == .news } }
 
     /// The gallery items it sets up, in order. An item whose template is unknown is left out.
-    public var items: [GalleryTemplate] { known.map(\.item) }
+    public var items: [GalleryTemplate] { entries.map(\.item) }
 
     /// The machines to make, each with its spec set.
     public var seeds: [(spec: HelperSpec, name: String)] {
-        known.compactMap { entry in
+        entries.compactMap { entry in
             entry.item.machine.map { (entry.machine.overrides.applied(to: $0.spec), entry.machine.name) }
         }
     }
@@ -90,7 +90,7 @@ public struct TeamTemplate: Sendable, Equatable, Identifiable {
 
     /// Each kind of source the machines read, with the first machine that needs it and the reason that machine gives.
     public var sourceNeeds: [SourceNeed] {
-        known.reduce(into: []) { needs, entry in
+        entries.reduce(into: []) { needs, entry in
             guard let template = entry.item.machine else { return }
             let kind = template.spec.source.kind
             if !needs.contains(where: { $0.kind == kind }) {
@@ -99,7 +99,7 @@ public struct TeamTemplate: Sendable, Equatable, Identifiable {
         }
     }
 
-    private var known: [(machine: TeamMachine, item: GalleryTemplate)] {
+    var entries: [(machine: TeamMachine, item: GalleryTemplate)] {
         machines.compactMap { machine in GalleryTemplate.of(id: machine.template).map { (machine, $0) } }
     }
 }

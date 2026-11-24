@@ -1,3 +1,10 @@
+extension Level {
+    /// The levels of the built-in criteria: hot from `topCut` points, warm from 0, else cold.
+    public static func standard(topCut: Int = 1) -> [Level] {
+        [Level("hot", cut: topCut), Level("warm", cut: 0), Level("cold")]
+    }
+}
+
 extension Criteria {
     /// The rules a new deal machine starts with: they only mirror the old placeholder, and the investor edits them
     /// into their own thesis. A new Outbound machine copies the criteria of the Deal intake machine when one exists.

@@ -11,30 +11,19 @@ public enum FirstLook {
         (0..<max(count, 0)).reversed().map { today.adding(days: -$0) }
     }
 
-    /// What the main view of a machine shows: for a machine with criteria, its items rated, best first; for one whose
+    /// What the main view of a machine shows: for a machine with criteria, its items rated, best level first; for one whose
     /// facts open and close, the open ones; else every item, newest first.
     public static func shown(_ items: [Item], by spec: HelperSpec, at now: Date) -> [Item] {
         if spec.criteria != nil {
             let scored = items.map { (item: $0, triage: spec.triage(of: $0)) }
             return scored.sorted { left, right in
-                (left.triage?.rating.rank ?? 0, left.triage?.points ?? 0) > (
-                    right.triage?.rating.rank ?? 0, right.triage?.points ?? 0
+                (left.triage?.place ?? .max, -(left.triage?.points ?? 0)) < (
+                    right.triage?.place ?? .max, -(right.triage?.points ?? 0)
                 )
             }.map(\.item)
         }
         if let lifecycle = spec.lifecycle { return items.filter { $0.isOpen(in: lifecycle, at: now) } }
         return items.sorted { $0.start > $1.start }
-    }
-}
-
-extension Rating {
-    /// Hot above warm above cold.
-    var rank: Int {
-        switch self {
-        case .hot: 2
-        case .warm: 1
-        case .cold: 0
-        }
     }
 }
 

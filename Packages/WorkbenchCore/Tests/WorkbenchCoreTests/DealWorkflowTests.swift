@@ -266,14 +266,14 @@ import Testing
         action.closed = Item.Closed(outcome: "done", quote: nil, at: t0.addingTimeInterval(900))
 
         let story = DealStory.make(
-            deal: deal, ratings: ["l": .hot],
+            deal: deal, ratings: ["l": "hot"],
             marks: ["l": [.init(state: .proposed, at: t0), .init(state: .confirmed, at: t0.addingTimeInterval(500))]],
             actions: [action])
 
         #expect(
             story.ribbon
                 == DealStory.Ribbon(
-                    sources: ["WhatsApp"], rating: .hot, mark: .confirmed, moves: 3, actionsOpened: 1,
+                    sources: ["WhatsApp"], rating: "hot", mark: .confirmed, moves: 3, actionsOpened: 1,
                     actionsClosed: 1))
         #expect(
             story.entries.map(\.kind)

@@ -24,14 +24,14 @@ import Testing
             "https://b.example/bolt": "Bolt Pay raised a Series D round.",
             "https://c.example/cyan": acornPage ?? "Cyan raised a seed round.",
         ]
-        func deal(_ company: String, _ url: String, _ call: Rating) -> PastDeal {
+        func deal(_ company: String, _ url: String, _ call: String) -> PastDeal {
             PastDeal(id: company, company: company, text: pages[url]!, url: url, call: call)
         }
         return OutboundFixture(
             split: split, criteria: .starter,
             deals: [
-                deal("Acme", "https://a.example/acme", .hot), deal("Bolt Pay", "https://b.example/bolt", .cold),
-                deal("Cyan", "https://c.example/cyan", .warm),
+                deal("Acme", "https://a.example/acme", "hot"), deal("Bolt Pay", "https://b.example/bolt", "cold"),
+                deal("Cyan", "https://c.example/cyan", "warm"),
             ], pages: [.init(url: "https://d.example/delta", text: "Delta raised a seed round.")],
             saved: [
                 saved("https://a.example/acme", "Acme", stage: "yes", quote: "raised a seed round"),
@@ -70,7 +70,7 @@ import Testing
             return OutboundFixture(
                 split: "dev", criteria: .starter,
                 deals: [
-                    PastDeal(id: "z", company: name, text: "\(name) \(text)", url: "https://z.example/z", call: .hot)
+                    PastDeal(id: "z", company: name, text: "\(name) \(text)", url: "https://z.example/z", call: "hot")
                 ],
                 pages: extra.map { .init(url: "https://s.example/\($0)", text: "\($0) \(text)") },
                 saved: [saved("https://z.example/z", name, stage: "yes", quote: text)]

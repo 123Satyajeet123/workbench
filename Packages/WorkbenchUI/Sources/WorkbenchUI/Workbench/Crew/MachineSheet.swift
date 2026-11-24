@@ -19,7 +19,8 @@ struct MachineSheet: View {
     let done: (Int64?) -> Void
     @Environment(Crew.self) private var crew
     @Environment(\.dismiss) private var dismiss
-    @State private var template = MachineTemplate.team
+    @State private var template: MachineTemplate?
+    private static let machines = GalleryTemplate.all.compactMap(\.machine)
     @State private var text = ""
 
     var body: some View {
@@ -28,12 +29,12 @@ struct MachineSheet: View {
             switch edit {
             case .new:
                 Picker("Reads", selection: $template) {
-                    ForEach(MachineTemplate.addable) { Text($0.reads ?? $0.role).tag($0) }
+                    ForEach(Self.machines) { Text($0.reads ?? $0.role).tag(Optional($0)) }
                 }
                 .pickerStyle(.radioGroup)
-                Text(template.detail).foregroundStyle(.supporting)
+                Text(template?.detail ?? "").foregroundStyle(.supporting)
                 if lacksFollowable { Text(Crew.nothingToFollow).foregroundStyle(Tone.bad.color) }
-                TextField("Name", text: $text, prompt: Text(template.name)).textFieldStyle(.roundedBorder)
+                TextField("Name", text: $text, prompt: Text(template?.name ?? "")).textFieldStyle(.roundedBorder)
             case .brief(let helper):
                 TextEditor(text: $text).textStyle(.body).frame(minHeight: 180).border(.quaternary)
                 Button("Try on past days first") {
@@ -54,7 +55,7 @@ struct MachineSheet: View {
                 Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
                 Button(action: save) { Text(saveTitle) }.buttonStyle(.primary).keyboardShortcut(
                     .defaultAction
-                ).disabled(lacksFollowable)
+                ).disabled(lacksFollowable || (isNew && template == nil))
             }
         }
         .padding(Space.l)
@@ -62,8 +63,12 @@ struct MachineSheet: View {
         .onAppear(perform: fill)
     }
 
+    private var isNew: Bool {
+        if case .new = edit { true } else { false }
+    }
+
     private var lacksFollowable: Bool {
-        guard case .new = edit else { return false }
+        guard case .new = edit, let template else { return false }
         return template.spec.needsFollowed && crew.factKeepers.isEmpty
     }
 
@@ -90,7 +95,9 @@ struct MachineSheet: View {
 
     private func save() {
         switch edit {
-        case .new(let folder): done(crew.create(from: template, name: text, in: folder))
+        case .new(let folder):
+            guard let template else { return }
+            done(crew.create(from: template, name: text, in: folder))
         case .brief(let helper):
             crew.edit(helper, brief: text)
             done(nil)

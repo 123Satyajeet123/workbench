@@ -28,6 +28,7 @@ let package = Package(
         .executable(name: "inject-corpus", targets: ["InjectCorpusCheck"]),
         .executable(name: "objectref", targets: ["ObjectRefDemo"]),
         .executable(name: "store-safety-probe", targets: ["StoreSafetyProbe"]),
+        .executable(name: "templates-start", targets: ["TemplatesStartDemo"]),
     ],
     dependencies: [
         .package(path: "../Packages/WorkbenchCore"), .package(path: "../Packages/WorkbenchUI"),
@@ -77,6 +78,7 @@ let package = Package(
             dependencies: ["WorkbenchCore", "WorkbenchUI", .product(name: "AgentCLI", package: "BaseKit")],
             swiftSettings: [.defaultIsolation(MainActor.self)]),
         .executableTarget(name: "GalleryDemo", dependencies: ["WorkbenchCore"]),
+        .executableTarget(name: "TemplatesStartDemo", dependencies: ["WorkbenchCore"]),
         .target(
             name: "DemoBuild",
             dependencies: [

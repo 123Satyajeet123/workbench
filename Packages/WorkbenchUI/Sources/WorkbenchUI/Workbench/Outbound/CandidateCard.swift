@@ -16,9 +16,9 @@ struct CandidateCard: View {
         VStack(alignment: .leading, spacing: Space.s) {
             HStack(spacing: Space.s) {
                 Text(candidate.company).textStyle(.headline)
-                Text(candidate.triage.rating.rawValue).textStyle(.caption)
+                Text(candidate.triage.rating).textStyle(.caption)
                     .padding(.horizontal, Space.s).padding(.vertical, 2)
-                    .background(candidate.triage.rating.tone.color.opacity(0.2), in: .capsule)
+                    .background(candidate.triage.tone.color.opacity(0.2), in: .capsule)
                 if let sector = candidate.sector { Text(sector).textStyle(.callout).foregroundStyle(.supporting) }
                 Spacer()
                 actions

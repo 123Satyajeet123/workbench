@@ -4,11 +4,32 @@ import Foundation
 /// the overall call from the rule results (`Triage`); the model never does.
 public struct Criteria: Codable, Sendable, Equatable {
     public var rules: [Rule]
-    public var hotAt: Int
+    /// The names a deal can be rated, best first, each with the points it needs.
+    public var levels: [Level]
 
-    public init(rules: [Rule] = [], hotAt: Int = 1) {
+    public init(rules: [Rule] = [], levels: [Level] = Level.standard()) {
         self.rules = rules
-        self.hotAt = hotAt
+        self.levels = levels
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case rules, levels
+        /// Stored before levels were data: the points the best of three levels needed.
+        case hotAt
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        rules = try values.decode([Rule].self, forKey: .rules)
+        levels =
+            try values.decodeIfPresent([Level].self, forKey: .levels)
+            ?? Level.standard(topCut: try values.decodeIfPresent(Int.self, forKey: .hotAt) ?? 1)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var values = encoder.container(keyedBy: CodingKeys.self)
+        try values.encode(rules, forKey: .rules)
+        try values.encode(levels, forKey: .levels)
     }
 
     /// A short fingerprint of every rule, role and limit. It is part of the instructions, so any edit to the criteria
@@ -19,6 +40,38 @@ public struct Criteria: Codable, Sendable, Equatable {
     }
 
     public func rule(_ id: String) -> Rule? { rules.first { $0.id == id } }
+}
+
+/// A name a deal can be rated, and the points it needs. The lowest level has no cut: it takes the rest.
+public struct Level: Codable, Sendable, Equatable, Identifiable {
+    public var name: String
+    public var cut: Int?
+
+    public var id: String { name }
+
+    public init(_ name: String, cut: Int? = nil) {
+        self.name = name
+        self.cut = cut
+    }
+}
+
+extension Criteria {
+    public var best: Level? { levels.first }
+    public var lowest: Level? { levels.last }
+
+    /// The points the best level needs.
+    public var bestCut: Int {
+        get { best?.cut ?? 0 }
+        set { if !levels.isEmpty { levels[0].cut = newValue } }
+    }
+
+    /// The place of a level name, 0 for the best. A name that is no level is placed after the lowest.
+    public func place(of name: String) -> Int { levels.firstIndex { $0.name == name } ?? levels.count }
+
+    /// The place of the level that `points` reach: the first level whose cut they meet, else the lowest.
+    func place(forPoints points: Int) -> Int {
+        levels.dropLast().firstIndex { points >= ($0.cut ?? 0) } ?? max(levels.count - 1, 0)
+    }
 }
 
 public struct Rule: Codable, Sendable, Equatable, Identifiable {

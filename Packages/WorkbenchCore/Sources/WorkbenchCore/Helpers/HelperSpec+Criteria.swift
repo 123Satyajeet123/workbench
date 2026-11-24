@@ -13,7 +13,7 @@ extension HelperSpec {
     public func scored(_ item: Item) -> Item {
         guard let name = computedField, let triage = triage(of: item) else { return item }
         var scored = item
-        scored.fields[name] = triage.rating.rawValue
+        scored.fields[name] = triage.rating
         return scored
     }
 }

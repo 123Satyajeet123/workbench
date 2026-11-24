@@ -30,7 +30,7 @@ struct DealDigestReader {
         of deal: WorkObject, machines: [Machine], actions: [Item], signals: [Item] = [], revisits: [Item] = []
     ) throws -> DealDigest {
         let own = actions.filter { $0[.deal] == deal.id }
-        var ratings: [String: Rating] = [:]
+        var ratings: [String: String] = [:]
         var marks: [String: [DealStory.Marked]] = [:]
         var touching: [StripMachine] = []
         var first: Triage?
@@ -77,8 +77,8 @@ struct DealDigestReader {
         let decided = triage?.decidedBy.compactMap { machine.spec.criteria?.rule($0)?.summary } ?? []
         let rule = triage.map { call in
             decided.isEmpty
-                ? "Rated \(call.rating.rawValue): no rule pushed it either way"
-                : "Rated \(call.rating.rawValue) by: \(decided.joined(separator: "; "))"
+                ? "Rated \(call.rating): no rule pushed it either way"
+                : "Rated \(call.rating) by: \(decided.joined(separator: "; "))"
         }
         let watch = try MachineKey.watch(machine.task).load(from: store) ?? .standard(for: machine.spec.source)
         return StripMachine(machine: machine, watch: watch, rule: rule)

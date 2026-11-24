@@ -96,11 +96,6 @@ nonisolated private let apiHash = UUID().uuidString.replacingOccurrences(of: "-"
         #expect(lines.first?.quotable == ["[voice note] the API keys are in"])
     }
 
-    @Test func aNewMachineReadsWhatsAppOrTelegram() {
-        #expect(MachineTemplate.addable == [.team, .teamTelegram])
-        #expect(MachineTemplate.addable.map(\.reads) == ["WhatsApp", "Telegram"])
-    }
-
     @Test func switchingTelegramOrCaptureOffClosesTheConnectionAndConnectingAgainResumes() async throws {
         let (_, _, capture, _, source, service) = try makeRelay()
         try await connected(source)

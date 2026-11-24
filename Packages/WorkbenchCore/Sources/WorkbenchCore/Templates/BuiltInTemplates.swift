@@ -70,8 +70,6 @@ extension MachineTemplate {
     /// The machines a store made before team templates starts with; the others are made on request or from Mochi's
     /// proposals.
     public static let seeded = [team, timeline]
-    /// The machines the sidebar offers to add: the ones that read a chat app.
-    public static let addable = [team, teamTelegram]
 
     private static let newsFeeds = [
         NewsFeed(name: "Inc42", url: URL(string: "https://inc42.com/feed/")!, trusted: true),

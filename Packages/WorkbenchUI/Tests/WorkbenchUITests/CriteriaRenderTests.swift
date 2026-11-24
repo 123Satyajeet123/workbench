@@ -74,14 +74,15 @@ import WorkbenchCore
 
     @Test func theAgreementReportShowsEveryNumberOnTheHeldOutSet() async throws {
         let (helper, store) = try await intake()
-        let calls: [(String, Rating, [String: String])] = [
-            ("Acme", .hot, VCFixture.hot), ("Bolt", .warm, VCFixture.missingNumber), ("Bet", .cold, VCFixture.breaker),
-            ("Cyan", .hot, VCFixture.missingNumber), ("Dune", .cold, VCFixture.hot), ("Echo", .hot, VCFixture.breaker),
+        let calls: [(String, String, [String: String])] = [
+            ("Acme", "hot", VCFixture.hot), ("Bolt", "warm", VCFixture.missingNumber),
+            ("Bet", "cold", VCFixture.breaker), ("Cyan", "hot", VCFixture.missingNumber),
+            ("Dune", "cold", VCFixture.hot), ("Echo", "hot", VCFixture.breaker),
         ]
         for (company, call, reading) in calls {
             helper.agreement.add(company: company, text: "\(company) deck", url: "", call: call)
         }
-        helper.agreement.add(company: "Fern", text: "Fern deck", url: "", call: .warm)
+        helper.agreement.add(company: "Fern", text: "Fern deck", url: "", call: "warm")
         try MachineKey.agreement(helper.spec.task).save(
             helper.agreement.deals.enumerated().map { index, deal in
                 var read = deal

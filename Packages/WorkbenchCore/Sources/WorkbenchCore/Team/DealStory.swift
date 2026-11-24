@@ -20,7 +20,7 @@ public struct DealStory: Equatable, Sendable {
     public struct Ribbon: Equatable, Sendable {
         /// Where its items were captured from, once each, in the order they came.
         public var sources: [String]
-        public var rating: Rating?
+        public var rating: String?
         /// The person's latest mark on the item that was rated; nil when none was made.
         public var mark: Mark?
         public var moves: Int
@@ -28,7 +28,7 @@ public struct DealStory: Equatable, Sendable {
         public var actionsClosed: Int
 
         public init(
-            sources: [String], rating: Rating?, mark: Mark?, moves: Int, actionsOpened: Int, actionsClosed: Int
+            sources: [String], rating: String?, mark: Mark?, moves: Int, actionsOpened: Int, actionsClosed: Int
         ) {
             self.sources = sources
             self.rating = rating
@@ -55,7 +55,7 @@ public struct DealStory: Equatable, Sendable {
     /// The story of `deal`. `ratings` and `marks` are keyed by the id of the event that linked the item; `actions`
     /// are the deal's action facts.
     public static func make(
-        deal: WorkObject, ratings: [String: Rating], marks: [String: [Marked]], actions: [Item]
+        deal: WorkObject, ratings: [String: String], marks: [String: [Marked]], actions: [Item]
     ) -> DealStory {
         var entries: [Entry] = []
         let readable = Set(deal.items.map(\.event.id))
@@ -90,7 +90,7 @@ public struct DealStory: Equatable, Sendable {
         Entry(id: event.id, at: event.at, kind: kind, actor: event.author, isMachine: false, text: text)
     }
 
-    private static func captured(_ event: WorkEvent, _ item: LinkedItem, rating: Rating?, marks: [Marked])
+    private static func captured(_ event: WorkEvent, _ item: LinkedItem, rating: String?, marks: [Marked])
         -> [Entry]
     {
         var entries = [
@@ -102,7 +102,7 @@ public struct DealStory: Equatable, Sendable {
             entries.append(
                 Entry(
                     id: event.id + ".rated", at: event.at, kind: .rated, actor: item.machine, isMachine: true,
-                    text: "Rated \(rating.rawValue) by the criteria"))
+                    text: "Rated \(rating) by the criteria"))
         }
         entries += marks.enumerated().filter { $0.element.state != .proposed }.map { index, marked in
             Entry(

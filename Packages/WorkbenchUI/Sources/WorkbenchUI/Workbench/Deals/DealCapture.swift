@@ -5,7 +5,7 @@ extension DealStory.Ribbon {
     var words: [String] {
         [
             sources.isEmpty ? "Made by hand" : "From \(sources.formatted(.list(type: .and)))",
-            rating.map { "Rated \($0.rawValue)" } ?? "Not rated",
+            rating.map { "Rated \($0)" } ?? "Not rated",
             mark.map { $0 == .confirmed ? "You marked it right" : "You marked it wrong" } ?? "Not marked",
             "\(moves) \(moves == 1 ? "move" : "moves")",
             "Actions: \(actionsOpened) opened, \(actionsClosed) closed",

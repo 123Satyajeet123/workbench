@@ -3,11 +3,11 @@ import Observation
 import WorkbenchCore
 
 /// The founder's team, its people and the template it started from, edited in setup and in Settings, saved when the
-/// founder commits.
+/// founder commits. No template is chosen until the person picks one.
 @Observable
 final class TeamModel {
     var team: Team
-    var template: TeamTemplate
+    var template: TeamTemplate?
     let templates: [TeamTemplate]
     let problems = ProblemSlot()
     var problem: String? { problems.text }
@@ -21,7 +21,6 @@ final class TeamModel {
         self.store = store
         self.me = me
         self.templates = templates
-        template = templates[0]
         team = Team(name: "", people: [])
         reload()
     }
@@ -47,7 +46,7 @@ final class TeamModel {
         guard let store else { return }
         problems.attempt("save your team") {
             try store.saveTeam(team)
-            try Self.templateKey.save(template.id, to: store)
+            if let template { try Self.templateKey.save(template.id, to: store) }
             reload()
         }
     }

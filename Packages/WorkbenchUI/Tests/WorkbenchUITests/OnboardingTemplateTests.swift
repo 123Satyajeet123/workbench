@@ -129,7 +129,7 @@ private func onboarding(
         let model = onboarding(over: store, choosing: .fund)
         let criteria = model.questions.filter { $0.kind == .criteria }
         #expect(criteria.count == 1 && criteria[0].machineNames == ["Deal intake", "Outbound"])
-        let strict = Criteria(rules: [], hotAt: 7)
+        let strict = Criteria(rules: [], levels: Level.standard(topCut: 7))
         model.answer(criteria[0], with: .criteria(strict))
         model.advance(to: .done)
         model.next()
@@ -163,7 +163,7 @@ private func onboarding(
     }
 
     @Test func anAnswerBecomesAVersionLikeAnEditOnTheMachinePageAndSkipKeepsTheDefaults() throws {
-        let strict = Criteria(rules: [], hotAt: 7)
+        let strict = Criteria(rules: [], levels: Level.standard(topCut: 7))
         let answered = try scratchStore()
         let model = onboarding(over: answered, choosing: .fund)
         let question = try #require(model.questions.first { $0.kind == .criteria })

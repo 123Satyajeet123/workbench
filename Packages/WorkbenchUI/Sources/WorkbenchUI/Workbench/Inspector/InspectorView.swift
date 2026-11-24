@@ -17,7 +17,7 @@ struct InspectorView<Actions: View>: View {
             if let item {
                 InspectorContent(
                     item: item, card: proof.card(for: item), helper: proof.helper(of: item),
-                    offersDeals: InspectorMore.offersDeals(in: team.template), isHistoryOpen: isHistoryOpen,
+                    offersDeals: team.template.map(InspectorMore.offersDeals) ?? false, isHistoryOpen: isHistoryOpen,
                     actions: { actions }
                 )
                 .id(item.id)

@@ -14,9 +14,12 @@ struct AgreementReportView: View {
                 Grid(alignment: .leading, horizontalSpacing: Space.l, verticalSpacing: Space.xs) {
                     line("Agreement", "\(report.agreed) of \(report.total)\(percent(report.rate))", "held-out")
                     line("Floor (90% sure)", percent(report.agreementFloor, atLeast: true), "held-out, exact binomial")
-                    line("Hot missed", "\(report.hotMissed) of \(report.calledHot) you called hot", "held-out")
                     line(
-                        "Most hot missed (90% sure)", percent(report.hotMissedCeiling, atMost: true),
+                        "Best level missed",
+                        "\(report.topMissed) of \(report.calledTop) you called \(report.levels.first?.name ?? "")",
+                        "held-out")
+                    line(
+                        "Most best-level missed (90% sure)", percent(report.topMissedCeiling, atMost: true),
                         "held-out, exact binomial")
                     line("Needs your review", "\(report.needingReview) of \(report.total)", "held-out")
                 }
@@ -52,22 +55,24 @@ struct AgreementReportView: View {
 struct ConfusionGrid: View {
     let report: AgreementReport
 
+    private func isTopMissed(_ called: Level, _ rated: Level) -> Bool {
+        called == report.levels.first && rated == report.levels.last
+    }
+
     var body: some View {
         Grid(horizontalSpacing: Space.l, verticalSpacing: Space.xs) {
             GridRow {
                 Text("You \\ us").textStyle(.caption).foregroundStyle(.supporting)
-                ForEach(Rating.allCases, id: \.self) {
-                    Text($0.rawValue).textStyle(.caption).foregroundStyle(.supporting)
-                }
+                ForEach(report.levels) { Text($0.name).textStyle(.caption).foregroundStyle(.supporting) }
             }
-            ForEach(Rating.allCases, id: \.self) { called in
+            ForEach(report.levels) { called in
                 GridRow {
-                    Text(called.rawValue).textStyle(.caption).foregroundStyle(.supporting)
-                    ForEach(Rating.allCases, id: \.self) { rated in
-                        let count = report.count(called: called, rated: rated)
+                    Text(called.name).textStyle(.caption).foregroundStyle(.supporting)
+                    ForEach(report.levels) { rated in
+                        let count = report.count(called: called.name, rated: rated.name)
                         Text("\(count)").textStyle(.callout, digits: true)
                             .fontWeight(called == rated ? .semibold : .regular)
-                            .foregroundStyle(called == .hot && rated == .cold && count > 0 ? Tone.bad.color : .primary)
+                            .foregroundStyle(isTopMissed(called, rated) && count > 0 ? Tone.bad.color : .primary)
                     }
                 }
             }

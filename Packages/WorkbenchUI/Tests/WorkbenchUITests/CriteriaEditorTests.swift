@@ -143,18 +143,19 @@ enum VCFixture {
     @Test func thePreviewRescoresDealsAlreadyReadWithNoModelCall() async throws {
         let (store, crew, intake) = try setUp()
         var thesis = VCFixture.thesis
-        thesis.hotAt = 1
+        thesis.bestCut = 1
         crew.setCriteria(intake, thesis)
         try await read(VCFixture.hot, by: intake, in: store)
         try await read(VCFixture.missingNumber, by: intake, in: store)
         let editor = CriteriaModel(helper: intake)
-        #expect(editor.preview.rows.map(\.was) == [.hot, .warm])
+        #expect(editor.preview.rows.map(\.was) == ["hot", "warm"])
         var strict = try #require(editor.draft.rule("r_mrr"))
         strict.test = .number(.init(measure: "monthly revenue", unit: "USD", comparison: .atLeast, low: 50_000))
         editor.edit(strict)
         editor.commitForm()
         let rows = editor.preview.rows
-        #expect(rows.map(\.now) == [.cold, .warm], "a limit of 50k fails the 42k deal; the unknown number never fails")
+        #expect(
+            rows.map(\.now) == ["cold", "warm"], "a limit of 50k fails the 42k deal; the unknown number never fails")
         #expect(rows[0].unread == 0 && editor.preview.changed.count == 1)
         #expect(intake.spec.criteria == thesis, "unsaved")
     }

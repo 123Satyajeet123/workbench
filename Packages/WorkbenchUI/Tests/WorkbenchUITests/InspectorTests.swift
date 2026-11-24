@@ -357,10 +357,10 @@ import WorkbenchCore
         let team = TeamModel(store: store, me: { "Kabir" })
         team.template = .fund
         team.save()
-        #expect(InspectorMore.offersDeals(in: TeamModel(store: store, me: { "Kabir" }).template))
+        #expect(InspectorMore.offersDeals(in: TeamModel(store: store, me: { "Kabir" }).template!))
         team.template = .startupTeam
         team.save()
-        #expect(!InspectorMore.offersDeals(in: TeamModel(store: store, me: { "Kabir" }).template))
+        #expect(!InspectorMore.offersDeals(in: TeamModel(store: store, me: { "Kabir" }).template!))
     }
 
     @Test func theInspectorHeaderIsThePersonsQuoteAndTheMachinesTitleOnlyWithoutOne() async throws {

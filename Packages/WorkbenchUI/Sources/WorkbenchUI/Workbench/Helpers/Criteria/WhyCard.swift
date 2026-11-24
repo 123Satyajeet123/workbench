@@ -7,8 +7,8 @@ struct WhyCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Space.s) {
             HStack(spacing: Space.s) {
-                Text(triage.rating.rawValue.capitalized).textStyle(.headline)
-                    .foregroundStyle(triage.rating.tone.color)
+                Text(triage.rating.capitalized).textStyle(.headline)
+                    .foregroundStyle(triage.tone.color)
                 Text(decision).textStyle(.callout).foregroundStyle(.supporting)
             }
             if triage.needsReview { ReviewFlag(reasons: triage.review) }
@@ -36,7 +36,7 @@ struct WhyDisclosure: View {
         Fold(isOpen: isOpen) {
             WhyCard(triage: triage).padding(.top, Space.xs)
         } label: {
-            Text("Why \(triage.rating.rawValue)" + (triage.needsReview ? " · needs your review" : ""))
+            Text("Why \(triage.rating)" + (triage.needsReview ? " · needs your review" : ""))
                 .foregroundStyle(triage.needsReview ? Tone.attention.color : Color.secondary)
         }
         .textStyle(.callout)
@@ -97,12 +97,7 @@ extension Verdict {
     }
 }
 
-extension Rating {
-    var tone: Tone {
-        switch self {
-        case .hot: .good
-        case .warm: .neutral
-        case .cold: .bad
-        }
-    }
+extension Triage {
+    /// The best level is good, the lowest bad, the ones between neutral.
+    var tone: Tone { place == 0 ? .good : place == levelCount - 1 ? .bad : .neutral }
 }

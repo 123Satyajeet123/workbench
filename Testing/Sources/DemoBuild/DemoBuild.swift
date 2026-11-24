@@ -166,7 +166,7 @@ public enum DemoBuild {
         let now = session.store.clock()
         let read = try days.flatMap { try session.store.queries.items(of: intake.spec.task, on: $0) }
         let hot = read.filter {
-            $0.isListed(at: now) && intake.spec.triage(of: $0)?.rating == .hot
+            $0.isListed(at: now) && intake.spec.triage(of: $0)?.rating == "hot"
         }
         var companies: Set<String> = []
         for item in hot where companies.insert(item[intake.spec.title]).inserted {

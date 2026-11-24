@@ -26,8 +26,8 @@ import WorkbenchCore
 
     @Test func pastDealsAreKeptReadAndReportedAndStayOutOfEveryItemList() async throws {
         let (store, _, intake, model) = try setUp()
-        intake.agreement.add(company: "Zed", text: "Zed Labs, Mumbai. ex-Razorpay founders.", url: "", call: .hot)
-        intake.agreement.add(company: " ", text: "x", url: "", call: .hot)
+        intake.agreement.add(company: "Zed", text: "Zed Labs, Mumbai. ex-Razorpay founders.", url: "", call: "hot")
+        intake.agreement.add(company: " ", text: "x", url: "", call: "hot")
         #expect(intake.agreement.deals.count == 1 && intake.agreement.waiting.count == 1)
         await intake.agreement.read()
         #expect(intake.agreement.waiting.isEmpty && intake.agreement.report.agreed == 1)
@@ -38,7 +38,7 @@ import WorkbenchCore
 
     @Test func theDealsSurviveARestart() async throws {
         let (store, _, intake, _) = try setUp()
-        intake.agreement.add(company: "Zed", text: "Zed Labs", url: "https://x.test/deck", call: .warm)
+        intake.agreement.add(company: "Zed", text: "Zed Labs", url: "https://x.test/deck", call: "warm")
         let again = HelperModel(
             machine: intake.machine, source: intake.source, store: store, makeModel: nil, notifier: FakeNotifier())
         #expect(
@@ -48,7 +48,7 @@ import WorkbenchCore
 
     @Test func deletingTheMachineDeletesItsHeldOutDeals() throws {
         let (store, _, intake, _) = try setUp()
-        intake.agreement.add(company: "Zed", text: "Zed Labs", url: "", call: .cold)
+        intake.agreement.add(company: "Zed", text: "Zed Labs", url: "", call: "cold")
         let key = "\(intake.spec.task).agreement"
         #expect(try store.queries.state(forKey: key) != nil)
         try store.setState(intake.machine, .deleted)
@@ -57,13 +57,13 @@ import WorkbenchCore
 
     @Test func aRuleAddedLaterMakesReadDealsWaitForANewReadingAndAnUnchangedLimitDoesNot() async throws {
         let (_, crew, intake, _) = try setUp()
-        intake.agreement.add(company: "Zed", text: "Zed Labs, Mumbai. ex-Razorpay founders.", url: "", call: .hot)
+        intake.agreement.add(company: "Zed", text: "Zed Labs, Mumbai. ex-Razorpay founders.", url: "", call: "hot")
         await intake.agreement.read()
         var more = try #require(intake.spec.criteria)
-        more.hotAt = 2
+        more.bestCut = 2
         crew.setCriteria(intake, more)
         #expect(intake.agreement.waiting.isEmpty, "a new threshold is applied by code to the same readings")
-        #expect(intake.agreement.report.count(called: .hot, rated: .warm) == 1)
+        #expect(intake.agreement.report.count(called: "hot", rated: "warm") == 1)
         crew.setCriteria(intake, more.adding(VCFixture.gambling))
         #expect(intake.agreement.waiting.count == 1, "a new rule has no reading yet")
     }

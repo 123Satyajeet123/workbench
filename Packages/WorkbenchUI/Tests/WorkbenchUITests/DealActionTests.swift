@@ -68,8 +68,8 @@ import WorkbenchCore
         let cold = try await fixture.deal("Bet Fantasy", reading: VCFixture.breaker)
         fixture.deals.claim(hot)
         fixture.deals.requireAction(hot, what: "Get the cap table", due: friday)
-        #expect(fixture.deals.digests[hot.id]?.triage?.rating == .hot)
-        #expect(fixture.deals.digests[cold.id]?.triage?.rating == .cold)
+        #expect(fixture.deals.digests[hot.id]?.triage?.rating == "hot")
+        #expect(fixture.deals.digests[cold.id]?.triage?.rating == "cold")
         #expect(fixture.deals.deal(hot.id)?.holder == "Aditya")
         #expect(fixture.deals.digests[cold.id]?.action == nil)
     }
@@ -102,7 +102,7 @@ import WorkbenchCore
         #expect(
             story.ribbon
                 == DealStory.Ribbon(
-                    sources: ["WhatsApp"], rating: .hot, mark: .confirmed, moves: 3, actionsOpened: 1,
+                    sources: ["WhatsApp"], rating: "hot", mark: .confirmed, moves: 3, actionsOpened: 1,
                     actionsClosed: 1))
         #expect(story.ribbon.words.first == "From WhatsApp")
         #expect(story.entries.filter(\.isMachine).map(\.text) == ["Rated hot by the criteria"])

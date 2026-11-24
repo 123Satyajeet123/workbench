@@ -10,7 +10,7 @@ import Testing
             Rule(id: "r_stage", role: .must, test: .text(TextTest(says: "Raises a seed round.", wants: true))),
             Rule(id: "r_a", role: .plus, test: .text(TextTest(says: "Has revenue.", wants: true))),
             Rule(id: "r_b", role: .plus, test: .text(TextTest(says: "Has a repeat founder.", wants: true))),
-        ], hotAt: 1)
+        ], levels: Level.standard(topCut: 1))
 
     private func candidate(_ company: String, stage: String, a: String, b: String) -> Item {
         var fields = ["company": company]
@@ -33,7 +33,7 @@ import Testing
         ]
         let ranked = OutboundReview.rank(found, criteria: criteria)
         #expect(ranked.map(\.company) == ["Alpha", "Acorn", "Bravo", "Cyan", "Delta"])
-        #expect(ranked.map(\.triage.rating) == [.hot, .hot, .hot, .warm, .cold])
+        #expect(ranked.map(\.triage.rating) == ["hot", "hot", "hot", "warm", "cold"])
         #expect(ranked.map(\.triage.points) == [2, 1, 1, 0, 2], "a deal-breaker or must fail is cold at any points")
     }
 
@@ -42,8 +42,8 @@ import Testing
             candidate("Alpha", stage: "yes", a: "yes", b: "yes"), candidate("Bravo", stage: "yes", a: "yes", b: "no"),
         ]
         var strict = criteria
-        strict.hotAt = 2
-        #expect(OutboundReview.rank(found, criteria: strict).map(\.triage.rating) == [.hot, .warm])
+        strict.bestCut = 2
+        #expect(OutboundReview.rank(found, criteria: strict).map(\.triage.rating) == ["hot", "warm"])
     }
 
     @Test func theQueriesKeepOnlyRulesThatExistAndWantSomething() {

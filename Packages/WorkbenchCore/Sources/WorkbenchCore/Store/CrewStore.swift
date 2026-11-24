@@ -12,22 +12,33 @@ extension Store {
         }
     }
 
-    /// Makes the machines of a team template for a store that never held a machine, and puts each answer in the spec of
-    /// the machine it is for as a new version of that machine. A store that held a machine is left as it is.
+    /// Sets up each gallery item of a team template for a store that never held a machine, with `start`, and puts each
+    /// answer in the spec of the machine it is for as a new version of that machine. An item that needs what the app
+    /// cannot give is left out and named in the result. A store that held a machine is left as it is.
     @discardableResult
-    public func startTeam(from template: TeamTemplate, answers: SetupAnswers = [:]) throws -> TeamStart {
+    public func startTeam(
+        from template: TeamTemplate, answers: SetupAnswers = [:], having: Set<GalleryTemplate.Need> = []
+    ) throws -> TeamStart {
         guard try !queries.holdsMachine() else { return TeamStart() }
-        try seedMachines(template.seeds)
-        let machines = try queries.machines()
-        var started = TeamStart(machines: machines.map(\.name))
+        var started = TeamStart()
+        var seeded: [Machine?] = []
+        for entry in template.entries {
+            do {
+                let start = try start(
+                    entry.item, name: entry.machine.name, overrides: entry.machine.overrides, having: having)
+                started.prompts += start.prompts.map { TeamStart.Prompt(machine: entry.machine.name, block: $0) }
+                if let machine = start.machine {
+                    started.machines.append(machine.name)
+                    seeded.append(machine)
+                }
+            } catch let refusal as GalleryStartError {
+                started.refused.append(refusal.localizedDescription)
+                if entry.item.machine != nil { seeded.append(nil) }
+            }
+        }
         for question in template.setupQuestions {
             guard let answer = answers[question] else { continue }
-            for index in question.machines {
-                guard let machine = machines.first(where: { $0.task == template.seeds[index].spec.task }) else {
-                    continue
-                }
-                try apply(answer, to: machine)
-            }
+            for case let machine? in question.machines.map({ seeded[$0] }) { try apply(answer, to: machine) }
             started.answered += 1
         }
         return started

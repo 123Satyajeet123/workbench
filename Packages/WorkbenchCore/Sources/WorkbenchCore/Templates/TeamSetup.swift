@@ -63,8 +63,16 @@ extension HelperSpec {
     }
 }
 
-/// What starting a team made: the machines now in the store, and how many answers went into their specs.
+/// What starting a team made: the names of its machines, how many answers went into their specs, what the person must
+/// still choose, and the items left out because the app lacks what they need.
 public struct TeamStart: Sendable, Equatable {
+    public struct Prompt: Sendable, Equatable {
+        public var machine: String
+        public var block: GalleryTemplate.StartBlock
+    }
+
     public var machines: [String] = []
     public var answered = 0
+    public var prompts: [Prompt] = []
+    public var refused: [String] = []
 }

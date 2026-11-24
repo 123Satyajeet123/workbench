@@ -151,7 +151,7 @@ struct OutboundWorld {
         try world.switchWeb(true)
         try await world.find()
         #expect(world.listed.map(\.company) == ["Ledgerly", "Quill", "Pitch11"])
-        #expect(world.listed.map(\.triage.rating) == [.hot, .warm, .cold])
+        #expect(world.listed.map(\.triage.rating) == ["hot", "warm", "cold"])
         let run = try #require(world.source.runs.last)
         #expect(run.queries.count == 5 && run.cost.searches == 5 && run.pagesRead == 3 && run.kept == 3)
         #expect(run.cost.totalUSD > 0)

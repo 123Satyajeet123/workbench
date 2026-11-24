@@ -5,6 +5,10 @@ import WorkbenchCore
 struct TeamStep: View {
     @Environment(OnboardingModel.self) private var model
 
+    private var optionalMachines: [TeamMachine] {
+        model.startsTeam ? model.teamModel.template?.optionalMachines ?? [] : []
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: Space.l) {
             TeamEditor()
@@ -17,14 +21,14 @@ struct TeamStep: View {
                 VStack(spacing: 0) {
                     ForEach(model.teamModel.templates) { template in
                         TemplateRow(
-                            template: template, isChosen: template == model.template,
+                            template: template, isChosen: template == model.teamModel.template,
                             choose: { model.teamModel.template = template })
                         if template != model.teamModel.templates.last { Divider() }
                     }
                 }
                 .padding(.horizontal, Space.m)
                 .background(.calloutFill, in: .rect(cornerRadius: Radius.card))
-                ForEach(model.startsTeam ? model.teamModel.template.optionalMachines : [], id: \.template) { machine in
+                ForEach(optionalMachines, id: \.template) { machine in
                     Toggle(
                         isOn: Binding(
                             get: { model.optionalChosen.contains(machine.template) },

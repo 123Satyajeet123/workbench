@@ -44,7 +44,7 @@ import WorkbenchCore
     @Test func theSetupStepShowsAnAnswerKept() throws {
         let session = try session(.fund)
         let question = try #require(session.onboarding.questions.first { $0.kind == .criteria })
-        session.onboarding.answer(question, with: .criteria(Criteria(rules: [], hotAt: 7)))
+        session.onboarding.answer(question, with: .criteria(Criteria(rules: [], levels: Level.standard(topCut: 7))))
         try draw(.setup, of: session, as: "onboarding-fund-setup-answered")
     }
 

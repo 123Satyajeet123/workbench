@@ -23,7 +23,7 @@ import Testing
                 ])
         }
         #expect(template(nil).setupQuestions.filter { $0.kind == .criteria }.map(\.machines) == [[0, 1]])
-        let other = Criteria(rules: [], hotAt: 5)
+        let other = Criteria(rules: [], levels: Level.standard(topCut: 5))
         #expect(template(other).setupQuestions.filter { $0.kind == .criteria }.map(\.machines) == [[0], [1]])
     }
 
@@ -48,7 +48,7 @@ import Testing
 }
 
 @Suite struct StartTeamAnswersTests {
-    private let strictRules = Criteria(rules: [], hotAt: 7)
+    private let strictRules = Criteria(rules: [], levels: Level.standard(topCut: 7))
     private let jobFeed = HiringTemplate.jobFeed
 
     private func machine(_ name: String, in store: Store) throws -> Machine {

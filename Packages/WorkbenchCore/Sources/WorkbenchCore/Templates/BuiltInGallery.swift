@@ -41,7 +41,7 @@ extension GalleryTemplate {
         detail: "Ask about a company, and keep what is found on the web, each with its source.",
         folder: FolderStart(name: "Research"), machine: nil,
         job: "Look up a company on the web and keep what is found, with its source.",
-        blocks: [.heading("Companies")], needs: [.taskRunner])
+        blocks: [], needs: [.taskRunner])
 
     public static let dealsFromChats = GalleryTemplate(
         id: MachineTemplate.dealsFromChats.id, name: "Deals from chats", icon: "bubble.left.and.text.bubble.right",

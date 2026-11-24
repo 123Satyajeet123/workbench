@@ -25,7 +25,7 @@ final class HelperAgreement {
         return deals.filter { $0.reading == nil || stale.contains($0.id) }
     }
 
-    func add(company: String, text: String, url: String, call: Rating) {
+    func add(company: String, text: String, url: String, call: String) {
         guard let company = company.cleaned, let text = text.cleaned else { return }
         deals.append(PastDeal(company: company, text: text, url: url.cleaned, call: call))
         save()

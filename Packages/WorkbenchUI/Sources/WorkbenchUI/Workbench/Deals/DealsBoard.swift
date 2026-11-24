@@ -52,9 +52,9 @@ struct DealCard: View {
             HStack {
                 Text(deal.name).fontWeight(.medium)
                 Spacer(minLength: Space.xs)
-                if let rating = digest?.triage?.rating {
-                    Text(rating.rawValue.capitalized).textStyle(.caption, weight: .semibold)
-                        .foregroundStyle(rating.tone.color)
+                if let triage = digest?.triage {
+                    Text(triage.rating.capitalized).textStyle(.caption, weight: .semibold)
+                        .foregroundStyle(triage.tone.color)
                 }
             }
             if deal.stages.count > 1 {

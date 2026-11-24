@@ -135,8 +135,8 @@ extension Gates {
         let lines = try desk.store.queries.evidence(of: dealA, author: "Aditya")
         let cited = lines.first { $0.id == rated.rating?.citeFirst }
         check(
-            rated.triage?.rating == .hot && desk.deals.digests[dealA.id]?.triage?.rating == .hot,
-            "a deal added by hand, with no mail, is rated \(rated.triage?.rating.rawValue ?? "not rated") by the thesis"
+            rated.triage?.rating == "hot" && desk.deals.digests[dealA.id]?.triage?.rating == "hot",
+            "a deal added by hand, with no mail, is rated \(rated.triage?.rating ?? "not rated") by the thesis"
         )
         check(
             cited != nil && cited?.consent?.kind == .dropped,
@@ -151,8 +151,8 @@ extension Gates {
         await desk.claims.rate(dealA)
         let guarded = desk.claims.state(of: dealA).triage
         check(
-            guarded?.results.first?.verdict == .unknown && guarded?.rating == .warm && guarded?.needsReview == true,
-            "a quote the model made up is refused: the must rule reads unknown, the deal is held at \(guarded?.rating.rawValue ?? "?"), not hot, and asks for review: \(guarded?.review ?? [])"
+            guarded?.results.first?.verdict == .unknown && guarded?.rating == "warm" && guarded?.needsReview == true,
+            "a quote the model made up is refused: the must rule reads unknown, the deal is held at \(guarded?.rating ?? "?"), not hot, and asks for review: \(guarded?.review ?? [])"
         )
 
         desk.model.append([rating])
@@ -185,8 +185,8 @@ extension Gates {
         let ratedB = desk.claims.state(of: dealB)
         let linesB = try desk.store.queries.evidence(of: dealB, author: "Aditya")
         check(
-            ratedB.triage?.rating == .hot && linesB.allSatisfy { $0.consent?.kind == .whatsapp },
-            "a deal found in a WhatsApp chat is rated the same way, over \(linesB.count) chat lines: \(ratedB.triage?.rating.rawValue ?? "none")"
+            ratedB.triage?.rating == "hot" && linesB.allSatisfy { $0.consent?.kind == .whatsapp },
+            "a deal found in a WhatsApp chat is rated the same way, over \(linesB.count) chat lines: \(ratedB.triage?.rating ?? "none")"
         )
         let before = desk.model.inputs.withLock { $0.count }
         try desk.allow([.whatsapp: false], labels: [.whatsapp: [teamGroup]])
@@ -321,8 +321,8 @@ extension Gates {
         ])
         await look.run()
         check(
-            look.rows.count == 3 && look.rows.map(\.triage?.rating) == [.hot, .hot, .cold],
-            "the deals of the period, rated against the thesis, best first: \(look.rows.map { ($0.fact.item["company"], $0.triage?.rating.rawValue ?? "") })"
+            look.rows.count == 3 && look.rows.map(\.triage?.rating) == ["hot", "hot", "cold"],
+            "the deals of the period, rated against the thesis, best first: \(look.rows.map { ($0.fact.item["company"], $0.triage?.rating ?? "") })"
         )
         check(
             look.rows.allSatisfy { !$0.fact.item.quote.isEmpty && $0.triage?.results.isEmpty == false },

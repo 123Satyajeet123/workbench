@@ -53,7 +53,7 @@ final class CriteriaModel {
         draft = draft.replacing(rule.id, with: edited)
     }
 
-    func setHotAt(_ points: Int) { draft.hotAt = points }
+    func setBestCut(_ points: Int) { draft.bestCut = points }
 
     func discard() {
         draft = saved

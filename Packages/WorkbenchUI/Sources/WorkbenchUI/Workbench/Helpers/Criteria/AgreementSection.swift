@@ -19,7 +19,12 @@ struct AgreementBody: View {
     @State private var company = ""
     @State private var text = ""
     @State private var url = ""
-    @State private var call = Rating.hot
+    @State private var chosenCall: String?
+
+    private var levels: [String] { agreement.report.levels.map(\.name) }
+    private var call: Binding<String> {
+        Binding(get: { chosenCall ?? levels.first ?? "" }, set: { chosenCall = $0 })
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Space.m) {
@@ -30,7 +35,7 @@ struct AgreementBody: View {
             ForEach(agreement.report.rows) { row in DealRow(row: row) { agreement.remove(row.deal) } }
             ForEach(agreement.deals.filter { $0.reading == nil }) { deal in
                 HStack {
-                    Text("\(deal.company) · you said \(deal.call.rawValue) · not read yet")
+                    Text("\(deal.company) · you said \(deal.call) · not read yet")
                         .textStyle(.callout).foregroundStyle(.supporting)
                     Spacer()
                     Button("Remove") { agreement.remove(deal) }.buttonStyle(.ghost).foregroundStyle(.linkText)
@@ -53,8 +58,8 @@ struct AgreementBody: View {
             HStack(spacing: Space.s) {
                 TextField("Company", text: $company).frame(maxWidth: 200)
                 TextField("Deck link, for your reference", text: $url).frame(maxWidth: 260)
-                Picker("Your call", selection: $call) {
-                    ForEach(Rating.allCases, id: \.self) { Text($0.rawValue.capitalized).tag($0) }
+                Picker("Your call", selection: call) {
+                    ForEach(levels, id: \.self) { Text($0.capitalized).tag($0) }
                 }
                 .pickerStyle(.segmented).frame(maxWidth: 220)
             }
@@ -66,7 +71,7 @@ struct AgreementBody: View {
                     }
                 }
             Button("Add held-out deal") {
-                agreement.add(company: company, text: text, url: url, call: call)
+                agreement.add(company: company, text: text, url: url, call: call.wrappedValue)
                 (company, text, url) = ("", "", "")
             }
             .disabled(company.cleaned == nil || text.cleaned == nil)
@@ -84,7 +89,7 @@ private struct DealRow: View {
                 .foregroundStyle((row.agrees ? Tone.good : Tone.bad).color)
                 .accessibilityLabel(row.agrees ? "Agrees" : "Differs")
             Text(row.deal.company)
-            Text("you: \(row.deal.call.rawValue) · us: \(row.triage.rating.rawValue)")
+            Text("you: \(row.deal.call) · us: \(row.triage.rating)")
                 .textStyle(.callout).foregroundStyle(.supporting)
             if row.triage.needsReview { Text("needs review").textStyle(.caption).foregroundStyle(Tone.attention.color) }
             if row.needsReading { Text("rules changed: read again").textStyle(.caption).foregroundStyle(.supporting) }

@@ -90,7 +90,6 @@ let genericLines = [
     Generic("Catalog.swift", "$0.task == task", byDataId),
     Generic("Catalog.swift", "$0.task == spec.task", "compares the machine's own task with a review"),
     Generic("MachineRoles.swift", "$0.task == task", "finds the machine of an item the deal links"),
-    Generic("CrewStore.swift", "template.seeds[index].spec.task", "finds the machine of a seed by the seed's own spec"),
     Generic("ItemStore.swift", "$0.task == follows", "reads the task a spec follows from the spec"),
     Generic("TodayModel.swift", "$0.task == machine.task", "keeps the facts of the machine at hand"),
     Generic("TodayModel.swift", "crew.helper(task: item.task)", byDataId),
@@ -106,7 +105,7 @@ let genericLines = [
     Generic("Crew.swift", "func helper(task:", byDataId),
     Generic("Crew.swift", "helper(task: task)", byDataId),
     Generic("HelperModel.swift", "$0.task == spec.task", "reads the quality of the machine's own task"),
-    Generic("TeamStep.swift", "template == model.template", "marks the chosen card of a list"),
+    Generic("TeamStep.swift", "template == model.teamModel.template", "marks the chosen card of a list"),
     Generic("FirstLookModel.swift", "helper(task:", byDataId),
 ]
 

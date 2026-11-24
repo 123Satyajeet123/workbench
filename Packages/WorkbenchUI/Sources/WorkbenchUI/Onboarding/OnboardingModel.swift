@@ -57,8 +57,8 @@ final class OnboardingModel {
         }
     }
 
-    /// The chosen template with the optional machines the person asked for.
-    var template: TeamTemplate { teamModel.template.adding(optional: optionalChosen) }
+    /// The chosen template with the optional machines the person asked for. Until the person chooses, it starts nothing.
+    var template: TeamTemplate { (teamModel.template ?? .blank).adding(optional: optionalChosen) }
     var needs: [SourceNeed] { template.sourceNeeds }
     /// The questions of the template's machines, asked only when finishing setup makes those machines.
     var questions: [SetupQuestion] { startsTeam ? template.setupQuestions : [] }
@@ -79,7 +79,7 @@ final class OnboardingModel {
     var canContinue: Bool {
         switch screen {
         case .you: identityModel.identity.hasName
-        case .team: teamModel.team.name.cleaned != nil
+        case .team: teamModel.team.name.cleaned != nil && (!startsTeam || teamModel.template != nil)
         case .welcome, .connect, .setup, .watchlist, .firstLook, .done: true
         }
     }

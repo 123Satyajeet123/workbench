@@ -128,13 +128,13 @@ public enum OutboundEval {
     private static func report(_ split: EvalSplit, ranked: [OutboundCandidate], fixture: OutboundFixture, pages: Int)
         -> Report
     {
-        let accepted = fixture.deals.filter { $0.call != .cold }
+        let accepted = fixture.deals.filter { $0.call != "cold" }
         func known(_ deals: [PastDeal]) -> KnownCompanies {
             var known = KnownCompanies()
             for deal in deals { known.add(name: deal.company) }
             return known
         }
-        let (right, wrong) = (known(accepted), known(fixture.deals.filter { $0.call == .cold }))
+        let (right, wrong) = (known(accepted), known(fixture.deals.filter { $0.call == "cold" }))
         let top = ranked.prefix(precisionDepth)
         var deep = KnownCompanies()
         for candidate in ranked.prefix(recallDepth) { deep.add(name: candidate.company, domain: candidate.domain) }

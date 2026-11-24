@@ -81,9 +81,9 @@ private struct CombineTable: View {
             Text("How the call is made").textStyle(.headline)
             ForEach(model.draft.table, id: \.self) { Text($0).textStyle(.callout).foregroundStyle(.supporting) }
             HStack(spacing: Space.s) {
-                Text("Points needed to be hot: \(model.draft.hotAt)")
-                Button("−") { model.setHotAt(max(0, model.draft.hotAt - 1)) }
-                Button("+") { model.setHotAt(min(10, model.draft.hotAt + 1)) }
+                Text("Points needed to be \(model.draft.best?.name ?? ""): \(model.draft.bestCut)")
+                Button("−") { model.setBestCut(max(0, model.draft.bestCut - 1)) }
+                Button("+") { model.setBestCut(min(10, model.draft.bestCut + 1)) }
             }
             .textStyle(.callout)
         }
@@ -103,7 +103,7 @@ struct PreviewNote: View {
                 Text("The call stays the same for every deal.").textStyle(.callout)
             }
             ForEach(preview.changed) { row in
-                Text("\(row.title): \(row.was.rawValue) to \(row.now.rawValue)").textStyle(.callout)
+                Text("\(row.title): \(row.was) to \(row.now)").textStyle(.callout)
             }
             if preview.unread > 0 {
                 Text("Deals with a rule not read yet: \(preview.unread). They show unknown until read again.")

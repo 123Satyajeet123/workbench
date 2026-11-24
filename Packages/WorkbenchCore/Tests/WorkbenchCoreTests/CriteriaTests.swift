@@ -39,7 +39,7 @@ private func answered(_ rule: Rule, _ answer: String) -> [String: String] {
     @Test func aMissingNumberNeverFailsAMustRule() {
         let must = Rule(id: "r_emp", role: .must, test: employees.test)
         let result = triage(Criteria(rules: [must]), answered(must, ""))
-        #expect(result.rating != .cold && result.needsReview, "unknown holds at warm and asks for review")
+        #expect(result.rating != "cold" && result.needsReview, "unknown holds at warm and asks for review")
         #expect(result.review == ["Employee count not found."])
     }
 
@@ -61,40 +61,40 @@ private func answered(_ rule: Rule, _ answer: String) -> [String: String] {
 }
 
 @Suite struct CombineTableTests {
-    private func rating(_ criteria: Criteria, _ pairs: [String: String]) -> Rating {
+    private func rating(_ criteria: Criteria, _ pairs: [String: String]) -> String {
         triage(criteria, pairs).rating
     }
 
     @Test func aDealBreakerForcesColdWhateverElsePasses() {
         let criteria = Criteria(rules: [gambling, traction, employees])
         let pass = answered(traction, yes).and(answered(employees, "90"))
-        #expect(rating(criteria, pass.and(answered(gambling, no))) == .hot)
+        #expect(rating(criteria, pass.and(answered(gambling, no))) == "hot")
         let result = triage(criteria, pass.and(answered(gambling, yes)))
-        #expect(result.rating == .cold)
+        #expect(result.rating == "cold")
         #expect(result.decidedBy == ["r_gamble"])
         #expect(result.review == ["The rules point both ways."], "a plus passes while a hard stop fails")
     }
 
     @Test func aFailedMustIsColdAndAnUnknownMustHoldsAtWarm() {
         let criteria = Criteria(rules: [india, traction])
-        #expect(rating(criteria, answered(india, no).and(answered(traction, yes))) == .cold)
+        #expect(rating(criteria, answered(india, no).and(answered(traction, yes))) == "cold")
         let held = triage(criteria, answered(traction, yes))
-        #expect(held.rating == .warm && held.needsReview, "must not read yet, so hot is held at warm")
+        #expect(held.rating == "warm" && held.needsReview, "must not read yet, so hot is held at warm")
         let clear = triage(criteria, answered(india, yes).and(answered(traction, yes)))
-        #expect(clear.rating == .hot && !clear.needsReview)
+        #expect(clear.rating == "hot" && !clear.needsReview)
     }
 
     @Test func pointsDecideTheRestByTheStatedTable() {
         let criteria = Criteria(rules: [traction, employees, burn])
         let one = answered(traction, yes).and(answered(employees, "5"))
-        #expect(rating(criteria, one.and(answered(burn, no))) == .hot, "1 point")
-        #expect(rating(criteria, answered(traction, no).and(answered(burn, no))) == .warm, "0 points")
-        #expect(rating(criteria, answered(burn, yes)) == .cold, "-1 point")
-        #expect(rating(criteria, one.and(answered(burn, yes))) == .warm, "1 - 1")
+        #expect(rating(criteria, one.and(answered(burn, no))) == "hot", "1 point")
+        #expect(rating(criteria, answered(traction, no).and(answered(burn, no))) == "warm", "0 points")
+        #expect(rating(criteria, answered(burn, yes)) == "cold", "-1 point")
+        #expect(rating(criteria, one.and(answered(burn, yes))) == "warm", "1 - 1")
         var strict = criteria
-        strict.hotAt = 2
-        #expect(rating(strict, one.and(answered(employees, "50"))) == .hot, "2 points reach hotAt 2")
-        #expect(rating(strict, one) == .warm, "1 point is below hotAt 2")
+        strict.bestCut = 2
+        #expect(rating(strict, one.and(answered(employees, "50"))) == "hot", "2 points reach hotAt 2")
+        #expect(rating(strict, one) == "warm", "1 point is below hotAt 2")
         #expect(criteria.table.count == 6 && criteria.table[3].contains("Points of 1 or more"))
     }
 
@@ -107,7 +107,7 @@ private func answered(_ rule: Rule, _ answer: String) -> [String: String] {
     @Test func aMinusWithAPlusConflictsAndAsksForReview() {
         let result = triage(
             Criteria(rules: [traction, burn]), answered(traction, yes).and(answered(burn, yes)))
-        #expect(result.rating == .warm && result.review == ["The rules point both ways."])
+        #expect(result.rating == "warm" && result.review == ["The rules point both ways."])
     }
 }
 
@@ -132,7 +132,7 @@ private func answered(_ rule: Rule, _ answer: String) -> [String: String] {
             "words": base.replacing(
                 "r_in", with: Rule(id: "r_in", role: .must, test: .text(.init(says: "Based in Pune", wants: true)))),
             "added": base.adding(gambling), "removed": base.removing("r_in"),
-            "table": Criteria(rules: base.rules, hotAt: 2),
+            "table": Criteria(rules: base.rules, levels: Level.standard(topCut: 2)),
         ]
         let original = try instructions(base)
         for (name, edited) in edits {
@@ -217,7 +217,7 @@ private func answered(_ rule: Rule, _ answer: String) -> [String: String] {
             ])
         let kept = try #require(item)
         let result = criteria.triage(kept.fields)
-        #expect(result.rating == .hot)
+        #expect(result.rating == "hot")
         #expect(result.results[0].number == 45 && result.results[0].quote == "We are 45 people")
         #expect(result.results[1].reason == "Pune is in India.")
     }
@@ -232,7 +232,7 @@ private func answered(_ rule: Rule, _ answer: String) -> [String: String] {
             ])
         let result = criteria.triage(try #require(item).fields)
         #expect(result.results.map(\.verdict) == [.unknown, .unknown], "no verified quote, no verdict")
-        #expect(result.results.allSatisfy(\.isRead) && result.rating == .warm && result.needsReview)
+        #expect(result.results.allSatisfy(\.isRead) && result.rating == "warm" && result.needsReview)
     }
 
     @Test func aRuleAddedAfterTheReadingReadsAsNotYetReadAndIsNotAFail() async throws {
@@ -240,7 +240,7 @@ private func answered(_ rule: Rule, _ answer: String) -> [String: String] {
         let later = Criteria(rules: [employees, india])
         let result = later.triage(try #require(item).fields)
         #expect(result.results.map(\.isRead) == [true, false] && result.results[1].verdict == .unknown)
-        #expect(result.rating == .warm, "an unread must holds the deal at warm")
+        #expect(result.rating == "warm", "an unread must holds the deal at warm")
     }
 
     @Test func theScoredItemCarriesTheCallAndFollowsTheCriteriaNow() async throws {
@@ -266,8 +266,8 @@ private func answered(_ rule: Rule, _ answer: String) -> [String: String] {
                 test: .number(.init(measure: "employee count", unit: "people", comparison: .atLeast, low: 90))))
         let preview = CriteriaPreview(items: [try #require(item)], title: "company", current: current, edited: stricter)
         #expect(
-            preview.changed.map(\.title) == ["Acme"] && preview.changed[0].was == .hot
-                && preview.changed[0].now == .warm)
+            preview.changed.map(\.title) == ["Acme"] && preview.changed[0].was == "hot"
+                && preview.changed[0].now == "warm")
         #expect(preview.unread == 0 && model.inputs.withLock { $0.count } == calls)
         let reworded = current.replacing(
             "r_emp",
