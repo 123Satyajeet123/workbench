@@ -1,5 +1,6 @@
 import AgentCLI
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct SettingsSectionView: View {
     let section: SettingsSection
@@ -9,6 +10,7 @@ struct SettingsSectionView: View {
     @Environment(Crew.self) private var crew
     @Environment(Notifications.self) private var notifications
     @AppStorage(AppTheme.key) private var theme = AppTheme.system
+    @State private var isChoosingLinkedIn = false
 
     var body: some View {
         Form {
@@ -104,6 +106,17 @@ struct SettingsSectionView: View {
     private var sources: some View {
         Section {
             SourceToggles()
+            SettingRow(
+                "LinkedIn connections",
+                capture.linkedInNote
+                    ?? "From your own LinkedIn data export: its ZIP, or the Connections file in it. Workbench never opens LinkedIn."
+            ) {
+                Button("Import…") { isChoosingLinkedIn = true }
+            }
+            .fileImporter(isPresented: $isChoosingLinkedIn, allowedContentTypes: [.zip, .commaSeparatedText]) {
+                result in
+                if case .success(let file) = result { capture.importLinkedIn(from: file) }
+            }
         } header: {
             Text("Sources")
         } footer: {

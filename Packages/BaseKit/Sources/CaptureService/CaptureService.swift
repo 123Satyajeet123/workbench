@@ -54,6 +54,12 @@ public final class CaptureService {
     /// The owner of every source this Mac reads. Throws why there is none.
     public func owner() throws -> PersonID { try ownerResult.get() }
 
+    /// Keeps the connections of the person's own LinkedIn data export. Their pick of the file is the consent; nothing
+    /// on LinkedIn is opened or driven.
+    public func importLinkedIn(from file: URL) throws -> LinkedInImportReport {
+        try store.importLinkedInConnections(try LinkedInExportFile.connections(in: file), owner: owner())
+    }
+
     /// Whether the sensors are being read now.
     public var isRunning: Bool { ticker != nil }
 

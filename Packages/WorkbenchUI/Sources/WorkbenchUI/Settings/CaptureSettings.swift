@@ -156,6 +156,20 @@ final class CaptureSettings {
 
     func health(of source: SourceHealth.Source) -> SourceHealth? { sourceHealth.first { $0.source == source } }
 
+    /// What the last LinkedIn import kept, in plain words. Nil before the first one in this session.
+    private(set) var linkedInNote: String?
+
+    func importLinkedIn(from file: URL) {
+        let opened = file.startAccessingSecurityScopedResource()
+        defer { if opened { file.stopAccessingSecurityScopedResource() } }
+        attempt {
+            let report = try service.importLinkedIn(from: file)
+            linkedInNote =
+                "Kept \(report.connections) connections: \(report.written) new or changed, \(report.erased) removed."
+        }
+        refreshLog()
+    }
+
     private func attempt(_ work: () throws -> Void) {
         do {
             try work()
