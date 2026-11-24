@@ -106,6 +106,7 @@ let genericLines = [
     Generic("Crew.swift", "helper(task: task)", byDataId),
     Generic("HelperModel.swift", "$0.task == spec.task", "reads the quality of the machine's own task"),
     Generic("TeamStep.swift", "template == model.teamModel.template", "marks the chosen card of a list"),
+    Generic("MachineSheet.swift", "template == nil", "checks that the person picked a template"),
     Generic("FirstLookModel.swift", "helper(task:", byDataId),
 ]
 

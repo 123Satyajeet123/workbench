@@ -8,6 +8,13 @@ extension GalleryTemplate {
         job: "Keep each person's plans, blockers and promises from the team's chats.",
         blocks: [.picker(.whatsapp), .facts(task: HelperSpec.team.task, view: "board")])
 
+    public static let telegramReminders = GalleryTemplate(
+        id: MachineTemplate.teamTelegram.id, name: "Telegram reminders", icon: "paperplane",
+        detail: "Keeps each person's plans, blockers and promises from one Telegram group whose members all agreed.",
+        folder: FolderStart(name: "Team"), machine: .teamTelegram,
+        job: "Keep each person's plans, blockers and promises from the team's Telegram group.",
+        blocks: [.picker(.telegram), .facts(task: MachineTemplate.teamTelegram.id, view: "board")])
+
     public static let morningDigest = GalleryTemplate(
         id: MachineTemplate.morningDigest.id, name: "WhatsApp morning digest", icon: "sun.horizon",
         detail: "Each morning, the decisions, asks, news and problems of the groups you choose.",
@@ -84,5 +91,6 @@ extension GalleryTemplate {
     public static let featured = [whatsAppReminders, morningDigest, followUps, dealIntake, claimCheck, companyResearch]
 
     /// Every gallery template: the featured ones, then the ones the team templates use.
-    public static let all = featured + [dealsFromChats, outbound, founderCheck, newsSignals, offTrack]
+    public static let all =
+        featured + [telegramReminders, dealsFromChats, outbound, founderCheck, newsSignals, offTrack]
 }

@@ -87,7 +87,7 @@ public struct GalleryTemplate: Sendable, Identifiable, Equatable {
         }
 
         /// The kinds of source a person can choose on a page: a chat or group, a mail label, sites, files.
-        public static let pickable: Set<SourceKind> = [.whatsapp, .mail, .screenText, .dropped]
+        public static let pickable: Set<SourceKind> = [.whatsapp, .mail, .screenText, .dropped, .telegram]
     }
 
     public enum Need: String, Sendable, Hashable {
