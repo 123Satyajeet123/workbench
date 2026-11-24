@@ -26,6 +26,8 @@ struct HelperQuestion: View {
 /// the person skipped does not count against the machine (sims-D6 P3, P4). Until the draw ledger lands, "earned" says so.
 enum TrustWording {
     static let earned = "trusted (provisional)"
+    /// The one claim the test backs (sims-D6-itemlevel-proofcheck): a tighter bound would need its own proof.
+    static let claim = "at most 10% of its facts are wrong, 90% sure"
     static let limit = "Provisional: counted per run, and checks you skipped are not counted yet."
 }
 
@@ -36,9 +38,9 @@ struct TrustLine: View {
 
     var body: some View {
         switch status {
-        case .earned(let bound):
+        case .earned:
             Label(
-                "\(name) is \(TrustWording.earned): wrong at most \(bound.formatted(.percent.precision(.fractionLength(1)))) of the time, 90% sure. \(TrustWording.limit)",
+                "\(name) is \(TrustWording.earned): \(TrustWording.claim). \(TrustWording.limit)",
                 systemImage: "checkmark.shield"
             )
             .foregroundStyle(Tone.good.color).textStyle(.callout)
