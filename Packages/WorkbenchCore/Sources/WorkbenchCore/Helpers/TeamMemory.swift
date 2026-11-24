@@ -127,6 +127,7 @@ extension Store {
             try db.execute(
                 sql: "INSERT INTO action(at, kind, target, detail) VALUES (?,?,?,?)",
                 arguments: [clock().stored, kind, target, json])
+            try Self.derive([try DerivedSources.ofAction(db.lastInsertedRowID, in: db)], at: clock(), in: db)
         }
     }
 }

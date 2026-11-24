@@ -81,7 +81,7 @@ extension Queries {
                     db,
                     sql: """
                         SELECT item.id FROM item
-                        JOIN run_window w ON w.run_id = item.run_id
+                        JOIN run_line w ON w.run_id = item.run_id
                             AND w.ordinal BETWEEN item.cite_first AND item.cite_last
                         JOIN evidence e ON e.line_id = w.line_id
                         WHERE item.task = ? AND e.container = ?

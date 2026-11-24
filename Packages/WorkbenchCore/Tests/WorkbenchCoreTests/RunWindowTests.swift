@@ -5,7 +5,7 @@ import Testing
 
 @testable import WorkbenchCore
 
-/// M1 step 2b: the lines a run read are kept as `run_window` rows, a proof card resolves an item's cite number through
+/// M1 step 2b: the lines a run read are kept as `run_input` rows, a proof card resolves an item's cite number through
 /// them, and a revoke or an erase reaches them.
 @Suite struct RunWindowTests {
     static let chat = EvidenceIngestTests.chat
@@ -84,7 +84,7 @@ import Testing
         #expect(proof.line.isTombstone && proof.line.text.isEmpty && proof.isCited)
         #expect(proof.line.actor == EvidenceIngestTests.member && proof.line.time != nil)
         #expect(try scene.world.copies(of: word) == 0, "the words are gone from the file and its log")
-        #expect(try scene.world.count("SELECT count(*) FROM run_window WHERE run_id = \(scene.run)") == 2)
+        #expect(try scene.world.count("SELECT count(*) FROM run_input WHERE run_id = \(scene.run)") == 2)
     }
 
     @Test func aRevokeMovesEveryVersionsPlaceToTheTombstone() throws {
@@ -170,20 +170,21 @@ import Testing
         func attempt(_ sql: String) -> Bool {
             (try? store.writer.write { try $0.execute(sql: sql) }) != nil
         }
-        #expect(!attempt("UPDATE run_window SET ordinal = 999 WHERE run_id = \(scene.run)"))
-        #expect(!attempt("UPDATE run_window SET run_id = 999 WHERE run_id = \(scene.run)"))
+        #expect(!attempt("UPDATE run_input SET ordinal = 999 WHERE run_id = \(scene.run)"))
+        #expect(!attempt("UPDATE run_input SET run_id = 999 WHERE run_id = \(scene.run)"))
         let other = try store.queries.window(of: scene.run)[1].lineID.hexString
-        #expect(!attempt("UPDATE run_window SET line_id = x'\(other)' WHERE ordinal = \(first.number)"), "a text line")
+        #expect(!attempt("UPDATE run_input SET ref = x'\(other)' WHERE ordinal = \(first.number)"), "a text line")
         #expect(
             !attempt(
-                "INSERT INTO run_window(run_id, ordinal, line_id) VALUES (\(scene.run), \(first.number), x'\(other)')"),
+                "INSERT INTO run_input(run_id, ordinal, kind, ref) VALUES (\(scene.run), \(first.number), 'line', x'\(other)')"
+            ),
             "another line under a used number")
         #expect(
             attempt(
-                "INSERT INTO run_window(run_id, ordinal, line_id) VALUES (\(scene.run), \(first.number), x'\(first.lineID.hexString)')"
+                "INSERT INTO run_input(run_id, ordinal, kind, ref) VALUES (\(scene.run), \(first.number), 'line', x'\(first.lineID.hexString)')"
             ),
             "the same row again does nothing")
-        #expect(try scene.world.count("SELECT count(*) FROM run_window") == 2)
+        #expect(try scene.world.count("SELECT count(*) FROM run_input") == 2)
     }
 
     @Test func aTombstoneOfAnotherChatIsNotAPlaceForALine() throws {
@@ -203,7 +204,7 @@ import Testing
                 $0, sql: "SELECT line_id FROM evidence WHERE container = ? AND tombstone = 1", arguments: [other])
         }
         let hex = try #require(tombstone).hexString
-        #expect((try? store.writer.write { try $0.execute(sql: "UPDATE run_window SET line_id = x'\(hex)'") }) == nil)
+        #expect((try? store.writer.write { try $0.execute(sql: "UPDATE run_input SET ref = x'\(hex)'") }) == nil)
     }
 
     // MARK: Erase
@@ -213,20 +214,20 @@ import Testing
         let store = scene.world.store
         try store.delete(.everything(before: Self.to))
         #expect(try scene.world.count("SELECT count(*) FROM evidence") == 0)
-        #expect(try scene.world.count("SELECT count(*) FROM run_window") == 0)
+        #expect(try scene.world.count("SELECT count(*) FROM run_input") == 0)
         #expect(try scene.world.count("SELECT count(*) FROM run WHERE id = \(scene.run)") == 1, "the meter stays")
     }
 
     @Test func aSettingsDeleteOfWhatsAppRemovesTheWindowRowsOfItsLinesAndNoOthers() throws {
         let scene = try Scene()
         try scene.world.store.delete(.kind(.whatsapp, before: nil))
-        #expect(try scene.world.count("SELECT count(*) FROM run_window") == 0)
+        #expect(try scene.world.count("SELECT count(*) FROM run_input") == 0)
     }
 
     @Test func aDeleteOfAnotherKindKeepsTheWindowRows() throws {
         let scene = try Scene()
         try scene.world.store.delete(.kind(.mail, before: nil))
-        #expect(try scene.world.count("SELECT count(*) FROM run_window") == 2)
+        #expect(try scene.world.count("SELECT count(*) FROM run_input") == 2)
     }
 
     // MARK: The step

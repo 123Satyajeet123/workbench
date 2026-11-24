@@ -86,7 +86,7 @@ import WorkbenchCore
     private func windows(in chat: String, _ store: Store) throws -> Int {
         try count(
             """
-            SELECT count(*) FROM run_window w JOIN evidence e ON e.line_id = w.line_id WHERE e.container = '\(chat)'
+            SELECT count(*) FROM run_line w JOIN evidence e ON e.line_id = w.line_id WHERE e.container = '\(chat)'
             """, in: store)
     }
 
@@ -106,7 +106,7 @@ import WorkbenchCore
         try WhatsAppSource.stopReading(teamChat, among: [scene.team, scene.family], capture: scene.capture)
 
         #expect(try lines(in: teamJID, store) == 0)
-        #expect(try count("SELECT count(*) FROM run_window", in: store) == familyWindows, "the team windows are gone")
+        #expect(try count("SELECT count(*) FROM run_line", in: store) == familyWindows, "the team windows are gone")
         #expect(try count("SELECT count(*) FROM run_text WHERE input LIKE '%login API done%'", in: store) == 0)
         #expect(try count("SELECT count(*) FROM item WHERE quote LIKE '%login API done%'", in: store) == 0)
         #expect(copies(of: "login API done", in: store) == 0)

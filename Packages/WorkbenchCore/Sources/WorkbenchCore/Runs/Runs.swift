@@ -136,7 +136,7 @@ extension Store {
             arguments: [run, input, try Coding.json(names)])
         for line in window {
             try db.execute(
-                sql: "INSERT INTO run_window(run_id, ordinal, line_id) VALUES (?,?,?)",
+                sql: "INSERT INTO run_input(run_id, ordinal, kind, ref) VALUES (?,?,'line',?)",
                 arguments: [run, line.number, line.lineID])
         }
         return run

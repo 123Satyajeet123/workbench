@@ -84,6 +84,7 @@ extension Store {
                 try item.label.map { try Coding.json(StoredLabel($0)) }, item.authority.rawValue,
             ])
         let id = db.lastInsertedRowID
+        try derive(try DerivedSources.ofItem(id, in: db) + DerivedSources.ofOpening(of: id, in: db), at: now, in: db)
         try FactFiling.fileInDefaultHomes(db, item: id, origin: origin)
         return id
     }
@@ -162,6 +163,9 @@ extension Store {
                 item, kind.rawValue, outcome, model?.line, model?.quote, at.stored, clock().stored, model?.run,
                 model == nil ? "person" : "model", until?.stored, due, successor, surface?.rawValue, handedTo, batch,
             ])
+        if model != nil {
+            try Self.derive(try DerivedSources.ofEvent(db.lastInsertedRowID, in: db), at: clock(), in: db)
+        }
         if Self.changesTimers.contains(kind) { try reconcileTimers(db, item: item) }
     }
 

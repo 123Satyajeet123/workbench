@@ -200,6 +200,9 @@ extension Store {
             try db.execute(sql: "DELETE FROM mail_open WHERE day < ?", arguments: [String(cutoff.stored.prefix(10))])
         case .calendar: break
         case .web:
+            let snapshots = LineSelection(
+                sql: "SELECT id FROM page_snapshot WHERE fetched_at < ?", arguments: [cutoff.stored])
+            try Self.apply(try Self.closure(of: snapshots, kind: .snapshot, in: db), in: db)
             try db.execute(sql: "DELETE FROM news_article WHERE fetched_at < ?", arguments: [cutoff.stored])
             try db.execute(sql: "DELETE FROM page_snapshot WHERE fetched_at < ?", arguments: [cutoff.stored])
         case .call:

@@ -110,7 +110,7 @@ extension Queries {
                 db,
                 sql: """
                     SELECT item.id, w.line_id, item.quote_start, item.quote_end FROM item
-                    JOIN run_window w ON w.run_id = item.run_id AND w.ordinal = item.quote_line
+                    JOIN run_line w ON w.run_id = item.run_id AND w.ordinal = item.quote_line
                     WHERE item.quote_start IS NOT NULL AND item.id IN (SELECT value FROM json_each(?))
                     """, arguments: [try Coding.json(facts)]
             ).map { ($0["id"] as Int64, QuotedLine(line: $0["line_id"], span: $0["quote_start"]..<$0["quote_end"])) })

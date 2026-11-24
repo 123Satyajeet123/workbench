@@ -243,7 +243,7 @@ import Testing
     @Test func aClaimReadingRecordsItsWindowAndTheItemResolvesToItsThread() async throws {
         let store = try store()
         let made = try await readingWithClaim(store, word: "plain")
-        #expect(try count("SELECT count(*) FROM run_window WHERE run_id = ?", in: store, [made.run]) == 1)
+        #expect(try count("SELECT count(*) FROM run_line WHERE run_id = ?", in: store, [made.run]) == 1)
         let thread = try store.queries.threadParts(ofItem: made.item)
         #expect(thread.map(\.threadID) == ["FMfcgz"] && thread.first?.provenance != nil)
     }

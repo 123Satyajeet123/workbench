@@ -90,7 +90,7 @@ extension Queries {
         let windowed = try StoredLine.fetchAll(
             db,
             sql: """
-                SELECT e.id AS number, \(StoredLine.columns) FROM item JOIN run_window w ON w.run_id = item.run_id
+                SELECT e.id AS number, \(StoredLine.columns) FROM item JOIN run_line w ON w.run_id = item.run_id
                     AND w.ordinal BETWEEN item.cite_first AND item.cite_last JOIN evidence e ON e.line_id = w.line_id
                 WHERE item.id = ?
                 """, arguments: [id])
@@ -102,7 +102,7 @@ extension Queries {
                     SELECT e.id AS number, \(StoredLine.columns) FROM item JOIN evidence_legacy l ON l.space = ?
                         AND l.ref BETWEEN item.cite_first AND item.cite_last JOIN evidence e ON e.line_id = l.line_id
                     WHERE item.id = ? AND item.source = ?
-                        AND NOT EXISTS (SELECT 1 FROM run_window WHERE run_id = item.run_id)
+                        AND NOT EXISTS (SELECT 1 FROM run_line WHERE run_id = item.run_id)
                     """, arguments: [space.rawValue, id, kind.rawValue])
         }
     }

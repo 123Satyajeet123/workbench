@@ -29,6 +29,10 @@ extension Store {
                         try Coding.json(entry.kinds.map(\.rawValue).sorted()), try Coding.json(entry.summary),
                         clock().stored,
                     ])
+                try Self.derive(
+                    try DerivedSources.ofSummary(
+                        day: day.description, task: task, field: field, scope: entry.summary.scope,
+                        run: entry.summary.run, in: db), replacing: true, at: clock(), in: db)
             }
         }
     }
@@ -44,18 +48,27 @@ extension Store {
             arguments: StatementArguments([WorkDay(containing: cutoff).description] + kinds.map(\.rawValue)))
     }
 
-    /// Removes the summaries of the day and machine of the items in `itemIDs` (a JSON array of ids) whose scope names a
-    /// value of one of those items: coarse, and in the safe direction. Returns the runs that wrote them.
-    static func removeSummaries(_ db: Database, builtFromItems itemIDs: String) throws -> [Int64] {
-        let built = """
-            FROM summary WHERE EXISTS (
-                SELECT 1 FROM item WHERE item.id IN (SELECT value FROM json_each(?)) AND item.day = summary.day
-                    AND item.task = summary.task AND EXISTS (
-                        SELECT 1 FROM json_each(item.fields) AS field WHERE field.key || ': ' || field.value = summary.scope))
-            """
-        let runs = try Int64.fetchAll(db, sql: "SELECT json_extract(body, '$.run') \(built)", arguments: [itemIDs])
-        try db.execute(sql: "DELETE \(built)", arguments: [itemIDs])
-        return runs
+    /// The summaries of the day and machine of the items in `itemIDs` (a JSON array of ids) whose scope names a value of
+    /// one of those items: coarse, and in the safe direction. Each with its key and the run that wrote it.
+    static func summariesBuilt(fromItems itemIDs: String, in db: Database) throws -> [(key: String, run: Int64)] {
+        try Row.fetchAll(
+            db,
+            sql: """
+                SELECT json_array(day, task, field, scope) AS key, json_extract(body, '$.run') AS run FROM summary
+                WHERE EXISTS (
+                    SELECT 1 FROM item WHERE item.id IN (SELECT value FROM json_each(?)) AND item.day = summary.day
+                        AND item.task = summary.task AND EXISTS (
+                            SELECT 1 FROM json_each(item.fields) AS field
+                            WHERE field.key || ': ' || field.value = summary.scope))
+                """, arguments: [itemIDs]
+        ).map { (key: $0["key"], run: $0["run"]) }
+    }
+
+    /// Removes the summaries with these keys, the JSON arrays of their day, machine, field and scope.
+    static func removeSummaries(_ db: Database, keys: [String]) throws {
+        try db.execute(
+            sql: "DELETE FROM summary WHERE json_array(day, task, field, scope) IN (SELECT value FROM json_each(?))",
+            arguments: [try Coding.json(keys)])
     }
 
     func removeSummaries(_ db: Database, tasks: [String]) throws {

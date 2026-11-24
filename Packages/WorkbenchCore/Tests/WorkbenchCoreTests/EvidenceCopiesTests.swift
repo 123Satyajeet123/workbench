@@ -218,11 +218,11 @@ import Testing
     @Test func deletingTheKindTakesTheLinesTheWindowRowsAndTheCopies() throws {
         let planted = try Planted()
         try planted.world.store.delete(.kind(.mail, before: nil))
-        #expect(try planted.world.count("SELECT count(*) FROM run_window") == 1, "another kind leaves the window rows")
+        #expect(try planted.world.count("SELECT count(*) FROM run_line") == 1, "another kind leaves the window rows")
         #expect(try planted.world.copies(of: planted.secret) > 0 && planted.runTexts() == 3)
         try planted.world.store.delete(.kind(.whatsapp, before: nil))
         #expect(try planted.world.count("SELECT count(*) FROM evidence") == 0)
-        #expect(try planted.world.count("SELECT count(*) FROM run_window") == 0)
+        #expect(try planted.world.count("SELECT count(*) FROM run_line") == 0)
         #expect(try planted.world.copies(of: planted.secret) == 0 && planted.world.copies(of: planted.other) == 0)
         #expect(try planted.runTexts() == 0 && planted.world.count("SELECT count(*) FROM run") == 3)
     }

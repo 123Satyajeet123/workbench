@@ -17,6 +17,7 @@ extension Store {
                         proposal.run, proposal.name, proposal.template, proposal.brief, proposal.why, proposal.view,
                         try Coding.json(proposal.evidence), clock().stored,
                     ])
+                try Self.derive([try DerivedSources.ofProposal(db.lastInsertedRowID, in: db)], at: clock(), in: db)
             }
             if let run = result.run {
                 try Self.recordYield(db, of: run, kept: result.proposals.count, dropped: result.dropped)
