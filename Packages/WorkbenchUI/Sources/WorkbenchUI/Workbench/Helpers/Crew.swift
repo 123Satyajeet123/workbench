@@ -75,14 +75,7 @@ final class Crew {
     /// The machines that have a page of their own: the ones the Timeline page does not show.
     var crew: [HelperModel] { machines.filter { !$0.spec.readsScreen } }
 
-    static let nothingToFollow =
-        "Add a machine that keeps facts first. This machine follows the open facts of that machine."
-
-    /// The machine a new follower follows: the fact keeper nearest to the folder it lands in, else the oldest one of
-    /// that folder's team.
-    private func keeper(in folder: WorkObjectID?) -> HelperModel? {
-        folderTree().nearestOrFirstSharingTeam(in: factKeepers, with: folder, folderOf: \.machine.folder)
-    }
+    static let nothingToFollow = GalleryStartError.nothingToFollowWords
 
     /// The machine that rates nearest to the folder of `helper`, other than `helper`. A new machine that rates starts
     /// with a copy of its criteria, and then keeps its own: the editor shows whether the two still match.
@@ -182,13 +175,13 @@ final class Crew {
         problems.attempt("find the folder") {
             landing = try store.queries.folder(forNewMachineOf: template, in: folder)
         }
-        if spec.needsFollowed {
-            guard let followed = keeper(in: landing) else {
-                problems.show(Self.nothingToFollow)
-                return nil
-            }
-            spec.follows = followed.spec.task
+        var followed: HelperSpec?
+        problems.attempt("find the machine to follow") { followed = try store.following(spec, landing: landing) }
+        guard let followed else {
+            problems.show(Self.nothingToFollow)
+            return nil
         }
+        spec = followed
         if spec.rates, let source = thesisSource(in: landing) { spec.criteria = source.spec.criteria }
         var id: Int64?
         problems.attempt("add the machine") {

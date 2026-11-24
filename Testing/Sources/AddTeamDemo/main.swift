@@ -190,7 +190,7 @@ print(
 let moment = Date(timeIntervalSince1970: 1_790_000_000)
 func fact(_ machine: Machine, _ person: String, _ kind: String) -> Item {
     Item(
-        task: machine.task, day: WorkDay(containing: moment), scope: "", source: .whatsapp, citeFirst: 1, citeLast: 1,
+        task: machine.task, day: WorkDay(containing: moment), scope: "", source: .typed, citeFirst: 1, citeLast: 1,
         start: moment, end: moment, fields: ["person": person, "kind": kind, "project": "Launch", "text": "x"],
         quote: "q", run: nil)
 }
@@ -395,5 +395,90 @@ check(
 try owned.archive(ownTeam.folder!.id)
 ownedTree = try owned.queries.folderTree()
 check("an archived team is not a team", ownedTree.team(of: ownDeals.id) == nil)
+
+print("\n13. A machine that follows facts is started with a keeper to follow")
+func store(_ item: Item, in store: Store) throws {
+    try store.writer.write { db in _ = try Store.insertItem(db, item, at: moment) }
+}
+func machine(_ role: KeyPath<HelperSpec, Bool>, in team: TeamStart, of store: Store) throws -> Machine {
+    let tree = try store.queries.folderTree()
+    return try need(store.queries.machines().with(role).first { tree.team(of: $0.folder) == team.folder?.id })
+}
+let followed = try freshStore("followed")
+let onlyTeam = try followed.addTeam(.startupTeam)
+let pipOfTeam = try machine(\.keepsFacts, in: onlyTeam, of: followed)
+let watchOfTeam = try machine(\.needsFollowed, in: onlyTeam, of: followed)
+try store(fact(pipOfTeam, "Asha", "plan"), in: followed)
+let seen = try followed.queries.openItems(readBy: watchOfTeam.spec)
+print("  \(watchOfTeam.name) follows \(watchOfTeam.spec.follows ?? "nothing"); Pip is \(pipOfTeam.spec.task)")
+check("the follower follows the keeper of its team", watchOfTeam.spec.follows == pipOfTeam.spec.task)
+check("it reads the open facts of that keeper", seen.items.count == 1 && seen.items[0].task == pipOfTeam.spec.task)
+
+let twoTeams = try freshStore("two-followers")
+let teamOne = try twoTeams.addTeam(.startupTeam)
+let teamTwo = try twoTeams.addTeam(.startupTeam)
+let pipOne = try machine(\.keepsFacts, in: teamOne, of: twoTeams)
+let pipTwo = try machine(\.keepsFacts, in: teamTwo, of: twoTeams)
+let watchOne = try machine(\.needsFollowed, in: teamOne, of: twoTeams)
+let watchTwo = try machine(\.needsFollowed, in: teamTwo, of: twoTeams)
+try store(fact(pipOne, "Asha", "plan"), in: twoTeams)
+try store(fact(pipTwo, "Ben", "plan"), in: twoTeams)
+check(
+    "each follower follows its own team's keeper",
+    watchOne.spec.follows == pipOne.spec.task && watchTwo.spec.follows == pipTwo.spec.task)
+let readOne = try twoTeams.queries.openItems(readBy: watchOne.spec).items.map(\.task)
+let readTwo = try twoTeams.queries.openItems(readBy: watchTwo.spec).items.map(\.task)
+check("each reads only the facts of its own team", readOne == [pipOne.spec.task] && readTwo == [pipTwo.spec.task])
+
+let followerFirst = TeamTemplate(
+    id: "follower-first", name: "Follower first", purpose: "", objectTypes: [],
+    machines: [
+        TeamMachine(template: MachineTemplate.derailment.id, name: "Watch"),
+        TeamMachine(template: MachineTemplate.team.id, name: "Keeper"),
+    ])
+let ordered = try freshStore("ordered")
+let orderedTeam = try ordered.addTeam(followerFirst)
+let orderedKeeper = try machine(\.keepsFacts, in: orderedTeam, of: ordered)
+let orderedWatch = try machine(\.needsFollowed, in: orderedTeam, of: ordered)
+check(
+    "the order of the items does not matter: the keeper starts first",
+    orderedWatch.spec.follows == orderedKeeper.spec.task && orderedTeam.items.map(\.name) == ["Watch", "Keeper"])
+
+let alone = try freshStore("alone")
+let aloneBefore = try Rows(alone)
+let followerOnly = TeamTemplate(
+    id: "follower-only", name: "Follower only", purpose: "", objectTypes: [],
+    machines: [TeamMachine(template: MachineTemplate.derailment.id, name: "Watch")])
+let aloneStart = try alone.addTeam(followerOnly)
+let aloneAfter = try Rows(alone)
+print("  a template with only a follower: \(aloneStart.refused)")
+check(
+    "a template with only a follower is refused with the reason, and nothing starts",
+    aloneStart.refused.count == 1 && aloneStart.refused[0].contains(GalleryStartError.nothingToFollowWords)
+        && aloneStart.folder == nil && aloneAfter == aloneBefore)
+let derailment = try need(GalleryTemplate.of(id: MachineTemplate.derailment.id))
+let refusedAlone = (try? alone.start(derailment)) == nil
+let aloneAfterStart = try Rows(alone)
+check(
+    "Store.start refuses a follower with no keeper and makes no folder", refusedAlone && aloneAfterStart == aloneBefore)
+let beside = try freshStore("beside")
+try beside.addTeam(.startupTeam)
+let besideBefore = try Rows(beside)
+let besideStart = try beside.addTeam(followerOnly)
+let besideAfter = try Rows(beside)
+check(
+    "a follower is refused when the only keeper is in another team",
+    besideStart.refused.count == 1 && besideStart.folder == nil && besideAfter == besideBefore)
+
+let existing = try freshStore("existing-follower")
+let oldWatch = try existing.createMachine(from: .derailment, template: MachineTemplate.derailment.id, name: "Old watch")
+let existingBefore = try Rows(existing)
+try existing.addTeam(.startupTeam)
+let existingAfter = try Rows(existing)
+let oldWatchAfter = try need(existingAfter.machines.first { $0.id == oldWatch.id })
+check(
+    "a follower made before is unchanged, and still has no follows",
+    existingAfter.keeps(existingBefore) && oldWatchAfter.spec.follows == nil)
+
 print(failures == 0 ? "\nALL OK" : "\n\(failures) FAILED")
 exit(failures == 0 ? 0 : 1)

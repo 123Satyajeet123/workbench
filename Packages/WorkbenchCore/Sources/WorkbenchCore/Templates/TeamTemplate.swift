@@ -99,6 +99,25 @@ public struct TeamTemplate: Sendable, Equatable, Identifiable {
         }
     }
 
+    /// Why each item cannot start with what the app has, in the order of the items. An item that follows the facts of a
+    /// machine that keeps facts is left out when no item of the template that keeps facts can start.
+    func refusals(having: Set<GalleryTemplate.Need>) -> [GalleryStartError?] {
+        var refusals = entries.map { $0.item.refusal(having: having) }
+        let keeperStarts = zip(entries, refusals).contains { $1 == nil && $0.item.machine?.spec.keepsFacts == true }
+        for (index, entry) in entries.enumerated()
+        where refusals[index] == nil && entry.item.machine?.spec.needsFollowed == true && !keeperStarts {
+            refusals[index] = .nothingToFollow(template: entry.item.name)
+        }
+        return refusals
+    }
+
+    /// The places of the items in the order they start: those that follow another machine's facts come after the rest,
+    /// so what they follow is there first. Items otherwise keep their order.
+    var startOrder: [Int] {
+        let follows = { (index: Int) in entries[index].item.machine?.spec.needsFollowed == true }
+        return entries.indices.filter { !follows($0) } + entries.indices.filter(follows)
+    }
+
     var entries: [(machine: TeamMachine, item: GalleryTemplate)] {
         machines.compactMap { machine in GalleryTemplate.of(id: machine.template).map { (machine, $0) } }
     }

@@ -255,8 +255,13 @@ extension Queries {
         if let lifecycle = spec.lifecycle { return try openItems(of: spec.task, lifecycle: lifecycle, asOf: day) }
         guard let follows = spec.follows else { return [] }
         let machines = try machines()
-        guard let lifecycle = machines.first(where: { $0.task == follows })?.spec.lifecycle else { return [] }
-        let alike = machines.filter { $0.task != follows && $0.spec.lifecycle == lifecycle }.map(\.task)
+        guard let followed = machines.first(where: { $0.task == follows }), let lifecycle = followed.spec.lifecycle
+        else { return [] }
+        let tree = try folderTree()
+        let alike = machines.filter {
+            $0.task != follows && $0.spec.lifecycle == lifecycle
+                && tree.team(of: $0.folder) == tree.team(of: followed.folder)
+        }.map(\.task)
         let found =
             try ([follows] + alike).map { try openItems(of: $0, lifecycle: lifecycle, asOf: day) }
             + [openDealActions(asOf: day)]

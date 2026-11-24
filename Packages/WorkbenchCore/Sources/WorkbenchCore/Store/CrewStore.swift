@@ -24,7 +24,7 @@ extension Store {
         _ template: TeamTemplate, name: String? = nil, answers: SetupAnswers = [:],
         having: Set<GalleryTemplate.Need> = []
     ) throws -> TeamStart {
-        let refusals = template.entries.map { $0.item.refusal(having: having) }
+        let refusals = template.refusals(having: having)
         var started = TeamStart()
         guard refusals.contains(where: { $0 == nil }) else {
             started.items = zip(template.entries, refusals).compactMap { entry, refusal in
@@ -37,26 +37,43 @@ extension Store {
             return try Queries.workObjects(db, where: "id = ?", [id])[0]
         }
         started.folder = folder
-        var seeded: [Machine?] = []
-        for (entry, refusal) in zip(template.entries, refusals) {
-            var machine: Machine?
-            if let refusal {
-                started.items.append(.refused(entry.item, refusal))
-            } else {
-                let start = try start(
-                    entry.item, parent: folder.id, name: entry.machine.name, overrides: entry.machine.overrides,
-                    having: having)
-                started.items.append(.started(entry.item, start))
-                machine = start.machine
+        var items = [TeamStart.Item?](repeating: nil, count: refusals.count)
+        var seeded = [Machine?](repeating: nil, count: template.seeds.count)
+        let seedPlaces = template.entries.indices.filter { template.entries[$0].item.machine != nil }
+        for index in template.startOrder {
+            let entry = template.entries[index]
+            if let refusal = refusals[index] {
+                items[index] = .refused(entry.item, refusal)
+                continue
             }
-            if entry.item.machine != nil { seeded.append(machine) }
+            let start = try start(
+                entry.item, parent: folder.id, name: entry.machine.name, overrides: entry.machine.overrides,
+                having: having)
+            items[index] = .started(entry.item, start)
+            if let place = seedPlaces.firstIndex(of: index) { seeded[place] = start.machine }
         }
+        started.items = items.compactMap { $0 }
         for question in template.setupQuestions {
             guard let answer = answers[question] else { continue }
             for case let machine? in question.machines.map({ seeded[$0] }) { try apply(answer, to: machine) }
             started.answered += 1
         }
         return started
+    }
+
+    /// The spec with `follows` set, for a machine that lands in `landing`: the fact keeper nearest to that folder, else
+    /// the oldest one of its team, never one of another team. A spec that follows nothing comes back as it is. Nil when
+    /// the spec follows a keeper and none is in reach: such a machine could cite nothing.
+    public func following(_ spec: HelperSpec, landing: WorkObjectID?) throws -> HelperSpec? {
+        guard spec.needsFollowed else { return spec }
+        let keepers = try queries.machines().with(\.keepsFacts)
+        guard
+            let keeper = try queries.folderTree().nearestOrFirstSharingTeam(
+                in: keepers, with: landing, folderOf: \.folder)
+        else { return nil }
+        var followed = spec
+        followed.follows = keeper.spec.task
+        return followed
     }
 
     /// A new machine from a template, with its own task so its items, settings and trust are its own. The task is the

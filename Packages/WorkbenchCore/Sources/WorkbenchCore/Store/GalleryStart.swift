@@ -12,10 +12,16 @@ public struct GalleryStart: Sendable, Equatable {
 /// Why a gallery template was not set up.
 public enum GalleryStartError: Error, Equatable, LocalizedError {
     case needs(template: String, GalleryTemplate.Need)
+    /// The machine follows the open facts of a machine that keeps facts, and none is in reach.
+    case nothingToFollow(template: String)
+
+    public static let nothingToFollowWords =
+        "Add a machine that keeps facts first. This machine follows the open facts of that machine."
 
     public var errorDescription: String? {
         switch self {
         case .needs(let template, let need): "\(template) needs \(need.words)."
+        case .nothingToFollow(let template): "\(template): \(Self.nothingToFollowWords)"
         }
     }
 }
@@ -46,14 +52,24 @@ extension Store {
         having: Set<GalleryTemplate.Need> = []
     ) throws -> GalleryStart {
         if let refusal = template.refusal(having: having) { throw refusal }
+        let landing = try writer.read { db in
+            try WorkObjectRows.keyedChild(db, parent: parent, key: template.folder.key)
+        }
+        let spec = try template.machine.map { machine in
+            let spec = template.defaultView(of: overrides.applied(to: machine.spec))
+            guard let followed = try following(spec, landing: landing ?? parent) else {
+                throw GalleryStartError.nothingToFollow(template: template.name)
+            }
+            return followed
+        }
         let folder = try writer.write { db in
             try Queries.workObjects(
                 db, where: "id = ?", [try WorkObjectRows.folder(db, for: template.folder, parent: parent)])[0]
         }
-        let machine = try template.machine.map {
-            try createMachine(
-                from: template.defaultView(of: overrides.applied(to: $0.spec)), template: template.id,
-                name: name ?? $0.name, in: folder.id)
+        let machine = try template.machine.flatMap { machine in
+            try spec.map {
+                try createMachine(from: $0, template: template.id, name: name ?? machine.name, in: folder.id)
+            }
         }
         return GalleryStart(folder: folder, machine: machine, prompts: template.prompts)
     }
