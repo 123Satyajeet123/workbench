@@ -38,6 +38,7 @@ let package = Package(
         .executable(name: "bugfix-check", targets: ["BugfixCheck"]),
         .executable(name: "provenance-check", targets: ["ProvenanceCheck"]),
         .executable(name: "provenance-probe", targets: ["ProvenanceProbe"]),
+        .executable(name: "erase-canary", targets: ["EraseCanary"]),
         .executable(name: "run-journal", targets: ["RunJournalDemo"]),
         .executable(name: "add-team", targets: ["AddTeamDemo"]),
         .executable(name: "page-truth", targets: ["PageTruthDemo"]),
@@ -200,6 +201,13 @@ let package = Package(
             dependencies: [
                 "WorkbenchCore", .product(name: "Kernel", package: "Kernel"),
                 .product(name: "Lines", package: "Kernel"),
+            ]),
+        .executableTarget(
+            name: "EraseCanary",
+            dependencies: [
+                "WorkbenchCore", .product(name: "Kernel", package: "Kernel"),
+                .product(name: "Lines", package: "Kernel"), .product(name: "LocalSources", package: "BaseKit"),
+                .product(name: "AgentCLI", package: "BaseKit"),
             ]),
         .executableTarget(
             name: "ProvenanceProbe",
