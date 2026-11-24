@@ -23,7 +23,7 @@ struct MochiPage: View {
     }
 }
 
-/// The timeline machine's blocks of work, one day at a time.
+/// The blocks of work of every machine that reads the screen, one day at a time. One stepper moves them together.
 struct TimelinePage: View {
     @Environment(Crew.self) private var crew
 
@@ -34,14 +34,18 @@ struct TimelinePage: View {
     }
 
     @ViewBuilder private var stepper: some View {
-        if let model = crew.timeline { DayStepper(day: model.day, today: model.today, show: model.show) }
+        if let first = crew.screenReaders.first {
+            DayStepper(day: first.day, today: first.today) { day in
+                for reader in crew.screenReaders { reader.show(day) }
+            }
+        }
     }
 
     @ViewBuilder private var timeline: some View {
-        if let model = crew.timeline {
-            HelperContent(model: model)
+        if crew.screenReaders.isEmpty {
+            Text("No machine reads the screen yet.").foregroundStyle(.supporting)
         } else {
-            Text("The timeline reader is missing.").foregroundStyle(.supporting)
+            ForEach(crew.screenReaders, id: \.machine.id) { HelperContent(model: $0) }
         }
     }
 }

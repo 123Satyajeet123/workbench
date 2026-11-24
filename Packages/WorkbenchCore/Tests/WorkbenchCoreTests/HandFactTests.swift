@@ -11,7 +11,7 @@ import Testing
     private let owner = try! PersonID("owner-1")
 
     private func added(_ store: Store, _ fact: HandFact) throws -> Item {
-        let id = try #require(try store.addFact(fact, owner: owner))
+        let id = try #require(try store.addFact(fact, to: .team, owner: owner))
         return try #require(try store.queries.items(of: HelperSpec.team.task, on: today).first { $0.id == id })
     }
 
@@ -61,13 +61,13 @@ import Testing
         let store = try makeStore()
         #expect(
             HelperSpec.team.factKinds == ["plan", "done", "blocker", "commitment", "decision", "question", "status"])
-        #expect(try store.addFact(HandFact(kind: "rumour", text: "Heard a thing"), owner: owner) == nil)
+        #expect(try store.addFact(HandFact(kind: "rumour", text: "Heard a thing"), to: .team, owner: owner) == nil)
         #expect(try store.queries.items(of: HelperSpec.team.task, on: today).isEmpty)
     }
 
     @Test func emptyWordsAddNothing() throws {
         let store = try makeStore()
-        #expect(try store.addFact(HandFact(kind: "plan", text: "   "), owner: owner) == nil)
+        #expect(try store.addFact(HandFact(kind: "plan", text: "   "), to: .team, owner: owner) == nil)
         #expect(try store.queries.items(of: HelperSpec.team.task, on: today).isEmpty)
     }
 

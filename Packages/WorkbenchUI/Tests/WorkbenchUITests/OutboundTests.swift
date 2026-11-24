@@ -125,7 +125,7 @@ struct OutboundWorld {
     @Test func aNewOutboundMachineStartsWithACopyOfDealIntakesCriteria() throws {
         let world = try OutboundWorld()
         #expect(world.helper.spec.criteria == VCFixture.thesis)
-        #expect(world.crew.intakeCriteria == VCFixture.thesis)
+        #expect(world.crew.thesisSource(for: world.helper)?.spec.criteria == VCFixture.thesis)
         #expect(world.helper.spec.source == .webSearch && world.helper.spec.task.hasPrefix("vc.outbound-"))
     }
 

@@ -23,7 +23,8 @@ import WorkbenchCore
         let crew = Crew(
             store: store, capture: try CaptureService(store: store), founder: { "" },
             makeModel: { _ in RecordedModel(ScriptedModel(#"{"items":[]}"#), store: store) }, notifier: notifier)
-        return Setup(store: store, crew: crew, timeline: try #require(crew.timeline), notifier: notifier, clock: clock)
+        let timeline = try #require(crew.screenReaders.first)
+        return Setup(store: store, crew: crew, timeline: timeline, notifier: notifier, clock: clock)
     }
 
     private func switchBrief(_ s: Setup) {

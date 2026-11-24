@@ -347,7 +347,7 @@ extension Gates {
         defer { desk.close() }
         let onboarding = desk.onboarding(choosing: .startupTeam)
         advance(onboarding, to: .firstLook)
-        let pip = try require(desk.crew.team)
+        let pip = try require(desk.crew.factKeepers.first)
         let source = try require(pip.source as? WhatsAppSource)
         try source.loadGroups()
         try source.choose(try require(source.groups.first))

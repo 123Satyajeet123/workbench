@@ -26,7 +26,7 @@ enum AutomationStrip {
     }
 
     private static func role(of machine: Machine) -> String {
-        machine.template == HelperSpec.derailment.task ? "Watches the action" : "Reads and rates"
+        machine.spec.needsFollowed ? "Watches the action" : "Reads and rates"
     }
 
     private static func nextRun(_ date: Date?, now: Date) -> String {

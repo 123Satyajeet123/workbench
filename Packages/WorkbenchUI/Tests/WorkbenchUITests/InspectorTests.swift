@@ -37,7 +37,7 @@ import WorkbenchCore
             store: store, capture: try CaptureService(store: store), founder: { "Kabir" },
             makeModel: { _ in RecordedModel(model, store: store) }, notifier: FakeNotifier(),
             whatsAppContainer: try whatsApp(at: noon))
-        let team = try #require(crew.team)
+        let team = try #require(crew.factKeepers.first)
         let source = try #require(team.source as? WhatsAppSource)
         try source.loadGroups()
         try source.choose(try #require(source.groups.first))

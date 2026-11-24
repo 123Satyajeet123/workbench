@@ -40,13 +40,14 @@ import WorkbenchCore
     @Test func aReadFillsTheQueueAndMarkingMovesThroughItWithUndo() async throws {
         let (crew, review, store) = try crew()
         #expect(review.items.isEmpty)
-        await try #require(crew.timeline).read()
+        await try #require(crew.screenReaders.first).read()
         #expect(review.items.count == 2, "the queue follows a read without opening it")
         #expect(review.items.first?.askedWith != nil && review.questions == 1)
         let first = try #require(review.current?.id)
         review.mark(.confirmed)
         #expect(review.items.count == 1 && review.current?.id != first)
-        #expect(crew.timeline?.items.first { $0.id == first }?.state == .confirmed, "the machine page follows")
+        let page = crew.screenReaders.first
+        #expect(page?.items.first { $0.id == first }?.state == .confirmed, "the machine page follows")
         review.undo()
         #expect(review.items.count == 2 && review.current?.id == first)
         review.next()

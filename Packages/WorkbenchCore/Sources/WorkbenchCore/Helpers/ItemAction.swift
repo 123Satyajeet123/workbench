@@ -16,10 +16,11 @@ public enum ItemAction: Sendable, Hashable {
 extension HelperSpec.Lifecycle {
     /// The lifecycles of the facts no machine of the crew keeps, by task: those the store writes from what a person
     /// typed, and the follow-ups of calls.
-    public static let ofFactsWithoutMachine = [
+    public static let ofFactsWithoutMachine: [String: HelperSpec.Lifecycle] = [
         DealAction.task: DealAction.lifecycle, Revisit.task: Revisit.lifecycle,
-        HelperSpec.callFollowUps.task: .callFollowUps,
-    ]
+    ].merging(
+        HelperSpec.withoutMachine.compactMap { entry in entry.spec.lifecycle.map { (entry.spec.task, $0) } }
+    ) { typed, _ in typed }
 
     /// How the founder closes an item by hand: the outcome the spec gives its value of `field`, else the first outcome.
     public func doneOutcome(of item: Item) -> String {

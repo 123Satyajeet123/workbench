@@ -64,7 +64,7 @@ import WorkbenchCore
     @Test func aFactAddedThroughTheSheetIsAnItemOfThePersonsOwnWords() throws {
         let store = try scratchStore(clock: { Date(timeIntervalSince1970: 1_790_000_000) })
         let sheet = AddFactModel(spec: .team, project: "Bolt Pay", today: today) {
-            _ = try store.addFact($0, owner: PersonID("test-owner"))
+            _ = try store.addFact($0, to: .team, owner: PersonID("test-owner"))
         }
         sheet.words = "Call the bank"
         #expect(sheet.submit())

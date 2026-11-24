@@ -36,7 +36,7 @@ import WorkbenchCore
         let crew = Crew(
             store: store, capture: try CaptureService(store: store), founder: { "Kabir" }, notifier: FakeNotifier(),
             whatsAppContainer: container)
-        let pip = try #require(crew.team)
+        let pip = try #require(crew.factKeepers.first)
         let dealsID = try #require(crew.create(from: .team, name: "Deals"))
         let deals = try #require(crew.helper(id: dealsID))
         let team = try chat(teamJID, "Team")

@@ -33,7 +33,7 @@ extension Store {
     /// as a model's fact does and is erased with it. The line and the fact commit together, through the one writer of
     /// evidence and the one insert of items. Returns nil when the words or the kind do not fit the machine.
     @discardableResult
-    public func addFact(_ fact: HandFact, to spec: HelperSpec = .team, owner: PersonID) throws -> Int64? {
+    public func addFact(_ fact: HandFact, to spec: HelperSpec, owner: PersonID) throws -> Int64? {
         guard spec.takesHandFacts, spec.factKinds.contains(fact.kind), let words = fact.text.cleaned else { return nil }
         return try recordTypedWords(words, label: "fact", container: spec.task, owner: owner) { line, db in
             let id = try Self.insertItem(db, try handItem(fact, words: words, of: spec, quoting: line), at: clock())

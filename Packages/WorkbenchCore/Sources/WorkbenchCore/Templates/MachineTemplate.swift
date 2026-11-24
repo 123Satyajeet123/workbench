@@ -10,6 +10,8 @@ public struct MachineTemplate: Sendable, Identifiable, Hashable {
     public let detail: String
     /// The app it reads, when the template is chosen by it.
     public var reads: String?
+    /// The hue of the machine's face, from 0 to 1; nil gives each machine a hue of its own.
+    public var hue: Double?
 
     public var id: String { spec.task }
 

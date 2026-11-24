@@ -180,13 +180,13 @@ import WorkbenchCore
         try store.seedMachines([(.timeline, "Timeline")])
         let crew = Crew(
             store: store, capture: try CaptureService(store: store), founder: { "" }, notifier: FakeNotifier())
-        #expect(crew.followable == nil)
+        #expect(crew.factKeepers.isEmpty)
         #expect(crew.create(from: .derailment, name: "") == nil)
         #expect(crew.problem == Crew.nothingToFollow && crew.machines.count == 1)
 
         let pipID = try #require(crew.create(from: .team, name: "Pip"))
         let pip = try #require(crew.helper(id: pipID))
-        #expect(crew.followable === pip)
+        #expect(crew.factKeepers.first === pip)
         let sentinelID = try #require(crew.create(from: .derailment, name: ""))
         let sentinel = try #require(crew.helper(id: sentinelID))
         #expect(sentinel.name == "Sentinel" && sentinel.spec.follows == pip.spec.task)
@@ -200,7 +200,7 @@ import WorkbenchCore
             store: store, capture: try CaptureService(store: store), founder: { "" }, notifier: FakeNotifier())
         let sentinelID = try #require(crew.create(from: .derailment, name: ""))
         let sentinel = try #require(crew.helper(id: sentinelID))
-        #expect(crew.followable?.spec.task == HelperSpec.team.task)
+        #expect(crew.factKeepers.first?.spec.task == HelperSpec.team.task)
         #expect(sentinel.spec.follows == HelperSpec.team.task, "the first machine with a lifecycle is Pip")
     }
 

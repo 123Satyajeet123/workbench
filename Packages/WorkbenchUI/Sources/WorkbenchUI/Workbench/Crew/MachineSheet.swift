@@ -64,7 +64,7 @@ struct MachineSheet: View {
 
     private var lacksFollowable: Bool {
         guard case .new = edit else { return false }
-        return template.spec.needsFollowed && crew.followable == nil
+        return template.spec.needsFollowed && crew.factKeepers.isEmpty
     }
 
     private var title: String {

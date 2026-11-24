@@ -34,7 +34,7 @@ struct FactLine: View {
                 Spacer(minLength: Space.m)
                 FactActions(items: [item], summary: model.title(of: item), model: model)
             }
-            if item.task == Revisit.task {
+            if passedNews != nil {
                 revisitNews
             } else if isOpen {
                 source
@@ -57,7 +57,9 @@ struct FactLine: View {
     }
 
     /// The news about a passed deal's company since the pass, for a revisit.
-    private var related: [Item] { item.id.flatMap { model.passedNews[$0] } ?? [] }
+    private var passedNews: [Item]? { item.id.flatMap { model.passedNews[$0] } }
+
+    private var related: [Item] { passedNews ?? [] }
 
     /// What the company did since the investor passed: shown with the revisit, not behind a click.
     @ViewBuilder private var revisitNews: some View {

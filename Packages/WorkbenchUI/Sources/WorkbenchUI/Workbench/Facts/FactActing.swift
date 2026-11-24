@@ -22,10 +22,6 @@ extension Crew {
     /// The lifecycle of the facts of `task`: a machine's own, a deal's action or a revisit. Nil for a task whose items
     /// never open and close.
     func lifecycle(ofTask task: String) -> HelperSpec.Lifecycle? {
-        switch task {
-        case DealAction.task: DealAction.lifecycle
-        case Revisit.task: Revisit.lifecycle
-        default: machines.first { $0.spec.task == task }?.spec.lifecycle
-        }
+        HelperSpec.Lifecycle.ofFactsWithoutMachine[task] ?? machines.first { $0.spec.task == task }?.spec.lifecycle
     }
 }

@@ -5,7 +5,7 @@ extension MachineTemplate {
         spec: .team, name: "Pip", role: "Team facts",
         detail:
             "Reads the WhatsApp chats you choose and keeps each person's plans, done work, blockers, commitments, decisions and questions, by project.",
-        reads: "WhatsApp"
+        reads: "WhatsApp", hue: 0.55
     )
     public static let teamTelegram = MachineTemplate(
         spec: .teamTelegram, name: "Relay", role: "Team facts",

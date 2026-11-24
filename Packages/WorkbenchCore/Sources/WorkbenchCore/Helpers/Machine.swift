@@ -14,11 +14,14 @@ public struct Machine: Sendable, Equatable, Identifiable {
     public var state: State
     /// The machine's page in the tree. Its parent is the folder the machine lives in.
     public var page: WorkObjectID?
+    /// The folder of the machine's page; nil when it has no page.
+    public var folder: WorkObjectID?
 
     public var task: String { spec.task }
 
     public init(
-        id: Int64, name: String, template: String, spec: HelperSpec, state: State, page: WorkObjectID? = nil
+        id: Int64, name: String, template: String, spec: HelperSpec, state: State, page: WorkObjectID? = nil,
+        folder: WorkObjectID? = nil
     ) {
         self.id = id
         self.name = name
@@ -26,6 +29,7 @@ public struct Machine: Sendable, Equatable, Identifiable {
         self.spec = spec
         self.state = state
         self.page = page
+        self.folder = folder
     }
 }
 

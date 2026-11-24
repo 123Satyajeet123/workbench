@@ -92,9 +92,6 @@ extension Queries {
         }
     }
 
-    /// The claim types of the first machine that lists any; nil when no machine does.
-    public func claimTypes() throws -> [ClaimType]? { try machines().lazy.compactMap(\.spec.claimTypes).first }
-
     public func chosenClaims(of deal: String) throws -> [Int64] {
         try state(forKey: Store.chosenKey(deal)).flatMap { try? Coding.value([Int64].self, from: $0) } ?? []
     }

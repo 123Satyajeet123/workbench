@@ -168,9 +168,8 @@ extension Mascot.Look {
     static let pip = Mascot.Look(hue: 0.55, wear: .antenna)
     static let echo = Mascot.Look(hue: 0.76, wear: .headphones)
 
-    /// A machine's face: the built-in team machine keeps Pip's blue; every other machine gets a hue of its own.
+    /// A machine's face: the hue its template gives, else a hue of its own.
     static func of(_ machine: Machine) -> Mascot.Look {
-        machine.task == HelperSpec.team.task
-            ? .pip : Mascot.Look(hue: Double((machine.id &* 47) % 100) / 100, wear: .antenna)
+        Mascot.Look(hue: MachineTemplate.of(machine)?.hue ?? Double((machine.id &* 47) % 100) / 100, wear: .antenna)
     }
 }

@@ -16,7 +16,7 @@ import WorkbenchCore
     @Test func theCrewComesFromTheStoreAndMochiHoldsTheTimeline() throws {
         let (crew, _) = try crew()
         #expect(crew.machines.map(\.name) == ["Pip", "Timeline"])
-        #expect(crew.timeline?.spec.task == HelperSpec.timeline.task)
+        #expect(crew.screenReaders.first?.spec.task == HelperSpec.timeline.task)
         #expect(crew.crew.map(\.name) == ["Pip"])
     }
 

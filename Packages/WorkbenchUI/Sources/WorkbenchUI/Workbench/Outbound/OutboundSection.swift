@@ -38,12 +38,15 @@ struct OutboundSection: View {
         OutboundReview.list(source.items, criteria: criteria, known: source.known, now: .now)
     }
 
-    /// Whether the criteria still match Deal intake's, so an edit on one page does not surprise the other.
+    /// Whether the criteria still match those of the machine that rates in the same folder, so an edit on one page does
+    /// not surprise the other.
     private var criteriaNote: String {
-        guard let intake = crew.intakeCriteria else { return "Criteria version \(criteria.version)." }
-        return intake == criteria
-            ? "Criteria: a copy of Deal intake's, still the same (version \(criteria.version))."
-            : "Criteria: copied from Deal intake, now edited here (version \(criteria.version)). Deal intake keeps its own."
+        guard let source = crew.thesisSource(for: model), let thesis = source.spec.criteria else {
+            return "Criteria version \(criteria.version)."
+        }
+        return thesis == criteria
+            ? "Criteria: a copy of \(source.name)'s, still the same (version \(criteria.version))."
+            : "Criteria: copied from \(source.name), now edited here (version \(criteria.version)). \(source.name) keeps its own."
     }
 
     private func add(_ candidate: OutboundCandidate) async {

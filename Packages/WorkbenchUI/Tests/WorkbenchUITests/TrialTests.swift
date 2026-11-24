@@ -39,7 +39,7 @@ import WorkbenchCore
         let crew = Crew(
             store: store, capture: try CaptureService(store: store), founder: { "" },
             makeModel: { _ in RecordedModel(model, store: store) }, notifier: FakeNotifier())
-        let timeline = try #require(crew.timeline)
+        let timeline = try #require(crew.screenReaders.first)
         for day in days {
             timeline.show(day)
             await timeline.read()

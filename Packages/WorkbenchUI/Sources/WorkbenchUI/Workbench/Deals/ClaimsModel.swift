@@ -60,7 +60,8 @@ final class ClaimsModel {
             let claims = try store.queries.claims(of: deal.id)
             let checks = try store.queries.claimChecks(of: deal.id)
             let rating = try store.queries.rating(of: deal.id)
-            let triage = try rating.flatMap { rating in try store.queries.thesis()?.triage(rating.fields) }
+            let thesis = try store.queries.owner(of: deal, role: \.rates)?.spec.criteria
+            let triage = rating.flatMap { thesis?.triage($0.fields) }
             let items = try store.queries.items(
                 ids: claims.compactMap(\.id) + checks.compactMap(\.id) + [rating?.id].compactMap { $0 })
             byDeal[deal.id] = DealClaims(
@@ -129,7 +130,7 @@ final class ClaimsModel {
                 return
             }
             let grants = try store.grants(for: lines)
-            guard let types = try store.queries.claimTypes() else {
+            guard let types = try store.queries.owner(of: deal, role: \.checksClaims)?.spec.claimTypes else {
                 problems.show("No machine lists claim types, so there is nothing to read claims for.")
                 return
             }
@@ -164,7 +165,7 @@ final class ClaimsModel {
                 problems.show("This deal has no evidence on this Mac to rate. Add a file or link an item.")
                 return
             }
-            guard let criteria = try store.queries.thesis() else {
+            guard let criteria = try store.queries.owner(of: deal, role: \.rates)?.spec.criteria else {
                 problems.show("No machine has criteria, so there is no thesis to rate against.")
                 return
             }
@@ -204,7 +205,7 @@ final class ClaimsModel {
         var checked: [CheckedClaim] = []
         var lastSession: WebSession?
         do {
-            let types = try store.queries.claimTypes() ?? []
+            let types = try store.queries.owner(of: deal, role: \.checksClaims)?.spec.claimTypes ?? []
             for claim in chosen {
                 let session = try openSession()
                 let checker = ClaimChecker(

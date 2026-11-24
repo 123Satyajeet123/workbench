@@ -166,8 +166,19 @@ extension Queries {
         try reader.read { db in
             try db.fetch(
                 "machine_now",
-                "SELECT id, name, template, spec, state, page_id FROM machine_now WHERE state <> 'deleted' ORDER BY id",
+                "SELECT \(Machine.columns) FROM machine_now WHERE state <> 'deleted' ORDER BY id",
                 as: Machine.init(row:))
+        }
+    }
+
+    /// The folder a new machine of `template` lands in: the one asked for, else the live root folder of its gallery
+    /// item. Nil when the store has no such folder yet.
+    public func folder(forNewMachineOf template: String, in folder: WorkObjectID?) throws -> WorkObjectID? {
+        if let folder { return folder }
+        return try reader.read { db in
+            try WorkObjectRows.liveChild(
+                db, type: ObjectTypes.folder.id, parent: nil,
+                name: GalleryTemplate.folder(forMachine: template).name)
         }
     }
 
@@ -192,8 +203,14 @@ extension Machine {
         self.init(
             id: try row.value("id"), name: try row.value("name"), template: template,
             spec: (try row.json("spec") as HelperSpec).filling(from: MachineTemplate.of(id: template)?.spec),
-            state: try row.enumeration("state"), page: try row.optionalValue("page_id"))
+            state: try row.enumeration("state"), page: try row.optionalValue("page_id"),
+            folder: try row.optionalValue("folder"))
     }
+
+    static let columns = """
+        machine_now.id, machine_now.name, machine_now.template, machine_now.spec, machine_now.state, \
+        machine_now.page_id, (SELECT parent_id FROM work_object WHERE id = machine_now.page_id) AS folder
+        """
 }
 
 extension Team.Person {

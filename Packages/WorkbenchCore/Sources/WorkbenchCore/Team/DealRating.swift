@@ -81,9 +81,6 @@ extension Store {
 }
 
 extension Queries {
-    /// The criteria of the first machine that has any: the team's thesis. Nil when no machine has criteria.
-    public func thesis() throws -> Criteria? { try machines().lazy.compactMap(\.spec.criteria).first }
-
     /// The latest rating fact of a deal, with its mark.
     public func rating(of deal: String) throws -> Item? {
         try reader.read { db in

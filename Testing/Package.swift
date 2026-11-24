@@ -20,6 +20,7 @@ let package = Package(
         .executable(name: "page-eval", targets: ["PageEvalRunner"]),
         .executable(name: "page-eval-tools", targets: ["PageEvalTools"]),
         .executable(name: "judge-probe", targets: ["JudgeProbe"]),
+        .executable(name: "machine-roles", targets: ["MachineRolesDemo"]),
     ],
     dependencies: [
         .package(path: "../Packages/WorkbenchCore"), .package(path: "../Packages/WorkbenchUI"),
@@ -85,6 +86,7 @@ let package = Package(
         .executableTarget(
             name: "JudgeProbe",
             dependencies: ["Evals", "WorkbenchCore", .product(name: "AgentCLI", package: "BaseKit")]),
+        .executableTarget(name: "MachineRolesDemo", dependencies: ["WorkbenchCore"]),
         .testTarget(name: "EvalsTests", dependencies: ["Evals", "WorkbenchCore"]),
     ]
 )

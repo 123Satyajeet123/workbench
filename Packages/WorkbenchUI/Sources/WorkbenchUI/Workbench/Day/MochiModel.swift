@@ -124,8 +124,8 @@ final class MochiModel {
     }
 
     private func blocks() throws -> [Item] {
-        guard let timeline = crew.timeline else { return [] }
         let since = WorkDay(containing: store.clock()).adding(days: -Self.days)
-        return try store.queries.items(of: timeline.spec.task, since: since).filter { EvalSplit($0.day) == .dev }
+        return try crew.screenReaders.flatMap { try store.queries.items(of: $0.spec.task, since: since) }
+            .filter { EvalSplit($0.day) == .dev }
     }
 }

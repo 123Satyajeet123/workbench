@@ -48,7 +48,7 @@ enum FactFixture {
         let today: TodayModel
         let review: ReviewModel
 
-        var pip: HelperModel { crew.team! }
+        var pip: HelperModel { crew.factKeepers.first! }
 
         /// Open facts the app did not pick at random: the sample marks a random few of its facts as audit picks.
         func plainFacts() throws -> [Item] {

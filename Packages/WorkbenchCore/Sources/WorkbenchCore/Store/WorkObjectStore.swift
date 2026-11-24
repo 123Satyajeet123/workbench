@@ -140,8 +140,7 @@ extension Queries {
             try db.fetch(
                 "machine_now",
                 """
-                SELECT machine_now.id, machine_now.name, machine_now.template, machine_now.spec, machine_now.state,
-                    machine_now.page_id
+                SELECT \(Machine.columns)
                 FROM machine_now JOIN work_object page ON page.id = machine_now.page_id
                 WHERE page.parent_id = ? AND page.archived_at IS NULL AND machine_now.state <> 'deleted'
                 ORDER BY page.position, machine_now.id

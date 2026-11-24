@@ -48,7 +48,7 @@ struct DealDigestReader {
             }
         }
         if !own.isEmpty {
-            touching += try machines.filter { $0.template == HelperSpec.derailment.task }.map { try stripMachine($0) }
+            touching += try machines.filter(\.spec.needsFollowed).map { try stripMachine($0) }
         }
         return DealDigest(
             triage: try ratedTriage(of: deal, machines: machines) ?? first,
@@ -62,7 +62,9 @@ struct DealDigestReader {
     /// team's criteria as they are now.
     private func ratedTriage(of deal: WorkObject, machines: [Machine]) throws -> Triage? {
         guard let rating = try store.queries.rating(of: deal.id), rating.state != .rejected else { return nil }
-        return machines.lazy.compactMap(\.spec.criteria).first?.triage(rating.fields)
+        let linkedTasks = deal.items.compactMap(\.item.task)
+        let owner = machines.owner(of: \.rates, linkedTasks: linkedTasks, folder: try store.queries.parent(of: deal.id))
+        return owner?.spec.criteria?.triage(rating.fields)
     }
 
     /// The marks on a linked item. The item's id means something only on the Mac of the person who linked it.

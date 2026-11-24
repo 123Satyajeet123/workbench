@@ -38,7 +38,7 @@ import WorkbenchCore
         let crew = Crew(
             store: store, capture: try CaptureService(store: store), founder: { "" },
             makeModel: { _ in RecordedModel(model, store: store) }, notifier: FakeNotifier())
-        let timeline = try #require(crew.timeline)
+        let timeline = try #require(crew.screenReaders.first)
 
         await timeline.improve()
         #expect(timeline.improveNote?.contains("Mark at least") == true && timeline.trial == nil)

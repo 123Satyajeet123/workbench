@@ -181,8 +181,9 @@ enum TemplateNameScan {
     @Test func theClaimTypesAreTheFirstListAMachineHoldsOrNone() throws {
         let store = try makeStore()
         try store.seedMachines([(.team, "Pip")])
-        #expect(try store.queries.claimTypes() == nil)
+        #expect(try store.queries.machines().with(\.checksClaims).first?.spec.claimTypes == nil)
         try store.createMachine(from: .dealIntake, name: "Deals")
-        #expect(try store.queries.claimTypes() == MachineTemplate.dealIntake.spec.claimTypes)
+        let types = try store.queries.machines().with(\.checksClaims).first?.spec.claimTypes
+        #expect(types == MachineTemplate.dealIntake.spec.claimTypes)
     }
 }

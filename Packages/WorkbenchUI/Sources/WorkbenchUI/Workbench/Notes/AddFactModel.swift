@@ -45,7 +45,7 @@ final class AddFactModel {
     private let add: (HandFact) throws -> Void
 
     init(
-        spec: HelperSpec = .team, people: [String] = [], project: String = "",
+        spec: HelperSpec, people: [String] = [], project: String = "",
         today: WorkDay = WorkDay(containing: .now),
         add: @escaping (HandFact) throws -> Void
     ) {

@@ -100,7 +100,7 @@ import WorkbenchCore
     @Test(arguments: ["light", "dark"], [1.0, 1.5])
     func theInspectorIsDrawnForEachStateInLightAndDarkAtTwoZoomsAndBothWidths(mode: String, zoom: Double) throws {
         let world = try DealFixture()
-        let helper = try #require(world.crew.team)
+        let helper = try #require(world.crew.factKeepers.first)
         for (shot, item) in cases {
             for width in [320.0, 420.0] {
                 let card = InspectorCard(

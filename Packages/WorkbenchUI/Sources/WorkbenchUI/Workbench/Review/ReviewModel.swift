@@ -38,7 +38,7 @@ final class ReviewModel {
     func refresh() {
         problems.attempt("read the queue", clearing: true) {
             items = try store.queries.waitingItems(since: WorkDay(containing: store.clock()).adding(days: -Self.days))
-                .filter { $0.task != HelperSpec.callFollowUps.task }
+                .filter { crew.helper(task: $0.task) != nil }
             selected = min(selected, max(items.count - 1, 0))
         }
     }

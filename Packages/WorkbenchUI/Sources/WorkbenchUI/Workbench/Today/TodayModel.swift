@@ -148,7 +148,7 @@ final class TodayModel {
         let revisits = try store.queries.openRevisits()
         passedNews = try passedNews(of: revisits, now: now)
         let open = try keepers.flatMap { try store.queries.openItems(readBy: $0.spec) }
-        let openFromCalls = try store.queries.openItems(readBy: .callFollowUps)
+        let openFromCalls = try HelperSpec.withoutMachine.flatMap { try store.queries.openItems(readBy: $0.spec) }
         var input = MorningInput(facts: try store.queries.openDealActions() + openFromCalls + open, me: me())
         input.revisits = revisits
         input.news = try store.queries.newsSignals(since: today.adding(days: 1 - Store.newsRetentionDays))
@@ -183,7 +183,7 @@ final class TodayModel {
 
     /// The follow-ups of calls from the window, and every one still open, however old; one dropped is left out.
     private func recentCallFollowUps(open: [Item], since day: WorkDay, now: Date) throws -> [Item] {
-        let recent = try store.queries.items(of: HelperSpec.callFollowUps.task, since: day)
+        let recent = try HelperSpec.withoutMachine.flatMap { try store.queries.items(of: $0.spec.task, since: day) }
         let known = Set(recent.compactMap(\.id))
         return (open.filter { $0.id.map { !known.contains($0) } ?? false } + recent).filter { item in
             item.isListed(at: now) && (item.closed == nil || item.closed?.outcome == "done")
@@ -297,8 +297,7 @@ final class TodayModel {
 
     func title(of item: Item) -> String {
         if NewsSignals.owns(item.task) { return item[NewsSignals.headlineField] }
-        if item.task == HelperSpec.callFollowUps.task { return item[HelperSpec.callFollowUps.title] }
-        let field = crew.helper(task: item.task)?.spec.title
+        let field = crew.spec(ofTask: item.task)?.title
         return field.map { item[$0] } ?? item.quote
     }
 

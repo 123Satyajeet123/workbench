@@ -60,27 +60,34 @@ final class Crew {
     /// Calls `listener` when any machine's items change. Each machine also re-checks its rollback alarm then.
     func onItemsChanged(_ listener: @escaping () -> Void) { itemListeners.append(listener) }
 
-    var timeline: HelperModel? { machines.first { $0.spec.task == HelperSpec.timeline.task } }
+    /// The machines that read what the person did on the screen. The Timeline page shows all of them.
+    var screenReaders: [HelperModel] { machines.filter { $0.spec.readsScreen } }
 
-    var team: HelperModel? { machines.first { $0.machine.template == HelperSpec.team.task } }
-
-    /// The machines whose spec has a lifecycle, so their facts open and close.
-    var factKeepers: [HelperModel] { machines.filter { $0.spec.lifecycle != nil } }
+    /// The machines whose facts open and close.
+    var factKeepers: [HelperModel] { machines.filter { $0.spec.keepsFacts } }
 
     /// The machines that read open facts and write findings about them.
     var factReaders: [HelperModel] { machines.filter(\.spec.needsFollowed) }
 
-    var crew: [HelperModel] { machines.filter { $0 !== timeline } }
-
-    var followable: HelperModel? { factKeepers.first }
+    /// The machines that have a page of their own: the ones the Timeline page does not show.
+    var crew: [HelperModel] { machines.filter { !$0.spec.readsScreen } }
 
     static let nothingToFollow =
-        "Add Pip first. This machine follows its open plans, blockers, commitments, questions and decisions."
+        "Add a machine that keeps facts first. This machine follows the open facts of that machine."
 
-    /// The criteria of the first Deal intake machine. A new Outbound machine starts with a copy of them, and then keeps
-    /// its own: the editor shows whether the two still match.
-    var intakeCriteria: Criteria? {
-        machines.first { $0.machine.template == HelperSpec.dealIntake.task }?.spec.criteria
+    /// The machine a new follower follows: the oldest fact keeper in the folder it lands in, else the oldest one.
+    private func keeper(in folder: WorkObjectID?) -> HelperModel? {
+        factKeepers.first { folder != nil && $0.machine.folder == folder } ?? factKeepers.first
+    }
+
+    /// The machine that rates in the folder of `helper`, other than `helper`. A new machine that rates starts with a
+    /// copy of its criteria, and then keeps its own: the editor shows whether the two still match.
+    func thesisSource(for helper: HelperModel) -> HelperModel? {
+        thesisSource(in: helper.machine.folder, besides: helper)
+    }
+
+    private func thesisSource(in folder: WorkObjectID?, besides helper: HelperModel? = nil) -> HelperModel? {
+        machines.first { $0 !== helper && folder != nil && $0.machine.folder == folder && $0.spec.rates }
     }
 
     /// The names of the other machines that read this chat.
@@ -95,15 +102,18 @@ final class Crew {
             chat, among: machines.compactMap { $0.source as? WhatsAppSource }, capture: capture)
     }
 
-    static let echo = "Echo"
-
     func helper(id: Int64) -> HelperModel? { machines.first { $0.machine.id == id } }
+
+    /// The spec of the facts of a task: a machine's own, or that of facts no machine keeps.
+    func spec(ofTask task: String) -> HelperSpec? {
+        helper(task: task)?.spec ?? HelperSpec.withoutMachine.first { $0.spec.task == task }?.spec
+    }
 
     func helper(task: String) -> HelperModel? { machines.first { $0.spec.task == Trial.machineTask(of: task) } }
 
-    /// The name of the machine that keeps a task's items. The follow-ups of calls are Echo's.
+    /// The name of the machine that keeps a task's items.
     func name(ofTask task: String) -> String {
-        if task == HelperSpec.callFollowUps.task { return Self.echo }
+        if let keeper = HelperSpec.withoutMachine.first(where: { $0.spec.task == task }) { return keeper.name }
         guard let name = helper(task: task)?.name else {
             return task
         }
@@ -159,14 +169,18 @@ final class Crew {
     @discardableResult
     func create(spec: HelperSpec, template: String, name: String, in folder: WorkObjectID? = nil) -> Int64? {
         var spec = spec
+        var landing: WorkObjectID?
+        problems.attempt("find the folder") {
+            landing = try store.queries.folder(forNewMachineOf: template, in: folder)
+        }
         if spec.needsFollowed {
-            guard let followed = followable else {
+            guard let followed = keeper(in: landing) else {
                 problems.show(Self.nothingToFollow)
                 return nil
             }
             spec.follows = followed.spec.task
         }
-        if template == HelperSpec.outbound.task, let intake = intakeCriteria { spec.criteria = intake }
+        if spec.rates, let source = thesisSource(in: landing) { spec.criteria = source.spec.criteria }
         var id: Int64?
         problems.attempt("add the machine") {
             id = try store.createMachine(from: spec, template: template, name: name, in: folder).id
