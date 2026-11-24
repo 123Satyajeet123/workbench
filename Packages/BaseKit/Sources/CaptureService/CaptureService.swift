@@ -174,8 +174,9 @@ public final class CaptureService {
     static let inPerson = "in-person"
 
     /// The service and meeting of a call in `app`. The call window's title and address are screen content, so they
-    /// are read only under the app's own screen consent; without it the call is named by its app.
-    public func source(of app: AudioApp?) -> CallSource {
+    /// are read only under the app's own screen consent; without it the call is named by its app. A meeting of
+    /// `meetings` whose join link is the call's address gives the call its title.
+    public func source(of app: AudioApp?, meetings: [Meeting] = []) -> CallSource {
         guard let app else {
             return CallSource.identify(app: "", bundleID: Self.inPerson, windowTitle: "", address: "")
         }
@@ -189,7 +190,8 @@ public final class CaptureService {
             isBrowser: running.bundleURL.map(WebBrowserApp.isBrowser) ?? false)
         let window = ScreenReader().read(front, grant: screen, withText: false)
         return CallSource.identify(
-            app: app.name, bundleID: app.bundleID, windowTitle: window.title, address: window.document)
+            app: app.name, bundleID: app.bundleID, windowTitle: window.title, address: window.document,
+            meetings: meetings)
     }
 
     /// The hourly hook: deletes every kind of captured data older than the retention, then keeps the store safe (the
