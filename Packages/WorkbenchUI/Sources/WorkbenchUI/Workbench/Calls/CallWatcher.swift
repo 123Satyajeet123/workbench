@@ -33,7 +33,7 @@ final class CallWatcher {
     private(set) var always: [String: String]
     let problems = ProblemSlot()
 
-    @ObservationIgnored private var detector = CallDetector()
+    @ObservationIgnored private var detector: CallDetector
     @ObservationIgnored private var followed: String?
     @ObservationIgnored private var heard: [String: AudioApp] = [:]
     @ObservationIgnored private let store: Store
@@ -50,6 +50,12 @@ final class CallWatcher {
         self.announce = announce
         self.identify = identify
         always = ((try? Self.alwaysKey.load(from: store)) ?? nil) ?? [:]
+        detector = Self.detector(from: store)
+    }
+
+    /// A detector with the saved settings; the defaults when none are saved or they cannot be read.
+    private static func detector(from store: Store) -> CallDetector {
+        CallDetector(settings: (try? store.queries.callDetectorSettings()) ?? CallDetector.Settings())
     }
 
     func update(listening: [AudioApp], playing: [AudioApp], at now: Date) {
@@ -57,7 +63,7 @@ final class CallWatcher {
             offer = nil
             followed = nil
             heard = [:]
-            detector = CallDetector()
+            detector = Self.detector(from: store)
             return
         }
         let apps = Dictionary(listening.map { ($0.bundleID, $0) }, uniquingKeysWith: { first, _ in first })

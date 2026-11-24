@@ -115,7 +115,7 @@ enum AppLaunch {
                 announce: { title, body in
                     guard AlertStyle.current() != .popup else { return }
                     notifications.announce(title: title, body: body, page: .calls)
-                }, identify: { service.source(of: $0) })
+                }, identify: { service.source(of: $0, meetings: today.meetings.day.meetings) })
             service.onListening = { callWatcher.update(listening: $0, playing: service.playingApps, at: .now) }
             calls.onFollowUps = { today.refresh() }
             let session = AppSession(
