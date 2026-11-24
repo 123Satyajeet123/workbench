@@ -67,6 +67,8 @@ public struct SourceDescriptor: Sendable, Equatable {
     public let ownWriting: Bool
     /// A machine over this source follows the companies the investor watches.
     public let followsCompanies: Bool
+    /// A machine over this source finds new startups by web search, on a weekly schedule, instead of reading days.
+    public let findsStartups: Bool
     /// How the person chooses what this source reads. Nil: the person does not choose on a page.
     public let picker: Picker?
     /// What must hold before this source can read, in the order Settings shows the problems. A source with none has no
@@ -82,7 +84,8 @@ public struct SourceDescriptor: Sendable, Equatable {
         lineNoun: String = "lines", readVerb: String = "Read now", retention: Retention, obtainedBy: Obtained,
         editWindow: TimeInterval,
         evidenceReach: Int? = nil, requiresAgreedAudience: Bool = false, requiresContainerAllowList: Bool = false,
-        ownWriting: Bool = false, followsCompanies: Bool = false, picker: Picker? = nil, needs: [HealthNeed] = [],
+        ownWriting: Bool = false, followsCompanies: Bool = false, findsStartups: Bool = false, picker: Picker? = nil,
+        needs: [HealthNeed] = [],
         forgets: Forgetting = Forgetting(),
         pageDenyHosts: Set<String> = []
     ) {
@@ -102,6 +105,7 @@ public struct SourceDescriptor: Sendable, Equatable {
         self.requiresContainerAllowList = requiresContainerAllowList
         self.ownWriting = ownWriting
         self.followsCompanies = followsCompanies
+        self.findsStartups = findsStartups
         self.picker = picker
         self.needs = needs
         self.forgets = forgets
@@ -283,7 +287,8 @@ extension SourceDescriptor {
     public static let webSearch = SourceDescriptor(
         key: "web.search", specName: "web_search", name: "Web search", consent: .web, grammar: webSearchGrammar,
         lineNoun: "pages", readVerb: "Find startups", retention: .page, obtainedBy: .api,
-        editWindow: 0, forgets: Forgetting(tables: [.init(name: "page_snapshot", ageColumn: "fetched_at")]))
+        editWindow: 0, findsStartups: true,
+        forgets: Forgetting(tables: [.init(name: "page_snapshot", ageColumn: "fetched_at")]))
 }
 
 /// The sources this build knows. A source starts only when a machine names it.

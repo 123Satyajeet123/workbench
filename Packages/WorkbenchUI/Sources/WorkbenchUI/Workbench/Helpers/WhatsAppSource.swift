@@ -69,6 +69,16 @@ final class WhatsAppSource: MachineSource {
     }
 
     var context: [String: [String]] { ["members": expectedPeople.map(\.name)] }
+
+    var chosenSummary: String? {
+        if readsEveryChat { return "Every WhatsApp chat" }
+        return isSeveral ? "\(chats.count) chats" : chat?.name
+    }
+
+    var chosenContainers: [Container] {
+        chats.map { Container(id: $0.jid, kind: $0.isGroup ? .group : .direct, title: $0.name) }
+    }
+
     /// With several chats, each one of them must be allowed.
     var grantLabels: [String?] { isSeveral ? chats.map(\.jid) : [scope.isEmpty ? nil : scope] }
 
@@ -160,13 +170,15 @@ final class WhatsAppSource: MachineSource {
     /// Stops reading one chat for every machine. Consent is per chat and global: the chat leaves the allow-list, which
     /// erases its lines and the copies of their words (`CaptureService.update`), and then each machine that chose it
     /// drops it. Other chats stay.
-    static func stopReading(_ chat: WhatsAppChat, among sources: [WhatsAppSource], capture: CaptureService) throws {
+    static func stopReading(_ chat: WhatsAppChat, among sources: [any MachineSource], capture: CaptureService) throws {
         try capture.update { $0.allowList[.whatsapp]?.remove(chat.jid) }
-        for source in sources where source.chats.contains(where: { $0.id == chat.id }) { try source.drop(chat) }
+        for source in sources { try source.stopReading(container: chat.jid) }
     }
 
-    private func drop(_ chat: WhatsAppChat) throws {
-        chats.removeAll { $0.id == chat.id }
+    /// Drops one chosen chat, and the people only it had.
+    func stopReading(container jid: String) throws {
+        guard chats.contains(where: { $0.jid == jid }) else { return }
+        chats.removeAll { $0.jid == jid }
         try chatsKey.save(chats, to: store)
         let remaining = Set(chats.map(\.jid))
         members = members.filter { $0.chats.map { !remaining.isDisjoint(with: $0) } ?? true }
@@ -183,6 +195,14 @@ final class WhatsAppSource: MachineSource {
     /// The members as of the last read, for showing a page; WhatsApp is read only when none are known yet.
     func showMembers() async throws {
         if members.isEmpty { try await loadMembers() }
+    }
+
+    /// The chat's members as WhatsApp has them now. With several chats, who may read all of them is not known per item
+    /// yet, so the audience is unknown and a share is refused (fail closed).
+    func shareAudience() async throws -> [WhatsAppMember]? {
+        guard !isSeveral else { return nil }
+        try await loadMembers()
+        return members
     }
 
     private func switchOn() throws {

@@ -15,30 +15,31 @@ struct PickerBlockView: View {
 
     @ViewBuilder private var chooser: some View {
         let helper = model.helper
-        switch kind {
-        case .whatsappChats:
-            if let source = helper.source as? WhatsAppSource {
-                GroupChooser(model: helper, source: source)
-            } else {
-                unavailable("\(model.name) does not read WhatsApp.")
-            }
-        case .mailLabel:
-            if let source = helper.source as? MailSource {
-                LabelChooser(model: helper, source: source)
-            } else {
-                unavailable("\(model.name) does not read Gmail.")
-            }
-        case .sites:
-            if let source = helper.source as? PageSource {
-                SiteChooser(model: helper, source: source)
-            } else {
-                unavailable("\(model.name) does not read sites.")
-            }
-        case .files: unavailable("Choosing files is not available yet.")
+        if Self.chooses(kind, for: helper.spec.source), let chooser = helper.source.chooser(for: helper) {
+            chooser
+        } else {
+            Text(unavailable).text(.meta)
         }
     }
 
-    private func unavailable(_ words: String) -> some View { Text(words).text(.meta) }
+    private var unavailable: String {
+        switch kind {
+        case .whatsappChats: "\(model.name) does not read WhatsApp."
+        case .mailLabel: "\(model.name) does not read Gmail."
+        case .sites: "\(model.name) does not read sites."
+        case .files: "Choosing files is not available yet."
+        }
+    }
+
+    /// Whether this kind of picker chooses what the source reads.
+    private static func chooses(_ kind: PickerKind, for source: SourceDescriptor) -> Bool {
+        switch kind {
+        case .whatsappChats: source.picker == .chat && source.consent == .whatsapp
+        case .mailLabel: source.picker == .mailLabel
+        case .sites: source.picker == .sites
+        case .files: source.picker == .file
+        }
+    }
 
     static func title(of kind: PickerKind) -> String {
         switch kind {

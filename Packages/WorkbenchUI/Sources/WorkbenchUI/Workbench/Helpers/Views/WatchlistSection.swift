@@ -111,6 +111,14 @@ private struct CompanyRow: View {
     }
 }
 
+extension NewsSource {
+    func chooser(for model: HelperModel) -> AnyView? { AnyView(NewsChooser(model: model)) }
+
+    func pageSection(for model: HelperModel) -> AnyView? {
+        AnyView(WatchlistSection(source: self, changed: model.reload))
+    }
+}
+
 /// What a news machine needs before it can read: the web research switch, in plain words.
 struct NewsChooser: View {
     let model: HelperModel

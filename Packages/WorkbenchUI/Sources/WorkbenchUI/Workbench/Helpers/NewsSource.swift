@@ -37,6 +37,12 @@ final class NewsSource: MachineSource {
     /// The news is read one article at a time by `check`, not by the day.
     func evidence(on day: WorkDay) throws -> EvidenceSet { EvidenceSet(lines: []) }
 
+    /// The news is checked, not read by the day: one check fetches the feeds and reads each matched article.
+    func ownRead(spec: HelperSpec, model: () throws -> RecordedModel) async throws -> (kept: Int, dropped: Int)? {
+        let report = try await check(with: model(), spec: spec)
+        return (report.kept, report.dropped)
+    }
+
     /// Fetches the feeds, matches the articles and reads each matched one with `model`. The facts belong to the
     /// machine whose spec is given.
     func check(with model: RecordedModel, spec: HelperSpec) async throws -> NewsCheck.Report {

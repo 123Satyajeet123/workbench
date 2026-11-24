@@ -27,7 +27,9 @@ extension ConnectFacts {
             readerFound: access.readerFound, screenOn: capture.isOn(.screen), screenTextOn: capture.isOn(.screenText),
             screenTrusted: access.screenTrusted,
             fullDiskAccess: access.fullDiskAccess,
-            chats: Set(machines.compactMap { $0.source as? WhatsAppSource }.flatMap { $0.chats.map(\.name) }).sorted(),
+            chats: Set(
+                machines.filter { $0.spec.source.consent == .whatsapp }.flatMap(\.source.chosenContainers).map(\.title)
+            ).sorted(),
             calendarOn: capture.isOn(.calendar), calendarRefused: today.meetings.refusal != nil,
             callsOn: capture.isOn(.call), microphoneRefused: access.microphoneRefused, mailOn: capture.isOn(.mail),
             webOn: capture.isOn(.web), browsers: browsers, needsBrowser: needsBrowser, sourceRows: sourceRows)

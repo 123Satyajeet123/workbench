@@ -28,6 +28,8 @@ final class MailSource: MachineSource {
     var isReady: Bool { !labels.isEmpty }
     var picks: String? { "a label" }
     var grantLabels: [String?] { labels }
+    var chosenSummary: String? { isReady ? "Gmail · " + labels.joined(separator: ", ") : nil }
+    var hasNothingToRead: Bool { mailReading.parts.isEmpty }
 
     /// Switches mail on for one label, as typed in Gmail. An empty name is the default label. The one label replaces
     /// any earlier one.

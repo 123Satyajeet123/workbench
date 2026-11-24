@@ -35,20 +35,6 @@ struct HelperPage: View {
 
 extension HelperModel {
     /// The chats or sites the founder chose, in words. Nil for the screen and for a source with nothing chosen.
-    var chosenSource: String? {
-        if let source = source as? WhatsAppSource {
-            if source.readsEveryChat { return "Every WhatsApp chat" }
-            return source.isSeveral ? "\(source.chats.count) chats" : source.chat?.name
-        }
-        if let source = source as? TelegramSource, let chat = source.chat { return "Telegram · \(chat.title)" }
-        if let source = source as? PageSource, !source.sites.isEmpty { return source.sites.joined(separator: ", ") }
-        if let source = source as? MailSource, source.isReady {
-            return "Gmail · " + source.labels.joined(separator: ", ")
-        }
-        return nil
-    }
-
-    var reads: String {
-        chosenSource ?? (source is ScreenSource ? "Your screen windows" : "Nothing chosen yet")
-    }
+    var chosenSource: String? { source.chosenSummary }
+    var reads: String { source.reads }
 }

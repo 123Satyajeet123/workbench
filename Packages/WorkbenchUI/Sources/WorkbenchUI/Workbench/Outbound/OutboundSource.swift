@@ -40,9 +40,12 @@ final class OutboundSource: MachineSource {
     /// Candidates are found by `find`, not read by the day.
     func evidence(on day: WorkDay) throws -> EvidenceSet { EvidenceSet(lines: []) }
 
-    /// One run with `model`. The candidates belong to the machine whose spec is given.
-    func find(with model: RecordedModel, spec: HelperSpec) async throws -> OutboundRunRecord {
-        try await OutboundRun(session: try openSession(), model: model, spec: spec).run()
+    /// Startups are found by search, not by the day: one run writes queries, searches, fetches and reads the pages.
+    /// The candidates belong to the machine whose spec is given.
+    func ownRead(spec: HelperSpec, model: () throws -> RecordedModel) async throws -> (kept: Int, dropped: Int)? {
+        let model = try model()
+        let record = try await OutboundRun(session: try openSession(), model: model, spec: spec).run()
+        return (record.kept, record.found - record.kept)
     }
 
     func notAFit(_ item: Item, reason: String) throws { try store.rejectCandidate(item, reason: reason) }

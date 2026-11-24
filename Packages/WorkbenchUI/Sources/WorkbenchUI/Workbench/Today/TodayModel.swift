@@ -393,8 +393,7 @@ final class TodayModel {
         guard item.citeFirst > 0, let helper = crew.helper(task: item.task) else {
             return []
         }
-        if let whatsApp = helper.source as? WhatsAppSource { return try await whatsApp.proof(of: item, reach: reach) }
-        return ChatLine.around(item, in: try await helper.source.evidence(on: item.day).lines, reach: Int64(reach))
+        return try await helper.source.proof(of: item, reach: reach)
     }
 
     private func reloadMachines() {

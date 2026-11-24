@@ -70,6 +70,11 @@ struct OutboundSection: View {
     }
 }
 
+extension OutboundSource {
+    func chooser(for model: HelperModel) -> AnyView? { AnyView(OutboundChooser(model: model)) }
+    func itemsView(for model: HelperModel) -> AnyView? { AnyView(OutboundSection(model: model, source: self)) }
+}
+
 /// What the outbound machine needs before it can search: the web research switch and a key, in plain words.
 struct OutboundChooser: View {
     let model: HelperModel

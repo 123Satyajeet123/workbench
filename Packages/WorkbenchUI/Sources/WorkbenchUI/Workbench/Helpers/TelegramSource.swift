@@ -52,6 +52,8 @@ final class TelegramSource: MachineSource {
     var isReady: Bool { chat != nil && consent?.chat == chat?.id }
     var picks: String? { "a chat" }
     var context: [String: [String]] { ["members": members.map(\.name)] }
+    var chosenSummary: String? { chat.map { "Telegram · \($0.title)" } }
+    var chosenContainers: [Container] { chat.map { [Container(id: $0.label, kind: .group, title: $0.title)] } ?? [] }
 
     func loadGroups() async throws {
         try await account.waitUntilReady()

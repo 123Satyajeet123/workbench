@@ -23,6 +23,8 @@ final class PageSource: MachineSource {
     let scope = ""
     var isReady: Bool { !sites.isEmpty }
     var picks: String? { "sites" }
+    var chosenSummary: String? { sites.isEmpty ? nil : sites.joined(separator: ", ") }
+    var hasNothingToRead: Bool { pageReading.pages.isEmpty }
 
     /// Sites as the founder typed them, separated by commas or spaces. Anything that is not a site is left out.
     func choose(_ typed: String) throws {

@@ -95,14 +95,12 @@ final class Crew {
 
     /// The names of the other machines that read this chat.
     func otherReaders(of chat: WhatsAppChat, besides helper: HelperModel) -> [String] {
-        machines.filter { $0 !== helper && ($0.source as? WhatsAppSource)?.chats.contains { $0.id == chat.id } == true }
-            .map(\.name)
+        machines.filter { $0 !== helper && $0.source.chosenContainers.contains { $0.id == chat.jid } }.map(\.name)
     }
 
     /// Stops reading a chat for every machine that reads it, and erases what was stored from it.
     func stopReading(_ chat: WhatsAppChat) throws {
-        try WhatsAppSource.stopReading(
-            chat, among: machines.compactMap { $0.source as? WhatsAppSource }, capture: capture)
+        try WhatsAppSource.stopReading(chat, among: machines.map(\.source), capture: capture)
     }
 
     func helper(id: Int64) -> HelperModel? { machines.first { $0.machine.id == id } }
@@ -245,9 +243,12 @@ final class Crew {
         reload()
     }
 
-    private func telegramChats(except task: String) -> Set<String> {
-        let others = machines.filter { $0.spec.task != task }.compactMap { $0.source as? TelegramSource }
-        return Set(others.compactMap(\.chat?.label))
+    /// The containers that the other machines over the same kind of source read.
+    private func containers(readBesides machine: Machine) -> Set<String> {
+        let others = machines.filter {
+            $0.spec.task != machine.task && $0.spec.source.consent == machine.spec.source.consent
+        }
+        return Set(others.flatMap(\.source.chosenContainers).map(\.id))
     }
 
     private func source(for machine: Machine) throws -> any MachineSource {
@@ -264,7 +265,7 @@ final class Crew {
         case .telegramChat:
             try TelegramSource(
                 store: store, capture: capture, account: telegram, task: machine.task, founder: founder,
-                othersReading: { [weak self] in self?.telegramChats(except: machine.task) ?? [] })
+                othersReading: { [weak self] in self?.containers(readBesides: machine) ?? [] })
         default: throw NotAMachineSource()
         }
     }

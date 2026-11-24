@@ -54,7 +54,7 @@ final class FirstLookModel {
     /// The machines of the template that read day by day and have a source to read now. A news or search machine
     /// reads on its own schedule.
     var machines: [HelperModel] {
-        seeded.filter { !$0.isOutbound && !($0.source is NewsSource) && $0.isReady }
+        seeded.filter { !$0.isOutbound && !$0.spec.source.followsCompanies && $0.isReady }
     }
 
     /// The machines whose picker waits for the person, such as the chats a chat machine reads, from the prompts that

@@ -14,6 +14,8 @@ final class ScreenSource: MachineSource {
 
     let scope = ""
     let isReady = true
+    let reads = "Your screen windows"
+    var hasNothingToRead: Bool { sessions.isEmpty }
 
     func refresh(on day: WorkDay) throws { sessions = try sessions(on: day) }
 

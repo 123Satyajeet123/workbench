@@ -25,8 +25,13 @@ final class HelperReading {
         let scope = context.source.scope
         do {
             _ = try await context.grant()
-            if let news = context.source as? NewsSource { return try await readNews(news, on: day) }
-            if let outbound = context.source as? OutboundSource { return try await findStartups(outbound, on: day) }
+            if let counts = try await context.source.ownRead(spec: spec, model: makeModel) {
+                context.reloadIfShown(day)
+                phase = .read(kept: counts.kept, dropped: counts.dropped)
+                context.problems.dismiss()
+                context.itemsChanged()
+                return true
+            }
             let full = try await context.source.evidence(on: day)
             // A reading sends the lines no earlier reading saw: earlier lines go along as context only, so nothing is
             // read twice and nothing comes back reworded.
@@ -43,7 +48,7 @@ final class HelperReading {
                 context.problems.dismiss()
                 return true
             }
-            let model = context.makeModel(try context.runner(for: .init(spec)))
+            let model = try makeModel()
             let reader = HelperReader(spec: spec, model: model, objects: try store.queries.objectsToShow(for: spec))
             let result = try await reader.read(
                 day: day, scope: scope, evidence: evidence, marked: try context.marked(), open: open)
@@ -69,27 +74,9 @@ final class HelperReading {
         try context.store.queries.numbersRead(by: context.spec.task, among: full.lines.map(\.id))
     }
 
-    /// The news machine reads articles, not days: one check fetches the feeds and reads each matched article.
-    private func readNews(_ news: NewsSource, on day: WorkDay) async throws -> Bool {
-        let model = context.makeModel(try context.runner(for: .init(context.spec)))
-        let report = try await news.check(with: model, spec: context.spec)
-        context.reloadIfShown(day)
-        phase = .read(kept: report.kept, dropped: report.dropped)
-        context.problems.dismiss()
-        context.itemsChanged()
-        return true
-    }
-
-    /// The outbound machine finds startups by search, not by the day: one run writes queries, searches, fetches and
-    /// reads the pages.
-    private func findStartups(_ outbound: OutboundSource, on day: WorkDay) async throws -> Bool {
-        let model = context.makeModel(try context.runner(for: .init(context.spec)))
-        let record = try await outbound.find(with: model, spec: context.spec)
-        context.reloadIfShown(day)
-        phase = .read(kept: record.kept, dropped: record.found - record.kept)
-        context.problems.dismiss()
-        context.itemsChanged()
-        return true
+    /// The model the machine's spec reads with.
+    private func makeModel() throws -> RecordedModel {
+        context.makeModel(try context.runner(for: .init(context.spec)))
     }
 
     /// Whether the facts of `day` have summaries that are missing or out of date. Asks no model.
@@ -112,7 +99,7 @@ final class HelperReading {
     }
 
     private func summaries() throws -> Summaries {
-        Summaries(store: context.store, model: context.makeModel(try context.runner(for: .init(context.spec))))
+        Summaries(store: context.store, model: try makeModel())
     }
 
     /// Brings the day's summaries up to date, one set for each field the machine groups by (people, projects), then

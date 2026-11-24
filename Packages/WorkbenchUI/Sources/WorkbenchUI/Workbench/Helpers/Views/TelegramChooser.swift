@@ -4,6 +4,10 @@ import SwiftUI
 import TelegramReader
 import WorkbenchCore
 
+extension TelegramSource {
+    func chooser(for model: HelperModel) -> AnyView? { AnyView(TelegramChooser(model: model, source: self)) }
+}
+
 struct TelegramChooser: View {
     let model: HelperModel
     let source: TelegramSource

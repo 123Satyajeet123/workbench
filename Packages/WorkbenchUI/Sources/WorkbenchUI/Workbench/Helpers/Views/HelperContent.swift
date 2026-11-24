@@ -27,12 +27,12 @@ struct HelperContent: View {
 
     @ViewBuilder private var readyContent: some View {
         ReadBar(model: model)
-        if let news = model.source as? NewsSource { WatchlistSection(source: news, changed: model.reload) }
+        if let section = model.source.pageSection(for: model) { section }
         if let question = model.question { HelperQuestion(model: model, item: question) }
         if let notice = model.notice { NoticeRow(text: notice) { model.notice = nil } }
         if model.isTrying { TrialCard(model: model) }
-        if let outbound = model.source as? OutboundSource {
-            OutboundSection(model: model, source: outbound)
+        if let own = model.source.itemsView(for: model) {
+            own
         } else {
             items
         }
@@ -54,9 +54,8 @@ struct HelperContent: View {
     }
 
     private func loadMembers() async {
-        guard let source = model.source as? WhatsAppSource else { return }
         do {
-            try await source.showMembers()
+            try await model.source.showMembers()
         } catch {
             model.problems.report("read the group members", error)
         }

@@ -6,20 +6,20 @@ struct SourceChooser: View {
     let model: HelperModel
 
     var body: some View {
-        if let source = model.source as? WhatsAppSource {
-            GroupChooser(model: model, source: source)
-        } else if let source = model.source as? PageSource {
-            SiteChooser(model: model, source: source)
-        } else if let source = model.source as? MailSource {
-            LabelChooser(model: model, source: source)
-        } else if model.source is NewsSource {
-            NewsChooser(model: model)
-        } else if model.source is OutboundSource {
-            OutboundChooser(model: model)
-        } else if let source = model.source as? TelegramSource {
-            TelegramChooser(model: model, source: source)
-        }
+        if let chooser = model.source.chooser(for: model) { chooser }
     }
+}
+
+extension WhatsAppSource {
+    func chooser(for model: HelperModel) -> AnyView? { AnyView(GroupChooser(model: model, source: self)) }
+}
+
+extension PageSource {
+    func chooser(for model: HelperModel) -> AnyView? { AnyView(SiteChooser(model: model, source: self)) }
+}
+
+extension MailSource {
+    func chooser(for model: HelperModel) -> AnyView? { AnyView(LabelChooser(model: model, source: self)) }
 }
 
 /// The Gmail label a mail machine reads. Only threads opened in this label are kept; mail elsewhere stays in Gmail.

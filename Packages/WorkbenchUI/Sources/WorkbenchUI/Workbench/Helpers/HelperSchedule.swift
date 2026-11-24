@@ -102,7 +102,7 @@ final class HelperSchedule {
     func findIfDue() async {
         let now = context.store.clock()
         let ranKey = MachineKey.weeklyRan(context.spec.task)
-        guard weekly.isOn, context.source is OutboundSource, context.source.isReady, !context.isPaused,
+        guard weekly.isOn, context.spec.source.findsStartups, context.source.isReady, !context.isPaused,
             reading.phase != .reading
         else { return }
         let lastRan = (try? ranKey.load(from: context.store)).flatMap { $0 }

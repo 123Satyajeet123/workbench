@@ -6,79 +6,107 @@ struct ReadBar: View {
 
     var body: some View {
         HStack(spacing: Space.m) {
-            Button(readTitle) { Task { await model.read() } }
+            Button(model.spec.source.readVerb) { Task { await model.read() } }
                 .buttonStyle(.primary)
-                .disabled(model.phase == .reading || hasNothingToRead || model.isPaused)
+                .disabled(model.phase == .reading || model.source.hasNothingToRead || model.isPaused)
             ReadPhaseLabel(phase: model.phase, items: model.spec.itemsNoun, droppedBecause: "not backed by the source")
             Spacer()
             if !model.isOutbound { ViewPicker(model: model) }
         }
     }
+}
 
-    private var readTitle: String {
-        if model.source is NewsSource { return "Check the news" }
-        return model.source is OutboundSource ? "Find startups" : "Read now"
+/// What a reading sends, in words, above the buttons that change what the source reads. Without words of its own, it
+/// says what a reading of messages sends.
+struct ReadNote<Actions: View>: View {
+    let note: String?
+    let actions: Actions
+    @Environment(ModelSettings.self) private var models
+
+    init(note: String? = nil, @ViewBuilder actions: () -> Actions) {
+        self.note = note
+        self.actions = actions()
     }
 
-    /// A screen or page machine has nothing to read on a day without activity; a chat machine always may try.
-    private var hasNothingToRead: Bool {
-        if let screen = model.source as? ScreenSource { return screen.sessions.isEmpty }
-        if let pages = model.source as? PageSource { return pages.pageReading.pages.isEmpty }
-        if let mail = model.source as? MailSource { return mail.mailReading.parts.isEmpty }
-        return false
+    var body: some View {
+        VStack(alignment: .leading, spacing: Space.s) {
+            Text(note ?? messagesNote).textStyle(.callout).foregroundStyle(.supporting)
+            actions
+        }
+    }
+
+    private var messagesNote: String {
+        "Reading sends this day's messages, and the text in its photos (read on this Mac), to \(models.choice.title). Each call is listed on the Usage page."
     }
 }
 
-struct ReadNote: View {
+extension ReadNote where Actions == EmptyView {
+    init(note: String? = nil) { self.init(note: note) { EmptyView() } }
+}
+
+extension WhatsAppSource {
+    func settingsView(for model: HelperModel) -> AnyView {
+        AnyView(
+            VStack(alignment: .leading, spacing: Space.l) {
+                ReadNote { Button("Change chats", action: change) }
+                ChosenChats(model: model, source: self)
+                TeamPicker(model: model, source: self)
+            })
+    }
+}
+
+extension TelegramSource {
+    func settingsView(for model: HelperModel) -> AnyView { AnyView(TelegramReadNote(model: model, source: self)) }
+}
+
+private struct TelegramReadNote: View {
     let model: HelperModel
+    let source: TelegramSource
+    @Environment(ModelSettings.self) private var models
+
+    var body: some View {
+        ReadNote(note: note) {
+            HStack {
+                Button("Change group", action: source.change)
+                Button("Ask everyone again") {
+                    Task {
+                        do { try await source.askAgain() } catch { model.problems.report("ask again", error) }
+                    }
+                }
+                Button("Stop reading this group") { model.attempt("stop reading the group", source.stopReading) }
+            }
+        }
+    }
+
+    private var note: String? {
+        source.consent.map { consent in
+            "Reading sends this day's messages of \(source.chat?.title ?? "the group") to \(models.choice.title). Everyone in it agreed on \(consent.at.formatted(date: .abbreviated, time: .omitted)). If anyone stops agreeing, stop reading this group."
+        }
+    }
+}
+
+extension PageSource {
+    func settingsView(for model: HelperModel) -> AnyView { AnyView(PageReadNote(model: model, source: self)) }
+}
+
+private struct PageReadNote: View {
+    let model: HelperModel
+    let source: PageSource
     @Environment(ModelSettings.self) private var models
     @Environment(CaptureSettings.self) private var capture
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Space.s) {
-            Text(note).textStyle(.callout).foregroundStyle(.supporting)
-            if model.source is ScreenSource, !capture.isOn(.screen) {
-                Button("Turn on Screen") { capture.set(.screen, on: true) }
-                    .help("Workbench keeps which app, window and page you are in. Never pixels or keystrokes.")
-            }
-            if let source = model.source as? WhatsAppSource {
-                Button("Change chats", action: source.change)
-            }
-            if let source = model.source as? TelegramSource {
-                HStack {
-                    Button("Change group", action: source.change)
-                    Button("Ask everyone again") {
-                        Task {
-                            do { try await source.askAgain() } catch { model.problems.report("ask again", error) }
-                        }
-                    }
-                    Button("Stop reading this group") { model.attempt("stop reading the group", source.stopReading) }
+        ReadNote(note: note) {
+            HStack {
+                if !capture.isOn(.screenText) {
+                    Button("Turn on Screen text") { capture.set(.screenText, on: true) }
                 }
-            }
-            if let source = model.source as? PageSource {
-                HStack {
-                    if !capture.isOn(.screenText) {
-                        Button("Turn on Screen text") { capture.set(.screenText, on: true) }
-                    }
-                    Button("Change sites") { model.attempt("clear the sites") { try source.choose("") } }
-                }
+                Button("Change sites") { model.attempt("clear the sites") { try source.choose("") } }
             }
         }
     }
 
     private var note: String {
-        if let screen = model.source as? ScreenSource { return screenNote(screen) }
-        if let pages = model.source as? PageSource { return pageNote(pages) }
-        if let mail = model.source as? MailSource { return mailNote(mail) }
-        if let telegram = model.source as? TelegramSource, let consent = telegram.consent {
-            return
-                "Reading sends this day's messages of \(telegram.chat?.title ?? "the group") to \(models.choice.title). Everyone in it agreed on \(consent.at.formatted(date: .abbreviated, time: .omitted)). If anyone stops agreeing, stop reading this group."
-        }
-        return
-            "Reading sends this day's messages, and the text in its photos (read on this Mac), to \(models.choice.title). Each call is listed on the Usage page."
-    }
-
-    private func pageNote(_ source: PageSource) -> String {
         let reading = source.pageReading
         guard !reading.pages.isEmpty else {
             return
@@ -88,8 +116,19 @@ struct ReadNote: View {
             reading.leftOut == 0 ? "" : " \(reading.leftOut) later pages are past the size limit and are left out."
         return "\(reading.pages.count) page views. Reading sends their text to \(models.choice.title).\(left)"
     }
+}
 
-    private func mailNote(_ source: MailSource) -> String {
+extension MailSource {
+    func settingsView(for model: HelperModel) -> AnyView { AnyView(MailReadNote(source: self)) }
+}
+
+private struct MailReadNote: View {
+    let source: MailSource
+    @Environment(ModelSettings.self) private var models
+
+    var body: some View { ReadNote(note: note) }
+
+    private var note: String {
         let reading = source.mailReading
         let label = source.labels.joined(separator: ", ")
         guard !reading.parts.isEmpty else {
@@ -101,8 +140,27 @@ struct ReadNote: View {
         return
             "\(source.threadsOpened) threads opened in \(label); \(reading.parts.count) messages and deck pages. Reading sends their text to \(models.choice.title).\(left) Threads you never opened cannot be seen."
     }
+}
 
-    private func screenNote(_ source: ScreenSource) -> String {
+extension ScreenSource {
+    func settingsView(for model: HelperModel) -> AnyView { AnyView(ScreenReadNote(source: self)) }
+}
+
+private struct ScreenReadNote: View {
+    let source: ScreenSource
+    @Environment(ModelSettings.self) private var models
+    @Environment(CaptureSettings.self) private var capture
+
+    var body: some View {
+        ReadNote(note: note) {
+            if !capture.isOn(.screen) {
+                Button("Turn on Screen") { capture.set(.screen, on: true) }
+                    .help("Workbench keeps which app, window and page you are in. Never pixels or keystrokes.")
+            }
+        }
+    }
+
+    private var note: String {
         guard !source.sessions.isEmpty else {
             return capture.isOn(.screen)
                 ? "Screen is on. The timeline fills as you work; read the day later."

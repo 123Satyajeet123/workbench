@@ -127,7 +127,7 @@ final class ProofModel {
     func card(for item: Item) -> InspectorCard {
         let words = DateWords(now: store.clock(), locale: locale)
         let helper = helper(of: item)
-        let chat = (helper?.source as? WhatsAppSource)?.chats.first { $0.jid == item.scope }?.name
+        let chat = helper?.source.chosenContainers.first { $0.id == item.scope }?.title
         return InspectorCard(
             headline: FactHeadline(item: item, title: titleOf(item)),
             meta: InspectorWords.meta(of: item, home: item.id.flatMap { try? store.queries.filing(of: $0) }, words),

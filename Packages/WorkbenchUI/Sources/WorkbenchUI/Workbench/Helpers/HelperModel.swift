@@ -59,9 +59,7 @@ final class HelperModel {
     var today: WorkDay { shared.today }
     var scope: String { source.scope }
     var isReady: Bool { source.isReady }
-    var isChoosingSource: Bool {
-        !isReady || (source as? WhatsAppSource)?.isChanging == true || (source as? TelegramSource)?.isChanging == true
-    }
+    var isChoosingSource: Bool { !isReady || source.isChanging }
     var context: [String: [String]] { source.context }
     var notifications: Notifications { shared.notifications }
 
@@ -91,7 +89,7 @@ final class HelperModel {
         set { schedule.weekly = newValue }
     }
     /// This machine searches the web for startups.
-    var isOutbound: Bool { source is OutboundSource }
+    var isOutbound: Bool { spec.source.findsStartups }
     var watch: WatchSchedule {
         get { schedule.watch }
         set { schedule.watch = newValue }
