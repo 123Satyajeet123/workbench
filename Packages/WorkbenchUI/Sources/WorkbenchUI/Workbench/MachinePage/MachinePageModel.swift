@@ -48,6 +48,9 @@ final class MachinePageModel {
     var name: String { helper.name }
     var spec: HelperSpec { helper.spec }
     var reads: String { helper.reads }
+    /// The job in one sentence, in the person's words, from the machine's template. Nil for a machine whose template
+    /// is not known.
+    var job: String? { GalleryTemplate.of(id: helper.machine.template)?.job }
     var hasNothingYet: Bool { !shown.hasMachineBlocks && proposal == nil }
     var slots: [PageSlot] { runs.slots(order: shown.order) }
 

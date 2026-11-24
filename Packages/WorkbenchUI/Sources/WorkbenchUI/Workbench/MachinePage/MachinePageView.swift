@@ -8,7 +8,7 @@ struct MachinePageView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Space.l) {
-            JobHeader(brief: model.spec.brief, reads: model.reads)
+            JobHeader(job: model.job, brief: model.spec.brief, reads: model.reads)
             ProblemSlotBanner(slot: model.problems)
             if model.hasNothingYet {
                 Text("Nothing here yet. Ask \(model.name) for a view of its facts.").text(.meta)
@@ -26,22 +26,31 @@ struct MachinePageView: View {
     }
 }
 
-/// What the machine is for, and what it reads. Read-only: the brief changes in the settings.
+/// What the machine is for, in one sentence in the person's words, and what it reads. The brief is what the machine
+/// itself is told: it is one click away, and it changes in the settings.
 private struct JobHeader: View {
+    let job: String?
     let brief: String
     let reads: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: Space.xs) {
-            Label {
-                Text("The job").text(.sectionTitle)
-            } icon: {
-                Image(systemName: "gearshape").foregroundStyle(.iconTint)
+            VStack(alignment: .leading, spacing: Space.xs) {
+                Label {
+                    Text("The job").text(.sectionTitle)
+                } icon: {
+                    Image(systemName: "gearshape").foregroundStyle(.iconTint)
+                }
+                if let job { Text(job).textStyle(.body).textSelection(.enabled) }
+                Text("Reads: \(reads)").text(.meta)
             }
-            Text(brief).textStyle(.body).textSelection(.enabled)
-            Text("Reads: \(reads)").text(.meta)
+            .accessibilityElement(children: .combine)
+            Fold {
+                Text(brief).textStyle(.body).textSelection(.enabled).padding(.top, Space.xs)
+            } label: {
+                Text("How it works").text(.meta)
+            }
         }
-        .accessibilityElement(children: .combine)
     }
 }
 
