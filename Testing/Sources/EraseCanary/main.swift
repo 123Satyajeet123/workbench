@@ -25,6 +25,10 @@ if CommandLine.arguments.dropFirst().first == "scale" {
     try await Scale.run(lines: lines, in: root.appending(path: "scale"), findings: findings)
     exit(findings.isClean ? 0 : 1)
 }
+if CommandLine.arguments.dropFirst().first == "whatsapp" {
+    try await WhatsAppTrial.run(in: root.appending(path: "whatsapp"), findings: findings)
+    exit(findings.isClean ? 0 : 1)
+}
 try SqliteInfo.print(into: findings)
 try ScannerSelfTest.run(in: root.appending(path: "self-test"), findings: findings)
 try await Control.run(in: root.appending(path: "control"), findings: findings)

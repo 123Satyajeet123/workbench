@@ -207,11 +207,10 @@ for chat in 0..<erasedChats {
                 steps.append(
                     try seconds { try db.execute(sql: "DELETE FROM evidence WHERE grant_id = ?", arguments: [grant]) })
                 steps.append(try seconds { try EvidenceStamp.dropOrphanStructure(in: db) })
-                steps.append(try seconds { try EvidenceStamp.optimizeSearch(in: db) })
             }
         })
     print(
-        "chat \(chat) transaction: redact copies \(format(steps[0])) s, delete lines \(format(steps[1])) s, orphan structure \(format(steps[2])) s, search optimize \(format(steps[3])) s"
+        "chat \(chat) transaction: redact copies \(format(steps[0])) s, delete lines \(format(steps[1])) s, orphan structure \(format(steps[2])) s"
     )
     steps = []
     var phases: [Double] = []
