@@ -16,6 +16,7 @@ export type InlineContent =
   | { type: "link"; href: string; content: { type: "text"; text: string; styles: Partial<Record<Style, true>> }[] };
 
 export const MACHINE = "machine";
+export const FIELD = "field";
 
 const TYPE_OF_KIND: Record<LineKind, string> = {
   paragraph: "paragraph",
@@ -70,15 +71,26 @@ export function lineOf(block: EditorBlock, depth: number): Line {
 
 /** The page in reading order, nested blocks after their parent. A paragraph's text is the line Swift stores. */
 export function flatten(blocks: EditorBlock[], depth = 0): FlatBlock[] {
-  return blocks.flatMap((block) => [
-    block.type === MACHINE
-      ? { id: block.id, kind: "machine" as const, text: "" }
-      : { id: block.id, kind: "note" as const, text: formatLine(lineOf(block, depth)) },
-    ...flatten(block.children, depth + 1),
-  ]);
+  return blocks.flatMap((block) => [flatBlock(block, depth), ...flatten(block.children, depth + 1)]);
+}
+
+function flatBlock(block: EditorBlock, depth: number): FlatBlock {
+  if (block.type === MACHINE) return { id: block.id, kind: "machine", text: "" };
+  if (block.type === FIELD) return { id: block.id, kind: "field", text: plainText(block.content) };
+  return { id: block.id, kind: "note", text: formatLine(lineOf(block, depth)) };
+}
+
+/** The words of a field: no styles, no links. */
+export function plainText(content: InlineContent[] | undefined): string {
+  return runsOf(content).map((run) => run.text).join("");
 }
 
 export function blockOf(page: PageBlock): { block: EditorBlock; depth: number } {
+  if (page.kind === "field") {
+    const props = { look: page.look, hint: page.hint };
+    const content = page.text === "" ? [] : contentOf([{ text: page.text, styles: [] }]);
+    return { block: { id: page.id, type: FIELD, props, content, children: [] }, depth: 0 };
+  }
   if (page.kind === "machine") {
     const props = { view: JSON.stringify(page.view), standing: page.standing };
     return { block: { id: page.id, type: MACHINE, props, children: [] }, depth: 0 };
@@ -103,7 +115,7 @@ export function treeOf(page: PageBlock[]): EditorBlock[] {
     const { block, depth } = blockOf(item);
     while (open.length > 0 && open[open.length - 1]!.depth >= Math.min(depth, open.length)) open.pop();
     const parent = open[open.length - 1];
-    const holds = parent !== undefined && parent.block.type !== MACHINE && parent.block.type !== "divider";
+    const holds = parent !== undefined && ![MACHINE, FIELD, "divider"].includes(parent.block.type);
     if (parent && holds && depth > parent.depth) parent.block.children.push(block);
     else roots.push(block);
     open.push({ block, depth: parent && holds && depth > parent.depth ? parent.depth + 1 : 0 });
@@ -144,7 +156,6 @@ export function applyToFlat(flat: FlatBlock[], change: Change): FlatBlock[] {
 }
 
 function flatOf(page: PageBlock): FlatBlock {
-  if (page.kind === "machine") return { id: page.id, kind: "machine", text: "" };
   const { block, depth } = blockOf(page);
-  return { id: page.id, kind: "note", text: formatLine(lineOf(block, depth)) };
+  return flatBlock(block, depth);
 }

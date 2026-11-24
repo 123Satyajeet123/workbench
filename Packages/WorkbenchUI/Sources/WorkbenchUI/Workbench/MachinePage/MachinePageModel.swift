@@ -4,9 +4,6 @@ import Observation
 import SwiftUI
 import WorkbenchCore
 
-/// A text of the page that is edited in place.
-enum PageField { case name, job }
-
 /// The page of one machine as the person works on it: the page in its editor, the proposal that waits, and the
 /// machine's facts. The store is the truth; every action writes to it and shows the page again.
 @Observable
@@ -17,20 +14,24 @@ final class MachinePageModel {
     /// last until the person decides on the proposal.
     private(set) var refusals: [PageRefusal] = []
     private(set) var isAsking = false
-    /// The words of the page the person is editing where they stand.
-    private(set) var editing: PageField?
     /// The page in its editor; nil until the page is shown for the first time.
     private(set) var editor: PageEditorController?
     /// The fact whose proof the person opened, and the kind of source they are choosing for.
     var inspected: Item?
     var choosing: PickerKind?
+    /// Whether the sheet with everything else about the machine is open.
+    var isShowingMore = false
+    /// What the words of the title and of the job do. The app that shows the page sets them.
+    @ObservationIgnored var edits = PageEdits()
 
     let problems = ProblemSlot()
     let toast = ToastCenter()
 
     @ObservationIgnored let store: Store
     @ObservationIgnored let page: WorkObjectID
-    @ObservationIgnored let owner: PersonID
+    /// Who writes the page; nil when this Mac cannot say, and the page is then read and never written.
+    @ObservationIgnored let owner: PersonID?
+    @ObservationIgnored let ownerNotice: String?
     @ObservationIgnored private let viewer: PageViewer
     @ObservationIgnored private let makeModel: () throws -> RecordedModel
     @ObservationIgnored unowned let helper: HelperModel
@@ -38,7 +39,7 @@ final class MachinePageModel {
     @ObservationIgnored let status: (Date) -> Result<MachineStatus, any Error>?
 
     init(
-        helper: HelperModel, page: WorkObjectID, store: Store, owner: PersonID,
+        helper: HelperModel, page: WorkObjectID, store: Store, owner: Result<PersonID, any Error>,
         status: @escaping (Date) -> Result<MachineStatus, any Error>? = { _ in nil },
         makeModel: @escaping () throws -> RecordedModel
     ) throws {
@@ -46,11 +47,19 @@ final class MachinePageModel {
         self.helper = helper
         self.page = page
         self.store = store
-        self.owner = owner
         self.makeModel = makeModel
         self.status = status
-        viewer = try PageViewer(owner: owner)
-        problems.attempt("start the page") { try store.startPage(of: helper.machine) }
+        switch owner {
+        case .success(let person):
+            self.owner = person
+            ownerNotice = nil
+            viewer = try PageViewer(owner: person)
+            problems.attempt("start the page") { try store.startPage(of: helper.machine) }
+        case .failure(let cause):
+            self.owner = nil
+            ownerNotice = Self.readOnlyNotice(cause: cause)
+            viewer = .nobody
+        }
         reload()
     }
 
@@ -60,18 +69,8 @@ final class MachinePageModel {
     /// The job in one sentence, in the person's words: the machine's own, else its template's.
     var job: String? { helper.machine.job }
 
-    /// The title of the page as a text that is edited in place; `commit` gets the new name.
-    func renaming(commit: @escaping (String) -> Void) -> PageRename {
-        PageRename(
-            isEditing: Binding(get: { self.editing == .name }, set: { self.setEditing(.name, $0) }), commit: commit)
-    }
-
-    func setEditing(_ field: PageField, _ isEditing: Bool) {
-        if isEditing {
-            editing = field
-        } else if editing == field {
-            editing = nil
-        }
+    private static func readOnlyNotice(cause: any Error) -> String {
+        "This page is read-only. \(cause.localizedDescription) To change it, allow Workbench in Keychain Access, then open this page again."
     }
 
     func reload() {
@@ -94,8 +93,10 @@ final class MachinePageModel {
         problems.attempt("open the page") {
             let controller = try PageEditorController(
                 store: store, page: page, owner: owner, host: EditorHost(), appearance: appearance,
-                reduceMotion: reduceMotion, scale: scale, views: { [unowned self] in viewBuilder })
+                reduceMotion: reduceMotion, scale: scale, views: { [unowned self] in viewBuilder },
+                document: { [unowned self] in documentBlocks })
             controller.onMark = { [unowned self] fact, mark in markFact(fact, mark) }
+            controller.onField = { [unowned self] field, text in edit(field: field, to: text) }
             controller.onOpen = { [unowned self] target in open(target) }
             controller.start()
             editor = controller
@@ -107,7 +108,9 @@ final class MachinePageModel {
         MachineViewBuilder(
             facts: facts, titleOf: { [spec] item in item[spec.title] }, lens: FactsLens(spec: spec, now: Date()),
             pickerNote: { [helper] kind in PickerChoice.unavailableNote(kind, for: helper) },
-            marks: { [unowned self] item in actions(for: item).compactMap(FactMark.init(action:)) })
+            marks: { [unowned self] item in
+                owner == nil ? [] : actions(for: item).compactMap(FactMark.init(action:))
+            })
     }
 
     private func markFact(_ fact: Int64, _ mark: FactMark) {
@@ -121,13 +124,15 @@ final class MachinePageModel {
             if case .fact(let id) = PageCite(reference: reference) { inspected = facts.first { $0.id == id } }
         case .link(let address): EditorHost.openLink(address)
         case .picker(let source): choosing = PickerKind(rawValue: source)
+        case .action(.read): Task { await helper.read() }
+        case .action(.more): isShowingMore = true
         }
     }
 
     /// Sends a request to the machine. Nothing changes on the page until the person accepts what comes back. Answers
     /// whether a proposal was made, so the request stays in the box when it was not.
     func ask(_ request: String) async -> Bool {
-        guard !isAsking, let words = request.cleaned else { return false }
+        guard !isAsking, owner != nil, let words = request.cleaned else { return false }
         isAsking = true
         defer { isAsking = false }
         var isProposed = false
@@ -147,6 +152,7 @@ final class MachinePageModel {
 
     /// Keeps what the machine proposed, with the refusals the person is told about.
     func submit(_ proposal: PageProposal, asked request: String) throws {
+        guard let owner else { return }
         try store.propose(proposal, on: page, by: helper.machine.id, request: request, owner: owner)
         refusals = proposal.verdicts.compactMap(\.refusal)
         refresh()

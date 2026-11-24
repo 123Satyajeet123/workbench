@@ -179,3 +179,17 @@ img.ProseMirror-separator { display: inline !important; border: none !important;
 /* A machine block the person selected: a tint from the palette, no ring. */
 .bn-block-content.ProseMirror-selectednode > :after, .ProseMirror-selectednode > .bn-block-content > :after { background: transparent; box-shadow: none; }
 .ProseMirror-focused .bn-block-content.ProseMirror-selectednode > :after, .ProseMirror-focused .ProseMirror-selectednode > .bn-block-content > :after { background: var(--wb-selected); }
+
+/* Fields of the document: words the person edits where they stand. No box, no label; the same flow as the page. */
+.field { width: 100%; }
+.field-title { font-size: 2em; font-weight: 700; line-height: 1.2; padding-bottom: 4px; }
+.field-body { color: var(--wb-text); }
+.field[data-hint]:has(.ProseMirror-trailingBreak:only-child) .field-text::after { content: attr(data-hint); color: var(--wb-supporting); pointer-events: none; }
+
+/* What the machine says of itself, in the voice of the page's small print. */
+.machine-line, .machine-notice { margin: 0; font-size: 0.875em; color: var(--wb-supporting); }
+.machine-notice { color: var(--wb-text); font-size: 0.9375em; }
+.machine-action { font: inherit; color: var(--wb-accent); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.machine-action:hover { color: var(--wb-text); }
+.journal > summary { cursor: pointer; font-size: 0.875em; color: var(--wb-supporting); }
+.journal > .machine-line { padding-left: 1em; }

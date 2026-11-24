@@ -22,7 +22,7 @@ do {
     func draw(_ name: String, width: CGFloat, dark: Bool, prepare: () async throws -> Void = {}) async throws {
         print(
             try await snapshot(
-                pageOf: desk.page, subtitle: "Follow-ups", crew: desk.crew, models: models, named: name, dark: dark,
+                pageOf: desk.page, crew: desk.crew, models: models, named: name, dark: dark,
                 size: CGSize(width: width, height: 1700), in: shots, prepare: prepare
             ).path)
     }

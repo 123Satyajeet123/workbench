@@ -60,6 +60,7 @@
     },
     "environment" : {
       "appearance" : "dark",
+      "editable" : false,
       "reduceMotion" : true,
       "tokens" : {
         "page" : "rgba(25, 25, 25, 1.000)"
@@ -71,6 +72,13 @@
     },
     "load" : {
       "blocks" : [
+        {
+          "hint" : "Name this machine.",
+          "id" : "document.title",
+          "kind" : "field",
+          "look" : "title",
+          "text" : "Pip Example"
+        },
         {
           "id" : "n1",
           "kind" : "note",
@@ -255,6 +263,40 @@
           "kind" : "machine",
           "standing" : "live",
           "view" : {
+            "act" : {
+              "label" : "Read now",
+              "name" : "read"
+            },
+            "journal" : [
+              "Read 3 parts.",
+              "Kept 2 facts."
+            ],
+            "kind" : "status",
+            "notices" : [
+              "This page is read-only."
+            ],
+            "reads" : "Every WhatsApp chat",
+            "sentence" : "Reads every hour."
+          }
+        },
+        {
+          "id" : "m6",
+          "kind" : "machine",
+          "standing" : "live",
+          "view" : {
+            "act" : {
+              "label" : "Open it",
+              "name" : "more"
+            },
+            "kind" : "line",
+            "text" : "More is kept apart."
+          }
+        },
+        {
+          "id" : "m7",
+          "kind" : "machine",
+          "standing" : "live",
+          "view" : {
             "kind" : "erased",
             "note" : "The message this came from was deleted"
           }
@@ -293,6 +335,13 @@
       "caret" : null,
       "height" : 640,
       "type" : "layout"
+    },
+    "openAction" : {
+      "target" : {
+        "kind" : "action",
+        "name" : "read"
+      },
+      "type" : "open"
     },
     "openCite" : {
       "target" : {
@@ -363,6 +412,11 @@
           "fact" : 12,
           "mark" : "done",
           "op" : "mark"
+        },
+        {
+          "id" : "document.title",
+          "op" : "field",
+          "text" : "Pip Example"
         }
       ],
       "seq" : 3,

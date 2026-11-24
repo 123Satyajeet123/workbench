@@ -28,7 +28,7 @@ await check("the first form starts untouched pages and leaves touched ones") { t
 await check("the view bar offers what the gate allows, and stores a choice as the person's edit") {
     try await ViewBarCheck.run()
 }
-await check("the whole page: native header and document") { try await WholePage.run(into: folder) }
+await check("the whole page: the document alone") { try await WholePage.run(into: folder) }
 await check("every layout at its extremes, 700 pt wide") { try await Stress.run(into: folder) }
 for set in [Sets.team, Sets.deals, Sets.news] {
     await check("pictures of \(set.name)") { try await Expression.render(set, into: folder) }

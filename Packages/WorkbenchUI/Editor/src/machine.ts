@@ -1,16 +1,19 @@
-import type { Chip, FactRow, FactSection, FactTag, GridCell, MachineView, OpMark, PageBlock } from "./bridge.generated.ts";
+import type { Act, Chip, FactRow, FactSection, FactTag, GridCell, MachineView, OpMark, PageBlock } from "./bridge.generated.ts";
 import { el } from "./dom.ts";
 
 export interface MachineActions {
   openCite(ref: string): void;
   openPicker(source: string): void;
   mark(fact: number, mark: OpMark["mark"]): void;
+  act(name: Act["name"]): void;
   changeView(block: string, form: Facts["viewBar"]["form"], groupBy: string): void;
 }
 
 type Facts = Extract<MachineView, { kind: "facts" }>;
 type Grid = Extract<MachineView, { kind: "grid" }>;
 type Picker = Extract<MachineView, { kind: "picker" }>;
+type Status = Extract<MachineView, { kind: "status" }>;
+
 
 /** Draws a block of a machine from the data Swift worked out. It adds, counts and fetches nothing. */
 export function renderMachine(view: MachineView, standing: Standing, block: string, actions: MachineActions): HTMLElement {
@@ -42,9 +45,38 @@ function partsOf(view: MachineView, block: string, actions: MachineActions): HTM
       return [el("h4", "machine-title", view.title), gridTable(view), chips(view.cites, actions)];
     case "picker":
       return pickerParts(view, actions);
+    case "status":
+      return statusParts(view, actions);
+    case "line":
+      return [lineOf(view.text, view.act, actions)];
     case "erased":
       return [el("p", "machine-erased", view.note)];
   }
+}
+
+/** A line of words, and after it the one phrase the person may click. */
+function lineOf(text: string, act: Act | undefined, actions: MachineActions): HTMLElement {
+  const line = el("p", "machine-line", text);
+  if (act) {
+    const button = el("button", "machine-action", act.label, { type: "button" });
+    button.addEventListener("click", () => actions.act(act.name));
+    line.append(" ", button);
+  }
+  return line;
+}
+
+/** What the machine says of itself: problems first, then what it reads, what it does now, and its last reading as a toggle. */
+function statusParts(view: Status, actions: MachineActions): HTMLElement[] {
+  const parts: HTMLElement[] = view.notices.map((notice) => el("p", "machine-notice", notice));
+  if (view.reads !== "") parts.push(el("p", "machine-line", `Reads: ${view.reads}`));
+  parts.push(lineOf(view.sentence, view.act, actions));
+  if (view.journal.length > 0) {
+    const journal = el("details", "journal");
+    journal.append(el("summary", undefined, "Last reading"));
+    for (const line of view.journal) journal.append(el("p", "machine-line", line));
+    parts.push(journal);
+  }
+  return parts;
 }
 
 function chips(cites: Chip[], actions: MachineActions): HTMLElement {

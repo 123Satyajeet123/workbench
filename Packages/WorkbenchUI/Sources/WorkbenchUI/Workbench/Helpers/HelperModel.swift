@@ -11,8 +11,9 @@ final class HelperModel {
     let schedule: HelperSchedule
     let agreement: HelperAgreement
 
-    /// The machine's page as a document; nil for a machine with no page, or when the app does not know who owns it.
+    /// The machine's page as a document. Nil only when the page cannot open at all; `pageProblem` says why.
     private(set) var pageModel: MachinePageModel?
+    private(set) var pageProblem: String?
     private(set) var items: [Item] = []
     private(set) var open: [Item] = []
     private(set) var closed: [Item] = []
@@ -128,11 +129,16 @@ final class HelperModel {
 
     /// The page is opened once, so the person's unsaved words stay while the machine's page is closed and open again.
     private func openPage() {
-        guard let page = machine.page, case .success(let owner) = owner else { return }
-        pageModel = try? MachinePageModel(
-            helper: self, page: page, store: shared.store, owner: owner,
-            status: { [weak self] now in self?.status(at: now) },
-            makeModel: { [shared] in try shared.makeModel.current() })
+        do {
+            guard let page = machine.page else { throw PageUnavailable() }
+            pageModel = try MachinePageModel(
+                helper: self, page: page, store: shared.store, owner: owner,
+                status: { [weak self] now in self?.status(at: now) },
+                makeModel: { [shared] in try shared.makeModel.current() })
+            pageProblem = nil
+        } catch {
+            pageProblem = "The page of \(name) could not open: \(error.localizedDescription)"
+        }
     }
 
     func show(_ day: WorkDay) {
@@ -203,6 +209,10 @@ final class HelperModel {
         reload()
         itemsChanged()
     }
+}
+
+private struct PageUnavailable: LocalizedError {
+    var errorDescription: String? { "this machine has no page yet." }
 }
 
 extension HelperModel {

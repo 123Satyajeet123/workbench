@@ -29,6 +29,18 @@ const callout = createBlockSpec(
   },
 );
 
+const field = createBlockSpec(
+  { type: "field", propSchema: { look: { default: "body" }, hint: { default: "" } }, content: "inline" },
+  {
+    render(block) {
+      const dom = el("div", `field field-${block.props.look}`, undefined, { "data-hint": block.props.hint });
+      const contentDOM = el("div", "field-text");
+      dom.append(contentDOM);
+      return { dom, contentDOM };
+    },
+  },
+);
+
 export const NO_VIEW: MachineView = { kind: "erased", note: "" };
 
 export function machineSpec(actions: MachineActions) {
@@ -59,6 +71,7 @@ export function createSchema(actions: MachineActions) {
       quote: createQuoteBlockSpec(),
       divider: createDividerBlockSpec(),
       callout: callout(),
+      field: field(),
       machine: machineSpec(actions)(),
     },
     inlineContentSpecs: {

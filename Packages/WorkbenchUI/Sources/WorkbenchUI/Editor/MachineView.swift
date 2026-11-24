@@ -8,6 +8,8 @@ enum MachineView: Equatable, Sendable {
     case facts(FactsRendering)
     case grid(GridRendering)
     case picker(PickerRendering)
+    case status(StatusRendering)
+    case line(LineRendering)
     case erased(note: String)
 }
 
@@ -101,6 +103,28 @@ struct PickerRendering: Codable, Equatable, Sendable {
     var available: Bool
 }
 
+/// What the machine says of itself, worked out by code: what stops the page, what it reads, what it does now, and its
+/// latest reading as lines.
+struct StatusRendering: Codable, Equatable, Sendable {
+    var notices: [String]
+    var reads: String
+    var sentence: String
+    var journal: [String]
+    /// The phrase of the sentence that starts a reading now; nil when none is offered.
+    var act: ActionLink?
+}
+
+/// A phrase of a line that the person may click, and what Swift does when they do.
+struct ActionLink: Codable, Equatable, Sendable {
+    var name: OpenTarget.Action
+    var label: String
+}
+
+struct LineRendering: Codable, Equatable, Sendable {
+    var text: String
+    var act: ActionLink?
+}
+
 extension MachineView: Codable {
     private enum Key: String, CodingKey {
         case kind, text, cites
@@ -117,6 +141,8 @@ extension MachineView: Codable {
         case "facts": self = .facts(try FactsRendering(from: decoder))
         case "grid": self = .grid(try GridRendering(from: decoder))
         case "picker": self = .picker(try PickerRendering(from: decoder))
+        case "status": self = .status(try StatusRendering(from: decoder))
+        case "line": self = .line(try LineRendering(from: decoder))
         case "erased": self = .erased(note: try Erased(from: decoder).note)
         default:
             throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "unknown kind"))
@@ -142,6 +168,12 @@ extension MachineView: Codable {
         case .picker(let picker):
             try values.encode("picker", forKey: .kind)
             try picker.encode(to: encoder)
+        case .status(let status):
+            try values.encode("status", forKey: .kind)
+            try status.encode(to: encoder)
+        case .line(let line):
+            try values.encode("line", forKey: .kind)
+            try line.encode(to: encoder)
         case .erased(let note):
             try values.encode("erased", forKey: .kind)
             try Erased(note: note).encode(to: encoder)

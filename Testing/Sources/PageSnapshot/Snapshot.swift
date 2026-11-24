@@ -83,14 +83,14 @@ extension WKWebView {
     }
 }
 
-/// A machine's page as the app draws it, in an offscreen window.
+/// A machine's page as the app draws it, in an offscreen window: the document and nothing around it.
 @MainActor
 public func snapshot(
-    pageOf model: MachinePageModel, subtitle: String, crew: Crew, models: ModelSettings, named name: String,
-    dark: Bool, size: CGSize, in folder: URL, prepare: () async throws -> Void = {}
+    pageOf model: MachinePageModel, crew: Crew, models: ModelSettings, named name: String, dark: Bool, size: CGSize,
+    in folder: URL, prepare: () async throws -> Void = {}
 ) async throws -> URL {
-    let rename = model.renaming { crew.rename(model.helper, to: $0) }
-    let page = Page(title: model.name, subtitle: subtitle, rename: rename) { MachinePageView(model: model) }
-        .environment(crew).environment(models)
+    model.edits = PageEdits(
+        rename: { crew.rename(model.helper, to: $0) }, setJob: { crew.setJob(model.helper, to: $0) })
+    let page = DocumentPage { MachinePageView(model: model) }.environment(crew).environment(models)
     return try await snapshot(page, named: name, dark: dark, size: size, in: folder, prepare: prepare)
 }

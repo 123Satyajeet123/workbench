@@ -43,6 +43,9 @@ await check("marks from the editor equal the card's") { try await Behaviour.mark
 await check("failed write is tried again") { try await Behaviour.failedWrite() }
 await check("page written by the old native editor") { try await Behaviour.oldNativePage() }
 await check("plain page") { try await Behaviour.plainPage() }
+await check("document head: title, job, status; editable with an owner") { try await Behaviour.documentHead() }
+await check("title edit renames; job edit keeps the prompt") { try await Behaviour.titleAndJob() }
+await check("no owner: opens read-only, says why, writes nothing") { try await Behaviour.noOwner() }
 await check("page height") { try await Behaviour.height() }
 await check("size") { try await Behaviour.size() }
 await check("pictures") { try await Checks.pictures(in: shots).joined(separator: ", ") }

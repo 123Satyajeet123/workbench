@@ -13,12 +13,15 @@ final class PageEditorController {
     private let store: Store
     private let note: NoteID
     private let page: WorkObjectID
-    private let owner: PersonID
+    /// Who writes the page; nil when that is not known, and the page is then read and never written.
+    private let owner: PersonID?
     private let viewer: PageViewer
     let host: EditorHost
     private let views: () throws -> MachineViewBuilder
+    private let document: () -> DocumentBlocks
     private(set) var model: PageModel
-    private var machineViews: [String: ShownMachine] = [:]
+    /// Each block that is not a paragraph of the person, as the editor holds it.
+    private var shownBlocks: [String: PageBlockData] = [:]
     private var environment: EditorEnvironment
     private var processing: Task<Void, Never>?
     private var idles = 0
@@ -29,11 +32,13 @@ final class PageEditorController {
     /// Why the last save failed, in words for the person. The words stay in the editor and are saved again.
     private(set) var problem: String?
     var onMark: (Int64, FactMark) -> Void = { _, _ in }
+    var onField: (_ block: String, _ text: String) -> Void = { _, _ in }
     var onOpen: (OpenTarget) -> Void = { _ in }
 
     init(
-        store: Store, page: WorkObjectID, owner: PersonID, host: EditorHost, appearance: EditorEnvironment.Appearance,
-        reduceMotion: Bool, scale: Double = 1, views: @escaping () throws -> MachineViewBuilder
+        store: Store, page: WorkObjectID, owner: PersonID?, host: EditorHost, appearance: EditorEnvironment.Appearance,
+        reduceMotion: Bool, scale: Double = 1, views: @escaping () throws -> MachineViewBuilder,
+        document: @escaping () -> DocumentBlocks = { .none }
     ) throws {
         guard let note = NoteID(object: page) else { throw WorkObjectError.unknown(page) }
         self.store = store
@@ -42,25 +47,27 @@ final class PageEditorController {
         self.owner = owner
         self.host = host
         self.views = views
-        viewer = try PageViewer(owner: owner)
+        self.document = document
+        let viewer = try owner.map { try PageViewer(owner: $0) } ?? .nobody
+        self.viewer = viewer
         let (contents, shown) = try Self.read(store, page, viewer)
-        model = PageModel(contents: contents, shown: shown)
-        environment = Self.environment(appearance, reduceMotion, scale)
+        model = PageModel(contents: contents, shown: shown, document: document())
+        environment = Self.environment(appearance, reduceMotion, scale, editable: owner != nil)
         host.onMessage = { [weak self] message in self?.receive(message) }
     }
 
     func start() { host.load() }
 
     func setAppearance(_ appearance: EditorEnvironment.Appearance, reduceMotion: Bool, scale: Double) {
-        environment = Self.environment(appearance, reduceMotion, scale)
+        environment = Self.environment(appearance, reduceMotion, scale, editable: owner != nil)
         host.send(.environment(environment))
     }
 
     private static func environment(
-        _ appearance: EditorEnvironment.Appearance, _ reduceMotion: Bool, _ scale: Double
+        _ appearance: EditorEnvironment.Appearance, _ reduceMotion: Bool, _ scale: Double, editable: Bool
     ) -> EditorEnvironment {
         EditorEnvironment(
-            appearance: appearance, reduceMotion: reduceMotion,
+            appearance: appearance, reduceMotion: reduceMotion, editable: editable,
             tokens: EditorTokens.resolved(for: appearance, scale: scale))
     }
 
@@ -100,33 +107,42 @@ final class PageEditorController {
     func refresh() throws {
         let (_, shown) = try Self.read(store, page, viewer)
         let builder = try views()
+        let blocks = document()
         var changes: [PageChange] = []
-        let held = Set(shown.order.map(\.rawValue))
+        let held = Set(shown.order.map(\.rawValue)).union(blocks.ids)
         for id in model.order where !held.contains(id) {
             let before = model.order.count
             model.forget(id)
             if model.order.count < before {
-                machineViews[id] = nil
+                shownBlocks[id] = nil
                 changes.append(.remove(id: id))
             }
         }
         var previous: String?
+        func sync(_ block: PageBlockData) {
+            let id = block.id
+            if model.machines.contains(id) {
+                if shownBlocks[id] != block { changes.append(.update(block: block)) }
+            } else {
+                changes.append(.insert(after: previous, block: block))
+                model.show(machine: id, after: previous)
+            }
+            shownBlocks[id] = block
+            previous = id
+        }
+        blocks.head.forEach(sync)
         for place in shown.order {
             if case .machine(let block) = place, let entry = shown.blocks[block] {
-                let id = block.rawValue
-                let now = ShownMachine(
-                    view: builder.view(of: entry.block, erased: entry.isErased), standing: entry.standing)
-                model.stand(id, for: shown.liveBlock(at: block))
-                if model.machines.contains(id) {
-                    if machineViews[id] != now { changes.append(.update(block: now.block(id))) }
-                } else {
-                    changes.append(.insert(after: previous, block: now.block(id)))
-                    model.show(machine: id, after: previous)
-                }
-                machineViews[id] = now
+                model.stand(block.rawValue, for: shown.liveBlock(at: block))
+                sync(
+                    .machine(
+                        id: block.rawValue, view: builder.view(of: entry.block, erased: entry.isErased),
+                        standing: entry.standing))
+            } else if model.order.contains(place.rawValue) {
+                previous = place.rawValue
             }
-            if model.order.contains(place.rawValue) { previous = place.rawValue }
         }
+        blocks.tail.forEach(sync)
         if !changes.isEmpty { host.send(.apply(changes)) }
     }
 
@@ -148,21 +164,26 @@ final class PageEditorController {
     private func load() throws {
         let (contents, shown) = try Self.read(store, page, viewer)
         let builder = try views()
-        model = PageModel(contents: contents, shown: shown)
-        machineViews = [:]
+        let blocks = document()
+        model = PageModel(contents: contents, shown: shown, document: blocks)
+        shownBlocks = [:]
         let notes = Dictionary(uniqueKeysWithValues: contents.notes.map { ($0.id, $0.text) })
-        let blocks = shown.order.compactMap { place -> PageBlockData? in
+        let stored = shown.order.compactMap { place -> PageBlockData? in
             switch place {
             case .note(let block): return notes[block].map { .note(id: block.rawValue, text: $0) }
             case .machine(let block):
                 guard let entry = shown.blocks[block] else { return nil }
-                let now = ShownMachine(
-                    view: builder.view(of: entry.block, erased: entry.isErased), standing: entry.standing)
-                machineViews[block.rawValue] = now
-                return now.block(block.rawValue)
+                return .machine(
+                    id: block.rawValue, view: builder.view(of: entry.block, erased: entry.isErased),
+                    standing: entry.standing)
             }
         }
-        host.send(.load(blocks))
+        let all = blocks.head + stored + blocks.tail
+        for block in all {
+            if case .note = block { continue }
+            shownBlocks[block.id] = block
+        }
+        host.send(.load(all))
     }
 
     private func enqueue(_ work: @escaping () async -> Void) {
@@ -176,10 +197,18 @@ final class PageEditorController {
     private func save(_ seq: Int, _ ops: [EditorOp]) async {
         model.apply(ops)
         for case .mark(let fact, let mark) in ops { onMark(fact, mark) }
+        for case .field(let id, let text) in ops { change(field: id, to: text) }
         let renames = await persist()
         for case .view(let block, let form, let groupBy) in ops { changeView(of: block, to: form, groupBy: groupBy) }
         host.send(.ack(seq: seq, renames: renames))
         problem = capture { try refresh() } ?? problem
+    }
+
+    /// The person changed the words of a field. The editor holds them now; Swift reads what they mean.
+    private func change(field id: String, to text: String) {
+        guard case .field(_, let look, let hint, _)? = shownBlocks[id] else { return }
+        shownBlocks[id] = .field(id: id, look: look, hint: hint, text: text)
+        onField(id, text)
     }
 
     /// The person chose another form or group field for a facts view. The gate decides; a choice it refuses changes
@@ -216,6 +245,7 @@ final class PageEditorController {
     private func saveNote() async throws -> [BlockRename] {
         var renames: [BlockRename] = []
         while let change = model.pendingChange(of: note) {
+            guard let owner else { return renames }
             let report = try await store.saveNote(change, owner: owner)
             storeWrites += 1
             model.didSave(change)
@@ -245,11 +275,4 @@ final class PageEditorController {
             return "Could not read this page: \(error.localizedDescription)"
         }
     }
-}
-
-private struct ShownMachine: Equatable {
-    var view: MachineView
-    var standing: BlockStanding
-
-    func block(_ id: String) -> PageBlockData { .machine(id: id, view: view, standing: standing) }
 }

@@ -32,3 +32,9 @@ extension PageViewer {
         self.init(audience: [owner], grants: audience.grants, roster: audience.roster)
     }
 }
+
+extension PageViewer {
+    /// A reader no one vouches for, such as a Mac whose owner name cannot be read. It sees no block that holds words a
+    /// machine wrote, because none of them has a reader it can name.
+    public static let nobody = PageViewer(audience: [], grants: Grants([]), roster: Kernel.Roster(members: []))
+}

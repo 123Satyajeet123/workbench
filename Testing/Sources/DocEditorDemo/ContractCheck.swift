@@ -15,10 +15,12 @@ enum ContractSamples {
                 .update(id: "n2", text: "Words, *marked*"), .move(id: "n2", after: nil), .delete(id: "n3"),
                 .merge(id: "n4", into: "n2"), .mark(fact: 12, .wrong),
                 .view(block: "m1", form: "board", groupBy: "project"), .mark(fact: 12, .done),
+                .field(id: "document.title", text: "Pip Example"),
             ]),
         "openCite": .open(.cite(ref: "fact:12")),
         "openLink": .open(.link(url: "https://example.com/a")),
         "openPicker": .open(.picker(source: "whatsapp_chats")),
+        "openAction": .open(.action(.read)),
         "blocked": .blocked(directive: "img-src", uri: "https://example.com/x.png"),
         "idle": .idle,
         "layout": .layout(height: 640, caret: CaretBox(top: 120, bottom: 144)),
@@ -27,9 +29,13 @@ enum ContractSamples {
 
     static let toEditor: [String: HostMessage] = [
         "environment": .environment(
-            EditorEnvironment(appearance: .dark, reduceMotion: true, tokens: ["page": "rgba(25, 25, 25, 1.000)"])),
+            EditorEnvironment(
+                appearance: .dark, reduceMotion: true, editable: false, tokens: ["page": "rgba(25, 25, 25, 1.000)"])),
         "load": .load(
-            [.note(id: "n1", text: "Plain words")]
+            [
+                .field(id: "document.title", look: .title, hint: "Name this machine.", text: "Pip Example"),
+                .note(id: "n1", text: "Plain words"),
+            ]
                 + views.enumerated().map { .machine(id: "m\($0.offset)", view: $0.element, standing: .live) }
                 + [.machine(id: "m10", view: .heading(text: "Proposed"), standing: .added)]),
         "apply": .apply([
@@ -89,6 +95,12 @@ enum ContractSamples {
                 ],
                 cites: [])),
         .picker(PickerRendering(source: "whatsapp_chats", title: "WhatsApp chats to read", note: "", available: true)),
+        .status(
+            StatusRendering(
+                notices: ["This page is read-only."], reads: "Every WhatsApp chat",
+                sentence: "Reads every hour.", journal: ["Read 3 parts.", "Kept 2 facts."],
+                act: ActionLink(name: .read, label: "Read now"))),
+        .line(LineRendering(text: "More is kept apart.", act: ActionLink(name: .more, label: "Open it"))),
         .erased(note: "The message this came from was deleted"),
     ]
 

@@ -2,7 +2,7 @@ import { BlockNoteEditor, getNodeById, type PartialBlock } from "@blocknote/core
 import type { Ack, Apply, Change, Load, Op } from "./bridge.generated.ts";
 import { listen, reportBlockedLoads, send } from "./bridge.ts";
 import { applyEnvironment } from "./environment.ts";
-import { applyToFlat, blockOf, flatten, MACHINE, treeOf, type EditorBlock } from "./flat.ts";
+import { applyToFlat, blockOf, FIELD, flatten, MACHINE, plainText, treeOf, type EditorBlock } from "./flat.ts";
 import { diff, type FlatBlock } from "./diff.ts";
 import type { MachineActions } from "./machine.ts";
 import { registerHint } from "./hint.ts";
@@ -25,6 +25,7 @@ export function start(host: HTMLElement): void {
   const marks: Op[] = [];
   const actions: MachineActions = {
     openCite: (ref) => send({ type: "open", target: { kind: "cite", ref } }),
+    act: (name) => send({ type: "open", target: { kind: "action", name } }),
     openPicker: (source) => send({ type: "open", target: { kind: "picker", source } }),
     mark: (fact, mark) => {
       marks.push({ op: "mark", fact, mark });
@@ -55,9 +56,9 @@ export function start(host: HTMLElement): void {
   const blocks = () => editor.document as unknown as EditorBlock[];
   const snapshot = () => flatten(blocks());
 
-  /** A page that ends with a machine block still ends with an empty paragraph, so there is a line to write on. */
+  /** The words of the person end in a paragraph, before any field that closes the page, so there is a line to write on. */
   function keepAParagraphAtTheEnd(): void {
-    const last = editor.document.at(-1);
+    const last = editor.document.findLast((block) => block.type !== FIELD);
     if (!last || last.type !== MACHINE) return;
     editor.transact((tr) => {
       tr.setMeta("addToHistory", false);
@@ -71,8 +72,8 @@ export function start(host: HTMLElement): void {
   }
 
   function dropForeignMachineBlocks(): void {
-    const known = new Set(committed.filter((block) => block.kind === "machine").map((block) => block.id));
-    const foreign = snapshot().filter((block) => block.kind === "machine" && !known.has(block.id));
+    const known = new Set(committed.filter((block) => block.kind !== "note").map((block) => block.id));
+    const foreign = snapshot().filter((block) => block.kind !== "note" && !known.has(block.id));
     if (foreign.length > 0) editor.removeBlocks(foreign.map((block) => block.id));
   }
 
@@ -122,7 +123,10 @@ export function start(host: HTMLElement): void {
       case "update": {
         const { block } = blockOf(change.block);
         const { children: _children, id: _id, ...rest } = block;
-        editor.updateBlock(change.block.id, rest as unknown as PartialBlock<any, any, any>);
+        const held = editor.getBlock(change.block.id);
+        const sameWords = block.type === FIELD && held && plainText(held.content as unknown as EditorBlock["content"]) === plainText(block.content);
+        const update = sameWords ? { type: rest.type, props: rest.props } : rest;
+        editor.updateBlock(change.block.id, update as unknown as PartialBlock<any, any, any>);
         break;
       }
       case "remove":
@@ -166,7 +170,7 @@ export function start(host: HTMLElement): void {
   listen((message) => {
     switch (message.type) {
       case "environment":
-        applyEnvironment(message);
+        applyEnvironment(message, editor);
         break;
       case "load":
         load(message);

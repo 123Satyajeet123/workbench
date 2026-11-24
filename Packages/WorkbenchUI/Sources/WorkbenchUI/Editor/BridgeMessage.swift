@@ -29,6 +29,8 @@ enum EditorOp: Equatable, Sendable {
     case mark(fact: Int64, FactMark)
     /// The person chose another form or group field for a facts view. Swift asks the gate and stores the change.
     case view(block: String, form: String, groupBy: String)
+    /// The person changed the words of a field of the document. Swift decides what they mean.
+    case field(id: String, text: String)
 }
 
 enum FactMark: String, Codable, Equatable, Sendable {
@@ -39,6 +41,9 @@ enum OpenTarget: Equatable, Sendable {
     case cite(ref: String)
     case link(url: String)
     case picker(source: String)
+    case action(Action)
+
+    enum Action: String, Codable, Sendable { case read, more }
 }
 
 /// What Swift sends to the editor.
@@ -55,6 +60,8 @@ struct EditorEnvironment: Codable, Equatable, Sendable {
 
     var appearance: Appearance
     var reduceMotion: Bool
+    /// False when Swift cannot write the page: the person reads it and types nothing.
+    var editable: Bool = true
     var tokens: [String: String]
 }
 
@@ -67,12 +74,18 @@ struct BlockRename: Codable, Equatable, Sendable {
 enum PageBlockData: Equatable, Sendable {
     case note(id: String, text: String)
     case machine(id: String, view: MachineView, standing: BlockStanding)
+    /// Words of the document that the person edits where they stand, and Swift reads as a setting of the machine.
+    case field(id: String, look: FieldLook, hint: String, text: String)
 
     var id: String {
         switch self {
-        case .note(let id, _), .machine(let id, _, _): id
+        case .note(let id, _), .machine(let id, _, _), .field(let id, _, _, _): id
         }
     }
+}
+
+enum FieldLook: String, Codable, Sendable {
+    case title, body
 }
 
 /// A change Swift committed, in the order it must be shown.
@@ -168,6 +181,7 @@ extension EditorOp: Codable {
                 fact: try values.decode(Int64.self, forKey: Key("fact")),
                 try values.decode(FactMark.self, forKey: Key("mark")))
         case "view": self = .view(block: try string("id"), form: try string("form"), groupBy: try string("groupBy"))
+        case "field": self = .field(id: try string("id"), text: try string("text"))
         default: throw unknown(op, in: values)
         }
     }
@@ -204,6 +218,10 @@ extension EditorOp: Codable {
             try values.encode(block, forKey: Key("id"))
             try values.encode(form, forKey: Key("form"))
             try values.encode(groupBy, forKey: Key("groupBy"))
+        case .field(let id, let text):
+            try values.encode("field", forKey: Key("op"))
+            try values.encode(id, forKey: Key("id"))
+            try values.encode(text, forKey: Key("text"))
         }
     }
 }
@@ -215,6 +233,7 @@ extension OpenTarget: Codable {
         case "cite": self = .cite(ref: try values.decode(String.self, forKey: Key("ref")))
         case "link": self = .link(url: try values.decode(String.self, forKey: Key("url")))
         case "picker": self = .picker(source: try values.decode(String.self, forKey: Key("source")))
+        case "action": self = .action(try values.decode(Action.self, forKey: Key("name")))
         default: throw unknown(kind, in: values)
         }
     }
@@ -231,6 +250,9 @@ extension OpenTarget: Codable {
         case .picker(let source):
             try values.encode("picker", forKey: Key("kind"))
             try values.encode(source, forKey: Key("source"))
+        case .action(let action):
+            try values.encode("action", forKey: Key("kind"))
+            try values.encode(action, forKey: Key("name"))
         }
     }
 }
@@ -258,6 +280,7 @@ extension HostMessage: Codable {
             try values.encode("environment", forKey: Key("type"))
             try values.encode(environment.appearance, forKey: Key("appearance"))
             try values.encode(environment.reduceMotion, forKey: Key("reduceMotion"))
+            try values.encode(environment.editable, forKey: Key("editable"))
             try values.encode(environment.tokens, forKey: Key("tokens"))
         case .load(let blocks):
             try values.encode("load", forKey: Key("type"))
@@ -284,6 +307,11 @@ extension PageBlockData: Codable {
             self = .machine(
                 id: id, view: try values.decode(MachineView.self, forKey: Key("view")),
                 standing: try values.decode(BlockStanding.self, forKey: Key("standing")))
+        case "field":
+            self = .field(
+                id: id, look: try values.decode(FieldLook.self, forKey: Key("look")),
+                hint: try values.decode(String.self, forKey: Key("hint")),
+                text: try values.decode(String.self, forKey: Key("text")))
         default: throw unknown(kind, in: values)
         }
     }
@@ -300,6 +328,12 @@ extension PageBlockData: Codable {
             try values.encode(id, forKey: Key("id"))
             try values.encode(view, forKey: Key("view"))
             try values.encode(standing, forKey: Key("standing"))
+        case .field(let id, let look, let hint, let text):
+            try values.encode("field", forKey: Key("kind"))
+            try values.encode(id, forKey: Key("id"))
+            try values.encode(look, forKey: Key("look"))
+            try values.encode(hint, forKey: Key("hint"))
+            try values.encode(text, forKey: Key("text"))
         }
     }
 }

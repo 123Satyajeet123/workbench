@@ -56,7 +56,7 @@ final class Walk {
         for line in page.lines { print("  \(line)") }
         print("  proposal pending: \(page.proposal != nil)")
         let file = try await snapshot(
-            pageOf: page, subtitle: session.pip.name, crew: session.app.crew, models: session.app.models, named: name,
+            pageOf: page, crew: session.app.crew, models: session.app.models, named: name,
             dark: false, size: CGSize(width: 1000, height: 1400), in: shots)
         print("  png: \(file.path)")
     }

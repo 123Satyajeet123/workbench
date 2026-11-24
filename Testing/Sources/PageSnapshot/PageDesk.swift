@@ -39,7 +39,8 @@ final class PageDesk {
     let paragraphs: [BlockID]
     let facts: [Item]
 
-    init() async throws {
+    /// `ownerKnown: false` is a Mac whose Keychain cannot name its owner.
+    init(ownerKnown: Bool = true) async throws {
         let store = try Store(directory: folder)
         let owner = try PersonID("render-owner")
         let work = try store.createWorkObject(type: ObjectTypes.folder, parent: nil, name: "Follow-ups (synthetic)")
@@ -53,7 +54,8 @@ final class PageDesk {
         let facts = try Self.makeFacts(in: store, of: machine, owner: owner)
         let crew = Crew(
             store: store, capture: try CaptureService(store: store, owner: .success(owner)), founder: { "Rhea" },
-            makeModel: nil, notifier: QuietNotifier(), owner: .success(owner),
+            makeModel: nil, notifier: QuietNotifier(),
+            owner: ownerKnown ? .success(owner) : .failure(OwnerLost()),
             whatsAppContainer: folder.appending(path: "no-whatsapp"))
         guard let helper = crew.helper(id: machine.id), let page = helper.pageModel else {
             throw RenderFailure("the machine has no page model")
@@ -62,6 +64,8 @@ final class PageDesk {
             store, owner, crew, machine, helper, page
         )
         (self.paragraphs, self.facts) = (paragraphs, facts)
+        page.edits = PageEdits(
+            rename: { crew.rename(helper, to: $0) }, setJob: { crew.setJob(helper, to: $0) })
     }
 
     func close() { try? FileManager.default.removeItem(at: folder) }
@@ -76,6 +80,10 @@ final class PageDesk {
                 ]
             })
     }
+}
+
+struct OwnerLost: LocalizedError {
+    var errorDescription: String? { "Workbench could not open the name it keeps for you in the Keychain." }
 }
 
 final class QuietNotifier: Notifier {

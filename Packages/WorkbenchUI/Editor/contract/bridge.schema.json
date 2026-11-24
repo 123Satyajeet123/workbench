@@ -122,6 +122,9 @@
         },
         {
           "$ref": "#/$defs/OpView"
+        },
+        {
+          "$ref": "#/$defs/OpField"
         }
       ]
     },
@@ -314,6 +317,25 @@
                 "source"
               ],
               "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "action"
+                },
+                "name": {
+                  "enum": [
+                    "read",
+                    "more"
+                  ]
+                }
+              },
+              "required": [
+                "kind",
+                "name"
+              ],
+              "additionalProperties": false
             }
           ]
         }
@@ -366,13 +388,18 @@
           "additionalProperties": {
             "type": "string"
           }
+        },
+        "editable": {
+          "description": "Whether the person may type. A page that Swift cannot write is shown read-only.",
+          "type": "boolean"
         }
       },
       "required": [
         "type",
         "appearance",
         "reduceMotion",
-        "tokens"
+        "tokens",
+        "editable"
       ],
       "additionalProperties": false
     },
@@ -599,6 +626,40 @@
             "standing"
           ],
           "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "description": "A field of the document: words the person edits where they stand, which Swift reads as a setting of the machine.",
+          "properties": {
+            "kind": {
+              "const": "field"
+            },
+            "id": {
+              "$ref": "#/$defs/BlockId"
+            },
+            "look": {
+              "description": "How the field is drawn: the title of the page, or a plain line.",
+              "enum": [
+                "title",
+                "body"
+              ]
+            },
+            "hint": {
+              "description": "The words shown while the field is empty.",
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "id",
+            "look",
+            "hint",
+            "text"
+          ],
+          "additionalProperties": false
         }
       ]
     },
@@ -793,6 +854,65 @@
             "title",
             "note",
             "available"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "description": "What the machine says of itself: what it reads, what it does now, its latest reading as lines, and what stops the page.",
+          "properties": {
+            "kind": {
+              "const": "status"
+            },
+            "notices": {
+              "description": "Problems the person can act on, one plain line each.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "reads": {
+              "type": "string"
+            },
+            "sentence": {
+              "type": "string"
+            },
+            "journal": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "act": {
+              "$ref": "#/$defs/Act"
+            }
+          },
+          "required": [
+            "kind",
+            "notices",
+            "reads",
+            "sentence",
+            "journal"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "description": "One plain line of words, with one phrase the person may click.",
+          "properties": {
+            "kind": {
+              "const": "line"
+            },
+            "text": {
+              "type": "string"
+            },
+            "act": {
+              "$ref": "#/$defs/Act"
+            }
+          },
+          "required": [
+            "kind",
+            "text"
           ],
           "additionalProperties": false
         },
@@ -1156,6 +1276,48 @@
         "forms",
         "groupBy",
         "groups"
+      ],
+      "additionalProperties": false
+    },
+    "OpField": {
+      "type": "object",
+      "description": "The person changed the words of a field of the document, such as the title. Swift decides what the words mean and shows the result.",
+      "properties": {
+        "op": {
+          "const": "field"
+        },
+        "id": {
+          "$ref": "#/$defs/BlockId"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "op",
+        "id",
+        "text"
+      ],
+      "additionalProperties": false
+    },
+    "Act": {
+      "type": "object",
+      "description": "A phrase in a line of words that the person may click to ask Swift for something. Swift knows what each name does.",
+      "properties": {
+        "name": {
+          "enum": [
+            "read",
+            "more"
+          ]
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "name",
+        "label"
       ],
       "additionalProperties": false
     }

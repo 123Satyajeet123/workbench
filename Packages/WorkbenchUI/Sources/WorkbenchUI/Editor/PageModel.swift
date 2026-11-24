@@ -16,7 +16,8 @@ struct PageModel: Equatable {
     private(set) var removedMachines: [MachineBlockID] = []
 
     /// The page as the store holds it, with the pending proposal worked in.
-    init(contents: PageContents, shown: ShownPage) {
+    init(contents: PageContents, shown: ShownPage, document: DocumentBlocks = .none) {
+        for block in document.head { show(machine: block.id, after: order.last) }
         for place in shown.order {
             order.append(place.rawValue)
             if case .machine(let block) = place {
@@ -24,6 +25,7 @@ struct PageModel: Equatable {
                 storedBlock[block.rawValue] = shown.liveBlock(at: block)
             }
         }
+        for block in document.tail { show(machine: block.id, after: order.last) }
         for note in contents.notes {
             texts[note.id.rawValue] = note.text
             saved[note.id.rawValue] = note.text
@@ -49,7 +51,7 @@ struct PageModel: Equatable {
         case .delete(let id): end(id) { .deleted($0) }
         case .merge(let id, let into):
             end(id) { block in BlockID(into).map { .merged(block, into: $0) } ?? .deleted(block) }
-        case .mark, .view: break
+        case .mark, .view, .field: break
         }
     }
 

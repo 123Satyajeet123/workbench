@@ -4,7 +4,7 @@ import { formatInline, hasWords, parseLine } from "./codec.ts";
 /** One block of the page in reading order, nested blocks included. A paragraph of the person has its stored line. */
 export interface FlatBlock {
   id: string;
-  kind: "note" | "machine";
+  kind: "note" | "machine" | "field";
   text: string;
 }
 
@@ -14,7 +14,7 @@ export function diff(wasPage: FlatBlock[], isPage: FlatBlock[]): Op[] {
   const after = isPage.filter(isStored);
   const was = new Map(before.map((block) => [block.id, block]));
   const is = new Map(after.map((block) => [block.id, block]));
-  const ops: Op[] = [];
+  const ops: Op[] = fieldOps(wasPage, isPage);
   before.forEach((block, index) => {
     if (is.has(block.id)) return;
     const into = joinedInto(block, before[index - 1], is);
@@ -36,9 +36,18 @@ export function diff(wasPage: FlatBlock[], isPage: FlatBlock[]): Op[] {
   return ops;
 }
 
+/** A field is never added, moved or removed by the person: only its words change. */
+function fieldOps(wasPage: FlatBlock[], isPage: FlatBlock[]): Op[] {
+  const was = new Map(wasPage.filter((block) => block.kind === "field").map((block) => [block.id, block]));
+  return isPage.flatMap((block) => {
+    const old = was.get(block.id);
+    return block.kind === "field" && old && old.text !== block.text ? [{ op: "field" as const, id: block.id, text: block.text }] : [];
+  });
+}
+
 /** A paragraph with no words is not stored: it is not on the page until the person writes in it. */
 function isStored(block: FlatBlock): boolean {
-  return block.kind === "machine" || hasWords(block.text);
+  return block.kind === "machine" || (block.kind === "note" && hasWords(block.text));
 }
 
 /** The paragraph a removed paragraph was joined to: the one before it, whose words now end with the removed words. */

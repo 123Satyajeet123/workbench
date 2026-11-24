@@ -62,13 +62,15 @@ test("the editor reads every page Swift sends and every change it makes", () => 
   assert.deepEqual(flat.map((block) => block.id), load.blocks.map((block) => block.id));
   const apply = samples.toEditor["apply"] as { changes: Change[] };
   const after = apply.changes.reduce(applyToFlat, flat);
-  assert.deepEqual(after.map((block) => block.id), ["m9", "n1", "m0", "m1", "m2", "m3", "m4", "m5", "m10"]);
+  assert.deepEqual(after.map((block) => block.id), ["m9", "document.title", "n1", "m0", "m1", "m2", "m3", "m4", "m5", "m6", "m7", "m10"]);
 });
 
 test("the ops the editor sends are valid for Swift", () => {
   const valid = validator("ToSwift");
   const before = [{ id: "a", kind: "note" as const, text: "one" }, { id: "m", kind: "machine" as const, text: "" }];
   const after = [{ id: "n", kind: "note" as const, text: "# new" }, { id: "m", kind: "machine" as const, text: "" }, { id: "a", kind: "note" as const, text: "one two" }];
-  const ops = diff(before, after) as Ops["ops"];
+  const field = { id: "document.title", kind: "field" as const, text: "Pip" };
+  const ops = diff([field, ...before], [{ ...field, text: "Pip Two" }, ...after]) as Ops["ops"];
+  assert.ok(ops.some((op) => op.op === "field" && op.text === "Pip Two"));
   assert.ok(valid({ type: "ops", seq: 1, ops }), JSON.stringify(valid.errors));
 });
