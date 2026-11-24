@@ -200,11 +200,13 @@ check(
 // MARK: 6. Pictures
 
 heading("6. Pictures, drawn off screen into \(shots.path)")
-let size = CGSize(width: 1000, height: 1400)
+let sizes = [("wide", CGSize(width: 1000, height: 900)), ("narrow", CGSize(width: 700, height: 900))]
 
 func draw(_ view: some View, _ name: String) async throws {
-    for dark in [false, true] {
-        print("  \(try await snapshot(view, named: name, dark: dark, size: size, in: shots).path)")
+    for (width, size) in sizes {
+        for dark in [false, true] {
+            print("  \(try await snapshot(view, named: "\(name)-\(width)", dark: dark, size: size, in: shots).path)")
+        }
     }
 }
 
@@ -261,6 +263,18 @@ try await draw(pageView(loaded), "3-pip-name-editing")
 loaded.setEditing(.name, false)
 loaded.setEditing(.job, true)
 try await draw(pageView(loaded), "4-pip-job-editing")
+
+let layouts = VStack(alignment: .leading, spacing: Space.l) {
+    ForEach([FactsView.Layout.list, .table, .board, .counts], id: \.self) { layout in
+        FactsBlockView(
+            model: loaded,
+            view: FactsView(
+                title: layout.rawValue.capitalized, groupBy: layout == .table ? nil : "person", layout: layout,
+                columns: ["person", "text", PageCatalog.quoteColumn]))
+    }
+}
+.padding(Space.page).environment(pipCrew).environment(models)
+try await draw(layouts, "7-layouts")
 
 let mochiStore = try freshStore("mochi")
 let mochiCrew = try makeCrew(mochiStore)

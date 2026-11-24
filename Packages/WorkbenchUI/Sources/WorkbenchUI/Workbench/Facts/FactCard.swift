@@ -1,8 +1,10 @@
 import SwiftUI
 import WorkbenchCore
 
-/// One fact as one row of fixed height: the person and their quote, and under it where and when it was said and its due
-/// day. The actions take the place on the right under the pointer or on the selected row; the row does not change size.
+/// One fact as one row: the person and their quote, and under it where and when it was said and its due day. The
+/// actions take the place on the right under the pointer or on the selected row; the row does not change size. A row
+/// of fixed height keeps each line to one; a row that wraps shows every word of the fact on as many lines as it needs,
+/// and the actions lie over its corner instead of taking width from the words.
 struct FactCard: View {
     let row: FactRow
     /// The verdict of a claim check: its mark takes the place of the person's letter.
@@ -13,6 +15,7 @@ struct FactCard: View {
     /// The action the row confirms before it leaves.
     var confirming: FactAction?
     var now: Date = .now
+    var wraps = false
     let hover: (Bool) -> Void
     let open: () -> Void
     let act: (FactAction) -> Void
@@ -27,12 +30,21 @@ struct FactCard: View {
         HStack(spacing: Space.m) {
             person
             VStack(alignment: .leading, spacing: Space.xs / 2) {
-                row.headline.text.textStyle(.body).foregroundStyle(.bodyText).lineLimit(1).truncationMode(.tail)
-                line.text(.meta).lineLimit(1).truncationMode(.tail)
+                row.headline.text.textStyle(.body).foregroundStyle(.bodyText).lineLimit(wraps ? nil : 1)
+                    .truncationMode(.tail)
+                line.text(.meta).lineLimit(wraps ? nil : 1).truncationMode(.tail)
             }
+            .fixedSize(horizontal: false, vertical: wraps)
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityHidden(true)
-            trailing
+            if !wraps { trailing }
+        }
+        .overlay(alignment: .topTrailing) {
+            if wraps {
+                trailing.padding(Space.xs).background {
+                    if showsBar { RoundedRectangle(cornerRadius: Radius.card).fill(.pageFill) }
+                }
+            }
         }
         .padding(.horizontal, Space.m)
         .padding(.vertical, Space.s)

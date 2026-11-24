@@ -76,7 +76,7 @@ private struct FactRows: View {
                 if let row = FactRow(item: item, title: item[model.spec.title]) {
                     FactCard(
                         row: row, offered: model.actions(for: item), isSelected: inspected?.id == row.id,
-                        isHovered: hovered == row.id,
+                        isHovered: hovered == row.id, wraps: true,
                         hover: { inside in hovered = inside ? row.id : (hovered == row.id ? nil : hovered) },
                         open: { inspected = inspected?.id == row.id ? nil : item },
                         act: { model.act($0, on: item) })
@@ -102,11 +102,15 @@ private struct FactTable: View {
             ForEach(items) { item in
                 GridRow {
                     ForEach(columns, id: \.self) { column in
-                        if column == PageCatalog.quoteColumn {
-                            Text("“\(item.quote)”").text(.quote).textSelection(.enabled)
-                        } else {
-                            Text(PageCatalog.value(of: column, in: item)).textStyle(.body)
+                        Group {
+                            if column == PageCatalog.quoteColumn {
+                                Text("“\(item.quote)”").text(.quote).textSelection(.enabled)
+                            } else {
+                                Text(PageCatalog.value(of: column, in: item)).textStyle(.body)
+                            }
                         }
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     MarkBar(actions: model.actions(for: item)) { model.act($0, on: item) }
                 }

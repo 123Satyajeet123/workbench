@@ -79,7 +79,7 @@ private struct RunEditor: View {
     var body: some View {
         NoteTextEditor(model: model.run(index), minimumHeight: 24 * scale)
             .overlay(alignment: .topLeading) {
-                if model.runs.lastRun == 0, model.editor.text.isEmpty {
+                if index == model.runs.lastRun, model.run(index).text.isEmpty {
                     Text(Self.placeholder).textStyle(.body).foregroundStyle(.supporting).allowsHitTesting(false)
                 }
             }
