@@ -10,6 +10,7 @@ let package = Package(
         .executable(name: "transcribe-bakeoff", targets: ["TranscribeBakeoff"]),
         .executable(name: "kal-label", targets: ["KalLabelRunner"]),
         .executable(name: "trust-sim", targets: ["TrustSimRunner"]),
+        .executable(name: "d6-sim", targets: ["D6SimRunner"]),
         .executable(name: "independent-flows", targets: ["IndependentFlowsDemo"]),
         .executable(name: "model-access", targets: ["ModelAccessDemo"]),
         .executable(name: "model-failures", targets: ["ModelFailuresDemo"]),
@@ -51,6 +52,7 @@ let package = Package(
             dependencies: ["Evals", "WorkbenchCore", .product(name: "LocalSources", package: "BaseKit")]),
         .executableTarget(name: "KalLabelRunner", dependencies: ["Evals", "WorkbenchCore"]),
         .executableTarget(name: "TrustSimRunner", dependencies: ["Evals"]),
+        .executableTarget(name: "D6SimRunner", dependencies: ["Evals", "WorkbenchCore"]),
         .executableTarget(
             name: "IndependentFlowsDemo",
             dependencies: [

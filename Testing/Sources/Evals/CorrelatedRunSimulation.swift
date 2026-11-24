@@ -20,7 +20,7 @@ public struct CorrelatedRuns {
     public mutating func auditedAnswers(wrongMean: Double, chance: Double, keepRun: Bool) -> [Certificate.Answer] {
         runCount += 1
         let size = Self.sizes[Int.random(in: 0..<Self.sizes.count, using: &generator)]
-        let wrongRate = beta(mean: wrongMean)
+        let wrongRate = generator.beta(mean: wrongMean, concentration: concentration)
         return (0..<size).compactMap { _ in
             guard Double.random(in: 0..<1, using: &generator) < chance else { return nil }
             return Certificate.Answer(
@@ -28,8 +28,11 @@ public struct CorrelatedRuns {
                 run: keepRun ? runCount : nil)
         }
     }
+}
 
-    private mutating func beta(mean: Double) -> Double {
+extension SeededGenerator {
+    /// A draw from the Beta law with this mean. A small `concentration` spreads the draws toward 0 and 1.
+    public mutating func beta(mean: Double, concentration: Double) -> Double {
         let low = gamma(shape: mean * concentration)
         let high = gamma(shape: (1 - mean) * concentration)
         return low / (low + high)
@@ -38,7 +41,7 @@ public struct CorrelatedRuns {
     /// Marsaglia and Tsang; a shape below 1 is raised by one and scaled back.
     private mutating func gamma(shape: Double) -> Double {
         guard shape >= 1 else {
-            return gamma(shape: shape + 1) * pow(Double.random(in: 0..<1, using: &generator), 1 / shape)
+            return gamma(shape: shape + 1) * pow(Double.random(in: 0..<1, using: &self), 1 / shape)
         }
         let d = shape - 1.0 / 3
         let c = 1 / (3 * d).squareRoot()
@@ -46,14 +49,14 @@ public struct CorrelatedRuns {
             let x = normal()
             let v = pow(1 + c * x, 3)
             guard v > 0 else { continue }
-            let u = Double.random(in: 0..<1, using: &generator)
+            let u = Double.random(in: 0..<1, using: &self)
             if log(u) < 0.5 * x * x + d - d * v + d * log(v) { return d * v }
         }
     }
 
     private mutating func normal() -> Double {
-        let u = 1 - Double.random(in: 0..<1, using: &generator)
-        let v = Double.random(in: 0..<1, using: &generator)
+        let u = 1 - Double.random(in: 0..<1, using: &self)
+        let v = Double.random(in: 0..<1, using: &self)
         return (-2 * log(u)).squareRoot() * cos(2 * .pi * v)
     }
 }
