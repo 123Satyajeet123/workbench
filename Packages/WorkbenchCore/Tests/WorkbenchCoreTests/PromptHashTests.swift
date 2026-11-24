@@ -7,6 +7,10 @@ struct PromptHashTests {
         Digest.sha256(Task.instructions + "\n" + (try Task.schema.jsonText))
     }
 
+    private func hash<Task: ProfiledModelTask>(_: Task.Type) throws -> String {
+        Digest.sha256(Task.instructions(for: .continuity) + "\n" + (try Task.schema.jsonText))
+    }
+
     @Test func aPromptKeepsItsHashSoTheTrustItEarnedStays() throws {
         #expect(try hash(Briefer.self) == "224c9d5c6e03fac5e261f70a7d5a22b2af53a84098bd767ad2e5445566757dd0")
         #expect(try hash(Asker.self) == "f9f1b8580c7b66c819beb7e1bec2dc0af9d72ef124896878a89bbb785d7babcd")

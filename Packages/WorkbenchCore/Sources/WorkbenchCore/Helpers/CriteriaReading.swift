@@ -41,12 +41,12 @@ extension Rule {
 
 extension Criteria {
     /// The prompt block for the rules; empty when there are none.
-    var instructions: String {
+    func instructions(for profile: WorkspaceProfile) -> String {
         guard !rules.isEmpty else { return "" }
         return """
 
 
-            The investor's criteria. For each one give the fields named. You judge each rule; you do not rate the deal, \
+            \(profile.render("{The occupation's}")) criteria. For each one give the fields named. You judge each rule; you do not rate the deal, \
             because code makes the call.
             \(rules.map(\.instruction).joined(separator: "\n"))
             Criteria version \(version).

@@ -134,9 +134,20 @@ public protocol StructuredModel: Sendable {
     var planName: String? { get }
     func generate<T: Decodable & Sendable>(_ type: T.Type, schema: JSONSchema, instructions: String, input: String)
         async throws -> ModelAnswer<T>
+    /// The same call, told whose sources the input holds, such as "the founder's". A model that does not use it
+    /// answers the call above.
+    func generate<T: Decodable & Sendable>(
+        _ type: T.Type, schema: JSONSchema, instructions: String, input: String, dataOwner: String
+    ) async throws -> ModelAnswer<T>
 }
 
 extension StructuredModel {
+    public func generate<T: Decodable & Sendable>(
+        _ type: T.Type, schema: JSONSchema, instructions: String, input: String, dataOwner: String
+    ) async throws -> ModelAnswer<T> {
+        try await generate(type, schema: schema, instructions: instructions, input: input)
+    }
+
     public var billedToPlanSignIn: Bool { false }
     public var planName: String? { nil }
 }

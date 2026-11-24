@@ -6,6 +6,10 @@ extension Item {
     /// Whether the field a mark names holds the mark's value.
     func carries(_ mark: HelperSpec.Attention.Mark?) -> Bool { mark.map { self[$0.field] == $0.value } ?? false }
 
+    func carriesAll(_ marks: [HelperSpec.Attention.Mark]) -> Bool {
+        !marks.isEmpty && marks.allSatisfy { carries($0) }
+    }
+
     /// The due time the fact was opened with.
     public var openedDue: Due? { try? Coding.value(Due.self, from: self[Item.dueField]) }
 

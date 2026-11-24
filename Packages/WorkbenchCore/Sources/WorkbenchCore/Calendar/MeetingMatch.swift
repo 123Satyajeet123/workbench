@@ -27,21 +27,19 @@ public struct DealIdentity: Sendable, Equatable {
 /// Links a meeting to people and deals by exact name, exact email domain or exact title. Plumbing, not judgment: a
 /// match that two deals could claim is left unmatched, and nothing is matched by similar text.
 public enum MeetingMatch {
+    /// Domains that name no company: a guest at one is never matched by domain. A table of addresses, not a rule.
     static let freeMail: Set<String> = [
         "gmail.com", "googlemail.com", "outlook.com", "hotmail.com", "live.com", "yahoo.com", "icloud.com", "me.com",
         "aol.com", "proton.me", "protonmail.com",
     ]
 
     /// Each person once, then each deal once. A guest matches a person by exact name. A guest's email domain, when it
-    /// is not the owner's and not free mail, matches a deal that lists it, or whose name is the domain's company
-    /// label (`acme` for `acme.com`). A meeting title that is exactly a deal's name matches that deal.
+    /// is not the owner's and not free mail, matches a deal that lists it. A meeting title that is exactly a deal's name matches that deal.
     public static func subjects(of meeting: Meeting, people: Set<String>, deals: [DealIdentity]) -> [MeetingSubject] {
         let known = Dictionary(people.map { (fold($0), $0) }, uniquingKeysWith: { first, _ in first })
         let own = Set(meeting.attendees.filter(\.isMe).compactMap { domain(of: $0.email) })
         let theirs = Set(meeting.guests.compactMap { domain(of: $0.email) }).subtracting(own).subtracting(freeMail)
-        let byDomain = theirs.sorted().map { key in
-            deals.filter { $0.domains.contains(key) || $0.names.contains { companyLabel(of: key) == fold($0) } }
-        }
+        let byDomain = theirs.sorted().map { key in deals.filter { $0.domains.contains(key) } }
         let byTitle = deals.filter { $0.names.contains { fold($0) == fold(meeting.title) } }
         let found =
             meeting.guests.compactMap { known[fold($0.name)] }.map(MeetingSubject.person)
@@ -59,12 +57,6 @@ public enum MeetingMatch {
 
     private static func domain(of email: String) -> String? {
         email.contains("@") ? fold(String(email.split(separator: "@").last ?? "")) : nil
-    }
-
-    /// `acme` for `acme.com`; nothing for `acme.co.uk`, where the company is not the second label.
-    private static func companyLabel(of domain: String) -> String? {
-        let labels = domain.split(separator: ".")
-        return labels.count == 2 ? String(labels[0]) : nil
     }
 
     private static func isDomain(_ text: String) -> Bool {

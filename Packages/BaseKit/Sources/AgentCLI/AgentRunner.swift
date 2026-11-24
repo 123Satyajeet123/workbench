@@ -52,9 +52,16 @@ public struct AgentRunner: StructuredModel {
     public func generate<T: Decodable & Sendable>(
         _ type: T.Type, schema: JSONSchema, instructions: String, input: String
     ) async throws -> ModelAnswer<T> {
+        try await generate(
+            type, schema: schema, instructions: instructions, input: input, dataOwner: AgentCall.unnamedOwner)
+    }
+
+    public func generate<T: Decodable & Sendable>(
+        _ type: T.Type, schema: JSONSchema, instructions: String, input: String, dataOwner: String
+    ) async throws -> ModelAnswer<T> {
         let call = AgentCall(
             prompt: input, instructions: instructions, schemaText: try schema.jsonText, model: model,
-            effort: effort, timeout: timeout, tools: tools)
+            effort: effort, timeout: timeout, tools: tools, dataOwner: dataOwner)
         let output = try await launch(call)
         let limits = kind == .claude ? PlanLimits.last(inClaude: output.stdout, at: .now) : nil
         if let limits { onLimits?(limits) }

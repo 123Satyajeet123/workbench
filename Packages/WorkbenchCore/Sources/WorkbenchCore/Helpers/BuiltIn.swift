@@ -275,7 +275,8 @@ extension HelperSpec {
 
 extension HelperSpec.Attention {
     /// The words the built-in machines write and Today reads: the `asks` value of a fact that waits on the founder, and
-    /// the `severity` values of a finding that needs action now or soon.
+    /// the `severity` values of a finding that needs action now or soon, and the bad news of a trusted feed.
     public static let builtIn = HelperSpec.Attention(
-        asksMe: Mark("asks", "founder"), act: Mark("severity", "act"), watch: Mark("severity", "watch"))
+        asksMe: Mark("asks", "founder"), act: Mark("severity", "act"), watch: Mark("severity", "watch"),
+        news: [Mark("polarity", NewsSignals.negative), Mark(NewsSignals.trustedField, NewsSignals.trusted)])
 }

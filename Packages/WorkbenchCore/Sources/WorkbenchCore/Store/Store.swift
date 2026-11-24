@@ -46,6 +46,7 @@ public final class Store: Sendable {
         try Self.restrict(databaseFile, to: 0o600)
         writer = try StoreDatabase.open(at: databaseFile, busyTimeout: busyTimeout)
         try Self.migrate(writer, ownerZone: ownerZone, backups: backups)
+        try Self.startProfile(writer, at: clock())
         queries = Queries(reader: writer, directory: directory)
     }
 

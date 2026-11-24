@@ -52,7 +52,7 @@ import WorkbenchCore
         _ = try await runner(launcher, kind: .codex).generate(
             Verdict.self, schema: Verdict.schema, instructions: "rules", input: "input")
         let plan = try #require(launcher.plans.first)
-        #expect(plan.stdin == "rules\n\n\(AgentCall.dataRule)\n\n<data>\ninput\n</data>")
+        #expect(plan.stdin == "rules\n\n\(AgentCall.dataRule(of: AgentCall.unnamedOwner))\n\n<data>\ninput\n</data>")
         #expect(!plan.arguments.contains("--system-prompt"))
     }
 
@@ -114,7 +114,7 @@ import WorkbenchCore
         let plan = try #require(launcher.plans.first)
         #expect(plan.stdin == "<data>\ninput\n</data>", "only data goes in the user message")
         let system = try #require(plan.arguments.firstIndex(of: "--system-prompt")).advanced(by: 1)
-        #expect(plan.arguments[system] == "rules\n\n" + AgentCall.dataRule)
+        #expect(plan.arguments[system] == "rules\n\n" + AgentCall.dataRule(of: AgentCall.unnamedOwner))
         #expect(plan.arguments.contains("opus"))
     }
 

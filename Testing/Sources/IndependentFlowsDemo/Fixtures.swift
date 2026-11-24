@@ -25,7 +25,7 @@ final class SequenceModel: StructuredModel, Sendable {
     func generate<T: Decodable & Sendable>(_ type: T.Type, schema: JSONSchema, instructions: String, input: String)
         async throws -> ModelAnswer<T>
     {
-        let isSummary = instructions == Summarizer.instructions
+        let isSummary = instructions == Summarizer.instructions(for: WorkspaceProfile())
         if !isSummary { inputs.withLock { $0.append(input) } }
         let text =
             isSummary

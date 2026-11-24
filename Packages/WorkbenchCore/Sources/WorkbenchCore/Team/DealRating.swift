@@ -43,7 +43,7 @@ public struct DealRater: ModelTask {
     }
 
     var task: String { DealRating.task }
-    var instructions: String { Self.brief + criteria.instructions }
+    var instructions: String { Self.brief + criteria.instructions(for: model.profile) }
     var schema: JSONSchema { .object(criteria.properties) }
 
     /// Nil when there is no line or no rule (no model runs), or when no rule rests on a quote found in the lines: a

@@ -102,7 +102,7 @@ import Testing
         #expect(fact["company"] == "Bolt Pay" && fact["event"] == "layoff" && fact["polarity"] == "negative")
         #expect(fact["date"] == "2026-09-19" && fact["feed"] == "Inc42" && fact["trusted"] == "yes")
         #expect(fact["url"] == "https://inc42.com/a/1" && fact.quote == layoff && fact.source == .web)
-        #expect(fact.isTrustedBadNews)
+        #expect(fact.carriesAll(HelperSpec.Attention.builtIn.news))
         #expect(try store.queries.unreadArticles().map(\.title).sorted() == ["Acme raises", "Weather today"])
     }
 

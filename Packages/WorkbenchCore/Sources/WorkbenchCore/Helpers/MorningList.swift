@@ -114,8 +114,10 @@ public enum MorningList {
         }
         sections[.findings] = findings(input, now: now)
         sections[.revisits] = revisits(input, today: today, now: now)
-        sections[.news] = input.news.filter { $0.closed == nil && $0.isListed(at: now) && $0.isTrustedBadNews }
-            .map { Need(item: $0, reason: .news) }
+        sections[.news] = input.news.filter {
+            $0.closed == nil && $0.isListed(at: now) && $0.carriesAll(input.attention.news)
+        }
+        .map { Need(item: $0, reason: .news) }
         return MorningSection.Kind.allCases.compactMap { kind in
             if kind == .waitingOn {
                 let owners = owners(of: waiting, input)

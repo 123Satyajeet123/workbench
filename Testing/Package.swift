@@ -31,6 +31,7 @@ let package = Package(
         .executable(name: "templates-start", targets: ["TemplatesStartDemo"]),
         .executable(name: "linkedin-import", targets: ["LinkedInImportDemo"]),
         .executable(name: "source-registry", targets: ["SourceRegistryDemo"]),
+        .executable(name: "text-rules", targets: ["TextRulesDemo"]),
     ],
     dependencies: [
         .package(path: "../Packages/WorkbenchCore"), .package(path: "../Packages/WorkbenchUI"),
@@ -109,6 +110,9 @@ let package = Package(
             dependencies: ["Evals", "WorkbenchCore", .product(name: "AgentCLI", package: "BaseKit")]),
         .executableTarget(name: "MachineRolesDemo", dependencies: ["WorkbenchCore"]),
         .executableTarget(name: "SourceRegistryDemo", dependencies: ["WorkbenchCore"]),
+        .executableTarget(
+            name: "TextRulesDemo", dependencies: ["WorkbenchCore", .product(name: "AgentCLI", package: "BaseKit")],
+            swiftSettings: [.defaultIsolation(MainActor.self)]),
         .executableTarget(name: "InjectCorpusCheck", dependencies: ["Evals"]),
         .target(
             name: "PageSnapshot", dependencies: ["WorkbenchCore", "WorkbenchUI"],

@@ -16,6 +16,21 @@ protocol FixedModelTask: ModelTask {
     static var schema: JSONSchema { get }
 }
 
+/// A task whose text is written for the workspace profile: `template` holds the profile's words as `{…}` and
+/// `instructions(for:)` renders it. Every call renders it again, so a changed profile changes the next call.
+protocol ProfiledModelTask: ModelTask {
+    static var task: String { get }
+    static var template: String { get }
+    static var schema: JSONSchema { get }
+    static func instructions(for profile: WorkspaceProfile) -> String
+}
+
+extension ProfiledModelTask {
+    var task: String { Self.task }
+    var instructions: String { Self.instructions(for: model.profile) }
+    var schema: JSONSchema { Self.schema }
+}
+
 extension FixedModelTask {
     var task: String { Self.task }
     var instructions: String { Self.instructions }

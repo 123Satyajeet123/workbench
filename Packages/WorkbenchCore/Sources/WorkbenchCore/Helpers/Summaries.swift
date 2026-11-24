@@ -63,7 +63,8 @@ public struct Summaries: Sendable {
         }
         let named = Dictionary(grouping: items.filter { !$0[field].isEmpty }, by: { $0[field] })
         let fields = machine.spec.fields.map(\.name)
-        let version = try Digest.sha256(Summarizer.instructions + "\n" + Summarizer.schema.jsonText)
+        let version = try Digest.sha256(
+            Summarizer.instructions(for: store.queries.profile()) + "\n" + Summarizer.schema.jsonText)
         return named.keys.sorted().map { value in
             let sources = named[value, default: []].map {
                 CitedSource(machine: machine.name, fields: fields, item: $0)

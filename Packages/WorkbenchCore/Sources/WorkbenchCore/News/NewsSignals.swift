@@ -24,13 +24,14 @@ extension HelperSpec {
                     "funding: a round raised or announced. layoff: staff cut. exec exit: a founder or senior leader leaves. shutdown: the company closes or stops a main product. lawsuit: a legal case. regulatory: a ruling, notice or licence from an authority. product: a launch or a major change. hiring: a notable hire or a hiring drive. acquisition: the company buys, or is bought."
             ),
             Field(
-                "polarity", .choice(["positive", "negative", "neutral"]),
+                "polarity", .choice([NewsSignals.positive, NewsSignals.negative, NewsSignals.neutral]),
                 meaning: "Good, bad or neither for the company, as an investor in it would see it."),
             Field(
                 "date", .text(required: false), meaning: "When the event happened, as YYYY-MM-DD; empty when not said."),
         ],
         citation: .one, view: .board(groupBy: "company", expected: NewsSignals.companies), title: "headline",
-        badges: ["event", "feed", "date"], tones: ["positive": .good, "negative": .bad, "neutral": .neutral],
+        badges: ["event", "feed", "date"],
+        tones: [NewsSignals.positive: .good, NewsSignals.negative: .bad, NewsSignals.neutral: .neutral],
         itemsNoun: "signals", nudge: nil)
 }
 
@@ -63,15 +64,14 @@ public enum NewsSignals {
     public static let urlField = "url"
     public static let feedField = "feed"
     public static let trustedField = "trusted"
+    /// The values of `polarity`, a field the model fills from a closed set.
+    public static let positive = "positive", negative = "negative", neutral = "neutral"
+    /// The values of the trusted field, which code sets from the feed.
+    public static let trusted = "yes", untrusted = "no"
     public static let headlineField = "headline"
 }
 
 extension Item {
-    /// A negative signal from a trusted feed: what Today lists as information.
-    public var isTrustedBadNews: Bool {
-        NewsSignals.owns(task) && self["polarity"] == "negative" && self[NewsSignals.trustedField] == "yes"
-    }
-
     /// The deal or hand-added company a news signal is about.
     public var signalCompany: String { self[NewsSignals.idField] }
     public var signalURL: URL? { URL(string: self[NewsSignals.urlField]) }

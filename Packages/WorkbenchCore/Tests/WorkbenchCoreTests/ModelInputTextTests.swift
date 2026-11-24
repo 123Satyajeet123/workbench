@@ -19,7 +19,7 @@ struct ModelInputTextTests {
     @Test func examplesAndTrainingItemsReadTheSameAsTheModelHasAlwaysSeenThem() {
         let marked = [item(1, .confirmed), item(2, .rejected)]
         #expect(
-            HelperReader.examples(marked, spec: .team)
+            HelperReader.examples(marked, spec: .team, profile: .continuity)
                 == "Examples the founder marked on other days:\n- right: \(line)\n- wrong: \(line)\n\n")
         #expect(
             Improver.input(spec: .team, marked: marked).hasSuffix("Marked items:\n[1] right \(line)\n[2] wrong \(line)")

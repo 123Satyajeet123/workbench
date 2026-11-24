@@ -40,7 +40,8 @@ public struct SignalReader: Sendable {
         fact.fields[NewsSignals.idField] = company.id
         fact.fields[NewsSignals.urlField] = article.url.absoluteString
         fact.fields[NewsSignals.feedField] = article.feed
-        fact.fields[NewsSignals.trustedField] = spec.trusts(feed: article.feed) ? "yes" : "no"
+        fact.fields[NewsSignals.trustedField] =
+            spec.trusts(feed: article.feed) ? NewsSignals.trusted : NewsSignals.untrusted
         fact.fields[NewsSignals.headlineField] = article.title
         return fact
     }

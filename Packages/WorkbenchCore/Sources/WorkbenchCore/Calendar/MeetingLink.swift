@@ -15,6 +15,6 @@ public enum MeetingLink {
 
     public static func service(of url: URL) -> String? {
         guard url.scheme?.hasPrefix("http") == true else { return nil }
-        return CallSource.sites.first { $0.invites(url) }?.service
+        return SourceDescriptor.callTranscript.callServices.service(ofInvite: url)
     }
 }

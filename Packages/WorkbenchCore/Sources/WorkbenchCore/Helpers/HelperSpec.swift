@@ -125,11 +125,14 @@ public struct HelperSpec: Codable, Sendable, Equatable {
         /// A finding that asks the person to act today, and one worth a look soon.
         public var act: Mark? = nil
         public var watch: Mark? = nil
+        /// News Today lists as information: every mark must hold on the fact.
+        public var news: [Mark] = []
 
-        public init(asksMe: Mark? = nil, act: Mark? = nil, watch: Mark? = nil) {
+        public init(asksMe: Mark? = nil, act: Mark? = nil, watch: Mark? = nil, news: [Mark] = []) {
             self.asksMe = asksMe
             self.act = act
             self.watch = watch
+            self.news = news
         }
     }
 

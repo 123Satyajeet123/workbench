@@ -96,7 +96,8 @@ public struct RecordedModel: Sendable {
     private func answer<T: Decodable & Sendable>(
         _ type: T.Type, schema: JSONSchema, instructions: String, input: String, run: RunID
     ) async throws -> T {
-        let answer = try await model.generate(type, schema: schema, instructions: instructions, input: input)
+        let answer = try await model.generate(
+            type, schema: schema, instructions: instructions, input: input, dataOwner: profile.render("{the role's}"))
         guard schema.accepts(json: answer.reply) else {
             throw StructuredModelError.invalidReply("the reply does not fit the schema")
         }

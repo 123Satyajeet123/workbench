@@ -43,7 +43,8 @@ public struct SourceDescriptor: Sendable, Equatable {
     /// Where a fact came from, as "Captured from ...".
     public let origin: String
     public let consent: SourceKind
-    /// What the model is told about the lines it reads from this source.
+    /// What the model is told about the lines it reads from this source. It holds the workspace profile's words as
+    /// `{…}`; `WorkspaceProfile.render` fills them.
     public let grammar: String
     /// What one line of this source is, in a sentence such as "Read new messages every hour".
     public let lineNoun: String
@@ -78,6 +79,8 @@ public struct SourceDescriptor: Sendable, Equatable {
     public let forgets: Forgetting
     /// Sites that page capture never keeps, because this source reads them or the site bars readers.
     public let pageDenyHosts: Set<String>
+    /// The sites and apps this source names by address or bundle id; empty for a source that has none.
+    let callServices: CallServices
 
     init(
         key: String, specName: String? = nil, name: String, origin: String? = nil, consent: SourceKind, grammar: String,
@@ -87,7 +90,7 @@ public struct SourceDescriptor: Sendable, Equatable {
         ownWriting: Bool = false, followsCompanies: Bool = false, findsStartups: Bool = false, picker: Picker? = nil,
         needs: [HealthNeed] = [],
         forgets: Forgetting = Forgetting(),
-        pageDenyHosts: Set<String> = []
+        pageDenyHosts: Set<String> = [], callServices: CallServices = CallServices(sites: [], apps: [:])
     ) {
         self.key = key
         self.specName = specName ?? key
@@ -110,6 +113,7 @@ public struct SourceDescriptor: Sendable, Equatable {
         self.needs = needs
         self.forgets = forgets
         self.pageDenyHosts = pageDenyHosts
+        self.callServices = callServices
     }
 
     /// The id of this source for one owner. Two owners never share one.
@@ -137,8 +141,7 @@ extension SourceDescriptor: Codable {
 
 extension SourceDescriptor {
     private static let whatsAppGrammar = """
-        one work day of a WhatsApp group. Each line is `[number] HH:mm sender: text`. People write in Hindi, \
-        English and Hinglish.
+        one work day of a WhatsApp group. Each line is `[number] HH:mm sender: text`.{language note}
         """
 
     public static let whatsAppChat = SourceDescriptor(
@@ -150,8 +153,7 @@ extension SourceDescriptor {
 
 extension SourceDescriptor {
     private static let telegramGrammar = """
-        one work day of a Telegram group. Each line is `[number] HH:mm sender: text`. People write in Hindi, \
-        English and Hinglish.
+        one work day of a Telegram group. Each line is `[number] HH:mm sender: text`.{language note}
         """
 
     /// One Telegram group, read through the founder's own account. Telegram lets an app pass chat data to a model only
@@ -165,7 +167,7 @@ extension SourceDescriptor {
 
 extension SourceDescriptor {
     private static let gmailGrammar = """
-        the mail threads the investor opened in the label they named, in order. Each line is `[number] sender: the \
+        the mail threads {the occupation} opened in the label they named, in order. Each line is `[number] sender: the \
         text`. A line of an attached deck also names the file and the page: `sender — file page 3: the text`. A \
         thread shows one line for each message and each deck page.
         """
@@ -186,7 +188,7 @@ extension SourceDescriptor {
 
 extension SourceDescriptor {
     private static let pageGrammar = """
-        the text of web pages the founder had on screen, in order. Each line is `[number] HH:mm site — page \
+        the text of web pages {the role} had on screen, in order. Each line is `[number] HH:mm site — page \
         title: the text on screen`. The same page can appear again after a scroll, with new text.
         """
 
@@ -220,13 +222,13 @@ extension SourceDescriptor {
     public static let linkedinExport = SourceDescriptor(
         key: "linkedin.export", name: "Your LinkedIn export", consent: .linkedinExport,
         grammar: """
-            the people the founder is connected to on LinkedIn, from the founder's own data export. Each line is \
+            the people {the role} is connected to on LinkedIn, from {the role's} own data export. Each line is \
             `[number] name, position at company. connected on date. email. profile URL`; a part the export left empty \
             is missing.
             """, retention: .file, obtainedBy: .db, editWindow: 0, pageDenyHosts: ["linkedin.com"])
 
     private static let screenWindowGrammar = """
-        the windows the founder had in front, in order. Each line is `[number] HH:mm–HH:mm (minutes) app — window \
+        the windows {the role} had in front, in order. Each line is `[number] HH:mm–HH:mm (minutes) app — window \
         title — address`; the address is a web page or a file and can be missing.
         """
 
@@ -247,7 +249,7 @@ extension SourceDescriptor {
         retention: .screen, obtainedBy: .axValue, editWindow: 0)
 
     private static let fileActivityGrammar = """
-        the files the founder had open. Workbench keeps one capture-log row for each; no machine reads them as lines.
+        the files {the role} had open. Workbench keeps one capture-log row for each; no machine reads them as lines.
         """
 
     /// The files the person had open, as rows of the capture log.
@@ -267,7 +269,7 @@ extension SourceDescriptor {
 
 extension SourceDescriptor {
     private static let newsGrammar = """
-        one news article from a feed the investor follows. The line is `[number] feed — title: text`. The Companies \
+        one news article from a feed {the occupation} follows. The line is `[number] feed — title: text`. The Companies \
         list names the followed companies the article may be about.
         """
 
