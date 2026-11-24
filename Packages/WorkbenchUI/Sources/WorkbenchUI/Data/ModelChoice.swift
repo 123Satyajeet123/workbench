@@ -60,7 +60,7 @@ struct ModelChoice: Codable, Hashable, Identifiable {
         let runner = AgentRunner(
             kind: kind, model: model, effort: effort, timeout: timeout,
             apiKey: byKey ? secrets.read(Billing.keyName) : nil, requiresAPIKey: byKey, tools: tools,
-            workDirectory: store.directory.appending(path: "agent-work"),
+            workDirectory: store.agentWork,
             onLimits: kind == .claude && !byKey ? Self.recordLimits(in: store) : nil)
         return RecordedModel(runner, store: store)
     }

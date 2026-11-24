@@ -88,7 +88,11 @@ final class Scene {
         try await readAndDerive()
         try KilledCall.leaveInput(
             of: "Asha Example: please send \(words.canary) to Ravi Example by Friday",
-            in: directory.appending(path: "agent-work"))
+            in: directory.appending(path: Store.agentWorkFolder))
+        guard ByteScan.hits(of: words.canary, under: store.agentWork).count == 1 else {
+            throw SceneError("the killed call left no file with the canary: the demo cannot show the sweep")
+        }
+        try reopen()
         clock.move(to: now)
         try writeNewChatLine()
     }

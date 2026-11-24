@@ -7,7 +7,7 @@ struct ModelReaderRows: View {
     let store: Store
     let kind: AgentCLIKind
     var readStatus: @Sendable (Store) async -> ReaderStatus = { store in
-        await ReaderProbe(workDirectory: store.directory.appending(path: "agent-work")).status()
+        await ReaderProbe(workDirectory: store.agentWork).status()
     }
     @State private var status: ReaderStatus?
     @State private var confirmation: ModelTermsConfirmation?
