@@ -51,7 +51,7 @@ struct PageModel: Equatable {
         case .delete(let id): end(id) { .deleted($0) }
         case .merge(let id, let into):
             end(id) { block in BlockID(into).map { .merged(block, into: $0) } ?? .deleted(block) }
-        case .mark, .view, .field: break
+        case .mark, .view, .field, .heading, .setting, .ask: break
         }
     }
 

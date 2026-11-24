@@ -125,6 +125,15 @@
         },
         {
           "$ref": "#/$defs/OpField"
+        },
+        {
+          "$ref": "#/$defs/OpHeading"
+        },
+        {
+          "$ref": "#/$defs/OpSetting"
+        },
+        {
+          "$ref": "#/$defs/OpAsk"
         }
       ]
     },
@@ -327,7 +336,13 @@
                 "name": {
                   "enum": [
                     "read",
-                    "more"
+                    "more",
+                    "choose",
+                    "brief",
+                    "criteria",
+                    "accept",
+                    "decline",
+                    "undo"
                   ]
                 }
               },
@@ -773,6 +788,10 @@
             },
             "viewBar": {
               "$ref": "#/$defs/FactViewBar"
+            },
+            "note": {
+              "description": "What the machine says of the heading the person typed, when it did not understand it; empty otherwise.",
+              "type": "string"
             }
           },
           "required": [
@@ -785,7 +804,8 @@
             "needsText",
             "limit",
             "tallyColumns",
-            "viewBar"
+            "viewBar",
+            "note"
           ],
           "additionalProperties": false
         },
@@ -871,9 +891,6 @@
                 "type": "string"
               }
             },
-            "reads": {
-              "type": "string"
-            },
             "sentence": {
               "type": "string"
             },
@@ -890,7 +907,6 @@
           "required": [
             "kind",
             "notices",
-            "reads",
             "sentence",
             "journal"
           ],
@@ -913,6 +929,26 @@
           "required": [
             "kind",
             "text"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "description": "Settings of the machine, each as one sentence whose values are chips the person edits where they stand.",
+          "properties": {
+            "kind": {
+              "const": "settings"
+            },
+            "sentences": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Sentence"
+              }
+            }
+          },
+          "required": [
+            "kind",
+            "sentences"
           ],
           "additionalProperties": false
         },
@@ -1307,7 +1343,13 @@
         "name": {
           "enum": [
             "read",
-            "more"
+            "more",
+            "choose",
+            "brief",
+            "criteria",
+            "accept",
+            "decline",
+            "undo"
           ]
         },
         "label": {
@@ -1320,6 +1362,137 @@
         "label"
       ],
       "additionalProperties": false
+    },
+    "OpHeading": {
+      "type": "object",
+      "description": "The person retyped the heading of a facts view. Swift reads it against the machine's own fields and forms, and asks the machine when it names none of them.",
+      "properties": {
+        "op": {
+          "const": "heading"
+        },
+        "id": {
+          "$ref": "#/$defs/BlockId"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "op",
+        "id",
+        "text"
+      ],
+      "additionalProperties": false
+    },
+    "OpSetting": {
+      "type": "object",
+      "description": "The person edited the value of one chip of a setting sentence. `key` names the value; Swift checks it against the setting's own limits and answers with the sentence as it stands.",
+      "properties": {
+        "op": {
+          "const": "setting"
+        },
+        "key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "value": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "op",
+        "key",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "OpAsk": {
+      "type": "object",
+      "description": "The person ended a line that starts with /ask. The words after it are a request to the machine; the line is not kept.",
+      "properties": {
+        "op": {
+          "const": "ask"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "op",
+        "text"
+      ],
+      "additionalProperties": false
+    },
+    "Sentence": {
+      "type": "object",
+      "properties": {
+        "parts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SentencePart"
+          }
+        },
+        "note": {
+          "description": "What happened to the last edit: the reason it was refused, or what it changed. Empty when none.",
+          "type": "string"
+        },
+        "act": {
+          "$ref": "#/$defs/Act"
+        }
+      },
+      "required": [
+        "parts",
+        "note"
+      ],
+      "additionalProperties": false
+    },
+    "SentencePart": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "words": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "words"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "chip": {
+              "type": "string",
+              "minLength": 1
+            },
+            "text": {
+              "type": "string"
+            },
+            "entry": {
+              "enum": [
+                "number",
+                "time",
+                "choice"
+              ]
+            },
+            "choices": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "chip",
+            "text",
+            "entry",
+            "choices"
+          ],
+          "additionalProperties": false
+        }
+      ]
     }
   }
 }

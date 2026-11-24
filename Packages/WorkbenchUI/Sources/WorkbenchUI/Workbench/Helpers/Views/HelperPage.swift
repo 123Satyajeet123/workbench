@@ -17,7 +17,8 @@ struct HelperPage: View {
                                 crew.rename(model, to: name)
                                 workspace.refresh()
                             },
-                            setJob: { crew.setJob(model, to: $0) })
+                            setJob: { crew.setJob(model, to: $0) },
+                            setPaused: { crew.setPaused(model, $0) })
                         model.reload()
                     }
             } else if let problem = model.pageProblem {

@@ -13,6 +13,7 @@ import { mountFormattingToolbar } from "./ui/formattingToolbar.ts";
 import { mountSlashMenu } from "./ui/slashMenu.ts";
 
 const QUIET = 250;
+const ASK = /^\/ask\s+(\S.*)$/;
 
 declare global {
   interface Window {
@@ -29,6 +30,14 @@ export function start(host: HTMLElement): void {
     openPicker: (source) => send({ type: "open", target: { kind: "picker", source } }),
     mark: (fact, mark) => {
       marks.push({ op: "mark", fact, mark });
+      flush();
+    },
+    retitle: (id, text) => {
+      marks.push({ op: "heading", id, text });
+      flush();
+    },
+    setting: (key, value) => {
+      marks.push({ op: "setting", key, value });
       flush();
     },
     changeView: (id, form, groupBy) => {
@@ -51,6 +60,8 @@ export function start(host: HTMLElement): void {
   let waiting = false;
   let composing = false;
   let flushRequested = false;
+  /** The words of a field are sent when the person leaves it or presses Return, never while they type. */
+  let leavingField = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
 
   const blocks = () => editor.document as unknown as EditorBlock[];
@@ -58,7 +69,7 @@ export function start(host: HTMLElement): void {
 
   /** The words of the person end in a paragraph, before any field that closes the page, so there is a line to write on. */
   function keepAParagraphAtTheEnd(): void {
-    const last = editor.document.findLast((block) => block.type !== FIELD);
+    const last = editor.document.findLast((block) => !block.id.startsWith("document."));
     if (!last || last.type !== MACHINE) return;
     editor.transact((tr) => {
       tr.setMeta("addToHistory", false);
@@ -77,10 +88,19 @@ export function start(host: HTMLElement): void {
     if (foreign.length > 0) editor.removeBlocks(foreign.map((block) => block.id));
   }
 
+  function withoutUnfinishedField(page: FlatBlock[]): FlatBlock[] {
+    const leaving = leavingField || flushRequested;
+    leavingField = false;
+    const here = leaving ? undefined : editor.getTextCursorPosition().block;
+    if (here?.type !== FIELD) return page;
+    const old = committed.find((block) => block.id === here.id);
+    return page.map((block) => (block.id === here.id && old ? old : block));
+  }
+
   function flush(): void {
     if (waiting || composing) return;
     dropForeignMachineBlocks();
-    const now = snapshot();
+    const now = withoutUnfinishedField(snapshot());
     const ops = [...diff(committed, now), ...marks.splice(0)];
     if (ops.length === 0) {
       if (flushRequested) send({ type: "idle" });
@@ -198,7 +218,30 @@ export function start(host: HTMLElement): void {
     composing = false;
     schedule();
   }, true);
-  host.addEventListener("focusout", () => schedule(0));
+  host.addEventListener("focusout", () => {
+    leavingField = true;
+    schedule(0);
+  });
+  host.addEventListener(
+    "keydown",
+    (event) => {
+      if (event.key !== "Enter") return;
+      const here = editor.getTextCursorPosition().block;
+      const request = here.type === "paragraph" ? plainText(here.content as unknown as EditorBlock["content"]).match(ASK) : null;
+      if (here.type !== FIELD && !request) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (request) {
+        editor.removeBlocks([here]);
+        marks.push({ op: "ask", text: request[1]!.trim() });
+        flush();
+        return;
+      }
+      leavingField = true;
+      schedule(0);
+    },
+    true,
+  );
   host.addEventListener("click", (event) => {
     const link = (event.target as Element).closest("a[href]");
     if (!link) return;

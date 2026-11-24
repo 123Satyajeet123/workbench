@@ -33,6 +33,9 @@ final class PageEditorController {
     private(set) var problem: String?
     var onMark: (Int64, FactMark) -> Void = { _, _ in }
     var onField: (_ block: String, _ text: String) -> Void = { _, _ in }
+    var onHeading: (_ block: String, _ text: String) -> Void = { _, _ in }
+    var onSetting: (_ key: String, _ value: String) -> Void = { _, _ in }
+    var onAsk: (_ request: String) -> Void = { _ in }
     var onOpen: (OpenTarget) -> Void = { _ in }
 
     init(
@@ -136,7 +139,8 @@ final class PageEditorController {
                 model.stand(block.rawValue, for: shown.liveBlock(at: block))
                 sync(
                     .machine(
-                        id: block.rawValue, view: builder.view(of: entry.block, erased: entry.isErased),
+                        id: block.rawValue,
+                        view: builder.view(of: entry.block, id: block.rawValue, erased: entry.isErased),
                         standing: entry.standing))
             } else if model.order.contains(place.rawValue) {
                 previous = place.rawValue
@@ -174,7 +178,7 @@ final class PageEditorController {
             case .machine(let block):
                 guard let entry = shown.blocks[block] else { return nil }
                 return .machine(
-                    id: block.rawValue, view: builder.view(of: entry.block, erased: entry.isErased),
+                    id: block.rawValue, view: builder.view(of: entry.block, id: block.rawValue, erased: entry.isErased),
                     standing: entry.standing)
             }
         }
@@ -195,13 +199,36 @@ final class PageEditorController {
     }
 
     private func save(_ seq: Int, _ ops: [EditorOp]) async {
-        model.apply(ops)
+        let blocks = document()
+        let kept = ops.filter { op in
+            guard case .delete(let id) = op else { return true }
+            return !blocks.ids.contains(id)
+        }
+        model.apply(kept)
+        let restored = ops.count - kept.count > 0 ? restore(blocks, after: ops) : []
+        defer { if !restored.isEmpty { host.send(.apply(restored)) } }
         for case .mark(let fact, let mark) in ops { onMark(fact, mark) }
         for case .field(let id, let text) in ops { change(field: id, to: text) }
+        for case .heading(let block, let text) in ops { onHeading(block, text) }
+        for case .setting(let key, let value) in ops { onSetting(key, value) }
+        for case .ask(let request) in ops { onAsk(request) }
         let renames = await persist()
         for case .view(let block, let form, let groupBy) in ops { changeView(of: block, to: form, groupBy: groupBy) }
         host.send(.ack(seq: seq, renames: renames))
         problem = capture { try refresh() } ?? problem
+    }
+
+    /// The blocks of the document that the person deleted, put back where they stood. The head is the machine's, not the person's.
+    private func restore(_ blocks: DocumentBlocks, after ops: [EditorOp]) -> [PageChange] {
+        let deleted = Set(ops.compactMap { op -> String? in if case .delete(let id) = op { id } else { nil } })
+        let lastOfPage = model.order.last { !blocks.ids.contains($0) }
+        return [(blocks.head, nil), (blocks.tail, lastOfPage)].flatMap { group, start in
+            group.enumerated().compactMap { index, block -> PageChange? in
+                deleted.contains(block.id)
+                    ? .insert(after: index > 0 ? group[index - 1].id : start, block: shownBlocks[block.id] ?? block)
+                    : nil
+            }
+        }
     }
 
     /// The person changed the words of a field. The editor holds them now; Swift reads what they mean.

@@ -39,10 +39,13 @@ export function diff(wasPage: FlatBlock[], isPage: FlatBlock[]): Op[] {
 /** A field is never added, moved or removed by the person: only its words change. */
 function fieldOps(wasPage: FlatBlock[], isPage: FlatBlock[]): Op[] {
   const was = new Map(wasPage.filter((block) => block.kind === "field").map((block) => [block.id, block]));
-  return isPage.flatMap((block) => {
+  const is = new Set(isPage.map((block) => block.id));
+  const removed = [...was.keys()].filter((id) => !is.has(id)).map((id) => ({ op: "delete" as const, id }));
+  const changed = isPage.flatMap((block) => {
     const old = was.get(block.id);
     return block.kind === "field" && old && old.text !== block.text ? [{ op: "field" as const, id: block.id, text: block.text }] : [];
   });
+  return [...changed, ...removed];
 }
 
 /** A paragraph with no words is not stored: it is not on the page until the person writes in it. */

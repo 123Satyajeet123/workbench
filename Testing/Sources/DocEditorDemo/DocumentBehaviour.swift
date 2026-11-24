@@ -23,7 +23,7 @@ private final class Scripted: StructuredModel, Sendable {
 /// opens, says why and writes nothing.
 extension Behaviour {
     @MainActor
-    private static func openDocument(ownerKnown: Bool) async throws -> (desk: PageDesk, editor: OffscreenEditor) {
+    static func openDocument(ownerKnown: Bool) async throws -> (desk: PageDesk, editor: OffscreenEditor) {
         let desk = try await PageDesk(ownerKnown: ownerKnown)
         desk.page.openEditor(appearance: .light, reduceMotion: false, scale: 1)
         guard let host = desk.page.editor?.host else { throw DemoFailure("the page did not open its editor") }
@@ -39,16 +39,16 @@ extension Behaviour {
         return (desk, editor)
     }
 
-    private static func count(_ desk: PageDesk, _ table: String) throws -> Int {
+    static func count(_ desk: PageDesk, _ table: String) throws -> Int {
         try desk.store.queries.reader.read { try Int.fetchOne($0, sql: "SELECT COUNT(*) FROM \(table)") ?? 0 }
     }
 
-    private static func instructions(_ machine: Machine, _ store: Store) -> String {
+    static func instructions(_ machine: Machine, _ store: Store) -> String {
         HelperReader(spec: machine.spec, model: RecordedModel(Scripted(), store: store)).instructions
     }
 
     @MainActor
-    private static func type(_ words: String, into field: String, _ desk: PageDesk, _ editor: OffscreenEditor)
+    static func type(_ words: String, into field: String, _ desk: PageDesk, _ editor: OffscreenEditor)
         async throws
     {
         try await editor.run("window.wbEditor.setTextCursorPosition('\(field)', 'end'); window.wbEditor.focus();")

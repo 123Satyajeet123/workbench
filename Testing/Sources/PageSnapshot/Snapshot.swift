@@ -90,7 +90,8 @@ public func snapshot(
     in folder: URL, prepare: () async throws -> Void = {}
 ) async throws -> URL {
     model.edits = PageEdits(
-        rename: { crew.rename(model.helper, to: $0) }, setJob: { crew.setJob(model.helper, to: $0) })
+        rename: { crew.rename(model.helper, to: $0) }, setJob: { crew.setJob(model.helper, to: $0) },
+        setPaused: { crew.setPaused(model.helper, $0) })
     let page = DocumentPage { MachinePageView(model: model) }.environment(crew).environment(models)
     return try await snapshot(page, named: name, dark: dark, size: size, in: folder, prepare: prepare)
 }

@@ -1,4 +1,4 @@
-import type { Act, Chip, FactRow, FactSection, FactTag, GridCell, MachineView, OpMark, PageBlock } from "./bridge.generated.ts";
+import type { Act, Chip, Sentence, SentencePart, FactRow, FactSection, FactTag, GridCell, MachineView, OpMark, PageBlock } from "./bridge.generated.ts";
 import { el } from "./dom.ts";
 
 export interface MachineActions {
@@ -7,19 +7,22 @@ export interface MachineActions {
   mark(fact: number, mark: OpMark["mark"]): void;
   act(name: Act["name"]): void;
   changeView(block: string, form: Facts["viewBar"]["form"], groupBy: string): void;
+  retitle(block: string, text: string): void;
+  setting(key: string, value: string): void;
 }
 
 type Facts = Extract<MachineView, { kind: "facts" }>;
 type Grid = Extract<MachineView, { kind: "grid" }>;
 type Picker = Extract<MachineView, { kind: "picker" }>;
+type Settings = Extract<MachineView, { kind: "settings" }>;
 type Status = Extract<MachineView, { kind: "status" }>;
 
 
 /** Draws a block of a machine from the data Swift worked out. It adds, counts and fetches nothing. */
 export function renderMachine(view: MachineView, standing: Standing, block: string, actions: MachineActions): HTMLElement {
-  const root = el("section", `machine machine-${view.kind}`, undefined, { "data-standing": standing });
+  const root = el("section", `machine machine-${view.kind}${block.startsWith("document.") ? " document" : ""}`, undefined, { "data-standing": standing });
   const words = STANDING_WORDS[standing];
-  if (words) root.append(el("p", "standing", words));
+  if (words) root.append(standingLine(words, standing, actions));
   root.append(...partsOf(view, block, actions));
   return root;
 }
@@ -32,6 +35,18 @@ const STANDING_WORDS: Record<Standing, string | undefined> = {
   replacement: "Replaces a block",
   removed: "Will be removed",
 };
+
+/** What a proposed block is, and the two answers the person gives to the proposal it belongs to. */
+function standingLine(words: string, standing: Standing, actions: MachineActions): HTMLElement {
+  const line = el("p", "standing", words);
+  if (standing === "live") return line;
+  for (const [name, label] of [["accept", "Accept"], ["decline", "Decline"]] as const) {
+    const button = el("button", "machine-action", label, { type: "button" });
+    button.addEventListener("click", () => actions.act(name));
+    line.append(" ", button);
+  }
+  return line;
+}
 
 function partsOf(view: MachineView, block: string, actions: MachineActions): HTMLElement[] {
   switch (view.kind) {
@@ -47,6 +62,8 @@ function partsOf(view: MachineView, block: string, actions: MachineActions): HTM
       return pickerParts(view, actions);
     case "status":
       return statusParts(view, actions);
+    case "settings":
+      return view.sentences.map((sentence) => sentenceOf(sentence, actions));
     case "line":
       return [lineOf(view.text, view.act, actions)];
     case "erased":
@@ -68,7 +85,6 @@ function lineOf(text: string, act: Act | undefined, actions: MachineActions): HT
 /** What the machine says of itself: problems first, then what it reads, what it does now, and its last reading as a toggle. */
 function statusParts(view: Status, actions: MachineActions): HTMLElement[] {
   const parts: HTMLElement[] = view.notices.map((notice) => el("p", "machine-notice", notice));
-  if (view.reads !== "") parts.push(el("p", "machine-line", `Reads: ${view.reads}`));
   parts.push(lineOf(view.sentence, view.act, actions));
   if (view.journal.length > 0) {
     const journal = el("details", "journal");
@@ -117,14 +133,30 @@ function gridRow(cells: GridCell[]): HTMLElement {
 
 function factsParts(view: Facts, block: string, actions: MachineActions): HTMLElement[] {
   const head = el("div", "machine-head");
-  head.append(el("h4", "machine-title", view.title), el("span", "supporting", view.countText));
+  head.append(titleInput(view.title, block, actions), el("span", "supporting", view.countText));
   if (view.needsText !== "") head.append(el("span", "needs-pill", view.needsText));
-  head.append(viewBar(view, block, actions));
+  head.append(viewChips(view, block, actions));
   const folded = view.tallyColumns.length > 0;
   const body = el("div", `facts facts-${view.layout}${folded ? " facts-folded" : ""}`);
   if (folded && view.layout === "table") body.append(groupTableOrList(view, actions));
   else for (const section of view.sections) body.append(sectionOf(view, section, actions, folded));
-  return [head, body];
+  const parts = [head];
+  if (view.note !== "") parts.push(el("p", "machine-line", view.note));
+  return [...parts, body];
+}
+
+/** The heading of a view as words the person retypes; it is sent when they leave it or press Return. */
+function titleInput(title: string, block: string, actions: MachineActions): HTMLInputElement {
+  const input = el("input", "machine-title title-input", undefined, { type: "text", value: title, "aria-label": "Heading of this view" });
+  input.disabled = document.documentElement.dataset["editable"] === "false";
+  const fit = () => (input.size = Math.max(4, input.value.length + 1));
+  fit();
+  input.addEventListener("input", fit);
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") input.blur();
+  });
+  input.addEventListener("change", () => actions.retitle(block, input.value));
+  return input;
 }
 
 const FORM_WORDS: Record<Facts["viewBar"]["form"], string> = {
@@ -135,24 +167,62 @@ const FORM_WORDS: Record<Facts["viewBar"]["form"], string> = {
   counts: "Counts",
 };
 
-/** Two choices Swift offers, each one the gate allows. A choice is sent as one op; Swift draws the result. */
-function viewBar(view: Facts, block: string, actions: MachineActions): HTMLElement {
-  const bar = el("span", "view-bar");
+/** The form and the grouping of a view as two phrases of its heading line; each opens the values the gate allows. */
+function viewChips(view: Facts, block: string, actions: MachineActions): HTMLElement {
+  const bar = el("span", "view-chips");
   const { form, forms, groupBy, groups } = view.viewBar;
-  const choose = (label: string, values: string[], current: string, words: (value: string) => string, send: (value: string) => void) => {
-    const select = el("select", "view-select", undefined, { "aria-label": label });
-    for (const value of values) select.append(el("option", undefined, words(value), { value }));
-    select.value = current;
-    select.addEventListener("change", () => send(select.value));
-    return select;
-  };
   if (forms.length > 1) {
-    bar.append(choose("Layout", forms, form, (value) => FORM_WORDS[value as typeof form], (value) => actions.changeView(block, value as typeof form, groupBy)));
+    bar.append(el("span", "supporting", "as"), chipMenu(forms, form, (value) => FORM_WORDS[value as typeof form], (value) => actions.changeView(block, value as typeof form, groupBy)));
   }
   if (groups.length > 1 && groupBy !== "") {
-    bar.append(choose("Group by", groups, groupBy, (value) => value, (value) => actions.changeView(block, form, value)));
+    bar.append(el("span", "supporting", "by"), chipMenu(groups, groupBy, (value) => value, (value) => actions.changeView(block, form, value)));
   }
   return bar;
+}
+
+/** One phrase that shows its value and, when clicked, lists the other values in the page's own type. */
+function chipMenu(values: string[], current: string, words: (value: string) => string, send: (value: string) => void): HTMLElement {
+  const menu = el("details", "chip-menu");
+  menu.append(el("summary", "chip-pick", words(current)));
+  const list = el("div", "chip-list");
+  for (const value of values) {
+    const option = el("button", value === current ? "chip-option current" : "chip-option", words(value), { type: "button", "data-value": value });
+    option.addEventListener("click", () => send(value));
+    list.append(option);
+  }
+  menu.append(list);
+  return menu;
+}
+
+/** A setting as one sentence: its words, and its values as chips the person edits where they stand. */
+function sentenceOf(sentence: Sentence, actions: MachineActions): HTMLElement {
+  const node = el("p", "sentence");
+  for (const part of sentence.parts) {
+    if ("words" in part) node.append(document.createTextNode(part.words));
+    else node.append(settingChip(part, actions));
+  }
+  if (sentence.note !== "") node.append(" ", el("span", "sentence-note", sentence.note));
+  if (sentence.act) {
+    const act = sentence.act;
+    const button = el("button", "machine-action", act.label, { type: "button" });
+    button.addEventListener("click", () => actions.act(act.name));
+    node.append(" ", button);
+  }
+  return node;
+}
+
+function settingChip(part: Extract<SentencePart, { chip: string }>, actions: MachineActions): HTMLElement {
+  if (part.entry === "choice") return chipMenu(part.choices, part.text, (value) => value, (value) => actions.setting(part.chip, value));
+  const input = el("input", "setting-chip", undefined, { type: "text", value: part.text, "aria-label": "Value of this setting", inputmode: part.entry === "number" ? "numeric" : "text" });
+  input.disabled = document.documentElement.dataset["editable"] === "false";
+  const fit = () => (input.size = Math.max(3, input.value.length + 1));
+  fit();
+  input.addEventListener("input", fit);
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") input.blur();
+  });
+  input.addEventListener("change", () => actions.setting(part.chip, input.value));
+  return input;
 }
 
 function sectionOf(view: Facts, section: FactSection, actions: MachineActions, folded: boolean): HTMLElement {

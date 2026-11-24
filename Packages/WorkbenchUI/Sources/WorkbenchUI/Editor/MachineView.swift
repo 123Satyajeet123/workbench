@@ -10,6 +10,7 @@ enum MachineView: Equatable, Sendable {
     case picker(PickerRendering)
     case status(StatusRendering)
     case line(LineRendering)
+    case settings(SettingsRendering)
     case erased(note: String)
 }
 
@@ -21,6 +22,8 @@ struct CiteChip: Codable, Equatable, Sendable {
 
 struct FactsRendering: Codable, Equatable, Sendable {
     var title: String
+    /// What the machine says of a heading it did not understand; empty otherwise.
+    var note: String = ""
     var layout: String
     var countText: String
     /// How many facts ask the person, in words; empty when none does.
@@ -107,7 +110,6 @@ struct PickerRendering: Codable, Equatable, Sendable {
 /// latest reading as lines.
 struct StatusRendering: Codable, Equatable, Sendable {
     var notices: [String]
-    var reads: String
     var sentence: String
     var journal: [String]
     /// The phrase of the sentence that starts a reading now; nil when none is offered.
@@ -118,6 +120,54 @@ struct StatusRendering: Codable, Equatable, Sendable {
 struct ActionLink: Codable, Equatable, Sendable {
     var name: OpenTarget.Action
     var label: String
+}
+
+/// The settings of a machine, each as one sentence whose values are chips.
+struct SettingsRendering: Codable, Equatable, Sendable {
+    var sentences: [Sentence]
+
+    struct Sentence: Codable, Equatable, Sendable {
+        var parts: [Part]
+        /// What happened to the last edit of this sentence: the reason it was refused, or what it changed.
+        var note: String = ""
+        var act: ActionLink?
+    }
+
+    enum Part: Equatable, Sendable {
+        case words(String)
+        /// A value the person edits: `chip` names it, `text` is how it reads now.
+        case chip(String, text: String, entry: Entry, choices: [String] = [])
+    }
+
+    enum Entry: String, Codable, Sendable { case number, time, choice }
+}
+
+extension SettingsRendering.Part: Codable {
+    private enum Key: String, CodingKey { case words, chip, text, entry, choices }
+
+    init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: Key.self)
+        if let words = try values.decodeIfPresent(String.self, forKey: .words) {
+            self = .words(words)
+        } else {
+            self = .chip(
+                try values.decode(String.self, forKey: .chip), text: try values.decode(String.self, forKey: .text),
+                entry: try values.decode(SettingsRendering.Entry.self, forKey: .entry),
+                choices: try values.decode([String].self, forKey: .choices))
+        }
+    }
+
+    func encode(to encoder: any Encoder) throws {
+        var values = encoder.container(keyedBy: Key.self)
+        switch self {
+        case .words(let words): try values.encode(words, forKey: .words)
+        case .chip(let chip, let text, let entry, let choices):
+            try values.encode(chip, forKey: .chip)
+            try values.encode(text, forKey: .text)
+            try values.encode(entry, forKey: .entry)
+            try values.encode(choices, forKey: .choices)
+        }
+    }
 }
 
 struct LineRendering: Codable, Equatable, Sendable {
@@ -143,6 +193,7 @@ extension MachineView: Codable {
         case "picker": self = .picker(try PickerRendering(from: decoder))
         case "status": self = .status(try StatusRendering(from: decoder))
         case "line": self = .line(try LineRendering(from: decoder))
+        case "settings": self = .settings(try SettingsRendering(from: decoder))
         case "erased": self = .erased(note: try Erased(from: decoder).note)
         default:
             throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "unknown kind"))
@@ -171,6 +222,9 @@ extension MachineView: Codable {
         case .status(let status):
             try values.encode("status", forKey: .kind)
             try status.encode(to: encoder)
+        case .settings(let settings):
+            try values.encode("settings", forKey: .kind)
+            try settings.encode(to: encoder)
         case .line(let line):
             try values.encode("line", forKey: .kind)
             try line.encode(to: encoder)

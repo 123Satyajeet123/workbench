@@ -102,9 +102,6 @@ img.ProseMirror-separator { display: inline !important; border: none !important;
 .tag-good::before { background: var(--wb-good); }
 .tag-attention::before { background: var(--wb-attention); }
 .tag-bad::before { background: var(--wb-bad); }
-.view-bar { display: inline-flex; gap: 6px; margin-left: auto; opacity: 0; transition: opacity var(--wb-quick) ease-out; }
-.machine:hover .view-bar, .view-bar:focus-within { opacity: 1; }
-.view-select { font: inherit; font-size: 0.8125em; color: var(--wb-supporting); background: none; border: 1px solid var(--wb-divider); border-radius: 4px; padding: 0 4px; }
 .needs-pill { font-size: 0.8125em; font-weight: 600; color: var(--wb-text); background: color-mix(in srgb, var(--wb-attention) 22%, transparent); border-radius: 999px; padding: 0 8px; white-space: nowrap; }
 .marks { display: inline-flex; gap: 4px; opacity: 0; transition: opacity var(--wb-quick) ease-out; }
 .fact:hover .marks, .fact:focus-within .marks { opacity: 1; }
@@ -193,3 +190,20 @@ img.ProseMirror-separator { display: inline !important; border: none !important;
 .machine-action:hover { color: var(--wb-text); }
 .journal > summary { cursor: pointer; font-size: 0.875em; color: var(--wb-supporting); }
 .journal > .machine-line { padding-left: 1em; }
+
+/* Typed values inside a line of words: they read as part of the sentence, and show what they are on hover or focus. */
+.title-input, .setting-chip { font: inherit; color: inherit; background: none; border: 0; border-bottom: 1px dashed transparent; padding: 0; margin: 0; min-width: 0; outline: none; text-overflow: ellipsis; }
+.title-input { font-weight: 600; }
+.title-input:hover:not(:disabled), .title-input:focus, .setting-chip:hover:not(:disabled), .setting-chip:focus { border-bottom-color: var(--wb-supporting); }
+.setting-chip { color: var(--wb-accent); text-align: center; }
+.view-chips { display: inline-flex; gap: 4px; align-items: baseline; margin-left: auto; font-size: 0.8125em; }
+.chip-menu { position: relative; display: inline-block; }
+.chip-pick { list-style: none; cursor: pointer; color: var(--wb-accent); border-bottom: 1px dashed transparent; }
+.chip-pick:hover { border-bottom-color: var(--wb-accent); }
+.chip-pick::-webkit-details-marker { display: none; }
+.chip-list { position: absolute; z-index: 5; top: 1.6em; left: 0; display: flex; flex-direction: column; min-width: max-content; padding: 4px; background: var(--wb-page); border: 1px solid var(--wb-divider); border-radius: 6px; }
+.chip-option { font: inherit; text-align: left; color: var(--wb-text); background: none; border: 0; border-radius: 4px; padding: 3px 8px; cursor: pointer; }
+.chip-option:hover { background: var(--wb-hover); }
+.chip-option.current { color: var(--wb-accent); }
+.sentence { margin: 0; padding: 2px 0; }
+.sentence-note { color: var(--wb-supporting); font-size: 0.875em; }

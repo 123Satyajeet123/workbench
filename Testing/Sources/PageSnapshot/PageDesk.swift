@@ -65,7 +65,8 @@ final class PageDesk {
         )
         (self.paragraphs, self.facts) = (paragraphs, facts)
         page.edits = PageEdits(
-            rename: { crew.rename(helper, to: $0) }, setJob: { crew.setJob(helper, to: $0) })
+            rename: { crew.rename(helper, to: $0) }, setJob: { crew.setJob(helper, to: $0) },
+            setPaused: { crew.setPaused(helper, $0) })
     }
 
     func close() { try? FileManager.default.removeItem(at: folder) }

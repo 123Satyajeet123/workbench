@@ -1,9 +1,11 @@
 import SwiftUI
 import WorkbenchCore
 
-struct CriteriaSection: View {
+/// The editor of a machine's criteria, in a sheet over its page.
+struct CriteriaSheet: View {
     let helper: HelperModel
     @Environment(Crew.self) private var crew
+    @Environment(\.dismiss) private var dismiss
     @State private var model: CriteriaModel
 
     init(helper: HelperModel) {
@@ -12,11 +14,16 @@ struct CriteriaSection: View {
     }
 
     var body: some View {
-        Fold("Criteria · \(model.draft.rules.count) \(model.draft.rules.count == 1 ? "rule" : "rules")") {
-            CriteriaBody(model: model, save: { model.save { crew.setCriteria(helper, $0) } })
-                .padding(.top, Space.m)
+        VStack(alignment: .leading, spacing: Space.m) {
+            HStack {
+                Text("Criteria of \(helper.name)").textStyle(.title2, weight: .bold)
+                Spacer()
+                Button("Done") { dismiss() }.keyboardShortcut(.defaultAction)
+            }
+            ScrollView { CriteriaBody(model: model, save: { model.save { crew.setCriteria(helper, $0) } }) }
         }
-        .textStyle(.headline)
+        .padding(Space.l)
+        .frame(minWidth: 640, minHeight: 480)
     }
 }
 

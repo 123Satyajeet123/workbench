@@ -3,8 +3,8 @@ import SwiftUI
 import WorkbenchCore
 
 /// The page of a machine as one document: the editor that holds the title, the job, the machine's account of itself,
-/// the person's paragraphs and the machine's blocks in one order, then the machine's proposal and the box to ask it
-/// for a change.
+/// the person's paragraphs, the machine's blocks and how the machine works, in one order. The sheets are what a
+/// phrase of the document opens.
 struct MachinePageView: View {
     @Bindable var model: MachinePageModel
     @Environment(\.colorScheme) private var colorScheme
@@ -14,12 +14,6 @@ struct MachinePageView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Space.l) {
             if let editor = model.editor { DocumentView(host: editor.host) }
-            if let proposal = model.proposal {
-                ProposalBar(
-                    note: proposal.note, refusals: model.refusals,
-                    accept: { Task { await model.accept() } }, discard: model.discard)
-            }
-            if model.owner != nil { PageAskBox(name: model.name, isAsking: model.isAsking) { await model.ask($0) } }
         }
         .toastHost(model.toast)
         .keepsSaved({ model.editor }, refresh: model.refresh)
@@ -29,6 +23,8 @@ struct MachinePageView: View {
         }
         .task(id: model.helper.phase) { await model.keepStatusFresh() }
         .sheet(isPresented: $model.isShowingMore) { MachineMoreSheet(model: model.helper) }
+        .sheet(isPresented: $model.isEditingBrief) { MachineSheet(edit: .brief(model.helper)) { _ in } }
+        .sheet(isPresented: $model.isEditingCriteria) { CriteriaSheet(helper: model.helper) }
         .sheet(item: inspectedBinding) { FactInspector(model: model, item: $0) }
         .sheet(isPresented: isChoosing) {
             if let kind = model.choosing { PickerSheet(kind: kind, helper: model.helper) }

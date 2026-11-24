@@ -14,6 +14,8 @@ struct MachineViewBuilder {
     var pickerNote: (PickerKind) -> String?
     /// The marks the machine offers for a fact now.
     var marks: (Item) -> [FactMark] = { _ in [] }
+    /// What the machine says of a heading it did not understand, by the block's name.
+    var headingNotes: [String: String] = [:]
 
     static let erasedNote = "The message this came from was deleted"
 
@@ -26,12 +28,12 @@ struct MachineViewBuilder {
 
     private var gate: PageGate { PageGate(catalog: PageCatalog(spec: lens.spec, items: facts)) }
 
-    func view(of block: MachineBlock, erased: Bool) -> MachineView {
+    func view(of block: MachineBlock, id: String = "", erased: Bool) -> MachineView {
         guard !erased else { return .erased(note: Self.erasedNote) }
         switch block {
         case .heading(let words): return .heading(text: words)
         case .text(let cited): return .text(text: cited.text, cites: chips(cited.cites))
-        case .facts(let view): return .facts(rendering(of: view))
+        case .facts(let view): return .facts(rendering(of: view, note: headingNotes[id] ?? ""))
         case .grid(let grid): return .grid(rendering(of: grid))
         case .picker(let kind): return .picker(rendering(of: kind))
         }
@@ -52,14 +54,14 @@ struct MachineViewBuilder {
         }
     }
 
-    private func rendering(of view: FactsView) -> FactsRendering {
+    private func rendering(of view: FactsView, note: String) -> FactsRendering {
         let sections = view.sections(in: facts, lens: lens)
         let tallyColumns =
             view.countBy.map { field in Self.firstSeen(sections.flatMap { tally(of: $0.facts, by: field) }) }
             ?? []
         let needing = sections.reduce(0) { $0 + needs(in: $1.facts) }
         return FactsRendering(
-            title: view.title, layout: view.layout.rawValue,
+            title: view.title, note: note, layout: view.layout.rawValue,
             countText: Self.countText(sections.reduce(0) { $0 + $1.facts.count }),
             needsText: needing == 0 ? "" : (needing == 1 ? "1 needs you" : "\(needing) need you"),
             limit: view.limit ?? 0, viewBar: viewBar(of: view), columns: view.shownColumns, tallyColumns: tallyColumns,

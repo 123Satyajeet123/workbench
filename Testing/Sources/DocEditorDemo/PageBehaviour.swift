@@ -22,14 +22,14 @@ extension Behaviour {
         let editor = OffscreenEditor(host: host, dark: false)
         guard
             try await editor.waitUntil(
-                "return window.wbEditor && document.querySelectorAll('.machine:not(.machine-status)').length >= 5")
+                "return window.wbEditor && document.querySelectorAll('.machine:not(.document)').length >= 5")
         else { throw DemoFailure("the editor did not show the page") }
         return (desk, editor)
     }
 
     private static func standings(_ editor: OffscreenEditor) async throws -> String {
         try await editor.json(
-            "return [...document.querySelectorAll('.machine:not(.machine-status)')].map(n => n.dataset.standing + (n.querySelector('.standing') ? ':' + n.querySelector('.standing').textContent : ''))"
+            "return [...document.querySelectorAll('.machine:not(.document)')].map(n => n.dataset.standing + (n.querySelector('.standing') ? ':' + n.querySelector('.standing').textContent : ''))"
         )
     }
 
@@ -76,7 +76,7 @@ extension Behaviour {
                 "return document.querySelector('.machine[data-standing]:not([data-standing=\"live\"])') === null")
         else { throw DemoFailure("discard left proposed blocks: \(try await standings(editor))") }
         let afterDiscard = try await editor.json(
-            "return document.querySelectorAll('.machine:not(.machine-status)').length")
+            "return document.querySelectorAll('.machine:not(.document)').length")
         guard try storedBlocks(desk) == live, afterDiscard == "\(live.count)" else {
             throw DemoFailure("discard: \(afterDiscard) blocks, store \(try storedBlocks(desk).count)")
         }

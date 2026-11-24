@@ -2,6 +2,7 @@ import type { Environment } from "./bridge.generated.ts";
 
 export function applyEnvironment(environment: Environment, editor: { isEditable: boolean }): void {
   editor.isEditable = environment.editable;
+  document.documentElement.dataset["editable"] = String(environment.editable);
   const root = document.documentElement;
   root.dataset["theme"] = environment.appearance;
   root.dataset["motion"] = environment.reduceMotion ? "reduce" : "full";

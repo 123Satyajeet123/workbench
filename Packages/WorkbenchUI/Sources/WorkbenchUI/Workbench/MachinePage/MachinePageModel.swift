@@ -19,8 +19,15 @@ final class MachinePageModel {
     /// The fact whose proof the person opened, and the kind of source they are choosing for.
     var inspected: Item?
     var choosing: PickerKind?
-    /// Whether the sheet with everything else about the machine is open.
+    /// Whether the sheet with everything else about the machine is open, and the sheets of the brief and the criteria.
     var isShowingMore = false
+    var isEditingBrief = false
+    var isEditingCriteria = false
+    /// What happened to the last edit of a setting, in the sentence it belongs to; and how to take that edit back.
+    @ObservationIgnored var settingNote: (sentence: String, text: String)?
+    @ObservationIgnored var settingUndo: (key: String, value: String)?
+    /// What the machine says of a heading it did not understand, by the block's name.
+    @ObservationIgnored var headingNotes: [String: String] = [:]
     /// What the words of the title and of the job do. The app that shows the page sets them.
     @ObservationIgnored var edits = PageEdits()
 
@@ -32,7 +39,7 @@ final class MachinePageModel {
     /// Who writes the page; nil when this Mac cannot say, and the page is then read and never written.
     @ObservationIgnored let owner: PersonID?
     @ObservationIgnored let ownerNotice: String?
-    @ObservationIgnored private let viewer: PageViewer
+    @ObservationIgnored let viewer: PageViewer
     @ObservationIgnored private let makeModel: () throws -> RecordedModel
     @ObservationIgnored unowned let helper: HelperModel
     /// What the machine says of itself at a moment: what it is doing, why it does not read, and its last reading.
@@ -97,6 +104,9 @@ final class MachinePageModel {
                 document: { [unowned self] in documentBlocks })
             controller.onMark = { [unowned self] fact, mark in markFact(fact, mark) }
             controller.onField = { [unowned self] field, text in edit(field: field, to: text) }
+            controller.onHeading = { [unowned self] block, text in edit(heading: block, to: text) }
+            controller.onSetting = { [unowned self] key, value in edit(setting: key, to: value) }
+            controller.onAsk = { [unowned self] request in Task { _ = await ask(request) } }
             controller.onOpen = { [unowned self] target in open(target) }
             controller.start()
             editor = controller
@@ -110,7 +120,7 @@ final class MachinePageModel {
             pickerNote: { [helper] kind in PickerChoice.unavailableNote(kind, for: helper) },
             marks: { [unowned self] item in
                 owner == nil ? [] : actions(for: item).compactMap(FactMark.init(action:))
-            })
+            }, headingNotes: headingNotes)
     }
 
     private func markFact(_ fact: Int64, _ mark: FactMark) {
@@ -124,8 +134,7 @@ final class MachinePageModel {
             if case .fact(let id) = PageCite(reference: reference) { inspected = facts.first { $0.id == id } }
         case .link(let address): EditorHost.openLink(address)
         case .picker(let source): choosing = PickerKind(rawValue: source)
-        case .action(.read): Task { await helper.read() }
-        case .action(.more): isShowingMore = true
+        case .action(let action): act(action)
         }
     }
 
@@ -134,7 +143,11 @@ final class MachinePageModel {
     func ask(_ request: String) async -> Bool {
         guard !isAsking, owner != nil, let words = request.cleaned else { return false }
         isAsking = true
-        defer { isAsking = false }
+        refresh()
+        defer {
+            isAsking = false
+            refresh()
+        }
         var isProposed = false
         await problems.attempt("ask \(name) to change the page", clearing: true) {
             await editor?.flush()

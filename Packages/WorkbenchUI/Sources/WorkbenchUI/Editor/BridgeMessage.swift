@@ -31,6 +31,12 @@ enum EditorOp: Equatable, Sendable {
     case view(block: String, form: String, groupBy: String)
     /// The person changed the words of a field of the document. Swift decides what they mean.
     case field(id: String, text: String)
+    /// The person retyped the heading of a facts view.
+    case heading(block: String, text: String)
+    /// The person edited the value of one chip of a setting sentence.
+    case setting(key: String, value: String)
+    /// The person ended a line that starts with /ask.
+    case ask(text: String)
 }
 
 enum FactMark: String, Codable, Equatable, Sendable {
@@ -43,7 +49,7 @@ enum OpenTarget: Equatable, Sendable {
     case picker(source: String)
     case action(Action)
 
-    enum Action: String, Codable, Sendable { case read, more }
+    enum Action: String, Codable, Sendable { case read, more, choose, brief, criteria, accept, decline, undo }
 }
 
 /// What Swift sends to the editor.
@@ -182,6 +188,9 @@ extension EditorOp: Codable {
                 try values.decode(FactMark.self, forKey: Key("mark")))
         case "view": self = .view(block: try string("id"), form: try string("form"), groupBy: try string("groupBy"))
         case "field": self = .field(id: try string("id"), text: try string("text"))
+        case "heading": self = .heading(block: try string("id"), text: try string("text"))
+        case "setting": self = .setting(key: try string("key"), value: try string("value"))
+        case "ask": self = .ask(text: try string("text"))
         default: throw unknown(op, in: values)
         }
     }
@@ -221,6 +230,17 @@ extension EditorOp: Codable {
         case .field(let id, let text):
             try values.encode("field", forKey: Key("op"))
             try values.encode(id, forKey: Key("id"))
+            try values.encode(text, forKey: Key("text"))
+        case .heading(let block, let text):
+            try values.encode("heading", forKey: Key("op"))
+            try values.encode(block, forKey: Key("id"))
+            try values.encode(text, forKey: Key("text"))
+        case .setting(let key, let value):
+            try values.encode("setting", forKey: Key("op"))
+            try values.encode(key, forKey: Key("key"))
+            try values.encode(value, forKey: Key("value"))
+        case .ask(let text):
+            try values.encode("ask", forKey: Key("op"))
             try values.encode(text, forKey: Key("text"))
         }
     }

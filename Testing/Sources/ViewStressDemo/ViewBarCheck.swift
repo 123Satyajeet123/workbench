@@ -68,8 +68,8 @@ enum ViewBarCheck {
     private static func choices(_ session: Session) async throws -> Choices {
         let text = try await session.editor.json(
             """
-            const values = (label) => [...document.querySelectorAll(`.view-select[aria-label="${label}"] option`)].map((option) => option.value);
-            return { forms: values('Layout'), groups: values('Group by') };
+            const values = (index) => [...(document.querySelectorAll('.chip-menu')[index]?.querySelectorAll('.chip-option') ?? [])].map((option) => option.dataset.value);
+            return { forms: values(0), groups: values(1) };
             """)
         struct Decoded: Decodable {
             var forms: [String]
@@ -82,16 +82,15 @@ enum ViewBarCheck {
     private static func choose(_ session: Session, _ label: String, _ value: String) async throws {
         try await session.editor.run(
             """
-            const select = document.querySelector('.view-select[aria-label="\(label)"]');
-            select.value = '\(value)';
-            select.dispatchEvent(new Event('change', { bubbles: true }));
+            const menu = document.querySelectorAll('.chip-menu')[\(label == "Layout" ? 0 : 1)];
+            menu.querySelector('.chip-option[data-value="\(value)"]').click();
             """)
         try await session.settle()
         try await Task.sleep(for: .milliseconds(400))
     }
 
     private static func title(_ session: Session) async throws -> String {
-        let text = try await session.editor.json("return document.querySelector('.machine-title').textContent")
+        let text = try await session.editor.json("return document.querySelector('.machine-title').value")
         return text.trimmingCharacters(in: CharacterSet(charactersIn: "\""))
     }
 

@@ -128,6 +128,7 @@
             "layout" : "list",
             "limit" : 0,
             "needsText" : "1 needs you",
+            "note" : "",
             "sections" : [
               {
                 "count" : 1,
@@ -275,12 +276,61 @@
             "notices" : [
               "This page is read-only."
             ],
-            "reads" : "Every WhatsApp chat",
             "sentence" : "Reads every hour."
           }
         },
         {
           "id" : "m6",
+          "kind" : "machine",
+          "standing" : "live",
+          "view" : {
+            "kind" : "settings",
+            "sentences" : [
+              {
+                "act" : {
+                  "label" : "Undo",
+                  "name" : "undo"
+                },
+                "note" : "Changed from 9 to 8.",
+                "parts" : [
+                  {
+                    "words" : "Reads every "
+                  },
+                  {
+                    "chip" : "watch.every",
+                    "choices" : [
+
+                    ],
+                    "entry" : "number",
+                    "text" : "60"
+                  },
+                  {
+                    "words" : " minutes: "
+                  },
+                  {
+                    "chip" : "watch.on",
+                    "choices" : [
+                      "on",
+                      "off"
+                    ],
+                    "entry" : "choice",
+                    "text" : "on"
+                  },
+                  {
+                    "chip" : "nudge.time",
+                    "choices" : [
+
+                    ],
+                    "entry" : "time",
+                    "text" : "8 PM"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id" : "m7",
           "kind" : "machine",
           "standing" : "live",
           "view" : {
@@ -293,7 +343,7 @@
           }
         },
         {
-          "id" : "m7",
+          "id" : "m8",
           "kind" : "machine",
           "standing" : "live",
           "view" : {
@@ -417,6 +467,20 @@
           "id" : "document.title",
           "op" : "field",
           "text" : "Pip Example"
+        },
+        {
+          "id" : "m1",
+          "op" : "heading",
+          "text" : "By project"
+        },
+        {
+          "key" : "watch.from",
+          "op" : "setting",
+          "value" : "8"
+        },
+        {
+          "op" : "ask",
+          "text" : "add a table of promises"
         }
       ],
       "seq" : 3,

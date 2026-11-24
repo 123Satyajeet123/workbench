@@ -15,7 +15,8 @@ enum ContractSamples {
                 .update(id: "n2", text: "Words, *marked*"), .move(id: "n2", after: nil), .delete(id: "n3"),
                 .merge(id: "n4", into: "n2"), .mark(fact: 12, .wrong),
                 .view(block: "m1", form: "board", groupBy: "project"), .mark(fact: 12, .done),
-                .field(id: "document.title", text: "Pip Example"),
+                .field(id: "document.title", text: "Pip Example"), .heading(block: "m1", text: "By project"),
+                .setting(key: "watch.from", value: "8"), .ask(text: "add a table of promises"),
             ]),
         "openCite": .open(.cite(ref: "fact:12")),
         "openLink": .open(.link(url: "https://example.com/a")),
@@ -97,9 +98,18 @@ enum ContractSamples {
         .picker(PickerRendering(source: "whatsapp_chats", title: "WhatsApp chats to read", note: "", available: true)),
         .status(
             StatusRendering(
-                notices: ["This page is read-only."], reads: "Every WhatsApp chat",
+                notices: ["This page is read-only."],
                 sentence: "Reads every hour.", journal: ["Read 3 parts.", "Kept 2 facts."],
                 act: ActionLink(name: .read, label: "Read now"))),
+        .settings(
+            SettingsRendering(sentences: [
+                SettingsRendering.Sentence(
+                    parts: [
+                        .words("Reads every "), .chip("watch.every", text: "60", entry: .number), .words(" minutes: "),
+                        .chip("watch.on", text: "on", entry: .choice, choices: ["on", "off"]),
+                        .chip("nudge.time", text: "8 PM", entry: .time),
+                    ], note: "Changed from 9 to 8.", act: ActionLink(name: .undo, label: "Undo"))
+            ])),
         .line(LineRendering(text: "More is kept apart.", act: ActionLink(name: .more, label: "Open it"))),
         .erased(note: "The message this came from was deleted"),
     ]

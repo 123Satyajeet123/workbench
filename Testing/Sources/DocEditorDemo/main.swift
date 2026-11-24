@@ -46,6 +46,15 @@ await check("plain page") { try await Behaviour.plainPage() }
 await check("document head: title, job, status; editable with an owner") { try await Behaviour.documentHead() }
 await check("title edit renames; job edit keeps the prompt") { try await Behaviour.titleAndJob() }
 await check("no owner: opens read-only, says why, writes nothing") { try await Behaviour.noOwner() }
+await check("headings: a name resolves with no model call; others keep the words and a note") {
+    try await Behaviour.headings()
+}
+await check("chips: a valid edit changes the record; invalid values change nothing and say why") {
+    try await Behaviour.chips()
+}
+await check("machine on/off chip and Undo") { try await Behaviour.switchAndUndo() }
+await check("head cannot be deleted; a field waits for the person to leave it") { try await Behaviour.headAndBlur() }
+await check("/ask line; Accept and Decline in the proposed block") { try await Behaviour.askAndDecide() }
 await check("page height") { try await Behaviour.height() }
 await check("size") { try await Behaviour.size() }
 await check("pictures") { try await Checks.pictures(in: shots).joined(separator: ", ") }

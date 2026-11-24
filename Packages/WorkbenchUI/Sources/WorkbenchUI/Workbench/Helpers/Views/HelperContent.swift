@@ -36,10 +36,7 @@ struct HelperContent: View {
         } else {
             items
         }
-        if model.spec.criteria != nil {
-            CriteriaSection(helper: model)
-            if !model.isOutbound { AgreementSection(agreement: model.agreement) }
-        }
+        if model.spec.criteria != nil, !model.isOutbound { AgreementSection(agreement: model.agreement) }
         MachineSettings(model: model)
     }
 
