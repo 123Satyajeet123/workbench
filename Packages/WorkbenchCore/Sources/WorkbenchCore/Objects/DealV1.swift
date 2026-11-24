@@ -32,7 +32,7 @@ public enum ObjectTypes {
             StageDef(id: "deal.invested", label: "Invested", order: 8, meaning: .won),
             StageDef(
                 id: "deal.rejected", label: "Rejected", order: 9, meaning: .watch, requires: ["reason"],
-                after: [TimerRule(field: "revisit", defaultAfterDays: 180)]),
+                after: [TimerRule(field: "revisit", defaultAfterDays: RunSettings.standard.revisitDays)]),
         ])
 }
 

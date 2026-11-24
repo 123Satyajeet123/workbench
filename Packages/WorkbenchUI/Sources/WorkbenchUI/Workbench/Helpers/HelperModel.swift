@@ -142,7 +142,7 @@ final class HelperModel {
         attempt("read the day") {
             items = try shared.store.queries.items(of: spec.task, day: day, scope: scope).map(spec.scored)
             if let lifecycle = spec.lifecycle {
-                open = try shared.store.queries.openItems(of: spec.task, lifecycle: lifecycle)
+                open = try shared.store.queries.openItems(of: spec.task, lifecycle: lifecycle).items
                 closed = try shared.store.queries.closedItems(of: spec.task, from: day.start, to: day.end)
             }
             trust = try shared.store.queries.quality().first { $0.task == spec.task }?.heldOutAudit.status

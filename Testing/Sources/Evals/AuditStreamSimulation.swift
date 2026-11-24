@@ -35,8 +35,8 @@ public struct PickDesign: Sendable {
     var meanChance: Double { strata.map { $0.share * $0.chance }.reduce(0, +) }
 
     /// The chance as the certificate engine must see it so that the design's smallest chance has share 1. The engine
-    /// fixes its heaviest weight at 1 / `AuditPolicy.pickChance` (Certificate.swift:82); D6 §4.1 moves it to the design.
-    func engineChance(_ chance: Double) -> Double { chance * AuditPolicy.pickChance / smallestChance }
+    /// fixes its heaviest weight at 1 / `RunSettings.standard.pickChance` (Certificate.swift:82); D6 §4.1 moves it to the design.
+    func engineChance(_ chance: Double) -> Double { chance * RunSettings.standard.pickChance / smallestChance }
 
     public func placing(_ placement: WrongPlacement) -> PickDesign {
         var placed = self
@@ -195,7 +195,7 @@ public struct CertificateReader {
                 (wealth, alarm) = (Certificate.Wealth(), DriftAlarm())
             }
         }
-        return wealth.value >= Certificate.threshold
+        return wealth.value >= RunSettings.standard.threshold
     }
 }
 
@@ -240,7 +240,9 @@ public struct WeightedAuditSimulation: Sendable {
                     let weighted = picks.map {
                         Certificate.Answer(wrong: $0.wrong, chance: design.engineChance($0.chance))
                     }
-                    let flat = picks.map { Certificate.Answer(wrong: $0.wrong, chance: AuditPolicy.pickChance) }
+                    let flat = picks.map {
+                        Certificate.Answer(wrong: $0.wrong, chance: RunSettings.standard.pickChance)
+                    }
                     for reading in AuditReading.allCases where earned[reading] == nil {
                         if readers[reading]!.add(run: reading == .unweighted ? flat : weighted) {
                             earned[reading] = day

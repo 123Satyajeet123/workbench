@@ -65,11 +65,6 @@ public struct Improver: ProfiledModelTask {
     }
 
     public static let task = "machine.improve"
-    /// No call until this many items on learn days are marked wrong: with fewer, an edit has nothing to fix.
-    /// A placeholder; research 20 suggests about 30 wrong of 100 marks for a reflective proposer to pay.
-    public static let minimumWrong = 3
-    /// Characters one edit may add (research 20 §2.3, rule 4: the Willison run grew the prompt 3.7 times).
-    public static let growthCap = 400
 
     static let template = """
         You improve one machine that reads {a role's} work. You get the machine's brief, its fields, and items \
@@ -101,7 +96,9 @@ public struct Improver: ProfiledModelTask {
     /// and trial days are dropped here, before the model sees anything: they judge versions and never shape them.
     public func propose(spec: HelperSpec, marked: [Item]) async throws -> (edit: Edit?, run: RunID?) {
         let training = marked.filter { DevHalf($0.day) == .learn && $0.state != .proposed && $0.id != nil }
-        guard training.filter({ $0.state == .rejected }).count >= Self.minimumWrong else { return (nil, nil) }
+        guard training.filter({ $0.state == .rejected }).count >= RunSettings.standard.minimumWrongToImprove else {
+            return (nil, nil)
+        }
         let (reply, run) = try await ask(
             Self.input(spec: spec, marked: training), holding: Set(training.map(\.source)))
         return (Self.checked(reply, brief: spec.brief, given: Set(training.compactMap(\.id))), run)
@@ -113,7 +110,7 @@ public struct Improver: ProfiledModelTask {
         else { return nil }
         let edit = Edit(kind: kind, text: text, why: reply.why, cites: reply.cites)
         switch kind {
-        case .add: guard text.count <= growthCap else { return nil }
+        case .add: guard text.count <= RunSettings.standard.improvementGrowthCharacters else { return nil }
         case .remove: guard brief.contains(text), edit.apply(to: brief).cleaned != nil else { return nil }
         }
         return edit

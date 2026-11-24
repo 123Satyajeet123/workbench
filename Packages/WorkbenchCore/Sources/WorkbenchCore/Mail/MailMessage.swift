@@ -63,7 +63,4 @@ public struct MailMessage: Codable, Sendable, Equatable {
         self.quoted = quoted
         self.attachments = attachments
     }
-
-    /// Characters of one message kept at most.
-    public static let maximumCharacters = 100_000
 }

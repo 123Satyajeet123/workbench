@@ -30,7 +30,7 @@ private struct Fixture {
     }
 
     var item: Item { get throws { try #require(store.queries.items(of: machine.task, on: today).first) } }
-    var open: [Item] { get throws { try store.queries.openItems(readBy: machine.spec) } }
+    var open: [Item] { get throws { try store.queries.openItems(readBy: machine.spec).items } }
 
     func listed(at now: Date) throws -> Bool { try item.isListed(at: now) }
 }

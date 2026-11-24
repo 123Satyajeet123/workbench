@@ -6,12 +6,12 @@ public struct MorningSettings: Codable, Equatable, Sendable {
     public var isOn = false
     /// The hour of the morning notification, in the person's day. The default is the hour of the morning brief
     /// and of the first review digest.
-    public var hour = 9
+    public var hour = RunSettings.standard.morningHour
     /// The backlog cutoff the first morning list offers: facts older than this many days (research P1 §3.2).
-    public var cutoffDays = FirstRun.defaultDays
+    public var cutoffDays = RunSettings.standard.backlogCutoffDays
 
     /// The hours the person may choose: after a work day starts and before noon.
-    public static let hours = WorkDay.startHour...11
+    public static let hours = RunSettings.standard.dayStartHour...RunSettings.standard.morningLastHour
 
     public init() {}
 }

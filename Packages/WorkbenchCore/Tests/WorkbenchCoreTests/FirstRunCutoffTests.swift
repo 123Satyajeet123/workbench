@@ -35,7 +35,7 @@ import Testing
     }
 
     @Test func theDefaultNumberOfDaysIsSevenFromSuperhumansCutoff() {
-        #expect(FirstRun.defaultDays == 7 && MorningSettings().cutoffDays == 7)
+        #expect(RunSettings.standard.backlogCutoffDays == 7 && MorningSettings().cutoffDays == 7)
     }
 
     @Test func markingHandledWritesOneBulkEventOfThePersonAndClosesEachFactWithTheOutcomeHandled() async throws {

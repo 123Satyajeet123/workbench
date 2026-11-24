@@ -50,7 +50,7 @@ struct FirstLookBody: View {
                 Text("Choose what each machine reads.").textStyle(.callout).foregroundStyle(.supporting)
                 SourceChoices(machines: look.choosers)
             }
-            Stepper("The last \(look.days) days", value: $look.days, in: 1...FirstLook.defaultDays)
+            Stepper("The last \(look.days) days", value: $look.days, in: 1...RunSettings.standard.firstLookDays)
                 .onChange(of: look.days) { Task { await look.estimate() } }
             Text(Self.costLine(look.cost)).textStyle(.callout).foregroundStyle(.supporting)
             Button("Start the first look") { Task { await look.run() } }

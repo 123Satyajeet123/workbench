@@ -7,13 +7,12 @@ import GRDB
 public enum Revisit {
     public static let task = "vc.revisits"
     public static let lifecycle = HelperSpec.Lifecycle(field: "kind", open: ["revisit"], outcomes: ["done", "dropped"])
-    /// How long after a pass the revisit falls due, unless the investor sets another day.
-    public static let defaultMonths = 6
     static let dropped = "dropped"
 
     public static func defaultDay(after pass: Date, calendar: Calendar = .current) -> WorkDay {
         WorkDay(
-            containing: calendar.date(byAdding: .month, value: defaultMonths, to: pass) ?? pass, calendar: calendar)
+            containing: calendar.date(byAdding: .month, value: RunSettings.standard.revisitMonths, to: pass) ?? pass,
+            calendar: calendar)
     }
 
     /// What Today says on the day.
@@ -66,7 +65,7 @@ extension Queries {
     }
 
     /// The revisits still open, as of `day` when given.
-    public func openRevisits(asOf day: WorkDay? = nil) throws -> [Item] {
+    public func openRevisits(asOf day: WorkDay? = nil) throws -> Capped<Item> {
         try openItems(of: Revisit.task, lifecycle: Revisit.lifecycle, asOf: day)
     }
 

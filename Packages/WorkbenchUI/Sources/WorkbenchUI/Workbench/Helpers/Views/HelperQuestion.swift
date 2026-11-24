@@ -12,7 +12,7 @@ struct HelperQuestion: View {
             Label("\(model.name) asks: is this right?", systemImage: "questionmark.bubble").textStyle(.headline)
             ItemRow(model: model, item: item, showsSpan: model.spec.citation == .range)
             Text(
-                "Picked at random: every new item has a \(AuditPolicy.pickChance.formatted(.percent)) chance of being asked, so your answer shows how often \(model.name) is right."
+                "Picked at random: every new item has a \(RunSettings.standard.pickChance.formatted(.percent)) chance of being asked, so your answer shows how often \(model.name) is right."
             )
             .textStyle(.callout).foregroundStyle(.supporting)
             if let trust = model.trust { TrustLine(name: model.name, status: trust) }

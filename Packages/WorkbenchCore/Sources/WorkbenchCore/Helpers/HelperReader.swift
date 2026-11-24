@@ -51,18 +51,17 @@ public struct HelperReader: ModelTask {
     /// objects the spec's `objectRef` fields refer to. With no place, the reply has no `object` and no fact gets a
     /// proposed home.
     let objects: ObjectHandles
+    private let objectsLeftOut: Int
 
-    public init(spec: HelperSpec, model: RecordedModel, zone: TimeZone = .current, objects: [WorkObject] = []) {
+    public init(spec: HelperSpec, model: RecordedModel, zone: TimeZone = .current, objects: Capped<WorkObject> = []) {
         self.spec = spec
         self.model = model
         self.zone = zone
-        self.objects = ObjectHandles(objects)
+        self.objects = ObjectHandles(objects.items)
+        objectsLeftOut = objects.leftOut
     }
 
     private var hasPlaces: Bool { objects.has(ObjectHandles.placeTypes) }
-
-    /// How much new text one model call reads. A longer day is read in parts, one run each.
-    public static let charactersPerRequest = 40_000
 
     /// Reads the first part of the new lines of `evidence`: one model call and one run. `marked` may hold any of the
     /// machine's items; only those the leave-one-day-out rule allows become examples.
@@ -72,8 +71,8 @@ public struct HelperReader: ModelTask {
     /// machine that follows another while the followed machine has open items: it still sees the date and the facts,
     /// because a commitment can fall due on a day nobody wrote.
     public func read(
-        day: WorkDay, scope: String, evidence: EvidenceSet, marked: [Item] = [], open: [Item] = [],
-        budget: Int = charactersPerRequest
+        day: WorkDay, scope: String, evidence: EvidenceSet, marked: [Item] = [], open: Capped<Item> = [],
+        budget: Int = RunSettings.standard.charactersPerRequest
     ) async throws -> Result {
         let open = spec.lifecycle == nil && spec.follows == nil ? [] : open
         let followsOpenFacts = spec.follows != nil && !open.isEmpty
@@ -82,7 +81,7 @@ public struct HelperReader: ModelTask {
             Exemplars.pick(marked, for: day, count: spec.examples ?? 0)
         let part = Self.firstPart(of: evidence, budget: budget)
         let (reply, run) = try await ask(
-            Self.examples(examples, spec: spec, profile: model.profile) + Self.open(open, spec: spec)
+            Self.examples(examples, spec: spec, profile: model.profile) + Self.open(open.items, spec: spec)
                 + Self.objectLists(objects, spec: spec) + Self.input(day: day, evidence: part, zone: zone),
             holding: [spec.source.consent],
             window: part.lines.compactMap { line in line.lineID.map { WindowLine(number: line.id, lineID: $0) } })
@@ -90,10 +89,13 @@ public struct HelperReader: ModelTask {
         let settled = try verifier.settle(
             reply.items, part: "items",
             check: {
-                try verifier.proposal($0, spec: spec, open: open, objects: objects, day: day, scope: scope, run: run)
+                try verifier.proposal(
+                    $0, spec: spec, open: open.items, objects: objects, day: day, scope: scope, run: run)
             }, isRepeat: { isRepeat($0, among: $1) })
         try model.record(settled.drops + refusedHomes(of: settled.kept), of: run)
-        let applied = Self.apply(settled.kept, spec: spec, open: open)
+        try model.record(
+            [LeftOut(.openFacts, count: open.leftOut), LeftOut(.objects, count: objectsLeftOut)], of: run)
+        let applied = Self.apply(settled.kept, spec: spec, open: open.items)
         return Result(
             items: applied.items, links: applied.links, homes: applied.homes, dropped: settled.drops.count, run: run)
     }
@@ -102,8 +104,9 @@ public struct HelperReader: ModelTask {
     /// that fails leaves the parts before it read, and the lines of the parts after it are sent again. `open` is asked
     /// again for each part, so a part sees the facts the part before it opened.
     nonisolated(nonsending) public func readDay(
-        day: WorkDay, scope: String, evidence: EvidenceSet, marked: [Item] = [], open: () throws -> [Item] = { [] },
-        budget: Int = charactersPerRequest, save: (Result) async throws -> Void
+        day: WorkDay, scope: String, evidence: EvidenceSet, marked: [Item] = [],
+        open: () throws -> Capped<Item> = { [] },
+        budget: Int = RunSettings.standard.charactersPerRequest, save: (Result) async throws -> Void
     ) async throws -> [Result] {
         var results: [Result] = []
         var pending = evidence
@@ -120,7 +123,9 @@ public struct HelperReader: ModelTask {
 
     /// `evidence` cut to its first part: up to `budget` characters of new lines, and up to `context` lines read before
     /// them, shown and not citable, so a reply such as "done" keeps its question.
-    static func firstPart(of evidence: EvidenceSet, budget: Int, context: Int = 20) -> EvidenceSet {
+    static func firstPart(
+        of evidence: EvidenceSet, budget: Int, context: Int = RunSettings.standard.contextLines
+    ) -> EvidenceSet {
         var chunk: [Evidence] = []
         var size = 0
         for line in evidence.newLines {

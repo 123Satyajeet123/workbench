@@ -220,7 +220,7 @@ public struct CallSummarizer: ProfiledModelTask {
         Each line is `[number] [mm:ss] speaker: words`. {The role's} own lines are marked with the name after \
         "{Role}:". Every other voice is marked "Them", which can be several people, or with the guest's name when \
         one guest was invited. Use a name for "Them" only when one is said; the invited list says who was asked to join.
-        points: two to five points, in the order of the call, on what the call was about, what was settled and where \
+        points: \(RunSettings.standard.callPointsFewest.spelledOut) to \(RunSettings.standard.callPointsMost.spelledOut) points, in the order of the call, on what the call was about, what was settled and where \
         it ended. text is one plain sentence. cites are the numbers of the lines the point rests on. quote is a few \
         words copied exactly from one of those lines that show the point. Leave out the follow-ups people took on: \
         they are read on their own.

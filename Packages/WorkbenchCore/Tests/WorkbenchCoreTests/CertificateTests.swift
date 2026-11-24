@@ -4,7 +4,8 @@ import Testing
 @testable import WorkbenchCore
 
 @Suite struct CertificateTests {
-    private func answers(_ count: Int, wrong: Bool = false, chance: Double = AuditPolicy.pickChance) -> [Certificate
+    private func answers(_ count: Int, wrong: Bool = false, chance: Double = RunSettings.standard.pickChance)
+        -> [Certificate
         .Answer]
     {
         Array(repeating: Certificate.Answer(wrong: wrong, chance: chance), count: count)
@@ -13,8 +14,8 @@ import Testing
     private func status(_ answers: [Certificate.Answer]) -> Certificate.Status { Certificate(answers: answers).status }
 
     @Test func theBarAndTheAllowedRateAre90PercentSureAndAtMost10PercentWrong() {
-        #expect(Certificate.allowedWrong == 0.1 && Certificate.confidence == 0.9)
-        #expect(abs(Certificate.threshold - 10) < 1e-9)
+        #expect(RunSettings.standard.allowedWrong == 0.1 && RunSettings.standard.confidence == 0.9)
+        #expect(abs(RunSettings.standard.threshold - 10) < 1e-9)
     }
 
     /// Reference values from an independent computation (Python): the mean over the nine bets of the product
@@ -37,7 +38,7 @@ import Testing
             Issue.record("36 right answers at the heaviest weight should earn it")
             return
         }
-        #expect(bound <= Certificate.allowedWrong)
+        #expect(bound <= RunSettings.standard.allowedWrong)
         #expect(status(answers(35)) == .needsMore(1))
         #expect(status([]) == .needsMore(36))
     }
@@ -63,12 +64,12 @@ import Testing
         }
         #expect(abs(atForty - 0.08849956152034794) < 1e-6)
         #expect(abs(atSixty - 0.06010857689325347) < 1e-6)
-        #expect(atSixty < atForty && atForty < Certificate.allowedWrong)
+        #expect(atSixty < atForty && atForty < RunSettings.standard.allowedWrong)
     }
 
     @Test func aHeavyWrongAnswerKeepsItFromEarningWhereAPlainCountWouldEarn() {
         let oneHeavyWrong = answers(60, chance: 1) + answers(1, wrong: true, chance: 0.1)
-        #expect(ClopperPearson.upperBound(wrong: 1, of: 61) <= Certificate.allowedWrong, "a plain count earns")
+        #expect(ClopperPearson.upperBound(wrong: 1, of: 61) <= RunSettings.standard.allowedWrong, "a plain count earns")
         guard case .needsMore(let afterHeavy) = status(oneHeavyWrong) else {
             Issue.record("one wrong answer for ten items should keep it from earning")
             return
@@ -84,7 +85,9 @@ import Testing
     @Test func heavyRightAnswersAmongLightWrongOnesEarnWhereAPlainCountDoesNot() {
         let heavyRight = answers(40, chance: 0.1)
         let lightWrong = answers(3, wrong: true, chance: 1)
-        #expect(ClopperPearson.upperBound(wrong: 3, of: 43) > Certificate.allowedWrong, "a plain count does not earn")
+        #expect(
+            ClopperPearson.upperBound(wrong: 3, of: 43) > RunSettings.standard.allowedWrong,
+            "a plain count does not earn")
         guard case .earned = status(heavyRight + lightWrong) else {
             Issue.record("40 right answers for ten items each outweigh 3 wrong answers for one item each")
             return
@@ -92,7 +95,7 @@ import Testing
     }
 
     @Test func aWeightAboveTheHeaviestCountsAsTheHeaviest() {
-        let capped = Certificate.Answer(wrong: false, chance: 1 / Certificate.heaviestWeight)
+        let capped = Certificate.Answer(wrong: false, chance: 1 / RunSettings.standard.heaviestWeight)
         let beyond = Certificate.Answer(wrong: false, chance: 0.001)
         let lighter = Certificate.Answer(wrong: false, chance: 0.2)
         var (atEdge, past, below) = (Certificate.Wealth(), Certificate.Wealth(), Certificate.Wealth())
@@ -101,7 +104,7 @@ import Testing
         below.add(lighter)
         #expect(atEdge.value == past.value)
         #expect(below.value < atEdge.value)
-        #expect(Certificate.Answer(wrong: true, chance: 0.001).share == 1)
+        #expect(Certificate.Answer(wrong: true, chance: 0.001).share(pickChance: RunSettings.standard.pickChance) == 1)
     }
 
     @Test func aWrongAnswerNeverTakesTheWealthToZero() {
@@ -142,8 +145,8 @@ import Testing
         }
         let quality = try #require(store.queries.quality().first)
         let given = [
-            Certificate.Answer(wrong: false, chance: AuditPolicy.pickChance),
-            Certificate.Answer(wrong: true, chance: AuditPolicy.pickChance),
+            Certificate.Answer(wrong: false, chance: RunSettings.standard.pickChance),
+            Certificate.Answer(wrong: true, chance: RunSettings.standard.pickChance),
         ]
         #expect(quality.heldOutAudit == Certificate(answers: given))
         #expect(quality.audited.marks == 3)

@@ -14,7 +14,7 @@ public struct SignalReader: Sendable {
     }
 
     public func read(_ article: NewsArticle, candidates: [Candidate]) async throws -> HelperReader.Result {
-        let text = String(article.text.prefix(NewsSignals.articleBudget))
+        let text = String(article.text.prefix(RunSettings.standard.articleCharacters))
         let line = Evidence(
             id: article.id, start: article.published, line: "\(article.feed) — \(article.title): \(text)",
             quotable: [text, article.title])
@@ -22,10 +22,13 @@ public struct SignalReader: Sendable {
         let day = WorkDay(containing: article.published)
         let read = try await HelperReader(spec: spec, model: model).read(
             day: day, scope: "", evidence: evidence)
+        if let run = read.run {
+            try model.record([LeftOut(.pageCharacters, count: article.text.count - text.count)], of: run)
+        }
         var kept: [Item] = []
         for item in read.items {
             guard let company = candidates.first(where: { $0.label == item["company"] })?.company,
-                item.quote.split(whereSeparator: \.isWhitespace).count <= NewsSignals.quoteWords
+                item.quote.split(whereSeparator: \.isWhitespace).count <= RunSettings.standard.quoteWords
             else { continue }
             let fact = self.fact(item, about: company, in: article)
             if !kept.contains(where: { $0.fields == fact.fields && $0.quote == fact.quote }) { kept.append(fact) }

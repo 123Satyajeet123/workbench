@@ -24,7 +24,7 @@ extension Store {
             guard let id = activity.id else { continue }
             closed += stretches.feed(activity, id: id).map { [$0] } ?? []
         }
-        return closed.filter { $0.end.timeIntervalSince($0.start) >= Sessions.shortest }
+        return closed.filter { $0.end.timeIntervalSince($0.start) >= RunSettings.standard.sessionShortestSeconds }
     }
 
     private func screenGrant(for bundleID: String, in policy: CapturePolicy) -> CaptureGrant? {

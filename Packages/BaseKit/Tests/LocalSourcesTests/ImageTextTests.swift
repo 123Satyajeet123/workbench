@@ -50,7 +50,8 @@ func writeTextImage(_ text: String, to url: URL) throws {
     }
 
     @Test func aPhotoOlderThanTheRetentionIsNotRead() async throws {
-        let later = WhatsAppEvidenceTests.now.addingTimeInterval(CapturePolicy.retention + 3600)
+        let later = WhatsAppEvidenceTests.now.addingTimeInterval(
+            Double(RunSettings.standard.captureRetentionDays) * 86_400 + 3600)
         let lines = try await photoLines(path: "Media/shot.jpg", caption: "old one", at: later) {
             try writeTextImage("OTA done", to: $0.container.appending(path: "Message/Media/shot.jpg"))
         }

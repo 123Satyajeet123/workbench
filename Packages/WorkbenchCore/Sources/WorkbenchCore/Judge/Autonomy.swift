@@ -6,10 +6,10 @@ public enum Rung: String, Codable, CaseIterable, Comparable, Sendable {
     case ask
     /// Notes appear on their own; unverified claims are visibly marked. Stages 0 and 1 are gates.
     case suggest
-    /// Verified claims enter the deal's facts without a review step. Wrong claims are at most `Certificate.allowedWrong`
-    /// at the confidence of `Certificate.confidence`, valid at any time.
+    /// Verified claims enter the deal's facts without a review step. Wrong claims are at most `RunSettings.standard.allowedWrong`
+    /// at the confidence of `RunSettings.standard.confidence`, valid at any time.
     case fill
-    /// Notes go to the team. The same bound at the confidence of `Autonomy.shareConfidence`, and the drift alarm quiet.
+    /// Notes go to the team. The same bound at the confidence of `RunSettings.standard.shareConfidence`, and the drift alarm quiet.
     case share
 
     public static func < (lhs: Rung, rhs: Rung) -> Bool {
@@ -43,14 +43,11 @@ public struct RungReport: Sendable, Equatable {
 }
 
 public enum Autonomy {
-    /// The confidence of the `share` rung: α 0.05.
-    public static let shareConfidence = 0.95
-
     /// The rung a certificate supports. `suggest` needs a frozen judge, because it rests on stages 0 and 1 as gates;
     /// `fill` needs the certificate earned at the base confidence; `share` needs it earned at `shareConfidence`.
     public static func computedRung(certificate: Certificate, hasFrozenJudge: Bool) -> Rung {
-        if case .earned = certificate.status(at: shareConfidence) { return .share }
-        if case .earned = certificate.status(at: Certificate.confidence) { return .fill }
+        if case .earned = certificate.status(at: certificate.settings.shareConfidence) { return .share }
+        if case .earned = certificate.status(at: certificate.settings.confidence) { return .fill }
         return hasFrozenJudge ? .suggest : .ask
     }
 
@@ -58,9 +55,9 @@ public enum Autonomy {
         certificate: Certificate, hasFrozenJudge: Bool, applied: Rung, windowIsOpen: Bool
     ) -> RungReport {
         let computed = computedRung(certificate: certificate, hasFrozenJudge: hasFrozenJudge)
-        let next = computed == .fill ? shareConfidence : Certificate.confidence
+        let next = computed == .fill ? certificate.settings.shareConfidence : certificate.settings.confidence
         let status = certificate.status(at: next)
-        let earned = certificate.status(at: Certificate.confidence)
+        let earned = certificate.status(at: certificate.settings.confidence)
         var report = RungReport(
             computed: computed, applied: applied, windowIsOpen: windowIsOpen, runsToNext: nil, wrongBound: nil,
             audited: certificate.answers.count)

@@ -36,7 +36,7 @@ import Testing
         try await reading(items: 300, in: store)
         let chances = try askedWith(store)
         let picked = chances.compactMap { $0 }
-        #expect(picked.allSatisfy { $0 == AuditPolicy.pickChance })
+        #expect(picked.allSatisfy { $0 == RunSettings.standard.pickChance })
         #expect((20...75).contains(picked.count), "about 15 of 100 items are picked: \(picked.count) of 300")
     }
 

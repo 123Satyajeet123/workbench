@@ -64,7 +64,7 @@ import Testing
         let session = try FeedSession.fake(store: store, feeds: fake)
         let stranger = NewsFeed(name: "Other", url: URL(string: "https://news.example/feed")!, trusted: true)
         await #expect(throws: FeedError.notAFeed(stranger.url)) { try await session.fetch(stranger) }
-        now.withLock { $0 = t0.addingTimeInterval(CapturePolicy.grantLifetime + 1) }
+        now.withLock { $0 = t0.addingTimeInterval(RunSettings.standard.grantLifetimeSeconds + 1) }
         await #expect(throws: WebBlock.grantExpired) { try await session.fetch(.inc42) }
         #expect(fake.fetched.withLock { $0 }.isEmpty, "nothing was fetched")
     }

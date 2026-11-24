@@ -90,7 +90,7 @@ struct LifecycleWorld {
 
     func commit<T>(_ body: (Database) throws -> T) throws -> T { try store.writer.write(body) }
 
-    func open() throws -> [Item] { try store.queries.openItems(of: task, lifecycle: lifecycle) }
+    func open() throws -> [Item] { try store.queries.openItems(of: task, lifecycle: lifecycle).items }
 
     func all() throws -> [Item] { try store.queries.items(of: task, since: Days.first.adding(days: -1)) }
 

@@ -136,7 +136,7 @@ struct SharedStepWealths {
     init(design: PickDesign, largestRun: Int) {
         self.design = design
         runSum = CertificateReader(withDriftRestarts: false, stepCap: largestRun)
-        strata = StratifiedWealth(shares: design.strata.map(\.share), allowed: Certificate.allowedWrong)
+        strata = StratifiedWealth(shares: design.strata.map(\.share), allowed: RunSettings.standard.allowedWrong)
     }
 
     /// The answers of one run, in draw order; `wrong` already counts an expired pick as wrong.
@@ -144,13 +144,13 @@ struct SharedStepWealths {
         guard !answers.isEmpty else { return }
         let weighted = answers.map { Certificate.Answer(wrong: $0.wrong, chance: design.engineChance($0.pick.chance)) }
         runMean.add(run: weighted)
-        mark(.runMean, runMean.value >= Certificate.threshold)
+        mark(.runMean, runMean.value >= RunSettings.standard.threshold)
         mark(.runSum, runSum.add(run: weighted))
         for (answer, entry) in zip(weighted, answers) {
             item.add(answer)
-            mark(.item, item.value >= Certificate.threshold)
+            mark(.item, item.value >= RunSettings.standard.threshold)
             strata.add(wrong: entry.wrong, stratum: entry.pick.stratum)
-            mark(.strata, strata.isEarned(threshold: Certificate.threshold))
+            mark(.strata, strata.isEarned(threshold: RunSettings.standard.threshold))
         }
     }
 
@@ -176,7 +176,7 @@ struct RealizedFacts {
         wrong += run.wrongFacts
     }
 
-    var isAtOrAboveAllowed: Bool { Double(wrong) >= Certificate.allowedWrong * Double(facts) }
+    var isAtOrAboveAllowed: Bool { Double(wrong) >= RunSettings.standard.allowedWrong * Double(facts) }
 }
 
 /// The item-level probe: which step certifies the wrong rate of facts, not of runs, under unequal known chances and
@@ -199,7 +199,7 @@ public struct ItemLevelSimulation: Sendable {
         thinned.keepsOnePickPerRun = true
         let smallestKept = thinned.smallestKeptChance
         let largestRun = population.kinds.map(\.size).max() ?? 1
-        let tracksRealized = population.itemWrongRate >= Certificate.allowedWrong
+        let tracksRealized = population.itemWrongRate >= RunSettings.standard.allowedWrong
         var outcomes = Dictionary(uniqueKeysWithValues: ItemStep.allCases.map { ($0, ItemStepOutcome()) })
         for _ in 0..<trials {
             var wealths = SharedStepWealths(design: design, largestRun: largestRun)
@@ -228,12 +228,13 @@ public struct ItemLevelSimulation: Sendable {
                     realized.thinned.add(asked.run)
                     for entry in Self.counted(asked) {
                         let share = min(1, smallestKept / entry.pick.chance)
-                        onePerRun.add(Certificate.Answer(wrong: entry.wrong, chance: AuditPolicy.pickChance / share))
-                        if onePerRun.value >= Certificate.threshold, first[.onePerRun] == nil {
+                        onePerRun.add(
+                            Certificate.Answer(wrong: entry.wrong, chance: RunSettings.standard.pickChance / share))
+                        if onePerRun.value >= RunSettings.standard.threshold, first[.onePerRun] == nil {
                             first[.onePerRun] = day
                         }
                     }
-                    if onePerRun.value >= Certificate.threshold, realized.thinned.isAtOrAboveAllowed {
+                    if onePerRun.value >= RunSettings.standard.threshold, realized.thinned.isAtOrAboveAllowed {
                         high.insert(.onePerRun)
                     }
                 }

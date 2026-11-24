@@ -32,7 +32,8 @@ extension CaptureGrant {
     /// behind it. Nil for a kind that needs the policy.
     public static func byHand(_ kind: SourceKind, label: String, at now: Date) -> CaptureGrant? {
         kind.isByHand
-            ? CaptureGrant(kind: kind, label: label, expiresAt: now.addingTimeInterval(CapturePolicy.grantLifetime))
+            ? CaptureGrant(
+                kind: kind, label: label, expiresAt: now.addingTimeInterval(RunSettings.standard.grantLifetimeSeconds))
             : nil
     }
 }
@@ -70,8 +71,6 @@ public struct CapturePolicy: Codable, Sendable, Equatable {
         case off
     }
 
-    public static let grantLifetime: TimeInterval = 300
-
     public var mode: Mode
     /// A missing entry means off.
     public var switches: [SourceKind: Bool]
@@ -102,7 +101,7 @@ public struct CapturePolicy: Codable, Sendable, Equatable {
     }
 
     /// Captured data older than this is deleted: it is how far back anything reads.
-    public static let retention: TimeInterval = 30 * 86_400
+    public static var retention: TimeInterval { Double(RunSettings.standard.captureRetentionDays) * 86_400 }
 
     /// The sites page capture never keeps, because a source reads them or the site bars readers. Each descriptor lists
     /// its own.
@@ -137,11 +136,12 @@ public struct CapturePolicy: Codable, Sendable, Equatable {
             return .confirm(
                 PendingConfirmation(
                     why: "Private mode is on. Record this call anyway?", kind: request.kind, label: request.label,
-                    grantLifetime: Self.grantLifetime))
+                    grantLifetime: RunSettings.standard.grantLifetimeSeconds))
         case .on, .off, .paused, .privateMode:
             return .allow(
                 CaptureGrant(
-                    kind: request.kind, label: request.label, expiresAt: now.addingTimeInterval(Self.grantLifetime)))
+                    kind: request.kind, label: request.label,
+                    expiresAt: now.addingTimeInterval(RunSettings.standard.grantLifetimeSeconds)))
         }
     }
 }
@@ -152,7 +152,8 @@ extension CapturePolicy {
         if let label = request.label, denyList[request.kind]?.contains(label) == true { return .deny(.labelDenied) }
         return .allow(
             CaptureGrant(
-                kind: request.kind, label: request.label, expiresAt: now.addingTimeInterval(Self.grantLifetime)))
+                kind: request.kind, label: request.label,
+                expiresAt: now.addingTimeInterval(RunSettings.standard.grantLifetimeSeconds)))
     }
 }
 

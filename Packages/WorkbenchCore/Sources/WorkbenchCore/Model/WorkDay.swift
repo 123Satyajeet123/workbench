@@ -3,17 +3,15 @@ import Foundation
 /// A work day. Night updates sent after midnight still belong to the day before, so a day runs from 05:00 local
 /// time to 05:00 the next day.
 public struct WorkDay: Sendable, Hashable, Comparable, CustomStringConvertible {
-    public static let startHour = 5
-
     /// yyyy-MM-dd
     public let description: String
     public let start: Date
     public let end: Date
 
     public init(containing date: Date, calendar: Calendar = .current) {
-        let shifted = date.addingTimeInterval(-Double(Self.startHour) * 3600)
+        let shifted = date.addingTimeInterval(-Double(RunSettings.standard.dayStartHour) * 3600)
         let midnight = calendar.startOfDay(for: shifted)
-        start = calendar.date(byAdding: .hour, value: Self.startHour, to: midnight)!
+        start = calendar.date(byAdding: .hour, value: RunSettings.standard.dayStartHour, to: midnight)!
         end = calendar.date(byAdding: .day, value: 1, to: start)!
         let parts = calendar.dateComponents([.year, .month, .day], from: midnight)
         description = String(format: "%04d-%02d-%02d", parts.year!, parts.month!, parts.day!)

@@ -35,13 +35,6 @@ public enum Outbound {
     /// Fields code adds to what the model gave: the page address and the day it was fetched.
     public static let urlField = "url"
     public static let fetchedField = "fetched"
-    /// Queries one rule gets at most. The model is asked for three to five.
-    public static let queriesPerRule = 5
-    public static let hitsPerQuery = 5
-    /// Pages one run fetches and reads at most: each is one model call.
-    public static let maxPages = 15
     /// The number of a page's line: each page is one model call with one line.
     public static let pageLine: Int64 = 1
-    /// The characters of a page the model reads, and a quote may come from.
-    public static let pageBudget = 12_000
 }

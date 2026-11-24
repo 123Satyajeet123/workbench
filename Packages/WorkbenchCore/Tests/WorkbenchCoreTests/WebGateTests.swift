@@ -100,7 +100,7 @@ import Testing
         try store.switchWeb(true)
         let search = FakeSearch()
         let session = try WebSession.fake(store: store, search: search, pages: FakePages())
-        now.withLock { $0 = t0.addingTimeInterval(CapturePolicy.grantLifetime + 1) }
+        now.withLock { $0 = t0.addingTimeInterval(RunSettings.standard.grantLifetimeSeconds + 1) }
         await #expect(throws: WebBlock.grantExpired) { try await session.search("a", count: 1) }
         await #expect(throws: WebBlock.grantExpired) {
             try await session.readPages([URL(string: "https://a.example/")!])

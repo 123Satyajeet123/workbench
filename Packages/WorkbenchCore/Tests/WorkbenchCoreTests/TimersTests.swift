@@ -47,8 +47,8 @@ import Testing
 
     @Test func aTimerFoundTooLateIsSkippedAndTheCatchUpIsLimited() {
         let now = opened.addingTimeInterval(10 * 86_400)
-        var settings = TimerSettings()
-        settings.catchUpLimit = 2
+        var settings = RunSettings()
+        settings.timerCatchUpLimit = 2
         let pending = [
             (id: Int64(1), fireAt: now.addingTimeInterval(-5 * 86_400)),
             (id: Int64(2), fireAt: now.addingTimeInterval(-300)), (id: Int64(3), fireAt: now.addingTimeInterval(-200)),

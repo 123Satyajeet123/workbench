@@ -52,17 +52,6 @@ public struct TimerRow: Sendable, Equatable {
     public var policy: Int64?
 }
 
-/// How late a timer may fire, and how many may fire in one pass. Both are conventions that the port of openclaw's
-/// catch-up limits starts with (research 59 §2); they are not measured for this app.
-public struct TimerSettings: Sendable, Equatable {
-    /// A timer later than this when it is found is skipped and left for the digest.
-    public var staleAfter: TimeInterval = 2 * 86_400
-    /// The most timers that fire in one pass: the rest wait for the next pass.
-    public var catchUpLimit = 5
-
-    public init() {}
-}
-
 public enum Timers {
     /// The timers an open fact has: one for its due time, and one for each policy of its machine that times it.
     /// Replaying a fact's events in any order gives the same rows. A fact with no due time has no due timer.
@@ -89,14 +78,14 @@ public enum Timers {
     }
 
     /// What to do at `now` with timers not yet decided, as (id, fire time) pairs: those whose time has come, oldest
-    /// first. A timer found later than `staleAfter` is skipped. Of the others, only `catchUpLimit` fire.
+    /// first. A timer found later than `timerStaleSeconds` is skipped. Of the others, only `timerCatchUpLimit` fire.
     public static func decide(
-        _ pending: [(id: Int64, fireAt: Date)], now: Date, settings: TimerSettings = TimerSettings()
+        _ pending: [(id: Int64, fireAt: Date)], now: Date, settings: RunSettings = .standard
     ) -> [(id: Int64, outcome: Outcome)] {
         var firing = 0
         return pending.filter { $0.fireAt <= now }.sorted { ($0.fireAt, $0.id) < ($1.fireAt, $1.id) }.compactMap {
-            if now.timeIntervalSince($0.fireAt) > settings.staleAfter { return ($0.id, .skipStale) }
-            guard firing < settings.catchUpLimit else { return nil }
+            if now.timeIntervalSince($0.fireAt) > settings.timerStaleSeconds { return ($0.id, .skipStale) }
+            guard firing < settings.timerCatchUpLimit else { return nil }
             firing += 1
             return ($0.id, .fired)
         }

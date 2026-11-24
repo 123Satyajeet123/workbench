@@ -7,11 +7,9 @@ public enum EvalSplit: String, Sendable, CaseIterable {
     case dev
     case heldOut = "held_out"
 
-    public static let heldOutTenths = 3
-
     public init(_ day: WorkDay) {
         let first = UInt8(Digest.sha256(day.description).prefix(2), radix: 16) ?? 0
-        self = Int(first) % 10 < Self.heldOutTenths ? .heldOut : .dev
+        self = Int(first) % 10 < RunSettings.standard.heldOutTenths ? .heldOut : .dev
     }
 }
 
@@ -117,7 +115,8 @@ extension Queries {
     public func quality() throws -> [Quality] {
         try reader.read { db in
             let tallies = try Self.tallies(db)
-            let (audits, certificates) = try Self.audits(db)
+            let settings = try Self.runSettings(in: db)
+            let (audits, certificates) = try Self.audits(db, settings: settings)
             let versions = try Self.promptNumbers(db)
             return try db.fetch(
                 "run",
@@ -136,7 +135,7 @@ extension Queries {
                     task: task, model: model, prompt: prompt, version: versions[prompt], runs: try row.value(3),
                     kept: try row.value(4), dropped: try row.value(5), dev: split[.dev] ?? Tally(),
                     heldOut: split[.heldOut] ?? Tally(), audited: audits[key] ?? AuditEstimate(),
-                    heldOutAudit: certificates[key] ?? Certificate(),
+                    heldOutAudit: certificates[key] ?? Certificate(settings: settings),
                     usage: Usage(
                         inputTokens: try row.value(6), cacheReadTokens: try row.value(7),
                         cacheWriteTokens: try row.value(8), outputTokens: try row.value(9),
@@ -183,7 +182,9 @@ extension Queries {
         return tallies
     }
 
-    private static func audits(_ db: Database) throws -> ([String: AuditEstimate], [String: Certificate]) {
+    private static func audits(_ db: Database, settings: RunSettings) throws -> (
+        [String: AuditEstimate], [String: Certificate]
+    ) {
         let answers = try db.fetch(
             "item_mark",
             """
@@ -208,7 +209,7 @@ extension Queries {
             audits[answer.key, default: AuditEstimate()].weight += weight
             if answer.right { audits[answer.key, default: AuditEstimate()].rightWeight += weight }
             if answer.split == .heldOut {
-                certificates[answer.key, default: Certificate()].answers.append(
+                certificates[answer.key, default: Certificate(settings: settings)].answers.append(
                     Certificate.Answer(wrong: !answer.right, chance: answer.chance, run: answer.run))
             }
         }

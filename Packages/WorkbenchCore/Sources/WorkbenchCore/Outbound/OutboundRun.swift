@@ -58,7 +58,7 @@ public struct OutboundRun: Sendable {
         var sent = 0
         for query in queries {
             do {
-                let hits = try await session.search(query.query, count: Outbound.hitsPerQuery)
+                let hits = try await session.search(query.query, count: RunSettings.standard.hitsPerQuery)
                 sent += 1
                 addresses += hits.map(\.url).filter { $0.scheme == "https" && !addresses.contains($0) }
             } catch WebBlock.capReached {
@@ -73,7 +73,7 @@ public struct OutboundRun: Sendable {
     }
 
     private func fetched(_ addresses: [URL]) async throws -> [FetchedPage] {
-        let pages = try await session.readPages(Array(addresses.prefix(Outbound.maxPages)))
+        let pages = try await session.readPages(Array(addresses.prefix(RunSettings.standard.pagesPerRun)))
         return pages.filter { $0.text.cleaned != nil }
     }
 

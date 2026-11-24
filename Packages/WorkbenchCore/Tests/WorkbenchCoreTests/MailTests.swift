@@ -216,7 +216,7 @@ import Testing
             context: gmail, name: "Deck.pdf", index: 0, count: 1, data: Data("x".utf8).base64EncodedString())
         #expect(decks.add(good) != nil)
         var tooMany = good
-        tooMany.count = DeckChunk.maximumCount + 1
+        tooMany.count = RunSettings.standard.deckChunks + 1
         var outOfRange = good
         outOfRange.index = 1
         var notBase64 = good

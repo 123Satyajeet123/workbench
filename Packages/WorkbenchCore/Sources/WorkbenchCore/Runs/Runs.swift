@@ -76,7 +76,7 @@ public struct RecordedModel: Sendable {
         let schemaText = try schema.jsonText
         let prompt = Digest.sha256(instructions + "\n" + schemaText)
         try store.keepPrompt(hash: prompt, task: task, instructions: instructions, schema: schemaText)
-        var retries = policy.timeOutRetries
+        var retries = policy.settings.timeOutRetries
         while true {
             let run = try store.beginRun(
                 task: task, model: model.name, prompt: prompt, input: input, kinds: kinds,

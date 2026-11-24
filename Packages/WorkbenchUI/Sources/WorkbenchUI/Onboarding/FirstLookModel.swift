@@ -31,8 +31,8 @@ final class FirstLookModel {
     private(set) var cost = FirstLookCost(calls: 0, measured: nil)
     private(set) var shown: [Shown] = []
     private(set) var problem: String?
-    /// How many days back to read, from one to `FirstLook.defaultDays`: nothing older is kept.
-    var days = FirstLook.defaultDays
+    /// How many days back to read, from one to `RunSettings.standard.firstLookDays`: nothing older is kept.
+    var days = RunSettings.standard.firstLookDays
 
     @ObservationIgnored private let crew: Crew
     @ObservationIgnored private let tasks: Set<String>
@@ -71,7 +71,9 @@ final class FirstLookModel {
 
     private var seeded: [HelperModel] { crew.machines.filter { tasks.contains($0.machine.template) } }
 
-    private var window: [WorkDay] { FirstLook.days(min(max(days, 1), FirstLook.defaultDays), endingOn: today) }
+    private var window: [WorkDay] {
+        FirstLook.days(min(max(days, 1), RunSettings.standard.firstLookDays), endingOn: today)
+    }
 
     /// What the reading costs at most: one call for each day of each ready machine that has lines on that day.
     func estimate() async {

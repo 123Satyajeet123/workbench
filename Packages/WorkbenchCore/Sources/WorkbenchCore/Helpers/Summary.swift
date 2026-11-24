@@ -1,5 +1,7 @@
 import Foundation
 
+private let settings = RunSettings.standard
+
 /// One scope's day in a few cited lines: a person's or a project's. Each line cites the items it rests on, so it can be
 /// traced to the words they came from.
 public struct Summary: Codable, Sendable, Equatable {
@@ -61,7 +63,6 @@ public struct Summarizer: ProfiledModelTask {
     }
 
     public static let task = "mochi.summary"
-    public static let maximumDetails = 5
 
     static let template = """
         You are Mochi, chief of staff to {a role}. You get the items {the role's} machines found on one work day, \
@@ -71,7 +72,8 @@ public struct Summarizer: ProfiledModelTask {
         - scope: the number of the scope.
         - short: one plain sentence for the scope: what is done, what is next, what is blocked. Leave out the parts \
         the items do not show.
-        - details: at most five, fewer is better, each one sentence with who and what:
+        - details: at most \(settings.summaryDetails.spelledOut), fewer is better, each one sentence with who and \
+        what:
           - kind "done": what got done or decided.
           - kind "next": what is planned or promised next.
           - kind "blocked": what is stuck or waiting, and on whom.
@@ -128,7 +130,8 @@ public struct Summarizer: ProfiledModelTask {
                     ? Summary.Detail(kind: detail.kind, text: text, cites: detail.cites) : nil
             }
         }
-        return Summary(scope: scope.name, short: short, details: Array(details.prefix(maximumDetails)), run: run)
+        return Summary(
+            scope: scope.name, short: short, details: Array(details.prefix(settings.summaryDetails)), run: run)
     }
 
     static func input(_ scopes: [SummaryScope], day: WorkDay) -> String {

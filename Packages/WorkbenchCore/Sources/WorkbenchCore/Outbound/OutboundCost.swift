@@ -15,34 +15,30 @@ public struct OutboundCost: Codable, Sendable, Equatable {
     /// depending on the search type; the middle of that range, not measured.
     public static func searchUSD(_ provider: SearchProviderKind) -> Double {
         switch provider {
-        case .model: 0.056
-        case .brave: 0.005
-        case .exa: 0.008
+        case .model: RunSettings.standard.modelSearchUSD
+        case .brave: RunSettings.standard.braveSearchUSD
+        case .exa: RunSettings.standard.exaSearchUSD
         }
     }
 
-    /// Dollars of model calls for one page read before any run has measured it. A guess for the first estimate only;
-    /// later estimates use the average of the runs the store holds.
-    public static let firstGuessPerPageUSD = 0.02
-
     /// The cost to expect before a run: a query writer call is not counted, a page read is.
     public static func estimate(
-        provider: SearchProviderKind, searches: Int, pages: Int, perPageUSD: Double = firstGuessPerPageUSD
+        provider: SearchProviderKind, searches: Int, pages: Int,
+        perPageUSD: Double = RunSettings.standard.firstGuessPerPageUSD
     ) -> OutboundCost {
         OutboundCost(
             searches: searches, pages: pages, searchUSD: Double(searches) * searchUSD(provider),
             modelUSD: Double(pages) * perPageUSD)
     }
 
-    /// Queries a rule gets on average: the model is asked for three to five.
-    static let typicalQueriesPerRule = 4
-
     /// What the next run is expected to cost: the queries the searchable rules need, a full set of pages, and the
     /// last run's measured cost for a page when there was one.
     public static func nextRun(criteria: Criteria, provider: SearchProviderKind, last: OutboundCost?) -> OutboundCost {
         estimate(
-            provider: provider, searches: OutboundQueries.searchable(criteria).count * typicalQueriesPerRule,
-            pages: Outbound.maxPages, perPageUSD: last?.perPageUSD ?? firstGuessPerPageUSD)
+            provider: provider,
+            searches: OutboundQueries.searchable(criteria).count * RunSettings.standard.typicalQueriesPerRule,
+            pages: RunSettings.standard.pagesPerRun,
+            perPageUSD: last?.perPageUSD ?? RunSettings.standard.firstGuessPerPageUSD)
     }
 
     /// The share of the model cost for each page, from a run that was measured; nil when it read no page.

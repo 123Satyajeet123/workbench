@@ -69,7 +69,8 @@ extension MailMessage {
             }
             return ObservedLine(
                 line: Line(
-                    entity: key, text: String(words.prefix(Self.maximumCharacters)), readerVersion: MailReader.version),
+                    entity: key, text: String(words.prefix(RunSettings.standard.mailCharacters)),
+                    readerVersion: MailReader.version),
                 eventTime: time, actor: people.actor, messageRef: context.messageId, forwarded: forwarded)
         }
         let lines = [

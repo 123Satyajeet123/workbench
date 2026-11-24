@@ -70,7 +70,7 @@ extension Queries {
     }
 
     /// The actions still open, as of `day` when given: what Today lists and the derailment watch follows.
-    public func openDealActions(asOf day: WorkDay? = nil) throws -> [Item] {
+    public func openDealActions(asOf day: WorkDay? = nil) throws -> Capped<Item> {
         try openItems(of: DealAction.task, lifecycle: DealAction.lifecycle, asOf: day)
     }
 

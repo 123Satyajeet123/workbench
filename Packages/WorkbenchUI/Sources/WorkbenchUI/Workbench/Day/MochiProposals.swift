@@ -25,9 +25,9 @@ struct MochiProposals: View {
     private var note: String {
         let (accepted, decided) = mochi.acceptance
         let record = decided == 0 ? "" : " You built \(accepted) of the \(decided) you decided on."
-        guard mochi.trainingDays >= Mochi.minimumDays else {
+        guard mochi.trainingDays >= RunSettings.standard.proposalDays else {
             return
-                "Mochi needs timeline blocks on \(Mochi.minimumDays) training days; it has \(mochi.trainingDays). Read and mark your days first."
+                "Mochi needs timeline blocks on \(RunSettings.standard.proposalDays) training days; it has \(mochi.trainingDays). Read and mark your days first."
                 + record
         }
         return

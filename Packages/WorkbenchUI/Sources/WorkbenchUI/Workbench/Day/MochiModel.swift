@@ -32,7 +32,7 @@ final class MochiModel {
     }
 
     var waiting: [Proposal] { proposals.filter { $0.decision == .waiting } }
-    var canDiscover: Bool { trainingDays >= Mochi.minimumDays && phase != .reading }
+    var canDiscover: Bool { trainingDays >= RunSettings.standard.proposalDays && phase != .reading }
 
     /// Accepted over decided: how often Mochi's proposals are worth building.
     var acceptance: (accepted: Int, decided: Int) {

@@ -174,9 +174,9 @@ import Testing
 
         let followed = try store.queries.openItems(readBy: watch)
         #expect(followed.map(\.task) == [DealAction.task], "Sentinel reads it as an open fact")
-        let needs = pickedNeeds(facts: try store.queries.openDealActions(), now: t0)
+        let needs = pickedNeeds(facts: try store.queries.openDealActions().items, now: t0)
         #expect(needs.map(\.reason) == [.asks])
-        let plan = DealAction.lifecycle.closing(followed)
+        let plan = DealAction.lifecycle.closing(followed.items)
         #expect(plan.keys.map { $0 } == [.done(outcome: "done")])
     }
 

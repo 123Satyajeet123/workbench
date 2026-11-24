@@ -12,7 +12,7 @@ extension HelperSpec {
             only in passing, or says nothing new about it, gives no item. Use only what the article says. Event: the \
             kind of thing that happened. Polarity: whether it is good news, bad news or neither for the company, as \
             an investor in it would see it. Date: when the event happened or was announced, as YYYY-MM-DD, empty when \
-            the article does not say; never guess. The quote is at most 25 words.
+            the article does not say; never guess. The quote is at most \(RunSettings.standard.quoteWords) words.
             """,
         fields: [
             Field(
@@ -55,10 +55,6 @@ public enum NewsSignals {
     public static let events = [
         "funding", "layoff", "exec exit", "shutdown", "lawsuit", "regulatory", "product", "hiring", "acquisition",
     ]
-    /// The most words a quote may have.
-    public static let quoteWords = 25
-    /// The characters of an article the model reads, and a quote may come from.
-    public static let articleBudget = 12_000
 
     /// Fields code adds to what the model gave: the company's id, the article's address and headline, its feed and
     /// whether the feed is trusted.

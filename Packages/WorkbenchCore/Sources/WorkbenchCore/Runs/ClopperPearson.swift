@@ -3,7 +3,9 @@ import Foundation
 /// The exact binomial upper bound on a rate (Clopper-Pearson). It is valid for one look at a fixed number of answers.
 public enum ClopperPearson {
     /// The largest wrong-rate p with P(at most `wrong` wrong in `answers` | p) ≥ 1 − confidence.
-    public static func upperBound(wrong: Int, of answers: Int, confidence: Double = Certificate.confidence) -> Double {
+    public static func upperBound(wrong: Int, of answers: Int, confidence: Double = RunSettings.standard.confidence)
+        -> Double
+    {
         guard answers > 0, wrong < answers else { return 1 }
         var (low, high) = (0.0, 1.0)
         for _ in 0..<100 {

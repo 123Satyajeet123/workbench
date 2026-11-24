@@ -9,7 +9,8 @@ struct PassedDealForm: View {
     @Environment(DealsModel.self) private var deals
     @State private var reason = ""
     @State private var revisits = true
-    @State private var day = Calendar.current.date(byAdding: .month, value: Revisit.defaultMonths, to: .now) ?? .now
+    @State private var day =
+        Calendar.current.date(byAdding: .month, value: RunSettings.standard.revisitMonths, to: .now) ?? .now
 
     var body: some View {
         VStack(alignment: .leading, spacing: Space.m) {

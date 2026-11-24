@@ -48,7 +48,7 @@ import Testing
             .joined(separator: ",")
         let (long, _) = try briefer("{\"headline\":\"Quiet day.\",\"lines\":[\(many)]}")
         let brief = try #require(try await long.brief([source(1, "done")], day: day, unseen: ["Timeline"]))
-        #expect(brief.lines.count == Briefer.maximumLines)
+        #expect(brief.lines.count == RunSettings.standard.briefLines)
         #expect(brief.isQuiet && brief.unseen == ["Timeline"], "nothing asked or stuck: a quiet day")
     }
 }

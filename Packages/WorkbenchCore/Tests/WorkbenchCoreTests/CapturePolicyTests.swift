@@ -22,7 +22,7 @@ import Testing
         #expect(live.grant == nil)
         let grant = pending.confirmed(at: t0)
         #expect(grant.kind == .call)
-        #expect(grant.expiresAt == t0.addingTimeInterval(CapturePolicy.grantLifetime))
+        #expect(grant.expiresAt == t0.addingTimeInterval(RunSettings.standard.grantLifetimeSeconds))
         #expect(policy.authorize(files, at: day(1)).grant != nil)
     }
 

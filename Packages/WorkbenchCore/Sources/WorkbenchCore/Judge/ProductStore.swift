@@ -89,7 +89,7 @@ extension Store {
     }
 
     /// Keeps a work product with its claims, cites and versions, written once. Each claim is an item, so marks, audits and
-    /// the certificate treat it like every fact: the app picks it to ask about with `AuditPolicy.pickChance`, and keeps
+    /// the certificate treat it like every fact: the app picks it to ask about with `RunSettings.pickChance`, and keeps
     /// that chance. With the chance `catchChance`, one known-bad claim is added on a run of its own, so it is shown like
     /// any other and counted apart. `split_role` is written here and never again.
     public func saveProduct(
@@ -102,6 +102,7 @@ extension Store {
         let role = SplitRole(day: WorkDay(containing: now), freezes: try queries.freezes(of: product.taskType))
         let catches = draw(catchChance).flatMap { Self.catchClaim(for: product, kind: $0) }
         return try writer.write { db in
+            let settings = try Queries.runSettings(in: db)
             try db.execute(
                 sql: """
                     INSERT INTO work_product(task_type, object_id, subject, run_id, source, text, created_at, split_role,
@@ -116,9 +117,11 @@ extension Store {
             for (index, claim) in product.claims.enumerated() {
                 let item = try Self.insertClaim(
                     db, claim, of: product, id: id, run: run, source: grant.kind, label: label, at: now)
-                if audits(item: item, of: product.taskType, index: index, override: isAudited) {
+                if audits(
+                    item: item, of: product.taskType, index: index, chance: settings.pickChance, override: isAudited)
+                {
                     try db.execute(
-                        sql: "UPDATE item SET asked_with = ? WHERE id = ?", arguments: [AuditPolicy.pickChance, item])
+                        sql: "UPDATE item SET asked_with = ? WHERE id = ?", arguments: [settings.pickChance, item])
                 }
                 saved.append(
                     try Self.insertProductClaim(db, product: id, ordinal: index, item: item, claim: claim, at: now))

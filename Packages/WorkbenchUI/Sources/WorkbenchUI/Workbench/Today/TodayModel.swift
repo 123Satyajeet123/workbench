@@ -106,7 +106,8 @@ final class TodayModel {
 
     /// N of the first-run cutoff: the person's setting.
     var cutoffDays: Int {
-        ((try? MorningSchedule.settingsKey.load(from: store)) ?? nil)?.cutoffDays ?? FirstRun.defaultDays
+        ((try? MorningSchedule.settingsKey.load(from: store)) ?? nil)?.cutoffDays
+            ?? RunSettings.standard.backlogCutoffDays
     }
 
     var isEmpty: Bool {
@@ -136,7 +137,7 @@ final class TodayModel {
     private func buildMeetingCards() {
         meetingCards = MeetingPrep.cards(
             for: meetings.meetings, groups: people, rows: team, deals: deals(),
-            actions: (try? store.queries.openDealActions()) ?? [], now: store.clock())
+            actions: (try? store.queries.openDealActions().items) ?? [], now: store.clock())
     }
 
     private func load() throws {
@@ -145,13 +146,14 @@ final class TodayModel {
         let keepers = crew.factKeepers.map(\.machine)
         let lifecycles = self.lifecycles
         let specs = Dictionary(keepers.map { ($0.task, $0.spec) }) { first, _ in first }
-        let revisits = try store.queries.openRevisits()
+        let revisits = try store.queries.openRevisits().items
         passedNews = try passedNews(of: revisits, now: now)
         let open = try keepers.flatMap { try store.queries.openItems(readBy: $0.spec) }
         let openFromCalls = try HelperSpec.withoutMachine.flatMap { try store.queries.openItems(readBy: $0.spec) }
-        var input = MorningInput(facts: try store.queries.openDealActions() + openFromCalls + open, me: me())
+        var input = MorningInput(facts: try store.queries.openDealActions().items + openFromCalls + open, me: me())
         input.revisits = revisits
-        input.news = try store.queries.newsSignals(since: today.adding(days: 1 - Store.newsRetentionDays))
+        input.news = try store.queries.newsSignals(
+            since: today.adding(days: 1 - RunSettings.standard.newsRetentionDays))
         input.firedTimers = try store.queries.itemsWithFiredTimers()
         input.findings = try crew.factReaders.flatMap { try store.queries.items(of: $0.spec.task, on: today) }
         input.ownerField = { lifecycles[$0.task]?.owner }

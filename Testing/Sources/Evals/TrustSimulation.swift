@@ -106,7 +106,7 @@ public struct AuditPopulation: Sendable {
 /// How often and how fast each rule says "earned" when it is read after every answer, on synthetic answers only.
 public struct TrustSimulation: Sendable {
     public var runs = 4_000
-    public var policy = PickPolicy.eachItem(chance: AuditPolicy.pickChance)
+    public var policy = PickPolicy.eachItem(chance: RunSettings.standard.pickChance)
     public var horizon = 300
     public var seed: UInt64 = 20_261_123
 
@@ -145,9 +145,10 @@ public struct TrustSimulation: Sendable {
         var wealth = Certificate.Wealth()
         for (index, answer) in answers.enumerated() {
             let counted =
-                weighted ? answer : Certificate.Answer(wrong: answer.wrong, chance: 1 / Certificate.heaviestWeight)
+                weighted
+                ? answer : Certificate.Answer(wrong: answer.wrong, chance: 1 / RunSettings.standard.heaviestWeight)
             wealth.add(counted)
-            if wealth.value >= Certificate.threshold { return index + 1 }
+            if wealth.value >= RunSettings.standard.threshold { return index + 1 }
         }
         return nil
     }
@@ -163,7 +164,7 @@ public struct TrustSimulation: Sendable {
                 let key = wrong * 100_000 + index + 1
                 let isEarned =
                     earned[key]
-                    ?? (ClopperPearson.upperBound(wrong: wrong, of: index + 1) <= Certificate.allowedWrong)
+                    ?? (ClopperPearson.upperBound(wrong: wrong, of: index + 1) <= RunSettings.standard.allowedWrong)
                 earned[key] = isEarned
                 if isEarned { return index + 1 }
             }

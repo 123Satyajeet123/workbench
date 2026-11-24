@@ -55,7 +55,6 @@ public struct Asker: FixedModelTask {
     }
 
     public static let task = "memory.ask"
-    public static let limit = 30
 
     public static let instructions = """
         You answer a question from a team's memory. You get entries: each is `[id] source: text`. Answer only from \
@@ -78,8 +77,9 @@ public struct Asker: FixedModelTask {
     }
 
     /// The entries that best match the question's words, by BM25 over a throwaway full-text index.
-    public static func search(_ question: String, in entries: [MemoryEntry], limit: Int = limit) throws -> [MemoryEntry]
-    {
+    public static func search(
+        _ question: String, in entries: [MemoryEntry], limit: Int = RunSettings.standard.askHits
+    ) throws -> Capped<MemoryEntry> {
         let words = question.lowercased().split(whereSeparator: { !$0.isLetter && !$0.isNumber }).map(String.init)
             .filter { $0.count > 1 }
         guard !words.isEmpty, !entries.isEmpty else { return [] }
@@ -90,21 +90,23 @@ public struct Asker: FixedModelTask {
                 try db.execute(sql: "INSERT INTO entry(rowid, body) VALUES (?, ?)", arguments: [position, entry.text])
             }
             return try Int.fetchAll(
-                db, sql: "SELECT rowid FROM entry WHERE entry MATCH ? ORDER BY bm25(entry) LIMIT ?",
-                arguments: [query, limit])
+                db, sql: "SELECT rowid FROM entry WHERE entry MATCH ? ORDER BY bm25(entry)",
+                arguments: [query])
         }
-        return positions.map { entries[$0] }
+        return Capped(positions.prefix(limit).map { entries[$0] }, leftOut: max(positions.count - limit, 0))
     }
 
     public func ask(_ question: String, entries: [MemoryEntry]) async throws -> (answer: Answer, run: RunID?) {
         let found = try Self.search(question, in: entries)
         guard !found.isEmpty else { return (Answer(text: nil, cited: [], searched: 0), nil) }
+        let items = found.items
         let lines = found.map { "[\($0.id)] \($0.source): \($0.text)" }
         let (reply, run) = try await ask(
             "Question: \(question)\n\nEntries:\n\(lines.joined(separator: "\n"))",
             holding: found.reduce(into: []) { $0.formUnion($1.kinds) },
             holdingUnknown: found.contains { $0.kindUnknown })
-        return (try Self.checked(reply, given: found), run)
+        try model.record([LeftOut(.memoryEntries, count: found.leftOut)], of: run)
+        return (try Self.checked(reply, given: items), run)
     }
 
     static func checked(_ reply: Reply, given: [MemoryEntry]) throws -> Answer {

@@ -2,16 +2,12 @@ import Foundation
 import GRDB
 
 extension Store {
-    /// How long a finding of facts counts as told: a repeat of the same choices and facts inside this many days is not
-    /// added.
-    static let toldBeforeDays = 14
-
     /// Stores one reading of a day by one helper. Nothing already stored is deleted or replaced: a fact the founder
     /// closed, hid or marked stays as the founder left it. A reading adds the facts it opens, and the events it
     /// writes on facts (a restatement, a new date, a replacement, a proposal to close, a flag), each with the run,
     /// the line and the quote that show it. A machine with no lifecycle adds no item that repeats one stored before
-    /// it, or a finding of facts told before (`toldBeforeDays`). The app picks each new item on its own, with
-    /// the chance `AuditPolicy.pickChance`, to ask the founder about, and keeps the chance it had. Each new item is
+    /// it, or a finding of facts told before (`RunSettings.toldBeforeDays`). The app picks each new item on its own, with the
+    /// chance `RunSettings.pickChance`, to ask the founder about, and keeps the chance it had. Each new item is
     /// filed in the folder of its machine; a home the model proposed is filed after it. The grant is asked after the
     /// model ran, so consent withdrawn meanwhile stops the write.
     public func saveReading(
@@ -20,7 +16,8 @@ extension Store {
     ) throws {
         try check(grant, kind: spec.source.consent, label: scope.isEmpty ? nil : scope)
         try writer.write { db in
-            let known = try knownItems(db, of: spec, day: day, scope: scope)
+            let settings = try Queries.runSettings(in: db)
+            let known = try knownItems(db, of: spec, day: day, scope: scope, toldBeforeDays: settings.toldBeforeDays)
             let opened: [Int64?] = try result.items.map { item in
                 guard
                     !known.contains(where: {
@@ -35,9 +32,9 @@ extension Store {
                 return id
             }
             for (index, id) in opened.compactMap({ $0 }).enumerated()
-            where audits(item: id, of: spec.task, index: index, override: isAudited) {
+            where audits(item: id, of: spec.task, index: index, chance: settings.pickChance, override: isAudited) {
                 try db.execute(
-                    sql: "UPDATE item SET asked_with = ? WHERE id = ?", arguments: [AuditPolicy.pickChance, id])
+                    sql: "UPDATE item SET asked_with = ? WHERE id = ?", arguments: [settings.pickChance, id])
             }
             for proposal in result.homes {
                 if let item = opened[proposal.item] { try fileProposal(db, item: item, into: proposal.object) }
@@ -51,17 +48,19 @@ extension Store {
 
     /// Whether a new item is picked to ask the founder about: by the audit design of its task, unless a test chose the
     /// picks by the item's place in its reading.
-    func audits(item: Int64, of task: String, index: Int, override: ((Int) -> Bool)?) -> Bool {
+    func audits(item: Int64, of task: String, index: Int, chance: Double, override: ((Int) -> Bool)?) -> Bool {
         if let choose = override ?? isAudited { return choose(index) }
-        return AuditPolicy.pick(design: AuditPolicy.design(of: task), item: item)
+        return AuditPolicy.pick(design: AuditPolicy.design(of: task), item: item, chance: chance)
     }
 
     /// The items a new item of a machine with no lifecycle may repeat. A machine with a lifecycle names the fact it
     /// restates, so it has none.
-    private func knownItems(_ db: Database, of spec: HelperSpec, day: WorkDay, scope: String) throws -> [Item] {
+    private func knownItems(
+        _ db: Database, of spec: HelperSpec, day: WorkDay, scope: String, toldBeforeDays: Int
+    ) throws -> [Item] {
         guard spec.lifecycle == nil else { return [] }
         return spec.citation == .facts
-            ? try Queries.items(db, of: spec.task, since: day.adding(days: -Self.toldBeforeDays))
+            ? try Queries.items(db, of: spec.task, since: day.adding(days: -toldBeforeDays))
             : try Queries.items(db, of: spec.task, day: day, scope: scope)
     }
 
@@ -211,11 +210,11 @@ extension Queries {
     }
 
     /// The items of a machine still open: of a value its lifecycle keeps open, not rejected, and not closed since.
-    /// The newest `limit`, oldest first. With `day`, the items as they stood on that day: opened by the day's end and
+    /// The newest `RunSettings.openFactsShown`, oldest first, and how many older ones are left out. With `day`, the items as they stood on that day: opened by the day's end and
     /// not ended, by valid time, before the day started.
     public func openItems(
-        of task: String, lifecycle: HelperSpec.Lifecycle, asOf day: WorkDay? = nil, limit: Int = 300
-    ) throws -> [Item] {
+        of task: String, lifecycle: HelperSpec.Lifecycle, asOf day: WorkDay? = nil
+    ) throws -> Capped<Item> {
         guard !lifecycle.open.isEmpty else { return [] }
         let values = databaseQuestionMarks(count: lifecycle.open.count)
         let status: String
@@ -231,29 +230,37 @@ extension Queries {
             status = "(status_kind IS NULL OR status_kind = 'reopen')"
         }
         let arguments =
-            StatementArguments([task, "$.\(lifecycle.field)"]) + StatementArguments(lifecycle.open) + bounds + [limit]
+            StatementArguments([task, "$.\(lifecycle.field)"]) + StatementArguments(lifecycle.open) + bounds
+        let condition = "task = ? AND state <> 'rejected' AND json_extract(fields, ?) IN (\(values)) AND \(status)"
         return try reader.read { db in
-            try db.fetch(
-                "item",
-                """
-                SELECT \(Self.itemColumns) FROM \(Self.itemRows)
-                WHERE task = ? AND state <> 'rejected' AND json_extract(fields, ?) IN (\(values)) AND \(status)
-                ORDER BY day DESC, start_at DESC, id DESC LIMIT ?
-                """, arguments, as: Item.init(row:)
-            ).reversed()
+            let limit = try Self.runSettings(in: db).openFactsShown
+            let shown =
+                try db.fetch(
+                    "item",
+                    """
+                    SELECT \(Self.itemColumns) FROM \(Self.itemRows)
+                    WHERE \(condition) ORDER BY day DESC, start_at DESC, id DESC LIMIT ?
+                    """, arguments + [limit], as: Item.init(row:)
+                ).reversed() as [Item]
+            let all =
+                try Int.fetchOne(
+                    db, sql: "SELECT COUNT(*) FROM \(Self.itemRows) WHERE \(condition)", arguments: arguments) ?? 0
+            return Capped(shown, leftOut: max(all - shown.count, 0))
         }
     }
 
     /// The open items a machine's reader sees: its own, or, when it has no lifecycle, those of the machine it
     /// follows and the actions deals wait for; as of `day` when given. None when it follows no machine that exists.
-    public func openItems(readBy spec: HelperSpec, asOf day: WorkDay? = nil) throws -> [Item] {
+    public func openItems(readBy spec: HelperSpec, asOf day: WorkDay? = nil) throws -> Capped<Item> {
         if let lifecycle = spec.lifecycle { return try openItems(of: spec.task, lifecycle: lifecycle, asOf: day) }
         guard let follows = spec.follows else { return [] }
         let machines = try machines()
         guard let lifecycle = machines.first(where: { $0.task == follows })?.spec.lifecycle else { return [] }
         let alike = machines.filter { $0.task != follows && $0.spec.lifecycle == lifecycle }.map(\.task)
-        return try ([follows] + alike).flatMap { try openItems(of: $0, lifecycle: lifecycle, asOf: day) }
-            + openDealActions(asOf: day)
+        let found =
+            try ([follows] + alike).map { try openItems(of: $0, lifecycle: lifecycle, asOf: day) }
+            + [openDealActions(asOf: day)]
+        return Capped(found.flatMap(\.items), leftOut: found.reduce(0) { $0 + $1.leftOut })
     }
 
     /// A machine's items that ended (closed, replaced or withdrawn) between two times, by valid time, oldest first.

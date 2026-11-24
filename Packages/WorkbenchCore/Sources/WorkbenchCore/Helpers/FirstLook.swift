@@ -4,8 +4,6 @@ import GRDB
 /// The first look a new team takes at its own data: the last days of what its machines read, shown as the template's
 /// main view. It is data over any template: what is shown follows the machine's spec.
 public enum FirstLook {
-    public static let defaultDays = 30
-
     /// The last `count` work days, oldest first, ending on `today`.
     public static func days(_ count: Int, endingOn today: WorkDay) -> [WorkDay] {
         (0..<max(count, 0)).reversed().map { today.adding(days: -$0) }
@@ -29,9 +27,6 @@ public enum FirstLook {
 
 /// What a first look costs before it starts: the model calls it needs and what they come to.
 public struct FirstLookCost: Sendable, Equatable {
-    /// Dollars for one call before any run has measured it. A guess for the first estimate only.
-    public static let firstGuessPerCallUSD = 0.02
-
     public var calls: Int
     public var perCallUSD: Double
     public var isMeasured: Bool
@@ -41,7 +36,7 @@ public struct FirstLookCost: Sendable, Equatable {
     /// `measured` is the average cost of the runs of these tasks the store holds, when there are any.
     public init(calls: Int, measured: Double?) {
         self.calls = calls
-        perCallUSD = measured ?? Self.firstGuessPerCallUSD
+        perCallUSD = measured ?? RunSettings.standard.firstGuessPerCallUSD
         isMeasured = measured != nil
     }
 }

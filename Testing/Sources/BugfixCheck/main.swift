@@ -178,7 +178,7 @@ func failedRun(_ name: String, _ step: Result<ProcessOutput, any Error>) async t
         executable: URL(filePath: "/opt/fake/claude"), environment: ["PATH": "/nonexistent", "HOME": scratch.path],
         workDirectory: scratch.appending(path: "work"))
     var policy = FailurePolicy()
-    policy.timeOutRetries = 0
+    policy.settings.timeOutRetries = 0
     do {
         _ = try await RecordedModel(runner, store: store, policy: policy).generate(
             Verdict.self, schema: .object([.init("label", .string)]), task: "demo", instructions: "Say yes.",
@@ -243,7 +243,7 @@ do {
     expect("the same (design, item) gives the same pick twice", twice)
     let picked = (1...10_000).filter { AuditPolicy.pick(design: design, item: Int64($0)) }.count
     let rate = Double(picked) / 10_000
-    expect("over 10,000 ids the pick rate is 0.15 ± 0.01: \(rate)", abs(rate - AuditPolicy.pickChance) <= 0.01)
+    expect("over 10,000 ids the pick rate is 0.15 ± 0.01: \(rate)", abs(rate - RunSettings.standard.pickChance) <= 0.01)
     let other = AuditPolicy.design(of: "day.timeline")
     expect(
         "another design picks other items",

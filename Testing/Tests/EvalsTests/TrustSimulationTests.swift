@@ -13,9 +13,9 @@ import WorkbenchCore
     }
 
     @Test func theOldCertificateEarnsFalselyOnAboutAThirdOfRunsAndTheNewOneOnAtMostTenPercent() {
-        let results = simulation.run(.equal(size: 10, wrongRate: Certificate.allowedWrong))
+        let results = simulation.run(.equal(size: 10, wrongRate: RunSettings.standard.allowedWrong))
         #expect((0.25...0.40).contains(results[.fixedBound]!.everEarned))
-        #expect(results[.betting]!.everEarned <= 1 - Certificate.confidence)
+        #expect(results[.betting]!.everEarned <= 1 - RunSettings.standard.confidence)
     }
 
     @Test(arguments: [
@@ -23,23 +23,23 @@ import WorkbenchCore
         .bigReadingsWorse(itemWrongRate: 0.1, sizes: AuditPopulation.largeSizes),
     ])
     func eachItemAtOneChanceKeepsTheErrorRateWhateverTheSizeOfTheReadings(population: AuditPopulation) {
-        #expect(abs(population.itemWrongRate - Certificate.allowedWrong) < 1e-9)
-        #expect(simulation.run(population)[.betting]!.everEarned <= 1 - Certificate.confidence)
+        #expect(abs(population.itemWrongRate - RunSettings.standard.allowedWrong) < 1e-9)
+        #expect(simulation.run(population)[.betting]!.everEarned <= 1 - RunSettings.standard.confidence)
     }
 
     @Test func onePickPerReadingStaysWithinTheBoundUpToTheHeaviestWeight() {
         let population = AuditPopulation.bigReadingsWorse(itemWrongRate: 0.1, sizes: [(1, 0.5), (3, 0.3), (6, 0.2)])
-        #expect(onePerReading.run(population)[.betting]!.everEarned <= 1 - Certificate.confidence)
+        #expect(onePerReading.run(population)[.betting]!.everEarned <= 1 - RunSettings.standard.confidence)
     }
 
     @Test func onePickPerReadingEarnsFalselyWhenReadingsAreBiggerThanTheHeaviestWeightAndBigOnesAreWorse() {
         let population = AuditPopulation.bigReadingsWorse(itemWrongRate: 0.1, sizes: AuditPopulation.largeSizes)
-        #expect(onePerReading.run(population)[.betting]!.everEarned > 1 - Certificate.confidence)
+        #expect(onePerReading.run(population)[.betting]!.everEarned > 1 - RunSettings.standard.confidence)
     }
 
     @Test func withoutWeightsTheCertificateEarnsFalselyWhenBigReadingsAreWorse() {
-        let results = onePerReading.run(.bigReadingsWorse(itemWrongRate: Certificate.allowedWrong))
-        #expect(results[.bettingWithoutWeights]!.everEarned > 1 - Certificate.confidence)
+        let results = onePerReading.run(.bigReadingsWorse(itemWrongRate: RunSettings.standard.allowedWrong))
+        #expect(results[.bettingWithoutWeights]!.everEarned > 1 - RunSettings.standard.confidence)
     }
 
     @Test func aHelperWithNoWrongAnswersEarnsAfterThirtySixAtTheHeaviestWeight() {

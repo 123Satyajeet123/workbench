@@ -59,9 +59,10 @@ extension Store {
     /// timer and window, so a second pass decides nothing twice. A fire writes nothing on the fact: it never closes
     /// it, and what the app does about it is for the caller to say.
     @discardableResult
-    public func fireTimers(settings: TimerSettings = TimerSettings()) throws -> [FiredTimer] {
+    public func fireTimers() throws -> [FiredTimer] {
         let now = clock()
         return try writer.write { db in
+            let settings = try Queries.runSettings(in: db)
             let pending = try Row.fetchAll(
                 db,
                 sql: """

@@ -132,7 +132,7 @@ final class HelperImprovement {
             guard let edit else {
                 improveNote =
                     run == nil
-                    ? "Mark at least \(Improver.minimumWrong) wrong items on training days first."
+                    ? "Mark at least \(RunSettings.standard.minimumWrongToImprove) wrong items on training days first."
                     : "No clear fix in your marks yet."
                 return
             }

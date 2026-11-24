@@ -8,7 +8,7 @@ import Testing
     private let due = WorkDay(containing: day(180))
 
     private func needs(_ store: Store, on date: Date) throws -> [Need] {
-        pickedNeeds(revisits: try store.queries.openRevisits(), news: try store.queries.newsSignals(), now: date)
+        pickedNeeds(revisits: try store.queries.openRevisits().items, news: try store.queries.newsSignals(), now: date)
     }
 
     @Test func theDefaultRevisitIsSixMonthsAfterThePass() {
@@ -43,7 +43,7 @@ import Testing
         let second = try store.setRevisit(of: bolt, on: due.adding(days: 30), reason: "no revenue")
         #expect(try store.queries.openRevisits().compactMap(\.id) == [second], "one open revisit for a deal")
         #expect(try needs(store, on: day(180)).isEmpty, "the first date no longer stands")
-        try store.apply(Revisit.lifecycle.closing(try store.queries.openRevisits()), surface: .today)
+        try store.apply(Revisit.lifecycle.closing(try store.queries.openRevisits().items), surface: .today)
         #expect(try needs(store, on: day(220)).isEmpty)
         #expect(try store.queries.revisits(of: bolt.id).compactMap(\.id) == [first, second])
     }

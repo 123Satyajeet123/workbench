@@ -29,7 +29,8 @@ public enum ScreenEvidence {
     public static func reading(of session: ScreenSession, grant: CaptureGrant, mapsLegacyRef: Bool = false)
         -> SourceReading?
     {
-        guard session.end.timeIntervalSince(session.start) >= Sessions.shortest, let label = grant.label,
+        guard session.end.timeIntervalSince(session.start) >= RunSettings.standard.sessionShortestSeconds,
+            let label = grant.label,
             label == session.bundleID, let place = try? Coding.json(StretchPlace(session))
         else { return nil }
         let container = "\(label)@\(UTCInstant(session.start).milliseconds)"
@@ -93,8 +94,8 @@ extension ScreenSession {
 
 /// What the capture loop keeps of the screen: it follows the activity log, and gives the lines to write for each batch
 /// of activity and for the stretches the batch closed. A closed stretch is held until its window can no longer be
-/// returned to within `Sessions.joinGap`, so a return joins it and flicker gives one line. A stretch shorter than
-/// `Sessions.shortest` is a pass through a window and is never held.
+/// returned to within `RunSettings.sessionJoinSeconds`, so a return joins it and flicker gives one line. A stretch shorter than
+/// `RunSettings.sessionShortestSeconds` is a pass through a window and is never held.
 public struct ScreenKeeper: Sendable {
     private var stretches = ScreenStretches()
     private var held: ScreenSession?
@@ -141,12 +142,16 @@ public struct ScreenKeeper: Sendable {
     /// Holds a closed stretch. Returns the stretch to write now, if any: the one held before, when `closed` is another
     /// window or too late to join it.
     private mutating func hold(_ closed: ScreenSession) -> [ScreenSession] {
-        guard closed.end.timeIntervalSince(closed.start) >= Sessions.shortest else { return [] }
+        guard closed.end.timeIntervalSince(closed.start) >= RunSettings.standard.sessionShortestSeconds else {
+            return []
+        }
         guard let earlier = held else {
             held = closed
             return []
         }
-        if earlier.isSameWindow(as: closed), closed.start.timeIntervalSince(earlier.end) <= Sessions.joinGap {
+        if earlier.isSameWindow(as: closed),
+            closed.start.timeIntervalSince(earlier.end) <= RunSettings.standard.sessionJoinSeconds
+        {
             held?.end = closed.end
             return []
         }
@@ -155,7 +160,9 @@ public struct ScreenKeeper: Sendable {
     }
 
     private mutating func releasedBy(_ now: Date) -> [ScreenSession] {
-        guard let earlier = held, now.timeIntervalSince(earlier.end) > Sessions.joinGap else { return [] }
+        guard let earlier = held, now.timeIntervalSince(earlier.end) > RunSettings.standard.sessionJoinSeconds else {
+            return []
+        }
         held = nil
         return [earlier]
     }

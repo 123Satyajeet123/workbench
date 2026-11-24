@@ -40,7 +40,7 @@ final class DealsModel {
             let machines = try store.queries.machines()
             let actions = try store.queries.dealActions()
             let signals = try store.queries.newsSignals()
-            let revisits = try store.queries.openRevisits()
+            let revisits = try store.queries.openRevisits().items
             let reader = DealDigestReader(store: store, me: me)
             digests = Dictionary(
                 uniqueKeysWithValues: try deals.map {

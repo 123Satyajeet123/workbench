@@ -15,16 +15,13 @@ public struct NewsArticle: Sendable, Equatable, Identifiable {
 }
 
 extension Store {
-    /// How long a fetched article is kept.
-    public static let newsRetentionDays = 30
-
     /// Keeps the entries of one feed that are new and not older than the retention, then drops articles past it. The
     /// session proves the web consent was on when they were fetched. Returns how many entries were new.
     @discardableResult
     public func saveArticles(_ entries: [FeedEntry], feed: NewsFeed, session: FeedSession) throws -> Int {
         try check(session.grant, kind: .web)
         let now = clock()
-        let oldest = now.addingTimeInterval(-Double(Self.newsRetentionDays) * 86_400)
+        let oldest = now.addingTimeInterval(-Double(RunSettings.standard.newsRetentionDays) * 86_400)
         return try writer.write { db in
             var added = 0
             for entry in entries where entry.published >= oldest {

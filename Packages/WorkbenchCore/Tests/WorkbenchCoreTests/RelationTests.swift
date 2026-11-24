@@ -98,8 +98,8 @@ import Testing
                     handle: "F1")
             ])
         let open = try world.store.queries.openItems(readBy: .team)
-        #expect(HelperReader.open(open, spec: .team).contains("due=\(Days.first.adding(days: 9))"))
-        #expect(!HelperReader.open(open, spec: .team).contains("due=\(Days.first.adding(days: 4))"))
+        #expect(HelperReader.open(open.items, spec: .team).contains("due=\(Days.first.adding(days: 9))"))
+        #expect(!HelperReader.open(open.items, spec: .team).contains("due=\(Days.first.adding(days: 4))"))
     }
 
     @Test func aSameAsWithAnotherOwnerIsDroppedAndTheSameOwnerPasses() async throws {
@@ -176,7 +176,7 @@ import Testing
                 store: world.store))
         let evidence = EvidenceSet(
             lines: [world.line(20, Days.second, 600, "pakka")], context: LifecycleWorld.members)
-        let result = try await reader.read(day: Days.second, scope: "work", evidence: evidence, open: shown)
+        let result = try await reader.read(day: Days.second, scope: "work", evidence: evidence, open: Capped(shown))
         #expect(
             shown.count == 1 && result.links.isEmpty && result.dropped == 1, "F2 was in the store, not in the shown set"
         )

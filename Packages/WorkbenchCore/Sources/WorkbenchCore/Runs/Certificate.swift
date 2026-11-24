@@ -16,7 +16,7 @@ import Foundation
 /// its bar, the wealth starts again from 1 and only later runs count: "earned" is lost until it is earned again.
 ///
 /// An answer weighs one over the chance its item had of being picked, over the heaviest weight. A pick chance below
-/// `AuditPolicy.pickChance` is refused: the answer is left out, not clamped.
+/// `RunSettings.pickChance` is refused: the answer is left out, not clamped.
 public struct Certificate: Sendable, Equatable {
     public enum Status: Sendable, Equatable, Codable {
         /// At least this many more runs, each with all its audited answers right and at the heaviest weight, before
@@ -39,19 +39,20 @@ public struct Certificate: Sendable, Equatable {
             self.run = run
         }
 
-        /// Whether the chance is at least `AuditPolicy.pickChance`, the smallest the weights allow.
-        var isCounted: Bool { chance >= AuditPolicy.pickChance }
+        /// Whether the chance is at least `pickChance`, the smallest the weights allow.
+        func isCounted(pickChance: Double) -> Bool { chance >= pickChance }
 
         /// The weight over the heaviest weight: above 0 and at most 1 for a counted answer.
-        var share: Double { 1 / chance / Certificate.heaviestWeight }
+        func share(pickChance: Double) -> Double { 1 / chance / (1 / pickChance) }
     }
 
     /// The step of one run against "wrong at most `rate`": the mean over its counted answers of
     /// `share · (rate − wrong)`, or nil when none is counted. It lies between `rate − 1` and `rate`.
-    static func step(of run: [Answer], against rate: Double) -> Double? {
-        let counted = run.filter(\.isCounted)
+    static func step(of run: [Answer], against rate: Double, pickChance: Double) -> Double? {
+        let counted = run.filter { $0.isCounted(pickChance: pickChance) }
         guard !counted.isEmpty else { return nil }
-        return counted.map { $0.share * (rate - ($0.wrong ? 1 : 0)) }.reduce(0, +) / Double(counted.count)
+        return counted.map { $0.share(pickChance: pickChance) * (rate - ($0.wrong ? 1 : 0)) }.reduce(0, +)
+            / Double(counted.count)
     }
 
     /// The wealth of a bettor against "wrong at most `rate`", averaged over a grid of bet sizes (a mean of
@@ -59,15 +60,20 @@ public struct Certificate: Sendable, Equatable {
     /// step, so the wealth stays above zero for any step.
     public struct Wealth: Sendable, Equatable {
         private let rate: Double
+        private let pickChance: Double
         private var perBet = Array(repeating: 1.0, count: EProcess.grid.count)
 
-        public init(against rate: Double = Certificate.allowedWrong) {
+        public init(
+            against rate: Double = RunSettings.standard.allowedWrong,
+            pickChance: Double = RunSettings.standard.pickChance
+        ) {
             self.rate = rate
+            self.pickChance = pickChance
         }
 
         /// One step for all the answers of one run.
         public mutating func add(run: [Answer]) {
-            guard let step = Certificate.step(of: run, against: rate) else { return }
+            guard let step = Certificate.step(of: run, against: rate, pickChance: pickChance) else { return }
             for (index, bet) in EProcess.grid.enumerated() { perBet[index] *= 1 + bet / (1 - rate) * step }
         }
 
@@ -77,35 +83,32 @@ public struct Certificate: Sendable, Equatable {
         public var value: Double { perBet.reduce(0, +) / Double(perBet.count) }
     }
 
-    public static let allowedWrong = 0.1
-    public static let confidence = 0.9
-    public static let heaviestWeight = 1 / AuditPolicy.pickChance
-    public static var threshold: Double { threshold(at: confidence) }
-
     /// The wealth at which a certificate of this confidence is earned.
     public static func threshold(at confidence: Double) -> Double { 1 / (1 - confidence) }
 
     public var answers: [Answer]
+    public var settings: RunSettings
 
-    public init(answers: [Answer] = []) {
+    public init(answers: [Answer] = [], settings: RunSettings = .standard) {
         self.answers = answers
+        self.settings = settings
     }
 
     /// Earned once the wealth reaches its bar after the drift alarm last fired. Ville's inequality bounds the chance
     /// that the wealth ever reaches the bar under the null, so a later dip does not take trust away; only the drift
     /// alarm does.
-    public var status: Status { status(at: Self.confidence) }
+    public var status: Status { status(at: settings.confidence) }
 
     /// The status at another confidence: a rung that asks for more than 0.9 reads it here.
     public func status(at confidence: Double) -> Status {
         let runs = replay.runsSinceAlarm
         let threshold = Self.threshold(at: confidence)
-        var wealth = Wealth(against: Self.allowedWrong)
+        var wealth = Wealth(against: settings.allowedWrong, pickChance: settings.pickChance)
         for run in runs {
             wealth.add(run: run)
-            if wealth.value >= threshold { return .earned(bound: Self.upperBound(of: runs, threshold: threshold)) }
+            if wealth.value >= threshold { return .earned(bound: upperBound(of: runs, threshold: threshold)) }
         }
-        return .needsMore(Self.rightRunsToEarn(from: wealth, threshold: threshold))
+        return .needsMore(rightRunsToEarn(from: wealth, threshold: threshold))
     }
 
     /// The evidence the drift alarm had when it first reached its bar, or nil if it never did.
@@ -131,7 +134,7 @@ public struct Certificate: Sendable, Equatable {
 
     /// The runs since the drift alarm last reached its bar, and the evidence at its first alarm.
     private var replay: (runsSinceAlarm: [[Answer]], firstAlarm: Double?) {
-        var alarm = DriftAlarm()
+        var alarm = driftAlarm
         var runsSinceAlarm: [[Answer]] = []
         var firstAlarm: Double?
         for run in runs {
@@ -140,21 +143,25 @@ public struct Certificate: Sendable, Equatable {
             if alarm.isRaised {
                 firstAlarm = firstAlarm ?? alarm.value
                 runsSinceAlarm = []
-                alarm = DriftAlarm()
+                alarm = driftAlarm
             }
         }
         return (runsSinceAlarm, firstAlarm)
     }
 
-    private static func wealth(of runs: [[Answer]], against rate: Double) -> Wealth {
-        runs.reduce(into: Wealth(against: rate)) { $0.add(run: $1) }
+    private var driftAlarm: DriftAlarm {
+        DriftAlarm(against: settings.allowedWrong, delta: settings.delta, pickChance: settings.pickChance)
     }
 
-    private static func rightRunsToEarn(from start: Wealth, threshold: Double) -> Int {
+    private func wealth(of runs: [[Answer]], against rate: Double) -> Wealth {
+        runs.reduce(into: Wealth(against: rate, pickChance: settings.pickChance)) { $0.add(run: $1) }
+    }
+
+    private func rightRunsToEarn(from start: Wealth, threshold: Double) -> Int {
         var wealth = start
         var more = 0
         while wealth.value < threshold {
-            wealth.add(Answer(wrong: false, chance: AuditPolicy.pickChance))
+            wealth.add(Answer(wrong: false, chance: settings.pickChance))
             more += 1
         }
         return more
@@ -162,8 +169,8 @@ public struct Certificate: Sendable, Equatable {
 
     /// The least wrong rate the bettor can still bet against with enough wealth to count: the upper end of the
     /// confidence sequence. The wealth only grows with the rate, so a bisection finds it below `allowedWrong`.
-    private static func upperBound(of runs: [[Answer]], threshold: Double) -> Double {
-        var (low, high) = (0.0, allowedWrong)
+    private func upperBound(of runs: [[Answer]], threshold: Double) -> Double {
+        var (low, high) = (0.0, settings.allowedWrong)
         for _ in 0..<40 {
             let middle = (low + high) / 2
             if wealth(of: runs, against: middle).value >= threshold { high = middle } else { low = middle }
@@ -178,21 +185,24 @@ public struct Certificate: Sendable, Equatable {
 /// its wealth falls below 1, so a long good stretch does not hide a later jump. It is raised when the mean wealth
 /// reaches 1 / `delta`; under "wrong at most `rate`" the runs to a false alarm are at least 1 / `delta` on average.
 public struct DriftAlarm: Sendable, Equatable {
-    public static let delta = 0.001
-
     private let rate: Double
     private let level: Double
+    private let pickChance: Double
     private var perBet = Array(repeating: 1.0, count: EProcess.grid.count)
 
-    public init(against rate: Double = Certificate.allowedWrong, delta: Double = DriftAlarm.delta) {
+    public init(
+        against rate: Double = RunSettings.standard.allowedWrong, delta: Double = RunSettings.standard.delta,
+        pickChance: Double = RunSettings.standard.pickChance
+    ) {
         self.rate = rate
         level = 1 / delta
+        self.pickChance = pickChance
     }
 
     /// One step for all the answers of one run. A bet is a share `g` of the most the bettor may risk, 1 / rate per
     /// unit of step.
     public mutating func add(run: [Certificate.Answer]) {
-        guard let step = Certificate.step(of: run, against: rate) else { return }
+        guard let step = Certificate.step(of: run, against: rate, pickChance: pickChance) else { return }
         for (index, bet) in EProcess.grid.enumerated() {
             perBet[index] = max(perBet[index], 1) * (1 - bet / rate * step)
         }

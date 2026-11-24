@@ -4,8 +4,6 @@ import GRDB
 /// The first morning list offers to clear the backlog: "mark everything older than N days as handled" (research P1
 /// §3.2, Superhuman's "Get Me To Zero"). N is a setting.
 public enum FirstRun {
-    /// The default for N, the backlog cutoff of Superhuman (research P1 §3.2).
-    public static let defaultDays = 7
     /// The outcome of a fact that the cutoff closes.
     public static let outcome = "handled"
 

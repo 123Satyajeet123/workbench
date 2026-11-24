@@ -19,11 +19,12 @@ let designs = [
 
 func p3() {
     let simulation = WeightedAuditSimulation()
-    let allowed = Certificate.allowedWrong
+    let allowed = RunSettings.standard.allowedWrong
     print(
         "== P3 weighted e-process, unequal pick chances. seed \(simulation.seed), \(simulation.trials) trials, "
             + "read after every run; run sizes \(AuditPopulation.usualSizes.map(\.size)); bar e >= "
-            + "\(Int(Certificate.threshold)) (at most \(percent(1 - Certificate.confidence)) false-earn allowed)")
+            + "\(Int(RunSettings.standard.threshold)) (at most \(percent(1 - RunSettings.standard.confidence)) false-earn allowed)"
+    )
     print("\nnull: item wrong rate \(percent(allowed)), 10 picks a day, \(simulation.horizonDays) days")
     row([("design", 25), ("wrong items", 40)] + AuditReading.allCases.map { ($0.rawValue, 11) })
     for design in designs {
@@ -74,7 +75,7 @@ func p4() {
         "\n== P4 non-response. seed \(simulation.seed), \(simulation.trials) trials, \(design.name), 10 picks a day, "
             + "\(simulation.horizonDays) days, expiry \(simulation.expiryDays) days, drift restarts on")
     let header = [("true wrong", 11), ("skip wrong", 11), ("skip right", 11)]
-    print("\nfalse-earn (true rate at or above \(percent(Certificate.allowedWrong)))")
+    print("\nfalse-earn (true rate at or above \(percent(RunSettings.standard.allowedWrong)))")
     row(header + NonResponseRule.allCases.map { ($0.rawValue, 22) })
     for wrong in [0.10, 0.12] {
         for (skipWrong, skipRight) in [(0.0, 0.0), (0.1, 0.1), (0.3, 0.0), (0.3, 0.1), (0.5, 0.1)] {
@@ -188,7 +189,7 @@ func p9() {
 func p10() {
     let cost = CertificateCost()
     print(
-        "\n== P10 read cost. seed \(cost.seed), \(cost.answersPerRun) answers a run at chance \(AuditPolicy.pickChance); "
+        "\n== P10 read cost. seed \(cost.seed), \(cost.answersPerRun) answers a run at chance \(RunSettings.standard.pickChance); "
             + "replay = Certificate.status, median of 5 reads; kept = add one run and read, mean of the last 1,000 runs"
     )
     row([("runs", 9), ("wrong", 7), ("replay read", 14), ("status", 22), ("kept read", 12), ("kept bound", 10)])
@@ -213,10 +214,11 @@ func p10() {
 
 func item() {
     var simulation = ItemLevelSimulation()
-    let allowed = Certificate.allowedWrong
+    let allowed = RunSettings.standard.allowedWrong
     print(
         "\n== Item-level step. seed \(simulation.seed), \(simulation.trials) trials, read after every run; draw order, "
-            + "expired (\(simulation.expiryDays) days) = wrong in every step; bar e >= \(Int(Certificate.threshold))")
+            + "expired (\(simulation.expiryDays) days) = wrong in every step; bar e >= \(Int(RunSettings.standard.threshold))"
+    )
     print(
         "\nnull, \(simulation.horizonDays) days, 10 picks a day. Cell = false-earn against the model rate / against the "
             + "facts drawn so far (design-based)")

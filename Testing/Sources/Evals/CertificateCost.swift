@@ -12,13 +12,14 @@ public struct CertificateCost: Sendable {
 
     public init() {}
 
-    /// The audit answers of `runs` runs at `wrongRate`, each item picked at `AuditPolicy.pickChance`.
+    /// The audit answers of `runs` runs at `wrongRate`, each item picked at `RunSettings.standard.pickChance`.
     public func answers(runs: Int, wrongRate: Double) -> [Certificate.Answer] {
         var generator = SeededGenerator(seed: seed)
         return (0..<runs).flatMap { run in
             (0..<Int.random(in: answersPerRun, using: &generator)).map { _ in
                 Certificate.Answer(
-                    wrong: Double.random(in: 0..<1, using: &generator) < wrongRate, chance: AuditPolicy.pickChance,
+                    wrong: Double.random(in: 0..<1, using: &generator) < wrongRate,
+                    chance: RunSettings.standard.pickChance,
                     run: Int64(run))
             }
         }
@@ -50,14 +51,14 @@ public struct CertificateCost: Sendable {
             }
             wealth.add(run: run)
             for index in grid.indices { grid[index].add(run: run) }
-            earned = earned || wealth.value >= Certificate.threshold
+            earned = earned || wealth.value >= RunSettings.standard.threshold
         }
 
         /// As `Certificate.status`: once earned since the last alarm, the least grid rate whose wealth is at its bar.
         var bound: Double? {
             guard earned else { return nil }
-            return zip(CertificateCost.boundGrid, grid).first { $0.1.value >= Certificate.threshold }?.0
-                ?? Certificate.allowedWrong
+            return zip(CertificateCost.boundGrid, grid).first { $0.1.value >= RunSettings.standard.threshold }?.0
+                ?? RunSettings.standard.allowedWrong
         }
     }
 

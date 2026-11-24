@@ -125,7 +125,7 @@ import Testing
 @Suite struct AutonomyTests {
     private func clean(_ runs: Int) -> Certificate {
         Certificate(
-            answers: (0..<runs).map { _ in Certificate.Answer(wrong: false, chance: AuditPolicy.pickChance) })
+            answers: (0..<runs).map { _ in Certificate.Answer(wrong: false, chance: RunSettings.standard.pickChance) })
     }
 
     @Test func noMarksIsAskAndAFrozenJudgeIsSuggest() {

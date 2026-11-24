@@ -1,5 +1,7 @@
 import Foundation
 
+private let settings = RunSettings.standard
+
 /// Mochi's morning brief: what happened on a day, what is stuck, and what to do first, written from the items every
 /// machine found that day. Each line cites the items it rests on, so it can be traced to the words they came from.
 public struct MorningBrief: Codable, Sendable, Equatable {
@@ -52,7 +54,6 @@ public struct Briefer: ProfiledModelTask {
     public typealias Source = CitedSource
 
     public static let task = "mochi.brief"
-    public static let maximumLines = 8
 
     static let template = """
         You are Mochi, chief of staff to {a role}. You get the items {the role's} machines found on one work day, \
@@ -60,7 +61,7 @@ public struct Briefer: ProfiledModelTask {
         {the role}. Write the morning brief for the next day.
         - headline: one sentence, the single thing that most needs {the role} today. If nothing does, say it is a \
         quiet day.
-        - lines: at most eight, fewer is better, each one sentence with who and what:
+        - lines: at most \(settings.briefLines.spelledOut), fewer is better, each one sentence with who and what:
           - kind "ask": someone waits on {the role} for a decision, a reply or an approval.
           - kind "stuck": what is blocked or waiting, and on whom.
           - kind "happened": what got done or decided, grouped by project or person where the items show it.
@@ -102,7 +103,7 @@ public struct Briefer: ProfiledModelTask {
         let given = Set(sources.compactMap(\.item.id))
         var kept: [MorningBrief.Line] = []
         for raw in reply.lines {
-            guard kept.count < Self.maximumLines, let kind = MorningBrief.Line.Kind(rawValue: raw.kind),
+            guard kept.count < settings.briefLines, let kind = MorningBrief.Line.Kind(rawValue: raw.kind),
                 let basis = MorningBrief.Line.Basis(rawValue: raw.basis), let text = raw.text.cleaned,
                 Cites.hold(raw.cites, within: given)
             else { continue }

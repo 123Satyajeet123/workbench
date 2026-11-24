@@ -25,8 +25,8 @@ struct MailFeed {
             attachments: letter.attachments.map(\.name))
         var frames = NativeMessage.frame(try JSONEncoder().encode(message))
         for deck in letter.attachments {
-            let pieces = stride(from: 0, to: max(deck.data.count, 1), by: DeckChunk.size).map {
-                deck.data[$0..<min($0 + DeckChunk.size, deck.data.count)]
+            let pieces = stride(from: 0, to: max(deck.data.count, 1), by: RunSettings.standard.deckChunkBytes).map {
+                deck.data[$0..<min($0 + RunSettings.standard.deckChunkBytes, deck.data.count)]
             }
             for (index, piece) in pieces.enumerated() {
                 let chunk = DeckChunk(

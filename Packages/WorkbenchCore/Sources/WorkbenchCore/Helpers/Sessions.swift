@@ -65,11 +65,6 @@ public struct ScreenStretches: Sendable {
 
 /// Turns the activity log into sessions. Code only joins time: what a session means is the model's call.
 public enum Sessions {
-    /// A gap up to this long between two sessions on the same window joins them.
-    public static let joinGap: TimeInterval = 120
-    /// Shorter sessions are passes through a window on the way to another, and are left out.
-    public static let shortest: TimeInterval = 10
-
     /// The sessions inside `start..<end`.
     public static func make(from activities: [Activity], start: Date, end: Date) -> [ScreenSession] {
         var stretches = ScreenStretches()
@@ -84,13 +79,14 @@ public enum Sessions {
             session.start = max(session.start, start)
             return session.end > session.start ? session : nil
         }
+        let shortest = RunSettings.standard.sessionShortestSeconds
         return joined(joined(clipped).filter { $0.end.timeIntervalSince($0.start) >= shortest })
     }
 
     private static func joined(_ sessions: [ScreenSession]) -> [ScreenSession] {
         sessions.reduce(into: []) { result, session in
             if let last = result.last, last.isSameWindow(as: session),
-                session.start.timeIntervalSince(last.end) <= joinGap
+                session.start.timeIntervalSince(last.end) <= RunSettings.standard.sessionJoinSeconds
             {
                 result[result.count - 1].end = session.end
             } else {

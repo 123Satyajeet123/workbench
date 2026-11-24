@@ -15,11 +15,15 @@ public struct OutboundReader: Sendable {
 
     /// A page is read alone, so its one line is always number 1.
     public func read(_ page: FetchedPage, fetched: Date) async throws -> HelperReader.Result {
-        let text = String(page.text.prefix(Outbound.pageBudget))
+        let text = String(page.text.prefix(RunSettings.standard.pageCharacters))
         let line = Evidence(
             id: Outbound.pageLine, start: fetched, line: "\(page.url.absoluteString) — \(text)", quotable: [text])
         let read = try await HelperReader(spec: spec, model: model).read(
             day: WorkDay(containing: fetched), scope: "", evidence: EvidenceSet(lines: [line]))
+        if let run = read.run {
+            try model.record(
+                [LeftOut(.pageCharacters, count: page.text.count - text.count)], of: run)
+        }
         let words = CompanyName.words(text)
         var kept: [Item] = []
         for item in read.items {

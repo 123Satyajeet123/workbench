@@ -91,8 +91,8 @@ enum DriverProbe {
         claims: [Claim], results: [SearchResult], fetched: [String: String], browsed: [String: String]
     ) -> Recall {
         let addresses = Set(results.flatMap { $0.results.map(\.url) })
-        let unreadable = addresses.filter { (fetched[$0] ?? "").count < RoutedPageReader.readableCharacters }
-        let readable = unreadable.filter { (browsed[$0] ?? "").count >= RoutedPageReader.readableCharacters }
+        let unreadable = addresses.filter { (fetched[$0] ?? "").count < RunSettings.standard.readablePageCharacters }
+        let readable = unreadable.filter { (browsed[$0] ?? "").count >= RunSettings.standard.readablePageCharacters }
         func holdsValue(_ claim: Claim, in texts: [String]) -> Bool {
             texts.contains { fold($0).contains(fold(claim.trueValue)) && fold($0).contains(fold(claim.company)) }
         }

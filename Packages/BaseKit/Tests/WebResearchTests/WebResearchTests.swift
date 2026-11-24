@@ -57,7 +57,7 @@ import WorkbenchCore
         }
         let web = try #require(
             CapturePolicy(switches: [.web: true]).authorize(
-                CaptureRequest(kind: .web), at: now.addingTimeInterval(-CapturePolicy.grantLifetime - 5)
+                CaptureRequest(kind: .web), at: now.addingTimeInterval(-RunSettings.standard.grantLifetimeSeconds - 5)
             ).grant)
         await #expect(throws: WebBlock.grantExpired) { try await WebTransport(grant: web).send(request, limit: 10) }
     }

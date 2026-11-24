@@ -26,7 +26,10 @@ let populations: [(name: String, build: (Double) -> AuditPopulation)] = [
 ]
 let policies: [(name: String, policy: PickPolicy)] = [
     ("one item per reading (before)", .onePerReading),
-    ("each item at chance \(AuditPolicy.pickChance) (now)", .eachItem(chance: AuditPolicy.pickChance)),
+    (
+        "each item at chance \(RunSettings.standard.pickChance) (now)",
+        .eachItem(chance: RunSettings.standard.pickChance)
+    ),
 ]
 for (policyName, policy) in policies {
     var simulation = base
@@ -54,8 +57,8 @@ func printCorrelatedRuns() {
     let simulation = CorrelatedRunSimulation()
     print(
         "\n== correlated runs: false certification at a true wrong rate of \(trimmed(allowed)); runs of size "
-            + "\(CorrelatedRuns.sizes), each item picked at \(AuditPolicy.pickChance), up to \(simulation.horizonSteps) "
-            + "steps, \(simulation.trials) trials, bar at most \(trimmed(1 - Certificate.confidence))"
+            + "\(CorrelatedRuns.sizes), each item picked at \(RunSettings.standard.pickChance), up to \(simulation.horizonSteps) "
+            + "steps, \(simulation.trials) trials, bar at most \(trimmed(1 - RunSettings.standard.confidence))"
     )
     print(cell("concentration", 16) + StepRule.allCases.map { cell($0.rawValue, 40) }.joined())
     for concentration in [2.0, 10, 1000] {
@@ -96,7 +99,7 @@ func printDrift(_ drift: DriftSimulation) {
 
 printCorrelatedRuns()
 for concentration in [10.0, 1000] {
-    for delta in [0.1, 0.01, DriftAlarm.delta] {
+    for delta in [0.1, 0.01, RunSettings.standard.delta] {
         var drift = DriftSimulation()
         drift.concentration = concentration
         drift.delta = delta

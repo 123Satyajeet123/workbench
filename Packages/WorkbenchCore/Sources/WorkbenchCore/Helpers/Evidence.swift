@@ -72,7 +72,7 @@ public struct EvidenceSet: Sendable, Equatable {
     public var newLines: [Evidence] { lines.filter { !isRead($0.id) } }
 
     /// The new lines, with up to `context` earlier lines before them so a reply such as "done" keeps its question.
-    public func marking(read: Set<Int64>, context: Int = 20) -> EvidenceSet {
+    public func marking(read: Set<Int64>, context: Int = RunSettings.standard.contextLines) -> EvidenceSet {
         guard !read.isEmpty else { return self }
         let marked = EvidenceSet(lines: lines, context: self.context, read: read)
         let seen = lines.filter { marked.isRead($0.id) }.suffix(context)

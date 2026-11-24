@@ -25,10 +25,6 @@ public enum PageReadout: Sendable, Equatable {
 /// little text. A page still unreadable after the browser ends as "could not read". It is never tried again. When the
 /// browser was not used (none connected, the gate refused, a cap), the fetch result stands as it is, short or not.
 public struct RoutedPageReader: Sendable {
-    /// Characters of text under which a fetched page counts as unreadable. Measured on 148 result pages (dev): 108
-    /// had at least this much. Probe P3 re-checks it.
-    public static let readableCharacters = 500
-
     private let fetcher: any PageFetching
     private let driver: any PageDriving
 
@@ -51,5 +47,7 @@ public struct RoutedPageReader: Sendable {
         }
     }
 
-    static func isReadable(_ page: FetchedPage) -> Bool { page.text.count >= readableCharacters }
+    static func isReadable(_ page: FetchedPage) -> Bool {
+        page.text.count >= RunSettings.standard.readablePageCharacters
+    }
 }

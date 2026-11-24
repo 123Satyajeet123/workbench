@@ -163,15 +163,31 @@ extension Queries {
         try liveObjects(of: ObjectHandles.placeTypes, limit: limit)
     }
 
-    /// The objects a model may be shown for a reading of `spec`: the places a fact may be filed under, every kind that
-    /// holds facts, the first `limit` of them; then the first `limit` objects of the type of each field of the spec
-    /// that refers to an object. An object that is in both lists comes once.
-    public func objectsToShow(for spec: HelperSpec, limit: Int = 40) throws -> [WorkObject] {
-        let places = try filingPlaces(limit: limit)
-        let referred = try spec.objectRefs.compactMap(\.kind.objectType).flatMap {
-            try liveObjects(of: [$0], limit: limit)
+    private func liveObjectCount(of types: [TypeID]) throws -> Int {
+        try reader.read { db in
+            try Int.fetchOne(
+                db,
+                sql:
+                    "SELECT COUNT(*) FROM work_object WHERE archived_at IS NULL AND type IN (SELECT value FROM json_each(?))",
+                arguments: [try Coding.json(types)]) ?? 0
         }
-        return places + referred.filter { object in !places.contains { $0.id == object.id } }
+    }
+
+    /// The objects a model may be shown for a reading of `spec`: the places a fact may be filed under, every kind that
+    /// holds facts, the first `RunSettings.objectsShownPerType` of them; then that many objects of the type of each
+    /// field of the spec that refers to an object. An object that is in both lists comes once. `leftOut` counts the
+    /// objects beyond the first of each list.
+    public func objectsToShow(for spec: HelperSpec) throws -> Capped<WorkObject> {
+        let limit = try runSettings().objectsShownPerType
+        let lists = [ObjectHandles.placeTypes] + spec.objectRefs.compactMap(\.kind.objectType).map { [$0] }
+        var shown: [WorkObject] = []
+        var leftOut = 0
+        for types in lists {
+            let objects = try liveObjects(of: types, limit: limit)
+            leftOut += try liveObjectCount(of: types) - objects.count
+            shown += objects.filter { object in !shown.contains { $0.id == object.id } }
+        }
+        return Capped(shown, leftOut: leftOut)
     }
 
     /// The objects the condition selects, each with the events of its own, in `order`.

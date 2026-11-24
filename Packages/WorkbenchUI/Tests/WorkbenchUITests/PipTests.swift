@@ -212,7 +212,7 @@ import WorkbenchCore
         await team.read()
         let question = try #require(team.question)
         #expect(team.mood == .asking)
-        #expect(question.askedWith == AuditPolicy.pickChance)
+        #expect(question.askedWith == RunSettings.standard.pickChance)
         #expect(team.items.filter { $0.askedWith != nil }.count == 1)
         team.mark(question, as: .confirmed)
         #expect(team.question == nil)
@@ -220,7 +220,9 @@ import WorkbenchCore
         #expect(team.trust != nil)
         #expect(
             try store.queries.quality().first?.audited
-                == AuditEstimate(marks: 1, rightWeight: 1 / AuditPolicy.pickChance, weight: 1 / AuditPolicy.pickChance))
+                == AuditEstimate(
+                    marks: 1, rightWeight: 1 / RunSettings.standard.pickChance,
+                    weight: 1 / RunSettings.standard.pickChance))
     }
 
     @Test func withNoGroupChosenNothingIsRead() async throws {

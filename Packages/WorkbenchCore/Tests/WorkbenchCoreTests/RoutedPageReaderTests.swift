@@ -27,8 +27,8 @@ import Testing
     }
 
     private let url = URL(string: "https://news.example.com/a")!
-    private let enough = String(repeating: "x", count: RoutedPageReader.readableCharacters)
-    private let tooShort = String(repeating: "x", count: RoutedPageReader.readableCharacters - 1)
+    private let enough = String(repeating: "x", count: RunSettings.standard.readablePageCharacters)
+    private let tooShort = String(repeating: "x", count: RunSettings.standard.readablePageCharacters - 1)
 
     @Test func aPageTheFetchReadsIsNeverOpenedInTheBrowser() async {
         let (fetcher, browser) = (Fetcher(result: .success(enough)), Browser(result: .success(enough)))

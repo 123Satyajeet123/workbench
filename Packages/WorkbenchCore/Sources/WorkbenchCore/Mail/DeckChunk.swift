@@ -1,7 +1,7 @@
 import Foundation
 
 /// One piece of a PDF attachment ("type": "mail_deck"). A message to the host is at most `NativeMessage.maximumLength`
-/// bytes, so a deck travels in chunks of `size` bytes, each in base64.
+/// bytes, so a deck travels in chunks of `RunSettings.deckChunkBytes` bytes, each in base64.
 public struct DeckChunk: Codable, Sendable, Equatable {
     public var type = "mail_deck"
     public var context: MailContext
@@ -18,11 +18,6 @@ public struct DeckChunk: Codable, Sendable, Equatable {
         self.count = count
         self.data = data
     }
-
-    /// Bytes of a deck in one chunk. Their base64 form and its envelope stay under the frame limit.
-    public static let size = 512 * 1024
-    /// Chunks of one deck at most, so a deck is at most 32 MiB.
-    public static let maximumCount = 64
 }
 
 /// Chunks that have come in and are not yet a whole deck. A deck is complete when every index of its count is here.
@@ -42,7 +37,7 @@ public final class DeckAssembly {
 
     /// The whole deck once its last chunk is in; nil while chunks are missing or when the chunk is not valid.
     func add(_ chunk: DeckChunk) -> Data? {
-        guard (1...DeckChunk.maximumCount).contains(chunk.count), (0..<chunk.count).contains(chunk.index),
+        guard (1...RunSettings.standard.deckChunks).contains(chunk.count), (0..<chunk.count).contains(chunk.index),
             let bytes = Data(base64Encoded: chunk.data)
         else { return nil }
         let key = Key(messageID: chunk.context.messageId, name: chunk.name)

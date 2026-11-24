@@ -109,7 +109,7 @@ struct BrowserProbeLiveTests {
         let addresses = Array(Set(results.flatMap { $0.results.map(\.url) })).sorted()
         var fetched: [String: String] = [:]
         for address in addresses { fetched[address] = await plainText(of: address) }
-        let unreadable = addresses.filter { (fetched[$0] ?? "").count < RoutedPageReader.readableCharacters }
+        let unreadable = addresses.filter { (fetched[$0] ?? "").count < RunSettings.standard.readablePageCharacters }
 
         let listener = try await Live.listenForTheBrowser()
         var limits = DriverLimits()
@@ -128,8 +128,8 @@ struct BrowserProbeLiveTests {
             "p3",
             [
                 "dev claims, \(recall.claims) claims, \(recall.pages) result pages",
-                "plain fetch under \(RoutedPageReader.readableCharacters) characters: \(recall.plainUnreadable)",
-                "browser read \(RoutedPageReader.readableCharacters)+ characters: \(recall.browserReadable)",
+                "plain fetch under \(RunSettings.standard.readablePageCharacters) characters: \(recall.plainUnreadable)",
+                "browser read \(RunSettings.standard.readablePageCharacters)+ characters: \(recall.browserReadable)",
                 "claims with the true value and the company on a fetched page: \(recall.claimsWithValueFromFetch)",
                 "claims with the true value and the company after the browser: \(recall.claimsWithValueAfterBrowser)",
             ])

@@ -21,19 +21,17 @@ extension ClassifiedFailure {
 
 /// What a failed call does next, as data.
 public struct FailurePolicy: Sendable {
-    /// A timed-out call is tried again this many times.
-    public var timeOutRetries = 1
-    /// The wait before a retry is drawn from 0..<`retryWindow`: "Full Jitter" of the AWS Architecture Blog.
-    public var retryWindow = Duration.seconds(10)
-    /// How long calls stop at a limit whose reset the source did not give.
-    public var limitWithoutReset: TimeInterval = 3600
+    /// A timed-out call is tried again `timeOutRetries` times. The wait before a retry is drawn from
+    /// 0..<`retryWindowSeconds`: "Full Jitter" of the AWS Architecture Blog. A limit whose reset the source did not
+    /// give stops calls for `limitWithoutResetSeconds`.
+    public var settings = RunSettings.standard
     public var wait: @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
     /// A number in 0..<1.
     public var jitter: @Sendable () -> Double = { .random(in: 0..<1) }
 
     public init() {}
 
-    func waitBeforeRetry() async throws { try await wait(retryWindow * jitter()) }
+    func waitBeforeRetry() async throws { try await wait(.seconds(settings.retryWindowSeconds) * jitter()) }
 }
 
 /// A call refused because the plan is at its limit. Nothing is sent, and no run is made.
@@ -73,7 +71,7 @@ extension Store {
     func pauseIfLimited(_ model: any StructuredModel, by error: any Error, policy: FailurePolicy) throws {
         guard let plan = model.planName, let failure = error as? any ClassifiedFailure, failure.failure == .limit
         else { return }
-        try pauseModel(plan: plan, until: failure.resetsAt ?? clock() + policy.limitWithoutReset)
+        try pauseModel(plan: plan, until: failure.resetsAt ?? clock() + policy.settings.limitWithoutResetSeconds)
     }
 }
 

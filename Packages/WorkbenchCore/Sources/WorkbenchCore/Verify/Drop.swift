@@ -34,6 +34,8 @@ public enum DropRule: String, CaseIterable, Sendable {
     case factNotCited = "fact_not_cited"
     /// A check failed with an error. A proposal that was not fully checked is never kept.
     case verifierError = "verifier_error"
+    /// Not a proposal: a count of what a cap in `RunSettings` kept from the model's input. See `LeftOut`.
+    case leftOut = "left_out"
 }
 
 /// A proposal the verifier refused: what the model wrote and the rule it broke.

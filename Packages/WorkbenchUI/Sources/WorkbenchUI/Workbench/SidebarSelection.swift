@@ -120,11 +120,11 @@ enum SidebarSelection: Hashable, Identifiable, RawRepresentable {
         case .projects:
             "Where each project stands: decisions, open questions, blockers and promises."
         case .calls:
-            "Each call stays on this Mac for \(Int(CapturePolicy.retention / 86_400)) days. A call that could not be saved says why."
+            "Each call stays on this Mac for \(Int(Double(RunSettings.standard.captureRetentionDays) * 86_400 / 86_400)) days. A call that could not be saved says why."
         case .deals:
             "Your team's deals, one column per stage. Open a deal to see where it came from and what it needs next."
         case .mochi:
-            "Mochi gathers what every machine found: what needs you, today's meetings, follow-ups from calls, your team and your projects. After \(Mochi.minimumDays) work days, Mochi suggests machines for work you repeat."
+            "Mochi gathers what every machine found: what needs you, today's meetings, follow-ups from calls, your team and your projects. After \(RunSettings.standard.proposalDays) work days, Mochi suggests machines for work you repeat."
         case .timeline:
             "Your day in blocks of work. Each block joins the windows you used for one task, even across apps, read from your screen."
         case .crew:

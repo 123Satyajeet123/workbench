@@ -54,11 +54,6 @@ public struct TimeRecord: Codable, Sendable, Equatable {
         case none
     }
 
-    /// The most days from the line that a record may reach. A larger number is not a closed record.
-    public static let maximumOffsetDays = 365
-    /// The most minutes from the line that a relative time may reach: one week.
-    public static let maximumOffsetMinutes = 7 * 24 * 60
-    public static let years = 2000...2100
     public static let noClockHour = -1
 
     public var direction: Direction
@@ -138,8 +133,10 @@ public struct TimeRecord: Codable, Sendable, Equatable {
     }
 
     private var isInBounds: Bool {
-        abs(offsetDays) <= Self.maximumOffsetDays && abs(offsetMinutes) <= Self.maximumOffsetMinutes
-            && (0...31).contains(dayOfMonth) && (0...12).contains(month) && (year == 0 || Self.years.contains(year))
+        abs(offsetDays) <= RunSettings.standard.timeOffsetDays
+            && abs(offsetMinutes) <= RunSettings.standard.timeOffsetMinutes
+            && (0...31).contains(dayOfMonth) && (0...12).contains(month)
+            && (year == 0 || RunSettings.standard.timeYears.contains(year))
             && (Self.noClockHour...23).contains(clockHour) && (0...59).contains(clockMinute)
     }
 

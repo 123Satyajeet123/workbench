@@ -199,7 +199,8 @@ public final class CaptureService {
     func pruneIfDue(at now: Date) async {
         guard now.timeIntervalSince(lastPrune) >= 3600 else { return }
         lastPrune = now
-        let pruned = await loop.forget(before: now.addingTimeInterval(-CapturePolicy.retention))
+        let pruned = await loop.forget(
+            before: now.addingTimeInterval(-Double(RunSettings.standard.captureRetentionDays) * 86_400))
         let kept = await loop.keepStoreSafe()
         report(pruned ?? kept)
     }

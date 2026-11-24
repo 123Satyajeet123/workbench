@@ -159,7 +159,8 @@ extension WhatsAppChatReader: EvidenceSource {
     /// Whether the message was sent within the retention: how far back anything reads.
     private func isRecent(_ message: Message, now: Date) -> Bool {
         guard let time = message.time else { return false }
-        return Double(UTCInstant(now).milliseconds - time.milliseconds) / 1000 < CapturePolicy.retention
+        return Double(UTCInstant(now).milliseconds - time.milliseconds) / 1000 < Double(
+            RunSettings.standard.captureRetentionDays) * 86_400
     }
 
     /// A path counts only when the file exists inside the container's `Message` folder.

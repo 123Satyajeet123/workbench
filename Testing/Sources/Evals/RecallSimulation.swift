@@ -25,7 +25,7 @@ public struct RecallSimulation: Sendable {
     public var days = 14
     public var factsPerDay = 16
     public var precision = 0.9
-    public var auditChance = AuditPolicy.pickChance
+    public var auditChance = RunSettings.standard.pickChance
     public var trials = 2_000
     public var resamples = 400
     /// The chance that the ratio bound or a two-sided interval misses the truth.

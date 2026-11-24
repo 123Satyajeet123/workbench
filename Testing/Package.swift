@@ -32,6 +32,7 @@ let package = Package(
         .executable(name: "linkedin-import", targets: ["LinkedInImportDemo"]),
         .executable(name: "source-registry", targets: ["SourceRegistryDemo"]),
         .executable(name: "text-rules", targets: ["TextRulesDemo"]),
+        .executable(name: "run-settings", targets: ["RunSettingsDemo"]),
         .executable(name: "recall-probe", targets: ["RecallProbe"]),
         .executable(name: "bugfix-check", targets: ["BugfixCheck"]),
         .executable(name: "provenance-check", targets: ["ProvenanceCheck"]),
@@ -116,6 +117,9 @@ let package = Package(
         .executableTarget(name: "SourceRegistryDemo", dependencies: ["WorkbenchCore"]),
         .executableTarget(
             name: "TextRulesDemo", dependencies: ["WorkbenchCore", .product(name: "AgentCLI", package: "BaseKit")],
+            swiftSettings: [.defaultIsolation(MainActor.self)]),
+        .executableTarget(
+            name: "RunSettingsDemo", dependencies: ["WorkbenchCore", .product(name: "AgentCLI", package: "BaseKit")],
             swiftSettings: [.defaultIsolation(MainActor.self)]),
         .executableTarget(name: "InjectCorpusCheck", dependencies: ["Evals"]),
         .executableTarget(

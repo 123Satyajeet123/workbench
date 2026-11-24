@@ -67,7 +67,7 @@ public enum StepRule: String, Sendable, CaseIterable {
     case perRun = "one step per run (now)"
 }
 
-/// How often a certificate earns when the helper's wrong rate is exactly `Certificate.allowedWrong`, so every
+/// How often a certificate earns when the helper's wrong rate is exactly `RunSettings.standard.allowedWrong`, so every
 /// "earned" is false, with items of a run alike.
 public struct CorrelatedRunSimulation: Sendable {
     public var trials = 4_000
@@ -89,12 +89,13 @@ public struct CorrelatedRunSimulation: Sendable {
         var steps = 0
         while steps < horizonSteps {
             let answers = runs.auditedAnswers(
-                wrongMean: Certificate.allowedWrong, chance: AuditPolicy.pickChance, keepRun: rule == .perRun)
+                wrongMean: RunSettings.standard.allowedWrong, chance: RunSettings.standard.pickChance,
+                keepRun: rule == .perRun)
             let stepsFromRun = rule == .perRun ? [answers] : answers.map { [$0] }
             for step in stepsFromRun where !step.isEmpty {
                 wealth.add(run: step)
                 steps += 1
-                if wealth.value >= Certificate.threshold { return true }
+                if wealth.value >= RunSettings.standard.threshold { return true }
             }
         }
         return false

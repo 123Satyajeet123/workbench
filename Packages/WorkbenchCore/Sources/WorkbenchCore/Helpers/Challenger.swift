@@ -62,12 +62,12 @@ public struct Trial: Sendable, Equatable {
 /// chance it ever reaches 1/α when nothing is there is at most α (Ville's inequality). Each process is the average
 /// over a grid of bet sizes, which is itself an e-process. One tool serves promotion and rollback (research 20 §3.2).
 public enum EProcess {
-    /// The share of false verdicts the whole test may give.
-    public static let level = 0.10
     static let grid = (1...9).map { Double($0) / 10 }
 
     /// Both directions, and every challenger tried in the window, share the level (Bonferroni on e-values).
-    public static func threshold(challengers: Int) -> Double { 2 * Double(max(challengers, 1)) / level }
+    public static func threshold(challengers: Int) -> Double {
+        2 * Double(max(challengers, 1)) / RunSettings.standard.challengerLevel
+    }
 
     /// Better when the bet on "the challenger wins differences" reaches the threshold first; worse when the bet on
     /// "it loses them" does. Measured on synthetic data (A = 20, 4,000 runs): with no real difference 3.9% false
