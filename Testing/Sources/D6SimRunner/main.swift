@@ -2,8 +2,8 @@ import Evals
 import Foundation
 import WorkbenchCore
 
-// The D6 simulations (research 86 Decision 7): P3, P4, P7, P9, P10. Usage: d6-sim [p3|p4|p7|p9|p10]... (all when
-// none). Synthetic and seeded: no store, no model, no network. Every number is a simulation, not a measurement.
+// The D6 simulations (research 86 Decision 7): P3, P4, P7, P9, P10, and the item-level step. Usage:
+// d6-sim [p3|p4|p7|p9|p10|item]... (all when none). Synthetic and seeded: no store, no model, no network. Every number is a simulation, not a measurement.
 
 func percent(_ value: Double) -> String { String(format: "%.1f%%", 100 * value) }
 func cell(_ text: String, _ width: Int) -> String { text.padding(toLength: width, withPad: " ", startingAt: 0) }
@@ -211,9 +211,67 @@ func p10() {
     }
 }
 
-let probes: [String: () -> Void] = ["p3": p3, "p4": p4, "p7": p7, "p9": p9, "p10": p10]
+func item() {
+    var simulation = ItemLevelSimulation()
+    let allowed = Certificate.allowedWrong
+    print(
+        "\n== Item-level step. seed \(simulation.seed), \(simulation.trials) trials, read after every run; draw order, "
+            + "expired (\(simulation.expiryDays) days) = wrong in every step; bar e >= \(Int(Certificate.threshold))")
+    print(
+        "\nnull, \(simulation.horizonDays) days, 10 picks a day. Cell = false-earn against the model rate / against the "
+            + "facts drawn so far (design-based)")
+    row([("design", 25), ("wrong items", 34)] + ItemStep.allCases.map { ($0.rawValue, 14) })
+    let show = { (design: PickDesign, name: String, result: [ItemStep: ItemStepOutcome]) in
+        row(
+            [(design.name, 25), (name, 34)]
+                + ItemStep.allCases.map {
+                    ("\(percent(result[$0]!.firstEarned.shareEarned())) / \(percent(result[$0]!.designFalseEarn))", 14)
+                })
+    }
+    for design in designs {
+        let cases: [(String, AuditPopulation, PickDesign, Double?)] =
+            (design.strata.count == 1 ? [.even] : WrongPlacement.allCases).map {
+                ($0.rawValue, .mixed(itemWrongRate: allowed), design.placing($0), nil)
+            } + [
+                ("big runs worse", .bigReadingsWorse(itemWrongRate: allowed), design, nil),
+                ("items of a run alike (Beta 2)", .mixed(itemWrongRate: allowed), design, 2),
+                ("big runs worse + alike (Beta 2)", .bigReadingsWorse(itemWrongRate: allowed), design, 2),
+            ]
+        for (name, population, placed, concentration) in cases {
+            show(
+                design, name,
+                simulation.run(placed, population: population, picksPerDay: 10, concentration: concentration))
+        }
+    }
+    let skipped = simulation.run(
+        designs[0], population: .mixed(itemWrongRate: allowed), picksPerDay: 10, skipWrong: 0.3, skipRight: 0)
+    show(designs[0], "30% of wrong picks never answered", skipped)
+    let margin = simulation.run(designs[0], population: .bigReadingsWorse(itemWrongRate: 0.12), picksPerDay: 10)
+    show(designs[0], "big runs worse, item rate 12%", margin)
+
+    simulation.horizonDays = 120
+    print(
+        "\npower, same rate in every stratum, \(simulation.horizonDays) days. Cell = median days at 5 / 10 / 15 picks a day"
+    )
+    row([("design", 25), ("wrong", 7), ("skips", 7)] + ItemStep.allCases.map { ($0.rawValue, 14) })
+    for design in designs {
+        for (wrong, skip) in [(0.02, 0.0), (0.05, 0.0), (0.05, 0.02)] where skip == 0 || design.strata.count == 1 {
+            let results = [5.0, 10, 15].map {
+                simulation.run(
+                    design, population: .mixed(itemWrongRate: wrong), picksPerDay: $0, skipWrong: skip, skipRight: skip)
+            }
+            row(
+                [(design.name, 25), (percent(wrong), 7), (percent(skip), 7)]
+                    + ItemStep.allCases.map { step in
+                        (results.map { days($0[step]!.firstEarned.medianDay) }.joined(separator: " / "), 14)
+                    })
+        }
+    }
+}
+
+let probes: [String: () -> Void] = ["p3": p3, "p4": p4, "p7": p7, "p9": p9, "p10": p10, "item": item]
 let asked = CommandLine.arguments.dropFirst()
-for name in asked.isEmpty ? ["p3", "p4", "p7", "p9", "p10"] : Array(asked) {
+for name in asked.isEmpty ? ["p3", "p4", "p7", "p9", "p10", "item"] : Array(asked) {
     guard let probe = probes[name] else {
         print("unknown probe \(name); use \(probes.keys.sorted().joined(separator: ", "))")
         exit(1)

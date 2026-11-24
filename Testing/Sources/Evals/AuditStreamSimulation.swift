@@ -55,10 +55,18 @@ public struct PickDesign: Sendable {
     }
 }
 
-/// A picked item: whether it is wrong and the chance it had.
+/// A picked item: whether it is wrong, the chance it had, and its stratum in the design.
 public struct Pick: Sendable {
     public var wrong: Bool
     public var chance: Double
+    public var stratum: Int
+}
+
+/// A run as drawn: how many facts it made, how many of them are wrong, and its picks.
+public struct DrawnRun: Sendable {
+    public var facts: Int
+    public var wrongFacts: Int
+    public var picks: [Pick]
 }
 
 /// Days of runs whose items are picked by a design. Run sizes and their wrong rates come from an `AuditPopulation`;
@@ -69,6 +77,9 @@ public struct AuditStream {
     public var population: AuditPopulation
     public var picksPerDay: Double
     public var concentration: Double?
+    /// When true, a run keeps one of its picks, chosen at random, and the pick's chance is the chance it had of being
+    /// the one kept. Large runs are then picked more often but give one answer each: sampling in proportion to size.
+    public var keepsOnePickPerRun = false
     var generator: SeededGenerator
 
     public init(
@@ -82,26 +93,74 @@ public struct AuditStream {
         generator = SeededGenerator(seed: seed)
     }
 
-    private var meanRunSize: Double {
-        population.kinds.map { $0.share * Double($0.size) }.reduce(0, +)
+    private var meanPicksPerRun: Double {
+        population.kinds.map { kind in
+            let picks =
+                keepsOnePickPerRun
+                ? 1 - pow(1 - design.meanChance, Double(kind.size)) : Double(kind.size) * design.meanChance
+            return kind.share * picks
+        }.reduce(0, +)
     }
 
     /// The picks of each run of one day; a run with no pick is left out.
     public mutating func day() -> [[Pick]] {
-        let runs = generator.poisson(mean: picksPerDay / (meanRunSize * design.meanChance))
-        return (0..<runs).map { _ in run() }.filter { !$0.isEmpty }
+        drawnDay().map(\.picks).filter { !$0.isEmpty }
     }
 
-    private mutating func run() -> [Pick] {
+    /// Every run of one day, also the runs with no pick.
+    public mutating func drawnDay() -> [DrawnRun] {
+        let runs = generator.poisson(mean: picksPerDay / meanPicksPerRun)
+        return (0..<runs).map { _ in run() }
+    }
+
+    private mutating func run() -> DrawnRun {
         let kind = population.kinds[generator.index(byShare: population.kinds.map(\.share))]
         let rate =
             concentration.map { generator.beta(mean: kind.wrongRate, concentration: $0) } ?? kind.wrongRate
-        return (0..<kind.size).compactMap { _ in
-            let stratum = design.strata[generator.index(byShare: design.strata.map(\.share))]
+        var chances: [Double] = []
+        var picked: [(fact: Int, pick: Pick)] = []
+        var wrongFacts = 0
+        for fact in 0..<kind.size {
+            let index = generator.index(byShare: design.strata.map(\.share))
+            let stratum = design.strata[index]
             let wrong = Double.random(in: 0..<1, using: &generator) < rate * stratum.wrongFactor
-            guard Double.random(in: 0..<1, using: &generator) < stratum.chance else { return nil }
-            return Pick(wrong: wrong, chance: stratum.chance)
+            if wrong { wrongFacts += 1 }
+            chances.append(stratum.chance)
+            if Double.random(in: 0..<1, using: &generator) < stratum.chance {
+                picked.append((fact, Pick(wrong: wrong, chance: stratum.chance, stratum: index)))
+            }
         }
+        if keepsOnePickPerRun, let kept = picked.randomElement(using: &generator) {
+            var others = chances
+            others.remove(at: kept.fact)
+            var pick = kept.pick
+            pick.chance = Self.keptChance(pick.chance, others: others)
+            picked = [(kept.fact, pick)]
+        }
+        return DrawnRun(facts: kind.size, wrongFacts: wrongFacts, picks: picked.map(\.pick))
+    }
+
+    /// The chance a fact is the one its run keeps: its own pick chance times the mean of 1 / (1 + picks among the
+    /// other facts), the others picked each with its own chance.
+    static func keptChance(_ chance: Double, others: [Double]) -> Double {
+        var picksAmongOthers = [1.0]
+        for other in others {
+            var next = Array(repeating: 0.0, count: picksAmongOthers.count + 1)
+            for (count, probability) in picksAmongOthers.enumerated() {
+                next[count] += probability * (1 - other)
+                next[count + 1] += probability * other
+            }
+            picksAmongOthers = next
+        }
+        return chance * picksAmongOthers.enumerated().map { $0.element / Double($0.offset + 1) }.reduce(0, +)
+    }
+
+    /// The smallest chance `keptChance` can give in this design: a lowest-chance fact in a run of the largest size
+    /// whose other facts all have the highest chance.
+    var smallestKeptChance: Double {
+        let largest = population.kinds.map(\.size).max() ?? 1
+        let highest = design.strata.map(\.chance).max() ?? 1
+        return Self.keptChance(design.smallestChance, others: Array(repeating: highest, count: largest - 1))
     }
 }
 
