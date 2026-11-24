@@ -37,6 +37,14 @@ struct SummaryRow: Identifiable {
     var groupField: String? { summary.scope.split(separator: ":", maxSplits: 1).first.map(String.init) }
 }
 
+/// The facts of one machine whose facts only list, under its name.
+struct MachineFacts: Identifiable {
+    var name: String
+    var facts: [Item]
+
+    var id: String { name }
+}
+
 /// What Today, People and Projects show: the facts of the last seven days, the day's summaries, and the morning list:
 /// what the founder owes, what slipped, what waits on whom. It reads the store; the one model call it may start is the day's missing summaries. An action is a mark
 /// or an event, and can be taken back.
@@ -68,6 +76,8 @@ final class TodayModel {
     private(set) var passedNews: [Int64: [Item]] = [:]
     /// The follow-ups of the last calls: those still open, and those done in the window.
     private(set) var callFollowUps: [Item] = []
+    /// The facts of the last days of each machine whose facts only list.
+    private(set) var readings: [MachineFacts] = []
     private(set) var undoable: Undo?
     /// The bulk "handled" the person just made, which one click takes back.
     private(set) var handledBatch: HandledBatch?
@@ -115,7 +125,7 @@ final class TodayModel {
 
     var isEmpty: Bool {
         sections.isEmpty && team.isEmpty && unsummarized.isEmpty && projects.isEmpty && meetingCards.isEmpty
-            && callFollowUps.isEmpty
+            && callFollowUps.isEmpty && readings.isEmpty
     }
 
     /// The lifecycle of each fact Today lists, by task: each fact keeper's own, and the store's typed facts.
@@ -165,6 +175,10 @@ final class TodayModel {
         backlog = try cutoffOffer(open)
         let since = today.adding(days: 1 - Self.days)
         callFollowUps = try recentCallFollowUps(open: openFromCalls, since: since, now: now)
+        readings = try crew.machines.map(\.machine).with(\.listsFacts).compactMap { machine in
+            let facts = try store.queries.items(of: machine.task, since: since).filter { $0.isListed(at: now) }
+            return facts.isEmpty ? nil : MachineFacts(name: machine.name, facts: facts)
+        }
         let facts = try keepers.flatMap { machine in
             try recentFacts(of: machine, open: open.filter { $0.task == machine.task }, since: since)
         }

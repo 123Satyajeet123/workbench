@@ -212,33 +212,6 @@ public struct HelperSpec: Codable, Sendable, Equatable {
 }
 
 extension HelperSpec {
-    /// The parts of a newer built-in this machine lacks, in plain words, or nil when its design is current. The brief
-    /// alone does not count: the founder may have improved it, and a new brief is offered with a new design only.
-    public func update(toward builtIn: HelperSpec) -> [String]? {
-        let mine = Set(fields.map(\.name))
-        var changes = builtIn.fields.filter { !mine.contains($0.name) }.map {
-            $0.kind == .time ? "reads when a fact is due, as a day and part of day" : "adds \($0.name)"
-        }
-        changes += fields.map(\.name).filter { name in !builtIn.fields.contains { $0.name == name } }.map {
-            "drops \($0)"
-        }
-        let changedKinds = builtIn.fields.filter { field in
-            fields.contains { $0.name == field.name && $0.kind != field.kind }
-        }
-        changes += changedKinds.map { "changes \($0.name)" }
-        if criteria == nil, builtIn.criteria != nil { changes.append("adds criteria") }
-        if lifecycle == nil, builtIn.lifecycle != nil { changes.append("lets facts open and close") }
-        if lifecycle != nil, builtIn.lifecycle == nil { changes.append("stops opening and closing facts") }
-        if lifecycle != nil, let next = builtIn.lifecycle, lifecycle != next {
-            changes.append("changes how facts close")
-        }
-        if source != builtIn.source || citation != builtIn.citation { changes.append("reads and cites differently") }
-        if nudge != builtIn.nudge || tones != builtIn.tones { changes.append("changes its alerts") }
-        return changes.isEmpty ? nil : changes
-    }
-}
-
-extension HelperSpec {
     func shownValues(of item: Item) -> String {
         let shown = fields.filter { !$0.kind.isComputed }.map { "\($0.name)=\(item[$0.name])" }
         return (shown + Self.dueText(of: item)).joined(separator: " ")

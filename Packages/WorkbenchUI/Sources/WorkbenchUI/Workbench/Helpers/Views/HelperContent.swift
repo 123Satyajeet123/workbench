@@ -4,16 +4,12 @@ import WorkbenchCore
 struct HelperContent: View {
     let model: HelperModel
     @Environment(ActionsModel.self) private var actions
-    @Environment(Crew.self) private var crew
 
     var body: some View {
         VStack(alignment: .leading, spacing: Space.l) {
             ProblemSlotBanner(slot: model.problems)
             ActionNotice()
             if model.isPaused { PausedNote(model: model) }
-            if let update = crew.update(for: model) {
-                UpdateBanner(name: model.name, changes: update.changes) { crew.upgrade(model) }
-            }
             if model.isChoosingSource {
                 SourceChooser(model: model)
             } else {

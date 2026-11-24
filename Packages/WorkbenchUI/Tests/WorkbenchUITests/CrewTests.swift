@@ -89,26 +89,4 @@ import WorkbenchCore
 }
 
 @Suite struct MachineUpdateOfferTests {
-    @Test func theLivePipOfAnEarlierVersionIsOfferedTheUpdateOnceAndKeepsItsTask() throws {
-        let store = try scratchStore()
-        var old = HelperSpec.team
-        old.fields =
-            old.fields.filter { ["person", "kind", "text"].contains($0.name) } + [
-                .init("eta", .text(required: false), meaning: "m")
-            ]
-        old.lifecycle = nil
-        try store.seedMachines([(old, "Pip"), (HelperSpec.timeline, "Timeline")])
-        let crew = Crew(
-            store: store, capture: try CaptureService(store: store), founder: { "Kabir" }, notifier: FakeNotifier())
-        let pip = try #require(crew.machines.first { $0.name == "Pip" })
-        let timeline = try #require(crew.machines.first { $0.name == "Timeline" })
-        #expect(crew.update(for: timeline) == nil, "a current design is not offered anything")
-        let offer = try #require(crew.update(for: pip))
-        #expect(offer.changes.contains("lets facts open and close"))
-
-        crew.upgrade(pip)
-        let updated = try #require(crew.machines.first { $0.name == "Pip" })
-        #expect(updated.spec.task == HelperSpec.team.task && updated.spec.lifecycle != nil)
-        #expect(crew.update(for: updated) == nil)
-    }
 }

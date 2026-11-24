@@ -8,6 +8,8 @@ final class Navigation {
     /// The fact the person chose in the menu bar. Mochi's page opens it in the inspector.
     var requestedFact: Int64?
     var settingsSection = SettingsSection.general
+    /// The person asked, away from the sidebar, to add a machine. The sidebar opens its sheet and clears this.
+    var isAskingForMachine = false
 
     /// Opens Mochi's page with `fact` in the inspector.
     func show(fact: Int64) {

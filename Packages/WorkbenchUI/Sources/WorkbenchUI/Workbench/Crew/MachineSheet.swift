@@ -14,14 +14,30 @@ enum MachineEdit: Identifiable {
     }
 }
 
+/// What a new machine starts from: nothing but a source and a job, or a gallery template.
+enum MachineStart: Identifiable, Equatable {
+    case blank
+    case template(GalleryTemplate)
+
+    var id: String {
+        switch self {
+        case .blank: ""
+        case .template(let template): template.id
+        }
+    }
+
+    static let all = [MachineStart.blank] + GalleryTemplate.all.filter { $0.machine != nil }.map(Self.template)
+}
+
 struct MachineSheet: View {
     let edit: MachineEdit
     let done: (Int64?) -> Void
     @Environment(Crew.self) private var crew
     @Environment(\.dismiss) private var dismiss
-    @State private var item: GalleryTemplate?
-    private static let items = GalleryTemplate.all.filter { $0.machine != nil }
+    @State private var start: MachineStart?
     @State private var text = ""
+    @State private var sourceKey: String?
+    @State private var job = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: Space.l) {
@@ -29,11 +45,12 @@ struct MachineSheet: View {
             switch edit {
             case .new:
                 ScrollView {
-                    ChoiceList(items: Self.items, chosen: $item) { GalleryItemLabel(template: $0) }
+                    ChoiceList(items: MachineStart.all, chosen: $start) { StartLabel(start: $0) }
                 }
                 .frame(maxHeight: 360)
                 if lacksFollowable { Text(Crew.nothingToFollow).foregroundStyle(Tone.bad.color) }
-                TextField("Name", text: $text, prompt: Text(template?.name ?? "")).textFieldStyle(.roundedBorder)
+                TextField("Name", text: $text, prompt: Text(template?.name ?? "Name")).textFieldStyle(.roundedBorder)
+                if start == .blank { blankFields }
             case .brief(let helper):
                 TextEditor(text: $text).textStyle(.body).frame(minHeight: 180).border(.quaternary)
                 Button("Try on past days first") {
@@ -54,7 +71,7 @@ struct MachineSheet: View {
                 Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
                 Button(action: save) { Text(saveTitle) }.buttonStyle(.primary).keyboardShortcut(
                     .defaultAction
-                ).disabled(lacksFollowable || (isNew && template == nil))
+                ).disabled(lacksFollowable || !canAdd)
             }
         }
         .padding(Space.l)
@@ -62,7 +79,31 @@ struct MachineSheet: View {
         .onAppear(perform: fill)
     }
 
-    private var template: MachineTemplate? { item?.machine }
+    private var template: MachineTemplate? {
+        if case .template(let item)? = start { item.machine } else { nil }
+    }
+
+    private var blankFields: some View {
+        VStack(alignment: .leading, spacing: Space.s) {
+            Picker("Reads", selection: $sourceKey) {
+                Text("Choose what it reads").tag(String?.none)
+                ForEach(Crew.blankMachineSources, id: \.key) { Text($0.name).tag(Optional($0.key)) }
+            }
+            TextField("Its job, in one sentence", text: $job).textFieldStyle(.roundedBorder)
+        }
+    }
+
+    private var source: SourceDescriptor? { Crew.blankMachineSources.first { $0.key == sourceKey } }
+
+    /// Whether the person gave what the chosen start needs: a template, or a name, a source and a job.
+    private var canAdd: Bool {
+        guard isNew else { return true }
+        switch start {
+        case nil: return false
+        case .blank?: return text.cleaned != nil && source != nil && job.cleaned != nil
+        case .template?: return true
+        }
+    }
 
     private var isNew: Bool {
         if case .new = edit { true } else { false }
@@ -94,15 +135,40 @@ struct MachineSheet: View {
         }
     }
 
+    private func created(in folder: WorkObjectID?) -> Int64? {
+        if let template { return crew.create(from: template, name: text, in: folder) }
+        guard let source, let name = text.cleaned else { return nil }
+        return crew.createBlank(over: source, job: job, name: name, in: folder)
+    }
+
     private func save() {
         switch edit {
         case .new(let folder):
-            guard let template else { return }
-            done(crew.create(from: template, name: text, in: folder))
+            done(created(in: folder))
         case .brief(let helper):
             crew.edit(helper, brief: text)
             done(nil)
         }
         dismiss()
+    }
+}
+
+private struct StartLabel: View {
+    let start: MachineStart
+
+    var body: some View {
+        switch start {
+        case .blank:
+            HStack(alignment: .firstTextBaseline, spacing: Space.m) {
+                Image(systemName: "plus.square.dashed").foregroundStyle(.iconTint).frame(width: Space.l)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: Space.xs / 2) {
+                    Text("Blank machine").textStyle(.headline)
+                    Text("You name it, choose what it reads and write its job.").textStyle(.callout)
+                        .foregroundStyle(.supporting).fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        case .template(let template): GalleryItemLabel(template: template)
+        }
     }
 }

@@ -70,6 +70,8 @@ public struct SourceDescriptor: Sendable, Equatable {
     public let followsCompanies: Bool
     /// A machine over this source finds new startups by web search, on a weekly schedule, instead of reading days.
     public let findsStartups: Bool
+    /// How a fact from this source cites its lines: one line, or a run of lines when a fact joins consecutive ones.
+    public let citation: HelperSpec.Citation
     /// How the person chooses what this source reads. Nil: the person does not choose on a page.
     public let picker: Picker?
     /// What must hold before this source can read, in the order Settings shows the problems. A source with none has no
@@ -87,8 +89,8 @@ public struct SourceDescriptor: Sendable, Equatable {
         lineNoun: String = "lines", readVerb: String = "Read now", retention: Retention, obtainedBy: Obtained,
         editWindow: TimeInterval,
         evidenceReach: Int? = nil, requiresAgreedAudience: Bool = false, requiresContainerAllowList: Bool = false,
-        ownWriting: Bool = false, followsCompanies: Bool = false, findsStartups: Bool = false, picker: Picker? = nil,
-        needs: [HealthNeed] = [],
+        ownWriting: Bool = false, followsCompanies: Bool = false, findsStartups: Bool = false,
+        citation: HelperSpec.Citation = .one, picker: Picker? = nil, needs: [HealthNeed] = [],
         forgets: Forgetting = Forgetting(),
         pageDenyHosts: Set<String> = [], callServices: CallServices = CallServices(sites: [], apps: [:])
     ) {
@@ -109,12 +111,17 @@ public struct SourceDescriptor: Sendable, Equatable {
         self.ownWriting = ownWriting
         self.followsCompanies = followsCompanies
         self.findsStartups = findsStartups
+        self.citation = citation
         self.picker = picker
         self.needs = needs
         self.forgets = forgets
         self.pageDenyHosts = pageDenyHosts
         self.callServices = callServices
     }
+
+    /// Whether any machine can read this source one work day of lines at a time. News and search fetch with a list of
+    /// companies or a thesis of their own, which a machine made from only a job sentence does not have.
+    public var givesDaysOfLines: Bool { !followsCompanies && !findsStartups }
 
     /// The id of this source for one owner. Two owners never share one.
     public func sourceID(owner: PersonID) throws(IdentifierError) -> SourceID {
@@ -236,7 +243,7 @@ extension SourceDescriptor {
     public static let screenWindow = SourceDescriptor(
         key: "screen.window", specName: "screen_sessions", name: "Screen", origin: "the screen", consent: .screen,
         grammar: screenWindowGrammar, lineNoun: "windows", retention: .screen, obtainedBy: .axValue, editWindow: 0,
-        needs: [.consent, .permission(.accessibility)],
+        citation: .range, needs: [.consent, .permission(.accessibility)],
         forgets: Forgetting(activity: Activity.Kind.allCases.filter { $0 != .file }))
 
     private static let screenTextGrammar = """

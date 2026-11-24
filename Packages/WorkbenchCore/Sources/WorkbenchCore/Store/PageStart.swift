@@ -20,8 +20,7 @@ extension Store {
 
     func startPage(_ db: Database, of machine: Machine) throws {
         guard let page = machine.page,
-            let template = GalleryTemplate.of(id: machine.template)?.startFactsView(of: machine.spec),
-            let old = try untouchedStart(db, page: page, template: template)
+            let old = try untouchedStart(db, page: page, earlierForm: machine.earlierStartView)
         else { return }
         let gate = PageGate(catalog: PageCatalog(spec: machine.spec, items: []))
         let (placed, verdicts) = gate.apply(
@@ -59,8 +58,9 @@ extension Store {
     }
 
     /// What a page that may be started holds: `.some(nil)` for a page with no machine block at all, `.some(row)` for a
-    /// page with only the template's own start block, untouched; nil for any other page.
-    private func untouchedStart(_ db: Database, page: WorkObjectID, template: FactsView) throws -> StartBlock?? {
+    /// page with only `earlierForm`, untouched; nil for any other page. A machine with no earlier form has only the
+    /// first case.
+    private func untouchedStart(_ db: Database, page: WorkObjectID, earlierForm: FactsView?) throws -> StartBlock?? {
         let rows = try Row.fetchAll(
             db,
             sql:
@@ -69,15 +69,22 @@ extension Store {
         guard !rows.isEmpty else { return .some(nil) }
         let proposals = try Int.fetchOne(
             db, sql: "SELECT COUNT(*) FROM page_proposal WHERE object_id = ?", arguments: [page])!
-        guard rows.count == 1, proposals == 0, let row = rows.first, row["state"] as String == "live",
+        guard let earlierForm, rows.count == 1, proposals == 0, let row = rows.first, row["state"] as String == "live",
             (row["made_by_run"] as Int64?) == nil, (row["proposal_id"] as Int64?) == nil,
             row["kind"] as String == MachineBlockKind.facts.rawValue,
-            row["spec"] as String == (try Coding.json(MachineBlock.facts(template)))
+            row["spec"] as String == (try Coding.json(MachineBlock.facts(earlierForm)))
         else { return nil }
         let key: Data = row["entity_key"]
         let order = try EvidenceStamp.order(of: try Self.container(of: page), in: db)
         guard order == [key] else { return nil }
         return .some(StartBlock(id: row["id"], key: key))
+    }
+}
+
+extension Machine {
+    /// The facts block an earlier version of the start gave a machine of a template: the start view of the template.
+    fileprivate var earlierStartView: FactsView? {
+        template.flatMap(GalleryTemplate.of(id:))?.startFactsView(of: spec)
     }
 }
 

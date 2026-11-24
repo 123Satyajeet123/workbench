@@ -147,12 +147,13 @@ enum WorkObjectRows {
             sql: "UPDATE work_object SET holds = ? WHERE id = ? AND holds IS NULL", arguments: [type, folder])
     }
 
-    /// Makes the page of a machine in `folder`, or in the folder its template belongs to, and points the machine at it.
+    /// Makes the page of a machine in `folder`, or in the folder its template belongs to, or among the roots when it
+    /// has no template, and points the machine at it.
     @discardableResult
     static func addMachinePage(
-        _ db: Database, machine: Int64, template: String, name: String, folder: WorkObjectID?
+        _ db: Database, machine: Int64, template: String?, name: String, folder: WorkObjectID?
     ) throws -> WorkObjectID {
-        let folder = try folder ?? Self.folder(db, for: GalleryTemplate.folder(forMachine: template))
+        let folder = try folder ?? template.map { try Self.folder(db, for: GalleryTemplate.folder(forMachine: $0)) }
         let page = try insert(db, type: ObjectTypes.machinePage.id, parent: folder, name: name)
         try db.execute(sql: "UPDATE machine SET page_id = ? WHERE id = ?", arguments: [page, machine])
         return page

@@ -124,7 +124,7 @@ private struct SharedCard: View {
                 Monogram(name: machine.author, size: 22)
                 Text(machine.name).textStyle(.headline)
                 Text(
-                    "by \(machine.author) · \(MachineTemplate.of(id: machine.template)?.role ?? machine.template)"
+                    "by \(machine.author)\(machine.template.flatMap(MachineTemplate.of(id:)).map { " · \($0.role)" } ?? "")"
                 )
                 .textStyle(.caption).foregroundStyle(.supporting)
             }

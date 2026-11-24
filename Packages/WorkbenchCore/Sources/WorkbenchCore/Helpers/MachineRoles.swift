@@ -8,6 +8,12 @@ extension HelperSpec {
     /// It rates what it reads against criteria.
     public var rates: Bool { criteria != nil }
 
+    /// Its facts only list: they do not open and close, follow another machine, or belong to the screen, to a rating or
+    /// to a feed that has a place of its own. Today lists them under the machine's name.
+    public var listsFacts: Bool {
+        lifecycle == nil && !needsFollowed && !readsScreen && !rates && source.givesDaysOfLines
+    }
+
     /// It reads the claims of a deal's pitch, and checks them against the claim types it lists.
     public var checksClaims: Bool { claimTypes != nil }
 

@@ -69,7 +69,7 @@ final class FirstLookModel {
     /// Every row shown, machine by machine.
     var rows: [Row] { shown.flatMap(\.rows) }
 
-    private var seeded: [HelperModel] { crew.machines.filter { tasks.contains($0.machine.template) } }
+    private var seeded: [HelperModel] { crew.machines.filter { $0.machine.template.map(tasks.contains) == true } }
 
     private var window: [WorkDay] {
         FirstLook.days(min(max(days, 1), RunSettings.standard.firstLookDays), endingOn: today)

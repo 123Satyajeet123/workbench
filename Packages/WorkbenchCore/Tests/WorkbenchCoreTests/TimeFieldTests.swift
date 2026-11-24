@@ -42,13 +42,11 @@ import Testing
                 Days.first.weekdayName))
     }
 
-    @Test func theNewDesignIsANewPromptVersionAndTheOldMachineIsOfferedTheUpdate() throws {
+    @Test func theNewDesignIsANewPromptVersion() throws {
         let old = try reader(machineBeforeTheTimeField)
         let new = try reader(.team)
         #expect(old.instructions != new.instructions)
         #expect(try old.schema.jsonText != new.schema.jsonText)
-        let changes = try #require(machineBeforeTheTimeField.update(toward: .team))
-        #expect(changes == ["reads when a fact is due, as a day and part of day", "drops eta"])
     }
 
     @Test func aMachineMadeBeforeTheTimeFieldKeepsReadingItsEtaAsTextAndGivesNoDueTime() async throws {

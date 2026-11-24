@@ -86,23 +86,23 @@ extension Store {
     ) throws -> Machine {
         let template = template ?? spec.task
         var spec = spec
-        spec.task = "\(template)-\(UUID().uuidString.prefix(8).lowercased())"
+        spec.task = Self.newTask(from: template)
         return try writer.write { db in try addMachine(db, spec: spec, template: template, name: name, folder: folder) }
     }
 
-    /// Moves a machine to a newer built-in design: the built-in's brief, fields, lifecycle and checks, with the
-    /// machine's own task (so its items, marks and settings stay), model, example policy, what it follows, and its
-    /// view when the new design can still fill it. A new design is a new prompt version, so trust is earned again.
-    public func upgrade(_ machine: Machine, to builtIn: HelperSpec) throws {
-        var spec = builtIn
-        spec.task = machine.spec.task
-        spec.runner = machine.spec.runner
-        spec.examples = machine.spec.examples
-        spec.job = machine.spec.job
-        spec.follows = machine.spec.follows ?? builtIn.follows
-        spec.criteria = machine.spec.criteria ?? builtIn.criteria
-        if spec.views.values.contains(machine.spec.view) { spec.view = machine.spec.view }
-        try change(machine, name: machine.name, spec: spec, state: machine.state)
+    private static func newTask(from stem: String) -> String { "\(stem)-\(UUID().uuidString.prefix(8).lowercased())" }
+
+    /// A new machine with `spec` and no template behind it, with a task of its own. A spec that does not hold together
+    /// is refused: unlike a template's, nobody has read it. Its page goes in `folder`, or among the roots of the
+    /// workspace when nil.
+    @discardableResult
+    public func createMachine(withoutTemplate spec: HelperSpec, name: String, in folder: WorkObjectID? = nil) throws
+        -> Machine
+    {
+        try spec.requireCoherent()
+        var spec = spec
+        spec.task = Self.newTask(from: HelperSpec.blankTask)
+        return try writer.write { db in try addMachine(db, spec: spec, template: nil, name: name, folder: folder) }
     }
 
     public func rename(_ machine: Machine, to name: String) throws {
@@ -181,7 +181,7 @@ extension Store {
 
     @discardableResult
     private func addMachine(
-        _ db: Database, spec: HelperSpec, template: String, name: String, folder: WorkObjectID?
+        _ db: Database, spec: HelperSpec, template: String?, name: String, folder: WorkObjectID?
     ) throws -> Machine {
         try db.execute(
             sql: "INSERT INTO machine(task, template, created_at) VALUES (?,?,?)",
@@ -199,6 +199,7 @@ extension Store {
     }
 
     func change(_ db: Database, _ machine: Machine, name: String, spec: HelperSpec, state: Machine.State) throws {
+        if spec != machine.spec { try spec.requireCoherent(after: machine.spec) }
         try db.execute(
             sql: "INSERT INTO machine_change(machine_id, at, name, spec, state) VALUES (?,?,?,?,?)",
             arguments: [machine.id, clock().stored, name, try Coding.json(spec), state.rawValue])
@@ -225,9 +226,9 @@ extension Queries {
     }
 
     /// The folder a new machine of `template` lands in: the one asked for, else the live root folder of its gallery
-    /// item. Nil when the store has no such folder yet.
-    public func folder(forNewMachineOf template: String, in folder: WorkObjectID?) throws -> WorkObjectID? {
-        if let folder { return folder }
+    /// item. Nil when the store has no such folder yet, and for a machine with no template.
+    public func folder(forNewMachineOf template: String?, in folder: WorkObjectID?) throws -> WorkObjectID? {
+        guard let template, folder == nil else { return folder }
         return try reader.read { db in
             try WorkObjectRows.keyedChild(
                 db, parent: nil, key: GalleryTemplate.folder(forMachine: template).key)
@@ -251,10 +252,10 @@ extension Queries {
 
 extension Machine {
     init(row: Row) throws {
-        let template: String = try row.value("template")
+        let template: String? = try row.optionalValue("template")
         self.init(
             id: try row.value("id"), name: try row.value("name"), template: template,
-            spec: (try row.json("spec") as HelperSpec).filling(from: MachineTemplate.of(id: template)?.spec),
+            spec: (try row.json("spec") as HelperSpec).filling(from: template.flatMap(MachineTemplate.of(id:))?.spec),
             state: try row.enumeration("state"), page: try row.optionalValue("page_id"),
             folder: try row.optionalValue("folder"))
     }

@@ -146,7 +146,8 @@ extension TeamTemplate {
         ])
 
     public static let blank = TeamTemplate(
-        id: "blank", name: "Blank", purpose: "A team with no machines and no kinds of work yet.", objectTypes: [],
+        id: "blank", name: "Start empty", purpose: "No machines and no folders. You add your own, one at a time.",
+        objectTypes: [],
         machines: [])
 
     public static let builtIn = [fund, startupTeam, blank]

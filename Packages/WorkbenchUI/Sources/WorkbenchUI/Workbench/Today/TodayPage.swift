@@ -13,10 +13,11 @@ struct TodayBody: View {
             if model.isSummarizing {
                 Label("Mochi is summarizing…", systemImage: "sparkles").textStyle(.callout).foregroundStyle(.supporting)
             }
-            if model.isEmpty { Text("Nothing for today yet.").foregroundStyle(.supporting) }
+            if model.isEmpty { EmptyDay() }
             morningList
             meetings
             fromCalls
+            readings
             team
             projects
         }
@@ -71,6 +72,14 @@ struct TodayBody: View {
         }
     }
 
+    @ViewBuilder private var readings: some View {
+        ForEach(model.readings) { reading in
+            TodaySection(reading.name, count: reading.facts.count) {
+                ForEach(reading.facts) { FactLine(item: $0, model: model).transition(.opacity) }
+            }
+        }
+    }
+
     @ViewBuilder private var team: some View {
         if !model.team.isEmpty || !model.unsummarized.isEmpty {
             TodaySection("Team") {
@@ -85,6 +94,25 @@ struct TodayBody: View {
             TodaySection("Projects") {
                 ForEach(model.projects) { SummaryLineRow(row: $0, model: model, showsOpenCount: true) }
             }
+        }
+    }
+}
+
+/// What a day with nothing says: a workspace with no machine invites the first one, in plain words.
+private struct EmptyDay: View {
+    @Environment(Crew.self) private var crew
+    @Environment(Navigation.self) private var navigation: Navigation?
+
+    var body: some View {
+        if crew.machines.isEmpty {
+            VStack(alignment: .leading, spacing: Space.s) {
+                Text("You have no machine yet.").textStyle(.headline)
+                Text("A machine reads one source and keeps the facts for a job that you write in one sentence.")
+                    .foregroundStyle(.supporting)
+                Button("Add a machine") { navigation?.isAskingForMachine = true }.buttonStyle(.primary)
+            }
+        } else {
+            Text("Nothing for today yet.").foregroundStyle(.supporting)
         }
     }
 }

@@ -169,7 +169,7 @@ final class Crew {
     }
 
     @discardableResult
-    func create(spec: HelperSpec, template: String, name: String, in folder: WorkObjectID? = nil) -> Int64? {
+    func create(spec: HelperSpec, template: String?, name: String, in folder: WorkObjectID? = nil) -> Int64? {
         var spec = spec
         var landing: WorkObjectID?
         problems.attempt("find the folder") {
@@ -185,23 +185,23 @@ final class Crew {
         if spec.rates, let source = thesisSource(in: landing) { spec.criteria = source.spec.criteria }
         var id: Int64?
         problems.attempt("add the machine") {
-            id = try store.createMachine(from: spec, template: template, name: name, in: folder).id
+            id =
+                try template.map { try store.createMachine(from: spec, template: $0, name: name, in: folder) }?.id
+                ?? store.createMachine(withoutTemplate: spec, name: name, in: folder).id
         }
         reload()
         return id
     }
 
-    func update(for helper: HelperModel) -> (template: MachineTemplate, changes: [String])? {
-        guard let template = MachineTemplate.of(helper.machine),
-            let changes = helper.spec.update(toward: template.spec)
-        else { return nil }
-        return (template, changes)
-    }
-
-    func upgrade(_ helper: HelperModel) {
-        guard let template = update(for: helper)?.template else { return }
-        problems.attempt("update \(helper.name)") { try store.upgrade(helper.machine, to: template.spec) }
-        reload()
+    /// A machine over `source` for the job in `job`, with no template. It lands in `folder`, or among the roots.
+    @discardableResult
+    func createBlank(over source: SourceDescriptor, job: String, name: String, in folder: WorkObjectID? = nil) -> Int64?
+    {
+        guard let spec = HelperSpec(blankOver: source, job: job) else {
+            problems.show(HelperSpecError.noJob.localizedDescription)
+            return nil
+        }
+        return create(spec: spec, template: nil, name: name, in: folder)
     }
 
     func rename(_ helper: HelperModel, to name: String) {
@@ -258,22 +258,35 @@ final class Crew {
     }
 
     private func source(for machine: Machine) throws -> any MachineSource {
-        switch machine.spec.source {
-        case .screenWindow: ScreenSource(store: store)
-        case .webPage: try PageSource(store: store, task: machine.task)
-        case .gmailMail: MailSource(store: store, capture: capture)
-        case .newsArticle: NewsSource(store: store, capture: capture)
-        case .webSearch:
-            OutboundSource(store: store, capture: capture, task: machine.task, openSession: openWebSession)
-        case .whatsAppChat:
+        guard let make = Self.sourceMakers[machine.spec.source.key] else { throw NotAMachineSource() }
+        return try make(self, machine)
+    }
+
+    private static let sourceMakers: [String: (Crew, Machine) throws -> any MachineSource] = [
+        SourceDescriptor.screenWindow.key: { crew, _ in ScreenSource(store: crew.store) },
+        SourceDescriptor.webPage.key: { crew, machine in try PageSource(store: crew.store, task: machine.task) },
+        SourceDescriptor.gmailMail.key: { crew, _ in MailSource(store: crew.store, capture: crew.capture) },
+        SourceDescriptor.newsArticle.key: { crew, _ in NewsSource(store: crew.store, capture: crew.capture) },
+        SourceDescriptor.webSearch.key: { crew, machine in
+            OutboundSource(
+                store: crew.store, capture: crew.capture, task: machine.task, openSession: crew.openWebSession)
+        },
+        SourceDescriptor.whatsAppChat.key: { crew, machine in
             try WhatsAppSource(
-                store: store, capture: capture, task: machine.task, founder: founder, container: whatsAppContainer)
-        case .telegramChat:
+                store: crew.store, capture: crew.capture, task: machine.task, founder: crew.founder,
+                container: crew.whatsAppContainer)
+        },
+        SourceDescriptor.telegramChat.key: { crew, machine in
             try TelegramSource(
-                store: store, capture: capture, account: telegram, task: machine.task, founder: founder,
-                othersReading: { [weak self] in self?.containers(readBesides: machine) ?? [] })
-        default: throw NotAMachineSource()
-        }
+                store: crew.store, capture: crew.capture, account: crew.telegram, task: machine.task,
+                founder: crew.founder, othersReading: { [weak crew] in crew?.containers(readBesides: machine) ?? [] })
+        },
+    ]
+
+    /// The sources a person can choose for a machine made from a job alone: those the registry names that give days
+    /// of lines and that a reader here can make a machine over.
+    static var blankMachineSources: [SourceDescriptor] {
+        SourceRegistry.all.filter { $0.givesDaysOfLines && sourceMakers[$0.key] != nil }
     }
 }
 

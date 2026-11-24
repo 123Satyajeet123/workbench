@@ -49,6 +49,7 @@ struct Sidebar: View {
             }
             Section {
                 tree(workspace.roots, under: nil)
+                if workspace.roots.isEmpty { firstMachineRow }
             } header: {
                 workspaceMenu
             }
@@ -70,6 +71,11 @@ struct Sidebar: View {
         .onDeleteCommand { archive(selection) }
         .safeAreaInset(edge: .bottom, spacing: 0) { foot }
         .onChange(of: crew.crew.map(\.machine.id)) { workspace.refresh() }
+        .onChange(of: navigation.isAskingForMachine) {
+            guard navigation.isAskingForMachine else { return }
+            navigation.isAskingForMachine = false
+            editing = .new(in: nil)
+        }
         .onChange(of: deals.deals.map(\.id)) { workspace.refresh() }
         .sheet(isPresented: $isAddingTeam) { TeamSheet(model: TeamAddModel(crew: crew)) }
         .sheet(item: $editing) { edit in
@@ -124,6 +130,13 @@ struct Sidebar: View {
         .badge(today.needsCount + (review.question == nil ? 0 : 1))
         .help(SidebarSelection.mochi.role)
         .tag(SidebarSelection.mochi)
+    }
+
+    /// What an empty workspace shows in place of the tree: the way to the first machine.
+    private var firstMachineRow: some View {
+        Label("Add your first machine", systemImage: "plus")
+            .foregroundStyle(.supporting)
+            .rowAction("Add a machine") { editing = .new(in: nil) }
     }
 
     /// The rows of one level of the tree. A row dragged between them takes that place under `parent`.

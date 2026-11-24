@@ -147,6 +147,22 @@ extension Queries {
         try reader.read { db in try Self.facts(in: object, includeChildren: includeChildren, db) }
     }
 
+    /// The facts a machine's page shows: those homed in its folder and below, and for a page among the roots, which
+    /// has no folder, every fact of its own machine.
+    public func facts(shownOn page: WorkObjectID) throws -> [Item] {
+        try reader.read { db in
+            let folder = try String.fetchOne(
+                db, sql: "SELECT parent_id FROM work_object WHERE id = ?", arguments: [page])
+            if let folder { return try Self.facts(in: folder, includeChildren: true, db) }
+            return try db.fetch(
+                "item",
+                """
+                SELECT \(Self.itemColumns) FROM \(Self.itemRows)
+                WHERE task = (SELECT task FROM machine WHERE page_id = ?) ORDER BY day DESC, start_at DESC, id
+                """, [page], as: Item.init(row:))
+        }
+    }
+
     static func facts(in object: WorkObjectID, includeChildren: Bool, _ db: Database) throws -> [Item] {
         try db.fetch(
             "item",

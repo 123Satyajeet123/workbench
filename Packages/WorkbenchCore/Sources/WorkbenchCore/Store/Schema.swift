@@ -50,7 +50,7 @@ enum Schema {
         runWindow, sourceDeleted, groundedFacts, factLifecycle, timers, evidenceForwarded,
         morningList, notes, pendingRevokes, filing, itemSearch, runFailures, calls, callGuests, machinePage,
         judgment, folderHolds, runUsageUnknown, homeByPerson, provenance,
-        startKey, runEvent, secureSearch,
+        startKey, runEvent, secureSearch, machineWithoutTemplate,
     ]
 
     /// Items that open and close (research 32): a later line closes a commitment or answers a question. An event is

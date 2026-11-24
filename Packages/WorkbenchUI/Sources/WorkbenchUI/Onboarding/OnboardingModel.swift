@@ -81,7 +81,7 @@ final class OnboardingModel {
     var canContinue: Bool {
         switch screen {
         case .you: identityModel.identity.hasName
-        case .team: teamModel.team.name.cleaned != nil && (!startsTeam || teamModel.template != nil)
+        case .team: teamModel.team.name.cleaned != nil
         case .welcome, .connect, .setup, .watchlist, .firstLook, .done: true
         }
     }

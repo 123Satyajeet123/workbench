@@ -17,7 +17,7 @@ public struct MachineTemplate: Sendable, Identifiable, Hashable {
     public func hash(into hasher: inout Hasher) { hasher.combine(id) }
 
     public static func of(id: String) -> MachineTemplate? { all.first { $0.id == id } }
-    public static func of(_ machine: Machine) -> MachineTemplate? { of(id: machine.template) }
+    public static func of(_ machine: Machine) -> MachineTemplate? { machine.template.flatMap(of(id:)) }
 }
 
 extension HelperSpec {

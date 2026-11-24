@@ -166,3 +166,9 @@ let namedLines = [
 ]
 let namedA = try scan(named, generic: namedLines)
 print("  named machines left unexplained: \(namedA)")
+
+print("\n6. Force paths: a machine that needs a known template id")
+let forcing =
+    #"GalleryTemplate\.of\(id:[^)]*\)[^\n]*(!|\?\? *[A-Za-z.]+\b)|guard let [^=]*= *[^\n]*GalleryTemplate\.of\(id:|MachineTemplate\.of\([^)]*\)!"#
+let forcePaths = try scan(forcing, generic: [])
+print("  a machine with no template needs no known template id anywhere: \(yes(forcePaths == 0))")

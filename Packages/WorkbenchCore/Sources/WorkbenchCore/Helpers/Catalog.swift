@@ -43,7 +43,7 @@ public struct SharedMachine: TeamFile, Equatable, Identifiable {
 
     public var author: String
     public var name: String
-    public var template: String
+    public var template: String?
     public var spec: HelperSpec
     public var sharedAt: Date
     public var record: Record

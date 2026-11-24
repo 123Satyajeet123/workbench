@@ -83,9 +83,6 @@ private struct MachineCard: View {
                 MachineStatusView(isReading: helper.phase == .reading, shows: .sentence, read: helper.status(at:))
                 Text(facts.health).fontWeight(.medium)
                 Text(facts.costThisWeek).foregroundStyle(.supporting)
-                if let update = crew.update(for: helper) {
-                    UpdateBanner(name: helper.name, changes: update.changes) { crew.upgrade(helper) }
-                }
                 HStack {
                     Button(helper.isPaused ? "Resume" : "Pause") { crew.setPaused(helper, !helper.isPaused) }
                     Button("Open \(helper.name)", action: open).buttonStyle(.primary)

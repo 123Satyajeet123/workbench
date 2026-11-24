@@ -5,7 +5,6 @@ import SwiftUI
 struct MachineMoreSheet: View {
     let model: HelperModel
     @Environment(\.dismiss) private var dismiss
-    @Environment(Crew.self) private var crew
     @Environment(TeamCatalogModel.self) private var catalog
 
     var body: some View {
@@ -18,9 +17,6 @@ struct MachineMoreSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: Space.l) {
                     if model.isChoosingSource { SourceChooser(model: model) }
-                    if let update = crew.update(for: model) {
-                        UpdateBanner(name: model.name, changes: update.changes) { crew.upgrade(model) }
-                    }
                     if let question = model.question { HelperQuestion(model: model, item: question) }
                     if let notice = model.notice { NoticeRow(text: notice) { model.notice = nil } }
                     if model.isTrying { TrialCard(model: model) }

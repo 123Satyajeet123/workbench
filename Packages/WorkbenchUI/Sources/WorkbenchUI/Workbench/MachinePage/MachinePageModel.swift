@@ -83,8 +83,7 @@ final class MachinePageModel {
     func reload() {
         problems.attempt("read the page") {
             proposal = try store.queries.pendingProposal(of: page, for: viewer)
-            facts = helper.shown(
-                try store.queries.parent(of: page).map { try store.queries.facts(in: $0, includeChildren: true) } ?? [])
+            facts = helper.shown(try store.queries.facts(shownOn: page))
         }
     }
 

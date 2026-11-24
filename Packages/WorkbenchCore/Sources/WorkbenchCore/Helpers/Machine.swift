@@ -1,6 +1,6 @@
 import Foundation
 
-/// A machine a person owns: a helper spec with a name, made from a template. The spec's task names its runs and items,
+/// A machine a person owns: a helper spec with a name, made from a template or from nothing. The spec's task names its runs and items,
 /// so a rename keeps them and their trust; a changed brief is a new prompt version that earns trust again.
 public struct Machine: Sendable, Equatable, Identifiable {
     public enum State: String, Sendable, CaseIterable {
@@ -9,7 +9,8 @@ public struct Machine: Sendable, Equatable, Identifiable {
 
     public var id: Int64
     public var name: String
-    public var template: String
+    /// The id of the template the machine started from; nil for a machine made from a source and a job alone.
+    public var template: String?
     public var spec: HelperSpec
     public var state: State
     /// The machine's page in the tree. Its parent is the folder the machine lives in.
@@ -19,11 +20,11 @@ public struct Machine: Sendable, Equatable, Identifiable {
 
     public var task: String { spec.task }
 
-    /// The job in one sentence: the machine's own, else its template's. Nil for a machine whose template is not known.
-    public var job: String? { spec.job ?? GalleryTemplate.of(id: template)?.job }
+    /// The job in one sentence: the machine's own, else its template's. Nil for a machine with neither.
+    public var job: String? { spec.job ?? template.flatMap(GalleryTemplate.of(id:))?.job }
 
     public init(
-        id: Int64, name: String, template: String, spec: HelperSpec, state: State, page: WorkObjectID? = nil,
+        id: Int64, name: String, template: String?, spec: HelperSpec, state: State, page: WorkObjectID? = nil,
         folder: WorkObjectID? = nil
     ) {
         self.id = id

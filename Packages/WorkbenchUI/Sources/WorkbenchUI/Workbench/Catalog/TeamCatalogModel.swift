@@ -227,11 +227,7 @@ final class TeamCatalogModel {
     /// The teammate's machine becomes the founder's own: the same spec (brief, fields, view), a new task, zero trust.
     @discardableResult
     func adopt(_ machine: SharedMachine) -> Int64? {
-        guard MachineTemplate.of(id: machine.template) != nil else {
-            problems.show("\(machine.author)'s \(machine.name) needs a template this version does not have.")
-            return nil
-        }
-        return crew.create(spec: machine.spec, template: machine.template, name: machine.name)
+        crew.create(spec: machine.spec, template: machine.template, name: machine.name)
     }
 
     func dismissRefusal() { refusal = nil }
