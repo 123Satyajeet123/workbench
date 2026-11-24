@@ -117,6 +117,16 @@ extension Queries {
         }
     }
 
+    /// The folders, not archived, that are the home of one type of object (a deal folder): collections that a board
+    /// shows, so the sidebar opens them only on the person's act.
+    public func foldersThatHoldAType() throws -> Set<WorkObjectID> {
+        try reader.read { db in
+            Set(
+                try String.fetchAll(
+                    db, sql: "SELECT id FROM work_object WHERE holds IS NOT NULL AND archived_at IS NULL"))
+        }
+    }
+
     /// The parent of `object`; nil for a root and for an object that is not there.
     public func parent(of object: WorkObjectID) throws -> WorkObjectID? {
         try reader.read { db in

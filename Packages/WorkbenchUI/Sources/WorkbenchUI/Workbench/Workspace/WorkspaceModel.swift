@@ -14,10 +14,16 @@ final class WorkspaceModel {
     private static let favoritesKey = StateKey<[String]>.json("sidebar.favorites")
     private static let recentsKey = StateKey<[String]>.json("sidebar.recents")
     private static let recentsShownKey = StateKey<Bool>.onOff("sidebar.recentsShown")
+    private static let openKey = StateKey<[String]>.json("sidebar.open")
 
     private(set) var levels: [WorkObjectID?: [WorkObject]] = [:]
     private(set) var parents: Set<WorkObjectID> = []
-    private(set) var expanded: Set<WorkObjectID> = []
+    /// The rows that are open, kept in the store, so the tree opens as the person left it.
+    private(set) var expanded: Set<WorkObjectID> = [] {
+        didSet {
+            problems.attempt("save which folders are open") { try Self.openKey.save(expanded.sorted(), to: store) }
+        }
+    }
     /// Every object that is not archived, in the order of the tree with every row open.
     private(set) var treeOrder: [WorkObjectID] = []
     private(set) var favorites: [SidebarSelection] = []
@@ -45,8 +51,22 @@ final class WorkspaceModel {
             recentsShown = try Self.recentsShownKey.load(from: store) ?? false
         }
         refresh()
-        expanded = parents.intersection(roots.map(\.id) + privateItems.map(\.id))
+        expanded = openRows()
         refresh()
+    }
+
+    /// The rows the person left open; before the person has opened or closed one, the top folders, except the ones that
+    /// are the home of a type (their objects show on a board).
+    private func openRows() -> Set<WorkObjectID> {
+        var rows = parents.intersection(roots.map(\.id) + privateItems.map(\.id))
+        problems.attempt("read which folders are open") {
+            if let saved = try Self.openKey.load(from: store) {
+                rows = parents.intersection(saved)
+            } else {
+                rows.subtract(try store.queries.foldersThatHoldAType())
+            }
+        }
+        return rows
     }
 
     /// The top level of the workspace, without the Private section.
