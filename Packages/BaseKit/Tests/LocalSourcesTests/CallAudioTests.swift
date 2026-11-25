@@ -23,20 +23,20 @@ struct AudioFileSinkTests {
     @Test func aLongTrackIsSplitIntoClosedReadableSegments() throws {
         let sink = AudioFileSink(folder: try folder(), track: "me", format: format, segment: 1)
         for _ in 0..<3 { sink.write(tone(seconds: 0.6)) }
-        let files = try sink.finish()
+        let files = sink.finish().files
         #expect(files.map(\.lastPathComponent) == ["me-001.m4a", "me-002.m4a"])
         for file in files { #expect(try AVAudioFile(forReading: file).length > 0) }
         sink.write(tone(seconds: 0.6))
-        #expect(try sink.finish() == files)
+        #expect(sink.finish().files == files)
     }
 
-    @Test func aTrackWithNoSoundFailsAndAWriteErrorFailsTheTrack() throws {
-        #expect(throws: CallAudioError.emptyTrack("me")) {
-            try AudioFileSink(folder: try folder(), track: "me", format: format).finish()
-        }
+    @Test func aTrackWithNoSoundKeepsNoFileAndAWriteErrorIsCountedAsLoss() throws {
+        let silent = AudioFileSink(folder: try folder(), track: "me", format: format).finish()
+        #expect(silent.files.isEmpty && silent.lost == 0)
         let missing = FileManager.default.temporaryDirectory.appending(path: "absent-\(UUID().uuidString)")
         let broken = AudioFileSink(folder: missing, track: "them", format: format)
         broken.write(tone(seconds: 0.1))
-        #expect(throws: CallAudioError.self) { try broken.finish() }
+        let outcome = broken.finish()
+        #expect(outcome.files.isEmpty && outcome.lost > 0)
     }
 }

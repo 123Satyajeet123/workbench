@@ -11,6 +11,7 @@ public struct Recording: Sendable, Equatable, Identifiable {
     public var startedAt: Date
     public var endedAt: Date?
     public var state: State
+    /// Why a failed call failed, or for a saved call what part of its sound is missing.
     public var error: String?
     public var service: String?
     public var title: String?
@@ -74,11 +75,12 @@ extension Store {
             state: .recording, error: nil, service: source?.service, title: source?.title)
     }
 
-    public func finishRecording(_ id: Int64, error: String? = nil) throws {
+    /// A failed call has an `error`. A saved call may have a `lost` note: what part of it is missing.
+    public func finishRecording(_ id: Int64, error: String? = nil, lost: String? = nil) throws {
         try writer.write { db in
             try db.execute(
                 sql: "UPDATE recording SET state = ?, ended_at = ?, error = ? WHERE id = ? AND state = 'recording'",
-                arguments: [error == nil ? "saved" : "failed", clock().stored, error, id])
+                arguments: [error == nil ? "saved" : "failed", clock().stored, error ?? lost, id])
         }
     }
 

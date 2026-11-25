@@ -7,8 +7,8 @@ public enum CallAudioError: Error, Equatable {
     case coreAudio(String, OSStatus)
     case noProcesses(String)
     case microphoneDenied
-    case write(track: String, reason: String)
-    case emptyTrack(String)
+    /// No track kept any sound. The text says what was lost, in plain words.
+    case nothingSaved(String)
     /// Without this Info.plist key macOS refuses the system-audio permission and the tap records only silence.
     case missingAudioCaptureUsage
 }
@@ -88,6 +88,42 @@ public enum AudioApps {
     }
 }
 
+/// What a stopped call kept: the files of each track and the sound each track lost.
+public struct CallAudioResult: Sendable, Equatable {
+    var tracks: [TrackOutcome]
+
+    public var files: [URL] { tracks.flatMap(\.files) }
+
+    /// What is missing, in plain words, with what was kept. Nil when every track is whole.
+    public var lossNote: String? {
+        let (whole, damaged) = (tracks.filter(\.isWhole), tracks.filter { !$0.isWhole })
+        guard !damaged.isEmpty else { return nil }
+        return (damaged.map(\.sentence) + whole.map { "\($0.person.capitalizedFirst) was saved in full." })
+            .joined(separator: " ")
+    }
+}
+
+extension TrackOutcome {
+    fileprivate var isWhole: Bool { !files.isEmpty && lost == 0 }
+
+    fileprivate var person: String { track == "me" ? "your voice" : "the other side" }
+
+    fileprivate var sentence: String {
+        if files.isEmpty && lost == 0 { return "\(person.capitalizedFirst) got no sound, so nothing of it was saved." }
+        if files.isEmpty { return "\(person.capitalizedFirst) was not saved." }
+        return "\(person.capitalizedFirst) was saved, but \(Self.spoken(lost)) of it is missing."
+    }
+
+    fileprivate static func spoken(_ seconds: TimeInterval) -> String {
+        let whole = max(1, Int(seconds.rounded(.up)))
+        return whole < 60 ? "\(whole) s" : "\(whole / 60) min \(whole % 60) s"
+    }
+}
+
+extension String {
+    fileprivate var capitalizedFirst: String { prefix(1).uppercased() + dropFirst() }
+}
+
 public enum CallTracks {
     public static func files(in folder: URL) -> (me: [URL], them: [URL]) {
         let names = (try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? []
@@ -114,6 +150,8 @@ public final class CallAudioRecorder {
     private let app: AudioApp?
     private var tap: ProcessTap?
     private var microphone: AudioFileSink?
+    private var microphoneOffSince: Date?
+    private var configurationObserver: (any NSObjectProtocol)?
     private let engine = AVAudioEngine()
 
     public init(app: AudioApp?, folder: URL) {
@@ -141,23 +179,27 @@ public final class CallAudioRecorder {
         do {
             try startMicrophone()
         } catch {
-            _ = try? stop()
+            stop()
             throw error
         }
     }
 
-    /// Stops both tracks and closes their files. Throws the first write error, or when a track kept no sound frame.
+    /// Stops both tracks and closes their files. The result tells what each track kept and what it lost.
     @discardableResult
-    public func stop() throws -> [URL] {
-        let them = try tap?.stop()
+    public func stop() -> CallAudioResult {
+        let them = tap?.stop()
         tap = nil
+        configurationObserver.map(NotificationCenter.default.removeObserver)
+        configurationObserver = nil
         if engine.isRunning {
             engine.inputNode.removeTap(onBus: 0)
             engine.stop()
         }
-        let me = try microphone?.finish()
+        if let microphoneOffSince { microphone?.noteLost(Date().timeIntervalSince(microphoneOffSince)) }
+        microphoneOffSince = nil
+        let me = microphone?.finish()
         microphone = nil
-        return (me ?? []) + (them ?? [])
+        return CallAudioResult(tracks: [me, them].compactMap(\.self))
     }
 
     private func startMicrophone() throws {
@@ -170,6 +212,28 @@ public final class CallAudioRecorder {
         microphone = sink
         Self.installTap(on: input, format: format, sink: sink)
         try engine.start()
+        configurationObserver = NotificationCenter.default.addObserver(
+            forName: .AVAudioEngineConfigurationChange, object: engine, queue: .main
+        ) { [weak self] _ in MainActor.assumeIsolated { self?.restartMicrophone() } }
+    }
+
+    /// The engine stops itself when the input device changes its rate or channel count. This starts it again on the
+    /// new format; the sink converts each buffer. The time the microphone was off is counted as lost.
+    private func restartMicrophone() {
+        guard let microphone else { return }
+        let offSince = microphoneOffSince ?? Date()
+        let input = engine.inputNode
+        input.removeTap(onBus: 0)
+        let format = input.outputFormat(forBus: 0)
+        do {
+            guard format.sampleRate > 0, format.channelCount > 0 else { throw CallAudioError.coreAudio("input", -1) }
+            Self.installTap(on: input, format: format, sink: microphone)
+            try engine.start()
+            microphone.noteLost(Date().timeIntervalSince(offSince))
+            microphoneOffSince = nil
+        } catch {
+            microphoneOffSince = offSince
+        }
     }
 
     /// The tap block runs on an audio thread, so it must not be made in a main-actor context.
@@ -207,15 +271,16 @@ final class ProcessTap {
                 })
             try check("start", AudioDeviceStart(deviceID, procID))
         } catch {
-            _ = try? stop()
+            stop()
             throw error
         }
     }
 
-    func stop() throws -> [URL] {
+    @discardableResult
+    func stop() -> TrackOutcome? {
         stopDevice()
         defer { sink = nil }
-        return try sink?.finish() ?? []
+        return sink?.finish()
     }
 
     private func stopDevice() {
@@ -256,79 +321,6 @@ final class ProcessTap {
     }
 }
 
-/// One track as AAC files of at most `segment` each: a crash loses only the open file. The first write error stops
-/// the track and is kept for `finish`.
-final class AudioFileSink: @unchecked Sendable {
-    private struct State {
-        var file: AVAudioFile?
-        var frames: AVAudioFramePosition = 0
-        var files: [URL] = []
-        var failure: CallAudioError?
-        var finished = false
-    }
-
-    private let folder: URL
-    private let track: String
-    private let format: AVAudioFormat
-    private let segment: TimeInterval
-    private let state = Mutex(State())
-
-    init(folder: URL, track: String, format: AVAudioFormat, segment: TimeInterval = 300) {
-        self.folder = folder
-        self.track = track
-        self.format = format
-        self.segment = segment
-    }
-
-    func write(_ buffer: AVAudioPCMBuffer) {
-        state.withLock { state in
-            guard !state.finished, state.failure == nil else { return }
-            do {
-                if state.file == nil || Double(state.frames) >= segment * format.sampleRate {
-                    state.file?.close()
-                    let url = folder.appending(path: String(format: "%@-%03d.m4a", track, state.files.count + 1))
-                    state.file = try AVAudioFile(
-                        forWriting: url, settings: settings, commonFormat: format.commonFormat,
-                        interleaved: format.isInterleaved)
-                    state.files.append(url)
-                    state.frames = 0
-                }
-                try state.file?.write(from: buffer)
-                state.frames += AVAudioFramePosition(buffer.frameLength)
-            } catch {
-                state.failure = .write(track: track, reason: error.localizedDescription)
-                state.file?.close()
-                state.file = nil
-            }
-        }
-    }
-
-    func write(_ list: UnsafePointer<AudioBufferList>, format: AVAudioFormat) {
-        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, bufferListNoCopy: list) else { return }
-        write(buffer)
-    }
-
-    /// Closes the open file. Returns every file of the track, or the first failure.
-    func finish() throws -> [URL] {
-        let (files, failure) = state.withLock { state in
-            state.finished = true
-            state.file?.close()
-            state.file = nil
-            return (state.files, state.failure)
-        }
-        if let failure { throw failure }
-        guard !files.isEmpty else { throw CallAudioError.emptyTrack(track) }
-        return files
-    }
-
-    private var settings: [String: Any] {
-        [
-            AVFormatIDKey: kAudioFormatMPEG4AAC, AVSampleRateKey: format.sampleRate,
-            AVNumberOfChannelsKey: min(format.channelCount, 2), AVEncoderBitRateKey: 64_000,
-        ]
-    }
-}
-
 enum CoreAudioProperty {
     static func address(_ selector: AudioObjectPropertySelector) -> AudioObjectPropertyAddress {
         AudioObjectPropertyAddress(
@@ -366,8 +358,7 @@ extension CallAudioError: LocalizedError {
         case .noProcesses(let app): "\(app) is not playing sound, so there is nothing to record."
         case .microphoneDenied: "macOS refused microphone access. Allow it in System Settings > Privacy & Security."
         case .missingAudioCaptureUsage: "This build cannot ask macOS for call audio, so call recording cannot start."
-        case .write(let track, let reason): "Workbench could not save the \(track) track: \(reason)"
-        case .emptyTrack(let track): "The \(track) track got no sound, so nothing was saved."
+        case .nothingSaved(let note): note
         }
     }
 }

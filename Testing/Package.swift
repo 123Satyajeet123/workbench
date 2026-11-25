@@ -36,6 +36,7 @@ let package = Package(
         .executable(name: "recall-probe", targets: ["RecallProbe"]),
         .executable(name: "member-identity", targets: ["MemberIdentityDemo"]),
         .executable(name: "bugfix-check", targets: ["BugfixCheck"]),
+        .executable(name: "call-save-check", targets: ["CallSaveCheck"]),
         .executable(name: "provenance-check", targets: ["ProvenanceCheck"]),
         .executable(name: "provenance-probe", targets: ["ProvenanceProbe"]),
         .executable(name: "erase-canary", targets: ["EraseCanary"]),
@@ -200,6 +201,10 @@ let package = Package(
                 "WorkbenchCore", .product(name: "Kernel", package: "Kernel"),
                 .product(name: "Lines", package: "Kernel"),
             ]),
+        .executableTarget(
+            name: "CallSaveCheck",
+            dependencies: ["WorkbenchCore", .product(name: "LocalSources", package: "BaseKit")],
+            swiftSettings: [.defaultIsolation(MainActor.self)]),
         .executableTarget(
             name: "BugfixCheck",
             dependencies: [

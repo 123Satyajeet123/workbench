@@ -66,6 +66,6 @@ public struct MeetingReader: Sendable {
             }
         }
         let meetings = chosen.isEmpty ? [] : calendar.meetings(during: interval, in: chosen)
-        return (calendars, meetings.sorted { $0.start < $1.start })
+        return (calendars, Meeting.distinct(meetings).sorted { $0.start < $1.start })
     }
 }

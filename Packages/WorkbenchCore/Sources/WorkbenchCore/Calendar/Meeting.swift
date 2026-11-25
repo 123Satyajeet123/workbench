@@ -43,6 +43,15 @@ public struct Meeting: Sendable, Equatable, Identifiable {
 
     public var guests: [Attendee] { attendees.filter { !$0.isMe } }
 
+    /// One meeting for each title and time. An event sent to two calendars of the same person has two ids.
+    public static func distinct(_ meetings: [Meeting]) -> [Meeting] {
+        var seen: Set<String> = []
+        return meetings.filter {
+            seen.insert("\($0.title)|\($0.start.timeIntervalSince1970)|\($0.end.timeIntervalSince1970)|\($0.isAllDay)")
+                .inserted
+        }
+    }
+
     public static func during(_ start: Date, _ end: Date, in meetings: [Meeting]) -> Meeting? {
         let call = DateInterval(start: start, end: max(start, end))
         let overlaps = meetings.compactMap { meeting -> (meeting: Meeting, seconds: TimeInterval)? in

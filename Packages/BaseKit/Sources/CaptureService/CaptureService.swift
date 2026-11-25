@@ -157,18 +157,19 @@ public final class CaptureService {
         call = recording
     }
 
-    /// The recording is saved only when every track closed with sound in it; otherwise it is kept as failed, with why.
+    /// The recording is saved when any track kept sound; a track that lost some is named in the saved call. When no
+    /// track kept sound, the call is kept as failed, with why.
     public func stopCall() throws {
         guard let call, let recorder else { return }
         self.call = nil
         self.recorder = nil
-        do {
-            try recorder.stop()
-        } catch {
+        let result = recorder.stop()
+        guard !result.files.isEmpty else {
+            let error = CallAudioError.nothingSaved(result.lossNote ?? "Nothing was recorded.")
             try store.finishRecording(call.id, error: error.localizedDescription)
             throw error
         }
-        try store.finishRecording(call.id)
+        try store.finishRecording(call.id, lost: result.lossNote)
     }
 
     static let inPerson = "in-person"

@@ -147,6 +147,7 @@ private struct CallCard: View {
             if recording.state == .failed {
                 Text(recording.error ?? "Failed").foregroundStyle(Tone.bad.color).textSelection(.enabled)
             } else {
+                if let lost = recording.error { Text(lost).foregroundStyle(Tone.bad.color).textSelection(.enabled) }
                 PlaybackProblem(recording: recording)
                 notesBody
             }
